@@ -4,6 +4,7 @@ from types import ModuleType, SimpleNamespace
 import threading
 import sys
 import weakref
+import gc
 
 import pytest
 import torch
@@ -19,6 +20,43 @@ from comfy.tensor_parallel.kandinsky6 import _DistributedDiT, clear_magcache_aft
 from comfy.tensor_parallel.kandinsky6 import load_state as load_kandinsky_state, shard_model
 from comfy.tensor_parallel import distributed
 from comfy.ldm.kandinsky5.model import CrossAttention, FeedForward
+
+
+@pytest.mark.parametrize("retained", [False, True])
+def test_new_parallel_load_collects_only_unreachable_executors(monkeypatch, retained):
+    commands = []
+    monkeypatch.setattr(distributed.dist, "is_initialized", lambda: False)
+    enabled = gc.isenabled()
+    gc.disable()
+    keep = []
+    try:
+        model = SimpleNamespace()
+        executor = distributed.TorchDistributedModelParallelExecutor(
+            model, None, SimpleNamespace(broadcast_command=commands.append),
+            [], [], [torch.device("cpu")], [1],
+        )
+        model.pipeline_executor = executor
+        reference = weakref.ref(executor)
+        if retained:
+            keep.append(executor)
+        del model, executor
+
+        class BeforeAllocation(Exception):
+            pass
+
+        def provider(device_type):
+            assert (reference() is not None) == retained
+            assert commands == ([] if retained else [{"kind": "close"}])
+            raise BeforeAllocation
+
+        monkeypatch.setattr(distributed, "accelerator_device_provider", provider)
+        with pytest.raises(BeforeAllocation):
+            distributed.launch_model_parallel(None, [torch.device("cpu")], None, "tensor")
+    finally:
+        keep.clear()
+        gc.collect()
+        if enabled:
+            gc.enable()
 
 
 class Collectives:

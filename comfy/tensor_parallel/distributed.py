@@ -590,6 +590,9 @@ def worker_main(host, port, authkey, parallel_kind="tensor"):
 
 
 def launch_model_parallel(load_spec, devices, load_root, parallel_kind):
+    # Cached models and their executors form cycles. Reap discarded workers
+    # before allocating another checkpoint's rank-local weights.
+    gc.collect()
     size = len(devices)
     device_provider = accelerator_device_provider(devices[0].type)
     device_identities = tuple(device_provider.identify(device) for device in devices)
