@@ -1,8 +1,8 @@
 {
-  "source_commit": "114789c3364bcc235f01c31dbc3e211db3257b8a",
-  "wheel": "release-artifacts/wheels/head-sharded/comfyui-0.39.0.1-py3-none-any.whl",
-  "wheel_sha256": "505ec0425db397a8ffa29e2c9a1f3a8250957feb42cc949629979b385f0fa280",
-  "note": "Unversioned release candidate; not published. Packaged runtime files match the selected expert and attention-head sharding implementation.",
+  "source_commit": "6343997b8139f98dd16097be10b1dba7ccaff13e",
+  "wheel": "release-artifacts/wheels/reload-fixed/comfyui-0.39.0.1-py3-none-any.whl",
+  "wheel_sha256": "48457d6ef422d6278c3a9252e7feb2ec2038eb22e7e339e115f97a15f72cf07f",
+  "note": "Unversioned, unpublished release candidate. Eleven integration files match selected expert/head TP, execution-local KV contexts and launch-boundary collection.",
   "verified_files": [
     {
       "path": "comfy/tensor_parallel/hunyuan_image3.py",
@@ -38,7 +38,7 @@
     },
     {
       "path": "comfy/tensor_parallel/distributed.py",
-      "sha256": "c7c54e9a63a677751edfd5c554b413b8a6d25cdcbf3ff369b960711674d60d31"
+      "sha256": "570ef96b649f6a788f367d332a0fd526ba609a221880157a01299b0b03e4269a"
     },
     {
       "path": "comfy/tensor_parallel/operations.py",

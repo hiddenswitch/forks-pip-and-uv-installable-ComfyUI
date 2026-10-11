@@ -115,8 +115,10 @@ Evidence: `release-artifacts/facade-image-health.json`,
   `4d639fec2`, including the exact-SHA Windows checkout fix, passed on Windows,
   XPU and macOS. Evidence: `release-artifacts/ci-validation.json`.
   The selected EP/attention-head TP implementation and local KV contexts passed
-  63 targeted tests, including installed-source TP2/TP4 forward and incremental
-  cache parity. Fresh platform CI is running at `114789c33`.
+  65 targeted tests, including installed-source TP2/TP4 forward and incremental
+  cache parity. Python, CUDA, ROCm, XPU and macOS passed at `114789c33`; Windows is still
+  running. Fresh Python/CUDA/ROCm CI is running at `6343997b8` for the reload fix;
+  the backend rerun follows the current Windows job.
   Ruff and diff checks passed.
 - Upstream Hunyuan suite: 108 passed, 17 skipped, one legacy generator test failed.
   It expects `generator.model.device` to be assigned by ModelPatcher; this fork
@@ -212,9 +214,24 @@ range was 40.78–46.80 seconds. Do not mix timings from the two memory settings
 
 Real-model local-KV cancellation, recovery and unload/reload also passed.
 See `release-artifacts/hunyuan-local-kv-lifecycle-validation.json`. The final
-head-partitioned implementation is queued for its own lifecycle/full-rewrite
-checks and remaining sample matrix. The rebuilt candidate wheel matches all
+head-partitioned implementation passed initial rewriting, cancellation and
+recovery, but its reload timed out under severe host RAM pressure while a
+replacement model loaded alongside the old process group. The regression reproduced an
+unreachable executor surviving until a later collection. Distributed model
+launch now collects discarded model/executor cycles before allocating replacement
+weights, preserving executors still owned by cached models. The real rerun passed:
+71.50 s initial, 17.16 s cancellation, 42.52 s recovery, and 74.12 s reload.
+Peak aggregate PSS was 90.0 GiB; 0.5-second sampling observed at most two processes
+above 1 GiB RSS. The original failure and fix evidence are in
+`release-artifacts/hunyuan-head-lifecycle-validation.json` and
+`release-artifacts/hunyuan-head-reload-fix-validation.json`.
+The final full rewrite, base rerun and remaining sample matrix are still pending. The rebuilt candidate wheel matches all
 11 checked integration files; it remains unpublished at the base package version.
+
+The distilled image-to-image sample also completed all eight runs: warm medians
+were 64.89 s TP1 and 68.90 s TP2 (6.2% slower), with all four pairs pixel-identical.
+Both use 2 GiB extra headroom. See
+`release-artifacts/hunyuan-distil-img2img-benchmark.json`.
 
 Before tagging:
 
