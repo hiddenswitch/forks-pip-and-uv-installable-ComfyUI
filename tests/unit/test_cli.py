@@ -55,12 +55,13 @@ def test_serve_help_exposes_canonical_distributed_topology():
         assert option in out
 
 
-def test_hunyuan_expert_parallel_cli_configuration():
+@pytest.mark.parametrize("option, expected", [("--hunyuan-expert-parallel-only", True), ("--no-hunyuan-expert-parallel-only", False)])
+def test_hunyuan_expert_parallel_cli_configuration(option, expected):
     command = typer.main.get_command(app).commands["serve"]
-    with command.make_context("serve", ["--no-guess-settings", "--tensor-parallel-size", "2", "--hunyuan-expert-parallel-only"]) as context:
+    with command.make_context("serve", ["--no-guess-settings", "--tensor-parallel-size", "2", option]) as context:
         configuration = cli_module._build_config(context.params)
     assert configuration.tensor_parallel_size == 2
-    assert configuration.hunyuan_expert_parallel_only is True
+    assert configuration.hunyuan_expert_parallel_only is expected
 
 
 def test_start_delegates_to_serve_daemon(monkeypatch):
