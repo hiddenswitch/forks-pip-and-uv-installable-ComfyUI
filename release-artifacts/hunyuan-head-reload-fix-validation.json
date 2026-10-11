@@ -92,5 +92,10 @@
   ],
   "status": "Initial rewrite, cancellation, recovery and unload/reload passed after launch-boundary collection",
   "previous_failure": "hunyuan-head-lifecycle-validation.json",
-  "raw_results": "release-artifacts/benchmark-results/hunyuan-head-reload-collected"
+  "raw_results": "release-artifacts/benchmark-results/hunyuan-head-reload-collected",
+  "limitations": [
+    "Three successful 16-token bounded probes, with interruption during a separate long-budget invocation.",
+    "Memory/process counts were sampled every 0.5 seconds and can miss shorter peaks.",
+    "Complete recaptioning is validated separately."
+  ]
 }

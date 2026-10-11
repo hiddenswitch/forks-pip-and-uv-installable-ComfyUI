@@ -225,7 +225,17 @@ Peak aggregate PSS was 90.0 GiB; 0.5-second sampling observed at most two proces
 above 1 GiB RSS. The original failure and fix evidence are in
 `release-artifacts/hunyuan-head-lifecycle-validation.json` and
 `release-artifacts/hunyuan-head-reload-fix-validation.json`.
-The final full rewrite, base rerun and remaining sample matrix are still pending. The rebuilt candidate wheel matches all
+The selected implementation also completed a full rewrite: 286 tokens in
+345.71 seconds end to end, including a closing recaption tag. Its text differs
+from the earlier adapter's 307-token reference, so these wall times are not a
+matched-token speed comparison. Real W4A8 CUDA/NCCL attention parity passed on
+representative layers 0, 15 and 31 through a 32-token prefill plus 256 incremental
+steps per layer/rank (rtol=0.01, atol=0.01; relative RMSE about 0.02%). Small
+floating-point differences can change later greedy token choices. See
+`release-artifacts/hunyuan-head-full-rewrite-validation.json` and
+`release-artifacts/hunyuan-attention-parity-validation.json`;
+`scripts/validate_hunyuan_attention_tp.py` reproduces the numerical check.
+The base rerun and remaining sample matrix are continuing. The rebuilt candidate wheel matches all
 11 checked integration files; it remains unpublished at the base package version.
 
 The distilled image-to-image sample also completed all eight runs: warm medians
