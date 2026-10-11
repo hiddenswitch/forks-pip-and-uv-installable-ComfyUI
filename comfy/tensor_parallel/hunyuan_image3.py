@@ -85,7 +85,7 @@ def _moe_forward(self, hidden_states):
     return self.shared_mlp(hidden_states) + routed
 
 
-def _shard_model(model, base_operations, parallel):
+def _shard_model(model, base_operations, parallel, *, shard_dense=True):
     operations = gathered_output_operations(base_operations, parallel)
     shards = {}
     for name, module in list(model.named_modules()):
@@ -100,7 +100,7 @@ def _shard_model(model, base_operations, parallel):
                 raise ValueError(f"{name}: {module.num_experts} experts must divide {parallel.size} ranks")
             replacement = base_operations.MoEExperts(module.num_experts // parallel.size, module.in_features, module.out_features, bias=module.bias is not None, device="cpu")
             axis = 0
-        elif isinstance(module, base_operations.Linear):
+        elif shard_dense and isinstance(module, base_operations.Linear):
             replacement = operations.Linear(module.in_features, module.out_features, bias=module.bias is not None, device="cpu")
             axis = 0
         else:

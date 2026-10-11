@@ -97,7 +97,8 @@ def test_custom_cache_state_survives_rank_transport(cache_kind):
 
 @pytest.mark.parametrize("size", [2, 4])
 @pytest.mark.parametrize("tokens", [1, 5])
-def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, tmp_path):
+@pytest.mark.parametrize("shard_dense", [False, True])
+def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, shard_dense, tmp_path):
     entry = next(ep for ep in distribution("comfyui-hunyuanimage3").entry_points if ep.group == "comfyui.custom_nodes").load()
     root = Path(entry.COMFYUI_VANILLA_NODE_PATH) / "ComfyUI-HunyuanImage3"
     prepare_vanilla_environment()
@@ -131,16 +132,21 @@ def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, tm
     collective = Collectives(size)
     ranks = []
     reductions = [0] * size
+    gathers = [0] * size
 
     class MeasuredRank(Rank):
         def sum(self, value):
             reductions[self.rank] += 1
             return super().sum(value)
 
+        def gather(self, value):
+            gathers[self.rank] += 1
+            return super().gather(value)
+
     for rank in range(size):
         model = Transformer()
         parallel = TensorParallelConfig(MeasuredRank(collective, rank))
-        shards = _shard_model(model, base, parallel)
+        shards = _shard_model(model, base, parallel, shard_dense=shard_dense)
         model.load_state_dict(_load_state(reader, shards, parallel, ()))
         ranks.append(model)
     inputs = torch.randn(1, tokens, 32)
@@ -150,6 +156,7 @@ def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, tm
     for output in outputs:
         torch.testing.assert_close(output, expected, rtol=1e-5, atol=1e-6)
     assert reductions == [params.num_hidden_layers] * size
+    assert gathers == [params.num_hidden_layers * 4 if shard_dense else 0] * size
 
 
 @pytest.mark.parametrize("size", [2, 4])
