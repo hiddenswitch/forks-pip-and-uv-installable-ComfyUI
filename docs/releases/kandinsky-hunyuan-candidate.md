@@ -110,8 +110,10 @@ Evidence: `release-artifacts/facade-image-health.json`,
   and one failure: the snapshot recovery test retained its metadata-edit SQLite
   connection, preventing replacement on Windows. Both test connections now close
   explicitly; all 17 snapshot tests pass locally. Backend CI is rerunning at
-  `4d639fec2`, including the exact-SHA Windows checkout fix. Evidence:
-  `release-artifacts/ci-validation.json`. Ruff and diff checks passed.
+  `4d639fec2`, including the exact-SHA Windows checkout fix, passed on Windows,
+  XPU and macOS. Evidence: `release-artifacts/ci-validation.json`.
+  The newer rewrite KV-cache change still needs fresh integration/CI validation.
+  Ruff and diff checks passed.
 - Upstream Hunyuan suite: 108 passed, 17 skipped, one legacy generator test failed.
   It expects `generator.model.device` to be assigned by ModelPatcher; this fork
   owns placement on the patcher. The actual node loader/offload path generates
@@ -167,6 +169,19 @@ was 84.5 GiB versus 54.7 GiB. Device memory filled the available cache on both
 configurations, so these measurements do not establish a VRAM reduction.
 The report is `release-artifacts/hunyuan-distil-benchmark.json`; raw runs are
 retained under `release-artifacts/benchmark-results/`.
+
+The base W4A8 50-step sample also completed all eight runs: warm medians were
+459.65 seconds TP1 and 574.02 seconds hybrid EP/TP2 (24.9% slower), with all four
+image pairs pixel-identical. TP2 warm times varied from 520.55 to 597.58 seconds.
+See `release-artifacts/hunyuan-base-benchmark.json`.
+
+Hunyuan's autoregressive prompt rewriting and image diffusion share its MoE
+transformer. The current adapter partitions whole experts and dense projection
+output rows in both paths. An execution-scoped model context now keeps each
+rank's autoregressive KV cache local instead of broadcasting its growing prefix
+every token; 49 targeted tests passed, and full rewrite validation is underway.
+Expert-only partitioning with replicated dense projections is being evaluated
+separately; it is not yet selected as the production strategy.
 
 Before tagging:
 

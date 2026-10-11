@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-10T23:47:45.272172+00:00",
+  "checked_at": "2026-10-11T01:00:32.170018+00:00",
   "runtime_tree": "ee04054cc64e6e5b4403c3961eeb452e4d04c789",
   "runs": [
     {
@@ -114,38 +114,38 @@
       "id": 38096220897,
       "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38096220897",
       "triggered_sha": "4d639fec235363fed29b6662bb47aac4ec3da02b",
-      "status": "in_progress",
-      "conclusion": "",
+      "status": "completed",
+      "conclusion": "success",
       "jobs": [
         {
           "name": "Windows RTX 3090 CUDA 12.8 PyTorch 2.10",
-          "status": "in_progress",
-          "conclusion": "",
+          "status": "completed",
+          "conclusion": "success",
           "databaseId": 114342553884,
           "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38096220897/job/114342553884",
           "startedAt": "2026-10-10T23:47:17Z",
-          "completedAt": "0001-01-01T00:00:00Z"
+          "completedAt": "2026-10-11T00:59:33Z"
         },
         {
           "name": "Python 3.11 PyTorch 2.11 XPU",
-          "status": "in_progress",
-          "conclusion": "",
+          "status": "completed",
+          "conclusion": "success",
           "databaseId": 114342554027,
           "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38096220897/job/114342554027",
           "startedAt": "2026-10-10T23:47:17Z",
-          "completedAt": "0001-01-01T00:00:00Z"
+          "completedAt": "2026-10-11T00:02:34Z"
         },
         {
           "name": "macOS 14 Python 3.12 PyTorch 2.13",
-          "status": "in_progress",
-          "conclusion": "",
+          "status": "completed",
+          "conclusion": "success",
           "databaseId": 114342554284,
           "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38096220897/job/114342554284",
           "startedAt": "2026-10-10T23:47:23Z",
-          "completedAt": "0001-01-01T00:00:00Z"
+          "completedAt": "2026-10-10T23:49:50Z"
         }
       ]
     }
   ],
-  "remaining": "Backend CI rerunning at 4d639fec2 after closing test-owned SQLite connections before atomic replacement. Previous Windows result: 7757 passed, 2741 skipped, one test failure; production reader already closes connections. Exact-SHA checkout is included in the rerun. Runtime tree unchanged."
+  "remaining": "All configured platforms passed the previous runtime. The newer execution-local Hunyuan rewrite KV-cache change requires fresh integration/CI validation."
 }
