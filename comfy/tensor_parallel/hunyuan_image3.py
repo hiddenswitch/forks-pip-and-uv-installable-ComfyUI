@@ -85,11 +85,24 @@ def _moe_forward(self, hidden_states):
     return self.shared_mlp(hidden_states) + routed
 
 
-def _shard_model(model, base_operations, parallel, *, shard_dense=True):
+def _shard_model(model, base_operations, parallel, *, shard_dense=True, shard_attention=False):
     operations = gathered_output_operations(base_operations, parallel)
+
+    class AttentionOutput(operations.Linear):
+        def forward(self, input, *args, **kwargs):
+            # Restore the full activation domain before W4A8 quantization.
+            return super().forward(parallel.operations.gather(input), *args, **kwargs)
+
     shards = {}
+    attention = set()
     for name, module in list(model.named_modules()):
         if not name.startswith("model.layers.") or name.endswith(".gate.wg"):
+            continue
+        if shard_dense and shard_attention and name.endswith(".self_attn"):
+            if module.num_key_value_heads % parallel.size == 0:
+                module.num_heads //= parallel.size
+                module.num_key_value_heads //= parallel.size
+                attention.add(name)
             continue
         if name.endswith(".mlp"):
             module.tensor_parallel = parallel
@@ -101,7 +114,12 @@ def _shard_model(model, base_operations, parallel, *, shard_dense=True):
             replacement = base_operations.MoEExperts(module.num_experts // parallel.size, module.in_features, module.out_features, bias=module.bias is not None, device="cpu")
             axis = 0
         elif shard_dense and isinstance(module, base_operations.Linear):
-            replacement = operations.Linear(module.in_features, module.out_features, bias=module.bias is not None, device="cpu")
+            owner, _, projection = name.rpartition(".")
+            if owner in attention and projection == "qkv_proj":
+                replacement = base_operations.Linear(module.in_features, module.out_features // parallel.size, bias=module.bias is not None, device="cpu")
+            else:
+                linear = AttentionOutput if owner in attention and projection == "o_proj" else operations.Linear
+                replacement = linear(module.in_features, module.out_features, bias=module.bias is not None, device="cpu")
             axis = 0
         else:
             continue

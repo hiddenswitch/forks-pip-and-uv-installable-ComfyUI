@@ -97,8 +97,8 @@ def test_custom_cache_state_survives_rank_transport(cache_kind):
 
 @pytest.mark.parametrize("size", [2, 4])
 @pytest.mark.parametrize("tokens", [1, 5])
-@pytest.mark.parametrize("shard_dense", [False, True])
-def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, shard_dense, tmp_path):
+@pytest.mark.parametrize("shard_dense,shard_attention", [(False, False), (True, False), (True, True)])
+def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, shard_dense, shard_attention, tmp_path):
     entry = next(ep for ep in distribution("comfyui-hunyuanimage3").entry_points if ep.group == "comfyui.custom_nodes").load()
     root = Path(entry.COMFYUI_VANILLA_NODE_PATH) / "ComfyUI-HunyuanImage3"
     prepare_vanilla_environment()
@@ -109,12 +109,12 @@ def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, sh
     config = json.loads(Path(loader.CONFIG_PATH).read_text())
     config.update(loader.MODEL_TYPES["instruct_distil"], model_type="instruct_distil")
     params = dataclasses.replace(upstream.params_from_config(config),
-        hidden_size=32, num_hidden_layers=2, num_attention_heads=4, num_key_value_heads=2,
-        attention_head_dim=8, moe_intermediate_size=16, num_experts=8, moe_topk=2,
+        hidden_size=32, num_hidden_layers=2, num_attention_heads=8, num_key_value_heads=4,
+        attention_head_dim=4, moe_intermediate_size=16, num_experts=8, moe_topk=2,
         num_shared_expert=1, vocab_size=64, pad_token_id=0,
     )
     base = ops.mixed_precision_ops(compute_dtype=torch.float32)
-    frequencies = upstream.build_rope_freqs(tokens, 8, [], 10000.0, device="cpu")
+    frequencies = upstream.build_rope_freqs(tokens, params.attention_head_dim, [], 10000.0, device="cpu")
 
     class Transformer(torch.nn.Module):
         def __init__(self):
@@ -146,7 +146,7 @@ def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, sh
     for rank in range(size):
         model = Transformer()
         parallel = TensorParallelConfig(MeasuredRank(collective, rank))
-        shards = _shard_model(model, base, parallel, shard_dense=shard_dense)
+        shards = _shard_model(model, base, parallel, shard_dense=shard_dense, shard_attention=shard_attention)
         model.load_state_dict(_load_state(reader, shards, parallel, ()))
         ranks.append(model)
     inputs = torch.randn(1, tokens, 32)
@@ -157,6 +157,21 @@ def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, sh
         torch.testing.assert_close(output, expected, rtol=1e-5, atol=1e-6)
     assert reductions == [params.num_hidden_layers] * size
     assert gathers == [params.num_hidden_layers * 4 if shard_dense else 0] * size
+
+    reference_cache = [[None, None] for _ in range(params.num_hidden_layers)]
+    rank_caches = [[[None, None] for _ in range(params.num_hidden_layers)] for _ in ranks]
+    reference.model(inputs, frequencies, kv_cache=reference_cache)
+    with ThreadPoolExecutor(size) as pool:
+        list(pool.map(lambda rank: ranks[rank].model(inputs, frequencies, kv_cache=rank_caches[rank]), range(size)))
+    next_input = torch.randn(1, 1, params.hidden_size)
+    next_frequencies = upstream.build_rope_freqs(tokens + 1, params.attention_head_dim, [], 10000.0, device="cpu")[:, :, tokens:]
+    expected = reference.model(next_input, next_frequencies, kv_cache=reference_cache)
+    with ThreadPoolExecutor(size) as pool:
+        outputs = list(pool.map(lambda rank: ranks[rank].model(next_input, next_frequencies, kv_cache=rank_caches[rank]), range(size)))
+    for output, cache in zip(outputs, rank_caches):
+        torch.testing.assert_close(output, expected, rtol=1e-5, atol=1e-6)
+        expected_heads = params.num_key_value_heads // size if shard_attention else params.num_key_value_heads
+        assert all(key.shape[1] == expected_heads and key.shape[2] == tokens + 1 for key, value in cache)
 
 
 @pytest.mark.parametrize("size", [2, 4])
