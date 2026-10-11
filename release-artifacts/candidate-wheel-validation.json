@@ -1,7 +1,7 @@
 {
-  "source_commit": "5584d6f3fd5805ebaa496c2f0be44e0eeffb2899",
+  "source_commit": "84a79a0a3372e91b3f4d567d7a58eccebb7e0060",
   "wheel": "release-artifacts/wheels/expert-only/comfyui-0.39.0.1-py3-none-any.whl",
-  "wheel_sha256": "2234f92bcd40516af23720375cef97187d2d33cad3573702d87b946964dc87ac",
+  "wheel_sha256": "65ae4c92166e41899af600b0ef8ec57c75ca44b7844f2458c22e6254eb89be87",
   "note": "Unpublished candidate. Packaged integration files match the expert-only CLI implementation.",
   "verified_files": [
     {
@@ -58,7 +58,7 @@
     },
     {
       "path": "comfy/cmd/cli.py",
-      "sha256": "7f83d0b3528497184f0f66b34ba4e6d74dc1258199ec54f36ad43201a2f29824"
+      "sha256": "475aa6bbe52a3004e2cc73ad23f8374ec85be4192a7f1807641559994570f0b5"
     },
     {
       "path": "comfy/component_model/configuration.py",

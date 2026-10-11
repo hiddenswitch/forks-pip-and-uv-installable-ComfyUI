@@ -286,3 +286,21 @@ at 766.22 s and 788.84 s. Distilled Kandinsky I2AV measured 846.17 s and 570.27 
 The corresponding full reports preserve the earlier warm repeats as historical
 measurements. Standard Kandinsky cold TP1 I2AV completed in 7391.41 s; remaining
 standard-video runs are incomplete.
+
+EP-only complete generation passed: **1346.30 s cold** (22m 26s), including a
+287-token complete rewrite (709 s, rounded), 50 diffusion steps (590.56 s sampler trace), VAE decoding and saving a 1024×1024 PNG. Peak sampled host PSS was
+88.87 GiB. Visual inspection confirms the sleeping red fox, curled pose, grassy
+setting, golden light and bokeh. This is a complete image run, not a token probe.
+The matching single-GPU run completed in 1289.51 s (21m 30s): EP is 4.4%
+slower end to end in this single cold comparison. Both complete 287-token
+rewrites and the saved images are identical. Text encoding/rewrite was 766.00 s
+on one GPU versus 727.68 s with EP (5.0% lower latency); diffusion was 514.30 s
+versus 590.56 s (14.8% higher latency). No warm repeats were used.
+See `release-artifacts/hunyuan-instruct-ep-cold-validation.json`.
+See `release-artifacts/hunyuan-instruct-ep-generation-validation.json`.
+
+Python CI found one missing inverse CLI flag (7827 passed, 2151 skipped).
+`84a79a0a3` adds `--no-hunyuan-expert-parallel-only`; all 176 local CLI tests,
+including both positive/negative parsing and inverse-flag policy checks, pass.
+Python CI on that correction passed: 7829 tests, 2151 skips, and Pylint 10/10.
+Device CI is still running. Hunyuan inference math is unchanged.

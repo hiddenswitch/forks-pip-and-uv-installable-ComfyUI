@@ -141,7 +141,7 @@ def run(args):
                    *args.server_arg]
         env = dict(os.environ, NCCL_DEBUG="INFO", NCCL_DEBUG_SUBSYS="INIT,GRAPH,P2P,ENV",
                    NCCL_DEBUG_FILE=str(destination / "nccl.%p.log"), HF_HUB_OFFLINE="1")
-        (destination / "command.json").write_text(json.dumps({"command": command, "environment": {k: v for k, v in env.items() if k.startswith(("NCCL_", "HF_"))}}, indent=2))
+        (destination / "command.json").write_text(json.dumps({"command": command, "environment": {k: v for k, v in env.items() if k in {"NCCL_DEBUG", "NCCL_DEBUG_SUBSYS", "NCCL_DEBUG_FILE", "HF_HUB_OFFLINE"}}}, indent=2))
         with (destination / "server.log").open("w") as log:
             process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             try:
