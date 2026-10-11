@@ -23,6 +23,7 @@ MODEL_MANAGEMENT_ARGS: frozenset[str] = frozenset({
     "torch_device",
     "pipeline_parallel_size",
     "tensor_parallel_size",
+    "hunyuan_expert_parallel_only",
     "ulysses_degree",
     "ring_degree",
     "nccl_proto",

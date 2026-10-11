@@ -64,9 +64,9 @@ def saved_outputs(history, directory):
     return outputs
 
 
-def compare(directory):
+def compare(directory, seeds=(42, 43, 44, 45)):
     results = []
-    for seed in (42, 43, 44, 45):
+    for seed in seeds:
         outputs = []
         for size in (1, 2):
             phase = directory / f"tp{size}"
@@ -91,5 +91,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--seeds", type=int, nargs="+", default=[42, 43, 44, 45])
     args = parser.parse_args()
-    args.output.write_text(json.dumps(compare(args.directory), indent=2) + "\n")
+    args.output.write_text(json.dumps(compare(args.directory, args.seeds), indent=2) + "\n")

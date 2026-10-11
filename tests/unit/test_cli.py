@@ -49,9 +49,18 @@ def test_serve_help_exposes_canonical_distributed_topology():
         "--master-addr",
         "--master-port",
         "--pipeline-parallel-size",
+        "--hunyuan-expert-parallel-only",
         "--distributed-executor-backend",
     ):
         assert option in out
+
+
+def test_hunyuan_expert_parallel_cli_configuration():
+    command = typer.main.get_command(app).commands["serve"]
+    with command.make_context("serve", ["--no-guess-settings", "--tensor-parallel-size", "2", "--hunyuan-expert-parallel-only"]) as context:
+        configuration = cli_module._build_config(context.params)
+    assert configuration.tensor_parallel_size == 2
+    assert configuration.hunyuan_expert_parallel_only is True
 
 
 def test_start_delegates_to_serve_daemon(monkeypatch):

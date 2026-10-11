@@ -97,10 +97,11 @@ def run(args):
     workflow = json.loads(args.workflow.read_text())
     if "nodes" in workflow:
         raise ValueError("Convert the UI sample with comfyui workflows convert first")
+    seeds = (42,) if args.cold_only else (42, 43, 44, 45)
     for node in workflow.values():
         if node["class_type"] == "Kandinsky6MagCache":
             raise ValueError("Bypass Kandinsky6MagCache for the primary TP comparison")
-        if node["class_type"] in ("HunyuanImage3Spectrum", "HunyuanImage3PromptRewriting") and node["inputs"].get("enabled"):
+        if node["inputs"].get("enabled") and (node["class_type"] == "HunyuanImage3Spectrum" or (node["class_type"] == "HunyuanImage3PromptRewriting" and not args.allow_prompt_rewriting)):
             raise ValueError("Disable Spectrum and prompt rewriting for the primary TP comparison")
     pynvml.nvmlInit()
     environment = {
@@ -118,9 +119,9 @@ def run(args):
     if results and json.loads((output / "environment.json").read_text()) != environment:
         raise ValueError("Existing benchmark environment differs; use a new output directory")
     for size in {row["tp"] for row in results}:
-        if sorted(row["seed"] for row in results if row["tp"] == size) != [42, 43, 44, 45]:
+        if sorted(row["seed"] for row in results if row["tp"] == size) != list(seeds):
             raise ValueError(f"Existing TP{size} results are incomplete; rerun that phase")
-        for seed in (42, 43, 44, 45):
+        for seed in seeds:
             previous = json.loads((output / f"tp{size}" / f"seed{seed}.prompt.json").read_text())
             if previous != seeded_workflow(workflow, seed):
                 raise ValueError("Existing benchmark workflow differs; use a new output directory")
@@ -155,7 +156,7 @@ def run(args):
                         if time.monotonic() > deadline:
                             raise TimeoutError("Server startup")
                         time.sleep(1)
-                for index, seed in enumerate((42, 43, 44, 45)):
+                for index, seed in enumerate(seeds):
                     prompt = seeded_workflow(workflow, seed)
                     (destination / f"seed{seed}.prompt.json").write_text(json.dumps(prompt, indent=2))
                     start_ns = time.time_ns()
@@ -204,9 +205,10 @@ def run(args):
         writer = csv.DictWriter(csv_file, fieldnames=results[0].keys())
         writer.writeheader()
         writer.writerows(results)
-    medians = {size: statistics.median(r["job_wall_seconds"] for r in results if r["tp"] == size and not r["cold"]) for size in {r["tp"] for r in results}}
+    medians = {size: statistics.median(r["job_wall_seconds"] for r in results if r["tp"] == size and not r["cold"]) for size in {r["tp"] for r in results if not r["cold"]}}
     speedup = medians[1] / medians[2] if 1 in medians and 2 in medians else None
-    (output / "summary.json").write_text(json.dumps({"warm_median_seconds": medians, "tp2_speedup": speedup}, indent=2))
+    cold = {r["tp"]: r["job_wall_seconds"] for r in results if r["cold"]}
+    (output / "summary.json").write_text(json.dumps({"cold_seconds": cold, "cold_tp2_speedup": cold[1] / cold[2] if 1 in cold and 2 in cold else None, "warm_median_seconds": medians, "tp2_speedup": speedup}, indent=2))
 
 
 if __name__ == "__main__":
@@ -219,6 +221,8 @@ if __name__ == "__main__":
     parser.add_argument("--baseline-gpu", type=int, default=1)
     parser.add_argument("--tp-gpus", type=int, nargs=2, default=[0, 1])
     parser.add_argument("--tp-sizes", type=int, nargs="+", choices=(1, 2), default=[1, 2], help="Run selected phases, preserving complete results for the other phase")
+    parser.add_argument("--cold-only", action="store_true", help="Run one complete workflow per fresh server, with no warm repeats")
+    parser.add_argument("--allow-prompt-rewriting", action="store_true", help="Include complete Hunyuan autoregressive rewriting in the workflow timing")
     parser.add_argument("--port", type=int, default=8197)
     parser.add_argument("--timeout", type=int, default=7200)
     run(parser.parse_args())

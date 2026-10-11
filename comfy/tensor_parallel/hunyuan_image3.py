@@ -85,7 +85,7 @@ def _moe_forward(self, hidden_states):
     return self.shared_mlp(hidden_states) + routed
 
 
-def _shard_model(model, base_operations, parallel):
+def _shard_model(model, base_operations, parallel, expert_only=False):
     operations = gathered_output_operations(base_operations, parallel)
 
     class AttentionOutput(operations.Linear):
@@ -99,7 +99,7 @@ def _shard_model(model, base_operations, parallel):
         if not name.startswith("model.layers.") or name.endswith(".gate.wg"):
             continue
         if name.endswith(".self_attn"):
-            if module.num_key_value_heads % parallel.size == 0:
+            if not expert_only and module.num_key_value_heads % parallel.size == 0:
                 module.num_heads //= parallel.size
                 module.num_key_value_heads //= parallel.size
                 attention.add(name)
@@ -113,7 +113,7 @@ def _shard_model(model, base_operations, parallel):
                 raise ValueError(f"{name}: {module.num_experts} experts must divide {parallel.size} ranks")
             replacement = base_operations.MoEExperts(module.num_experts // parallel.size, module.in_features, module.out_features, bias=module.bias is not None, device="cpu")
             axis = 0
-        elif isinstance(module, base_operations.Linear):
+        elif not expert_only and isinstance(module, base_operations.Linear):
             owner, _, projection = name.rpartition(".")
             if owner in attention and projection == "qkv_proj":
                 replacement = base_operations.Linear(module.in_features, module.out_features // parallel.size, bias=module.bias is not None, device="cpu")
@@ -204,7 +204,7 @@ def load_rank(load_spec, device, tensor_operations):
     )
     model = upstream_base.HunyuanImage3Model(config, device=torch.device("cpu"))
     parallel = TensorParallelConfig(tensor_operations)
-    shards = _shard_model(model.diffusion_model, operations, parallel)
+    shards = _shard_model(model.diffusion_model, operations, parallel, load_spec.model_options["expert_only"])
     state = _load_state(reader, shards, parallel, upstream_model.HEAD_PREFIXES)
     upstream_loader.shared_codebooks(state)
     patcher = get_model_patcher_class(load_spec.disable_dynamic)(
@@ -234,7 +234,7 @@ def load_model(checkpoint_path, extension_path, disable_dynamic=False):
         raise ValueError(f"Tensor parallel size {size} exceeds {len(devices)} available devices")
     devices = devices[:size]
     dtype = model_management.unet_dtype(supported_dtypes=[torch.bfloat16, torch.float16, torch.float32])
-    spec = TensorParallelWorkerLoadSpec(os.fspath(checkpoint_path), "hunyuan_image3", {}, disable_dynamic, dtype, extension_path)
+    spec = TensorParallelWorkerLoadSpec(os.fspath(checkpoint_path), "hunyuan_image3", {"expert_only": configuration.hunyuan_expert_parallel_only}, disable_dynamic, dtype, extension_path)
     root, executor = launch_tensor_parallel(spec, devices, lambda operations: load_rank(spec, devices[0], operations))
     root.set_additional_models("tensor_parallel", [
         RemoteTensorParallelRankModel(executor, rank, devices[rank], executor.rank_sizes[rank], dtype, not disable_dynamic, os.path.basename(checkpoint_path))
@@ -244,6 +244,7 @@ def load_model(checkpoint_path, extension_path, disable_dynamic=False):
     root.model.diffusion_model._comfy_tensor_parallel_executor = executor
     root.set_attachments("tensor_parallel_executor", executor)
     root.cached_patcher_init = (partial(load_model, disable_dynamic=disable_dynamic), (checkpoint_path, extension_path))
+    logging.info("HunyuanImage3 partition: %s", "expert-only" if configuration.hunyuan_expert_parallel_only else "experts, dense rows and attention heads")
     logging.info("Loaded hunyuan_image3 with tensor-parallel ranks %s", ", ".join(
         f"{device}:{executor.rank_sizes[rank] / (1024 ** 3):.2f} GiB" for rank, device in enumerate(devices)
     ))

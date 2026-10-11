@@ -20,6 +20,12 @@ distributed executor. The adapter supports unquantized Pro checkpoints.
 
 Hunyuan W4A8 partitions whole routed experts, dense projection output rows,
 and attention heads when its KV-head count divides the rank count.
+Use `comfyui serve --cuda-device 0,1 --tensor-parallel-size 2
+--hunyuan-expert-parallel-only` to partition only routed experts while replicating
+attention and dense layers. Omitting `--hunyuan-expert-parallel-only` keeps combined
+EP and TP. The flag applies to HunyuanImage3 and uses the selected rank count.
+Both paths run the upstream custom node without a repository fork.
+
 Every projection retains its full input quantization domain. Expert routing slots
 are merged before the top-k sum, preserving upstream's accumulation order.
 The adapter uses upstream expert operations and ComfyUI prefetch/offload helpers.
@@ -253,3 +259,17 @@ Before tagging:
 4. Reconcile any new develop/master changes, bump the release, and only then
    publish/tag. Monitor release image health before mutable promotion and restore
    the facade's validated image-policy automation.
+
+## Cold EP validation
+
+The warm-repeat queue was interrupted at the user's request. Subsequent EP runs
+use a fresh server and one complete 1024×1024 Instruct workflow: greedy prompt
+rewriting (up to 2048 tokens, without a short probe cap), followed by all 50
+Euler steps, CFG 2.5, VAE decoding and saved PNG. Spectrum remains disabled.
+The checkpoint is W4A8: 4-bit weights and 8-bit activations, not 8-bit weights.
+
+Reproduce with `scripts/benchmark_custom_node_tp.py`, the workflow
+`release-artifacts/workflows/api/hunyuan-instruct-complete-rewrite-txt2img.json`,
+`--cold-only --allow-prompt-rewriting` and
+`--server-arg=--hunyuan-expert-parallel-only`. Timing includes model loading and
+complete execution; it does not flush the operating system's file cache.

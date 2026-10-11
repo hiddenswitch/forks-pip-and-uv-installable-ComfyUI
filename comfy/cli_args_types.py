@@ -293,6 +293,7 @@ class Configuration(dict):
         self.master_port: Optional[int] = None
         self.pipeline_parallel_size: Optional[int] = None
         self.tensor_parallel_size: Optional[int] = None
+        self.hunyuan_expert_parallel_only: bool = False
         self.ulysses_degree: Optional[int] = None
         self.ring_degree: Optional[int] = None
         self.nccl_proto: str = "auto"

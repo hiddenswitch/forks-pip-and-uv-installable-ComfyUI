@@ -77,6 +77,7 @@ parser.add_argument("--master-addr", type=str, default=None, help="Process-group
 parser.add_argument("--master-port", type=int, default=None, help="Process-group rendezvous port. Defaults to MASTER_PORT.")
 parser.add_argument("--pipeline-parallel-size", type=int, default=None, help="Number of pipeline stages. Defaults to world size for external launchers and selected device count otherwise.")
 parser.add_argument("--tensor-parallel-size", type=int, default=1, help="Number of tensor-parallel ranks. One keeps the ordinary model path.")
+parser.add_argument("--hunyuan-expert-parallel-only", action="store_true", help="Shard only HunyuanImage3 MoE experts across --tensor-parallel-size ranks; replicate attention and dense layers.")
 parser.add_argument("--nccl-proto", choices=("auto", "simple", "ll", "ll128"), default="auto", help="Select the NCCL collective protocol. auto preserves NCCL tuning.")
 parser.add_argument("--distributed-executor-backend", choices=("auto", "peer", "mp", "external_launcher"), default="auto", help="Pipeline executor backend.")
 
