@@ -1,12 +1,12 @@
 {
-  "source_commit": "6343997b8139f98dd16097be10b1dba7ccaff13e",
-  "wheel": "release-artifacts/wheels/reload-fixed/comfyui-0.39.0.1-py3-none-any.whl",
-  "wheel_sha256": "48457d6ef422d6278c3a9252e7feb2ec2038eb22e7e339e115f97a15f72cf07f",
-  "note": "Unversioned, unpublished release candidate. Eleven integration files match selected expert/head TP, execution-local KV contexts and launch-boundary collection.",
+  "source_commit": "5584d6f3fd5805ebaa496c2f0be44e0eeffb2899",
+  "wheel": "release-artifacts/wheels/expert-only/comfyui-0.39.0.1-py3-none-any.whl",
+  "wheel_sha256": "2234f92bcd40516af23720375cef97187d2d33cad3573702d87b946964dc87ac",
+  "note": "Unpublished candidate. Packaged integration files match the expert-only CLI implementation.",
   "verified_files": [
     {
       "path": "comfy/tensor_parallel/hunyuan_image3.py",
-      "sha256": "141b97725f488b9c7e47c74f690007f73b32ad323104df69a0a196f62a527606"
+      "sha256": "3f7f84730942f6216ecb10c56aa3eb1b09cb5c9d5347725af4a8954c4a3d5361"
     },
     {
       "path": "comfy/tensor_parallel/kandinsky6.py",
@@ -47,6 +47,22 @@
     {
       "path": "comfy/tensor_parallel/runtime.py",
       "sha256": "50e4c7ad7391a003b16a17701b55d0ca75e79adbb09d21b38b18d289c19d1148"
+    },
+    {
+      "path": "comfy/cli_args.py",
+      "sha256": "86253fc5625a7a55a161bb384ec8e24b153ab57ec44f9bd7fbac4482960373c2"
+    },
+    {
+      "path": "comfy/cli_args_types.py",
+      "sha256": "8f10721a0dff1dff96fdb856fcf65ec064ebb0a8a84dea903c207fc06789a539"
+    },
+    {
+      "path": "comfy/cmd/cli.py",
+      "sha256": "7f83d0b3528497184f0f66b34ba4e6d74dc1258199ec54f36ad43201a2f29824"
+    },
+    {
+      "path": "comfy/component_model/configuration.py",
+      "sha256": "db8750e53e5726eb6c720823e25baffbdd6cb18773366191f3875a4bf005489e"
     }
   ]
 }

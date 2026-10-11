@@ -101,7 +101,7 @@ Evidence: `release-artifacts/facade-image-health.json`,
   recovery and unload/reload passed. All three videos have 17 frames and audio;
   cache summaries show 8 computed and 16 skipped logical forwards. Evidence:
   `release-artifacts/kandinsky-magcache-validation.json`.
-- Candidate wheel built; eight packaged integration files and snapshot match the
+- Candidate wheel built; fifteen packaged integration files and snapshot match the
   checkout. Evidence: `release-artifacts/candidate-wheel-validation.json`.
 - Installed SR discovery regression: two tests passed without resolving remote
   catalog models, including an absent optional SR folder. Kandinsky lazy/eager
@@ -122,9 +122,10 @@ Evidence: `release-artifacts/facade-image-health.json`,
   XPU and macOS. Evidence: `release-artifacts/ci-validation.json`.
   The selected EP/attention-head TP implementation and local KV contexts passed
   65 targeted tests, including installed-source TP2/TP4 forward and incremental
-  cache parity. Python, CUDA, ROCm, XPU and macOS passed at `114789c33`; Windows is still
-  running. Fresh Python/CUDA/ROCm CI is running at `6343997b8` for the reload fix;
-  the backend rerun follows the current Windows job.
+  cache parity. Python, CUDA and ROCm passed at `6343997b8`; the final backend
+  run at `ce0fab3d2` passed Windows, XPU and macOS. The expert-only CLI change
+  at `5584d6f3f` passes 73 targeted parallelism tests and 95 CLI/configuration tests;
+  fresh device CI is running for that change.
   Ruff and diff checks passed.
 - Upstream Hunyuan suite: 108 passed, 17 skipped, one legacy generator test failed.
   It expects `generator.model.device` to be assigned by ModelPatcher; this fork
@@ -241,8 +242,9 @@ floating-point differences can change later greedy token choices. See
 `release-artifacts/hunyuan-head-full-rewrite-validation.json` and
 `release-artifacts/hunyuan-attention-parity-validation.json`;
 `scripts/validate_hunyuan_attention_tp.py` reproduces the numerical check.
-The base rerun and remaining sample matrix are continuing. The rebuilt candidate wheel matches all
-11 checked integration files; it remains unpublished at the base package version.
+The base rerun and all Hunyuan diffusion samples completed. Standard Kandinsky
+video samples remain incomplete. The rebuilt candidate wheel matches all
+15 checked integration files; it remains unpublished at the base package version.
 
 The distilled image-to-image sample also completed all eight runs: warm medians
 were 64.89 s TP1 and 68.90 s TP2 (6.2% slower), with all four pairs pixel-identical.
@@ -262,8 +264,7 @@ Before tagging:
 
 ## Cold EP validation
 
-The warm-repeat queue was interrupted at the user's request. Subsequent EP runs
-use a fresh server and one complete 1024×1024 Instruct workflow: greedy prompt
+EP validation runs use a fresh server and one complete 1024×1024 Instruct workflow: greedy prompt
 rewriting (up to 2048 tokens, without a short probe cap), followed by all 50
 Euler steps, CFG 2.5, VAE decoding and saved PNG. Spectrum remains disabled.
 The checkpoint is W4A8: 4-bit weights and 8-bit activations, not 8-bit weights.
@@ -273,3 +274,15 @@ Reproduce with `scripts/benchmark_custom_node_tp.py`, the workflow
 `--cold-only --allow-prompt-rewriting` and
 `--server-arg=--hunyuan-expert-parallel-only`. Timing includes model loading and
 complete execution; it does not flush the operating system's file cache.
+
+The prior complete Instruct TP2 image was visually reviewed against its fox
+prompt and matches the requested subject, sleeping curled pose, grassy setting,
+golden-hour light and telephoto bokeh. This is separate from the new EP-only run.
+See `release-artifacts/hunyuan-visual-validation.json`.
+
+Additional completed 50-step diffusion runs (rewriting disabled) measured cold
+Instruct T2I at 542.32 s on one GPU and 549.71 s with combined EP/TP; Instruct I2I
+at 766.22 s and 788.84 s. Distilled Kandinsky I2AV measured 846.17 s and 570.27 s.
+The corresponding full reports preserve the earlier warm repeats as historical
+measurements. Standard Kandinsky cold TP1 I2AV completed in 7391.41 s; remaining
+standard-video runs are incomplete.
