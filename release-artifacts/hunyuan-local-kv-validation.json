@@ -1,0 +1,53 @@
+{
+  "status": "Full rewrite passed with identical output",
+  "workflow": "release-artifacts/workflows/api/smoke/hunyuan-rewrite-complete.json",
+  "source": {
+    "commit": "28f78d4c7219b07c3a601b4b4b5be5feda4fd7f3",
+    "files": {
+      "comfy/tensor_parallel/distributed.py": "c7c54e9a63a677751edfd5c554b413b8a6d25cdcbf3ff369b960711674d60d31",
+      "comfy/tensor_parallel/hunyuan_image3.py": "76f6b0ab50b01e9e79cac8ffd3ab9668f152dac956325b4b0dacf3cbe4b1b4d0"
+    },
+    "strategy": "whole-expert partition + dense-output-row TP; execution-local KV cache",
+    "note": "Runtime loaded with the same default dense sharding as b98c70aab; later commit adds only a dormant experiment switch."
+  },
+  "tp_size": 2,
+  "generated_tokens": 307,
+  "closing_recaption_tag": true,
+  "output_identical": true,
+  "comparison": {
+    "previous_generation_seconds": 689,
+    "local_kv_generation_seconds": 348,
+    "previous_workflow_seconds": 727.3753435420222,
+    "local_kv_workflow_seconds": 385.573434963997,
+    "workflow_speedup": 1.8864768098194862,
+    "generation_speedup": 1.9798850574712643
+  },
+  "results": [
+    {
+      "phase": "initial",
+      "seconds": 385.573434963997,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        79646321664,
+        [
+          16920412160,
+          21724200960
+        ]
+      ]
+    }
+  ],
+  "limitations": [
+    "One complete matched run per implementation, not a repeated full-rewrite benchmark.",
+    "Generation times are rounded values from the upstream log.",
+    "Memory samples are after execution, not peak.",
+    "Both runs use expert partitioning plus dense-row TP; this is a KV-transport comparison, not EP versus TP."
+  ]
+}

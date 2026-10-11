@@ -179,7 +179,10 @@ Hunyuan's autoregressive prompt rewriting and image diffusion share its MoE
 transformer. The current adapter partitions whole experts and dense projection
 output rows in both paths. An execution-scoped model context now keeps each
 rank's autoregressive KV cache local instead of broadcasting its growing prefix
-every token; 49 targeted tests passed, and full rewrite validation is underway.
+every token; 49 targeted tests passed. The full 307-token rewrite produced exactly
+the same output: generation fell from 689 to 348 seconds and workflow time from
+727.38 to 385.57 seconds. This is one matched run, not a repeated full-rewrite
+benchmark. See `release-artifacts/hunyuan-local-kv-validation.json`.
 Expert-only partitioning with replicated dense projections is being evaluated
 separately; it is not yet selected as the production strategy.
 
