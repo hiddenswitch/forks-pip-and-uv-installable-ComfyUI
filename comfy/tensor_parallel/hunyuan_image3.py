@@ -7,7 +7,7 @@ import logging
 import os
 import sys
 from functools import partial, wraps
-from types import MethodType
+from types import MethodType, SimpleNamespace
 
 import torch
 from tokenizers import Tokenizer
@@ -129,9 +129,17 @@ def _load_state(reader, shards, parallel, head_prefixes):
     return reader.load_slices(selections)
 
 
-def _text_forward(self, embeddings, frequencies, mask, cache):
-    hidden = self.model(embeddings, frequencies, mask, cache)
-    return hidden, cache
+@contextlib.contextmanager
+def _text_context(self):
+    cache = [[None, None] for _ in self.model.layers]
+
+    def forward(embeddings, frequencies, mask):
+        return self.model(embeddings, frequencies, mask, cache)
+
+    try:
+        yield SimpleNamespace(tensor_parallel_text_forward=forward)
+    finally:
+        cache.clear()
 
 
 class _TextTransformer:
@@ -140,11 +148,11 @@ class _TextTransformer:
         self.executor = executor
 
     def __call__(self, embeddings, frequencies, mask, cache):
-        hidden, updated = self.executor.execute_method(
-            "tensor_parallel_text_forward", embeddings, frequencies, mask, cache,
+        # The upstream caller's cache is unused: each rank owns its cache inside
+        # the bounded model context, so growing prefixes never cross the wire.
+        return self.executor.execute_method(
+            "tensor_parallel_text_forward", embeddings, frequencies, mask,
         )
-        cache[:] = updated
-        return hidden
 
 
 class _TextModel:
@@ -189,7 +197,7 @@ def load_rank(load_spec, device, tensor_operations):
     if loaded.missing_keys or loaded.unexpected_keys:
         raise ValueError(f"HunyuanImage3 checkpoint mismatch: {loaded}")
     model.tokenizer = Tokenizer.from_file(upstream_loader.TOKENIZER_PATH)
-    model.diffusion_model.tensor_parallel_text_forward = MethodType(_text_forward, model.diffusion_model)
+    model.diffusion_model.tensor_parallel_text_context = MethodType(_text_context, model.diffusion_model)
     spectrum = importlib.import_module(extension + ".hunyuan_image_3.spectrum")
     install_state_transport(model.diffusion_model, "hy3_spectrum", (
         spectrum.SpectrumState, spectrum.SpectrumForecaster, spectrum.ChebyshevForecaster,
@@ -253,7 +261,8 @@ def install(extension):
             return generate(model, *args, **kwargs)
         model_management.load_models_gpu(executor.root_patcher.get_nested_additional_models())
         try:
-            return generate(_TextModel(model, executor), *args, **kwargs)
+            with executor.model_context("tensor_parallel_text_context"):
+                return generate(_TextModel(model, executor), *args, **kwargs)
         finally:
             executor.finish_execution()
 

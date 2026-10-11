@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from types import ModuleType, SimpleNamespace
 import threading
 import sys
@@ -13,7 +13,7 @@ from comfy import ops, model_management, model_prefetch
 from comfy.interruption import InterruptProcessingException
 from comfy.pipeline_parallel.checkpoint import SafetensorsCheckpointReader
 from comfy.tensor_parallel import TensorParallelConfig
-from comfy.tensor_parallel.hunyuan_image3 import _load_state, _TextTransformer, _LayerPrefetch
+from comfy.tensor_parallel.hunyuan_image3 import _load_state, _TextTransformer, _LayerPrefetch, _text_context
 from comfy.tensor_parallel.operations import gathered_output_operations, tensor_parallel_operations
 from comfy.tensor_parallel.kandinsky6 import _DistributedDiT, clear_magcache_after_sample, connect_piflow
 from comfy.tensor_parallel.kandinsky6 import load_state as load_kandinsky_state, shard_model
@@ -242,7 +242,10 @@ def test_direct_custom_node_calls_route_through_executor():
 
     def execute(method, *args, **kwargs):
         calls.append(method)
-        return (args[0] + 1, [[torch.ones(1), torch.zeros(1)]]) if method == "tensor_parallel_text_forward" else args[0] + 2
+        if method == "tensor_parallel_text_forward":
+            assert len(args) == 3  # No KV cache is transported.
+            return args[0] + 1
+        return args[0] + 2
 
     executor = SimpleNamespace(execute_method=execute)
     dit = _DistributedDiT(SimpleNamespace(n_grid=4), executor)
@@ -251,8 +254,99 @@ def test_direct_custom_node_calls_route_through_executor():
     transformer = _TextTransformer(SimpleNamespace(wte=None), executor)
     cache = [[None, None]]
     assert transformer(torch.zeros(1), None, None, cache).item() == 1
-    assert cache[0][0].item() == 1
+    assert cache == [[None, None]]
     assert calls == ["forward", "tensor_parallel_text_forward"]
+
+
+@pytest.mark.parametrize("cancel", [False, True])
+def test_text_context_keeps_prefix_locally_and_releases_it(cancel):
+    references = []
+
+    class Transformer:
+        layers = [object()]
+
+        def __call__(self, embeddings, frequencies, mask, cache):
+            previous = cache[0][0]
+            cache[0][0] = embeddings.clone() if previous is None else torch.cat((previous, embeddings))
+            references.append(weakref.ref(cache[0][0]))
+            return cache[0][0].sum()
+
+    model = SimpleNamespace(model=Transformer())
+    try:
+        with _text_context(model) as context:
+            assert context.tensor_parallel_text_forward(torch.tensor([2.0]), None, None).item() == 2
+            assert context.tensor_parallel_text_forward(torch.tensor([3.0]), None, None).item() == 5
+            if cancel:
+                raise InterruptProcessingException()
+    except InterruptProcessingException:
+        assert cancel
+    assert all(reference() is None for reference in references)
+    with _text_context(model) as context:
+        assert context.tensor_parallel_text_forward(torch.tensor([7.0]), None, None).item() == 7
+
+
+@pytest.mark.parametrize("entry_fails", [False, True])
+def test_worker_model_context_closes_and_next_execution_succeeds(monkeypatch, entry_fails):
+    calls, responses = [], []
+
+    @contextmanager
+    def scope():
+        if entry_fails:
+            raise ValueError("entry failed")
+        try:
+            yield SimpleNamespace(forward=lambda: calls.append("scoped"))
+        finally:
+            calls.append("cleanup")
+
+    execute = {"kind": "execute", "method": "forward", "descriptors": {},
+               "structure": ("tuple", (("tuple", ()), ("dict", ())))}
+    commands = [{"kind": "model_context", "method": "scope"}]
+    if not entry_fails:
+        commands.append(execute)
+    commands += [{"kind": "end_model_context"}, execute, {"kind": "close"}]
+    commands = iter(commands)
+    coordinator = SimpleNamespace(broadcast_command=lambda: next(commands),
+                                  send_object=lambda value, destination: responses.append(value["kind"]))
+    model = SimpleNamespace(scope=scope, forward=lambda: calls.append("ordinary"))
+    monkeypatch.setattr(distributed, "_broadcast_tensors", lambda *args, **kwargs: {})
+    monkeypatch.setattr(distributed, "distributed_command_span", lambda *args: nullcontext())
+    distributed._run_worker(SimpleNamespace(rank=1, world_size=2), coordinator,
+                            SimpleNamespace(model=SimpleNamespace(diffusion_model=model)), "test")
+    assert calls == (["ordinary"] if entry_fails else ["scoped", "cleanup", "ordinary"])
+    assert responses == (["error", "done", "done"] if entry_fails else ["done"] * 4)
+
+
+@pytest.mark.parametrize("failure", [None, "entry", "body"])
+def test_root_model_context_drains_ranks_and_restores_model(failure):
+    commands, received, cleanup = [], [], []
+
+    @contextmanager
+    def scope():
+        try:
+            yield object()
+        finally:
+            cleanup.append(True)
+
+    def receive(rank):
+        received.append(rank)
+        if failure == "entry" and len(received) == 1:
+            return {"kind": "error", "traceback": "entry failed"}
+        return {"kind": "done"}
+
+    original = SimpleNamespace(scope=scope)
+    executor = distributed.TorchDistributedModelParallelExecutor(
+        original, None, SimpleNamespace(broadcast_command=commands.append, receive_object=receive),
+        [], [], ["cpu"] * 3, [],
+    )
+    with pytest.raises((RuntimeError, InterruptProcessingException)) if failure else nullcontext():
+        with executor.model_context("scope"):
+            assert executor.root_model is not original
+            if failure == "body":
+                raise InterruptProcessingException()
+    assert executor.root_model is original
+    assert cleanup == [True]
+    assert received == [1, 2, 1, 2]
+    assert [command["kind"] for command in commands] == ["model_context", "end_model_context"]
 
 
 @pytest.mark.parametrize("size", [2, 4])

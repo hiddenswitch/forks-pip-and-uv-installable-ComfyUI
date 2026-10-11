@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+from contextlib import contextmanager
 import gc
 import logging
 import multiprocessing.connection
@@ -120,6 +121,27 @@ class TorchDistributedModelParallelExecutor:
 
     def execute(self, *args, **kwargs):
         return self.execute_method("forward", *args, **kwargs)
+
+    @contextmanager
+    def model_context(self, method):
+        """Keep call-local model state on each rank until this scope exits."""
+        original = self.root_model
+        with getattr(original, method)() as model:
+            self.coordinator.broadcast_command({"kind": "model_context", "method": method})
+            try:
+                responses = [self.coordinator.receive_object(rank) for rank in range(1, len(self.devices))]
+                errors = [response["traceback"] for response in responses if response["kind"] == "error"]
+                if errors:
+                    raise RuntimeError("Model-parallel context failed:\n" + "\n".join(errors))
+                self.root_model = model
+                yield
+            finally:
+                self.root_model = original
+                self.coordinator.broadcast_command({"kind": "end_model_context"})
+                responses = [self.coordinator.receive_object(rank) for rank in range(1, len(self.devices))]
+                errors = [response["traceback"] for response in responses if response["kind"] == "error"]
+                if errors:
+                    raise RuntimeError("Model-parallel context cleanup failed:\n" + "\n".join(errors))
 
     @defer_interruption()
     def execute_method(self, method, *args, **kwargs):
@@ -380,8 +402,9 @@ def _send_worker_error(coordinator, rank):
     coordinator.send_object({"kind": "error", "traceback": error}, 0)
 
 
-def _run_worker(operations, coordinator, patcher, span_name):
-    execution_model = patcher.model.diffusion_model
+def _run_worker(operations, coordinator, patcher, span_name, execution_model=None):
+    if execution_model is None:
+        execution_model = patcher.model.diffusion_model
     while True:
         command = coordinator.broadcast_command()
         with distributed_command_span(
@@ -394,7 +417,32 @@ def _run_worker(operations, coordinator, patcher, span_name):
             },
         ):
                 if command["kind"] == "close":
-                    return
+                    return True
+                if command["kind"] == "end_model_context":
+                    return False
+                if command["kind"] == "model_context":
+                    started = False
+                    try:
+                        with getattr(execution_model, command["method"])() as model:
+                            started = True
+                            coordinator.send_object({"kind": "done"}, 0)
+                            closed = _run_worker(operations, coordinator, patcher, span_name, model)
+                        if closed:
+                            return True
+                        coordinator.send_object({"kind": "done"}, 0)
+                    except Exception:
+                        _send_worker_error(coordinator, operations.rank)
+                        if not started:
+                            # Rank zero closes every rank's scope if any entry
+                            # failed. Acknowledge that close without exiting the
+                            # worker or leaving a response for its next request.
+                            ending = coordinator.broadcast_command()
+                            if ending["kind"] == "close":
+                                return True
+                            if ending["kind"] != "end_model_context":
+                                raise RuntimeError("Expected model-context cleanup after entry failure")
+                            coordinator.send_object({"kind": "done"}, 0)
+                    continue
                 if command["kind"] == "rank_model":
                     if command["rank"] != operations.rank:
                         continue
