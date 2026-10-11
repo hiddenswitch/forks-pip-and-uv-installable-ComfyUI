@@ -1,6 +1,6 @@
 {
-  "checked_at": "2026-10-11T01:00:32.170018+00:00",
-  "runtime_tree": "ee04054cc64e6e5b4403c3961eeb452e4d04c789",
+  "checked_at": "2026-10-11T02:16:02.324104+00:00",
+  "runtime_tree": "b2e5ae903b2b3d2d2bf55cd117226662c331a812",
   "runs": [
     {
       "id": 38091116046,
@@ -145,7 +145,124 @@
           "completedAt": "2026-10-10T23:49:50Z"
         }
       ]
+    },
+    {
+      "id": 38104460256,
+      "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104460256",
+      "triggered_sha": "114789c3364bcc235f01c31dbc3e211db3257b8a",
+      "status": "in_progress",
+      "conclusion": "",
+      "jobs": [
+        {
+          "name": "Full suite \u2014 Arch Python / PyTorch 2.14 CPU",
+          "status": "in_progress",
+          "conclusion": "",
+          "databaseId": 114366889291,
+          "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104460256/job/114366889291",
+          "startedAt": "2026-10-11T02:13:44Z",
+          "completedAt": "0001-01-01T00:00:00Z"
+        },
+        {
+          "name": "Master package smoke",
+          "status": "completed",
+          "conclusion": "skipped",
+          "databaseId": 114366890032,
+          "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104460256/job/114366890032",
+          "startedAt": "2026-10-11T02:13:41Z",
+          "completedAt": "2026-10-11T02:13:41Z"
+        }
+      ]
+    },
+    {
+      "id": 38104461662,
+      "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104461662",
+      "triggered_sha": "114789c3364bcc235f01c31dbc3e211db3257b8a",
+      "status": "in_progress",
+      "conclusion": "",
+      "jobs": [
+        {
+          "name": "Build CUDA 13.3 / PyTorch 2.13 candidate",
+          "status": "in_progress",
+          "conclusion": "",
+          "databaseId": 114366893154,
+          "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104461662/job/114366893154",
+          "startedAt": "2026-10-11T02:13:45Z",
+          "completedAt": "0001-01-01T00:00:00Z"
+        },
+        {
+          "name": "retag-release",
+          "status": "completed",
+          "conclusion": "skipped",
+          "databaseId": 114366893905,
+          "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104461662/job/114366893905",
+          "startedAt": "2026-10-11T02:13:43Z",
+          "completedAt": "2026-10-11T02:13:42Z"
+        }
+      ]
+    },
+    {
+      "id": 38104464607,
+      "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104464607",
+      "triggered_sha": "114789c3364bcc235f01c31dbc3e211db3257b8a",
+      "status": "in_progress",
+      "conclusion": "",
+      "jobs": [
+        {
+          "name": "build",
+          "status": "in_progress",
+          "conclusion": "",
+          "databaseId": 114366901964,
+          "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104464607/job/114366901964",
+          "startedAt": "2026-10-11T02:13:49Z",
+          "completedAt": "0001-01-01T00:00:00Z"
+        },
+        {
+          "name": "retag-release",
+          "status": "completed",
+          "conclusion": "skipped",
+          "databaseId": 114366902621,
+          "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104464607/job/114366902621",
+          "startedAt": "2026-10-11T02:13:46Z",
+          "completedAt": "2026-10-11T02:13:45Z"
+        }
+      ]
+    },
+    {
+      "id": 38104463002,
+      "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104463002",
+      "triggered_sha": "114789c3364bcc235f01c31dbc3e211db3257b8a",
+      "status": "in_progress",
+      "conclusion": "",
+      "jobs": [
+        {
+          "name": "Python 3.11 PyTorch 2.11 XPU",
+          "status": "in_progress",
+          "conclusion": "",
+          "databaseId": 114366896880,
+          "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104463002/job/114366896880",
+          "startedAt": "2026-10-11T02:13:46Z",
+          "completedAt": "0001-01-01T00:00:00Z"
+        },
+        {
+          "name": "Windows RTX 3090 CUDA 12.8 PyTorch 2.10",
+          "status": "in_progress",
+          "conclusion": "",
+          "databaseId": 114366897051,
+          "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104463002/job/114366897051",
+          "startedAt": "2026-10-11T02:13:46Z",
+          "completedAt": "0001-01-01T00:00:00Z"
+        },
+        {
+          "name": "macOS 14 Python 3.12 PyTorch 2.13",
+          "status": "in_progress",
+          "conclusion": "",
+          "databaseId": 114366897062,
+          "url": "https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/actions/runs/38104463002/job/114366897062",
+          "startedAt": "2026-10-11T02:13:52Z",
+          "completedAt": "0001-01-01T00:00:00Z"
+        }
+      ]
     }
   ],
-  "remaining": "All configured platforms passed the previous runtime. The newer execution-local Hunyuan rewrite KV-cache change requires fresh integration/CI validation."
+  "remaining": "Fresh platform CI is running at 114789c33 for the selected expert/attention-head strategy and execution-local KV contexts. Earlier platforms passed; no release has been tagged."
 }

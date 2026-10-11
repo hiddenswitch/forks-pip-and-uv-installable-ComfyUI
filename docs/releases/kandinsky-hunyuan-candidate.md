@@ -18,11 +18,13 @@ There is no custom-node repository fork. Kandinsky Pro partitions attention head
 and FFN channels, loads owned checkpoint slices, and routes PiFlow through the
 distributed executor. The adapter supports unquantized Pro checkpoints.
 
-Hunyuan W4A8 partitions dense projection output rows and whole routed experts.
+Hunyuan W4A8 partitions whole routed experts, dense projection output rows,
+and attention heads when its KV-head count divides the rank count.
 Every projection retains its full input quantization domain. Expert routing slots
 are merged before the top-k sum, preserving upstream's accumulation order.
 The adapter uses upstream expert operations and ComfyUI prefetch/offload helpers.
-Prompt rewriting, Spectrum, and MagCache use explicit call-local state transport;
+Prompt rewriting keeps each rank's KV cache inside an execution-scoped context.
+Spectrum and MagCache use explicit call-local state transport;
 real-model Hunyuan Spectrum, cancellation, retry and unload/reload checks passed.
 Complete Hunyuan rewriting and Kandinsky MagCache lifecycle checks also passed.
 Direct PiFlow/rewrite calls load peer models through the existing memory manager and finish their execution state.
@@ -109,10 +111,12 @@ Evidence: `release-artifacts/facade-image-health.json`,
   7,850 passed and 2,132 skipped. Windows reported 7,757 passed, 2,741 skipped
   and one failure: the snapshot recovery test retained its metadata-edit SQLite
   connection, preventing replacement on Windows. Both test connections now close
-  explicitly; all 17 snapshot tests pass locally. Backend CI is rerunning at
+  explicitly; all 17 snapshot tests pass locally. Backend CI at
   `4d639fec2`, including the exact-SHA Windows checkout fix, passed on Windows,
   XPU and macOS. Evidence: `release-artifacts/ci-validation.json`.
-  The newer rewrite KV-cache change still needs fresh integration/CI validation.
+  The selected EP/attention-head TP implementation and local KV contexts passed
+  63 targeted tests, including installed-source TP2/TP4 forward and incremental
+  cache parity. Fresh platform CI is running at `114789c33`.
   Ruff and diff checks passed.
 - Upstream Hunyuan suite: 108 passed, 17 skipped, one legacy generator test failed.
   It expects `generator.model.device` to be assigned by ModelPatcher; this fork
@@ -161,7 +165,7 @@ show coherent macaws in both configurations, with different poses and motion.
 See `release-artifacts/kandinsky-pro-distil-benchmark.json` for all measurements
 and the limits of this comparison on two NVLinked 24 GiB RTX A5000s.
 
-Hunyuan whole-expert partitioning completed at
+The earlier Hunyuan adapter, before attention-head sharding, completed at
 46.92 seconds TP2 versus the matched 43.92-second TP1 baseline: TP2 is
 6.8% slower on this distilled 8-step sample. All four images are pixel-identical.
 TP2 cold time was 85.81 seconds versus 82.26 seconds TP1; peak aggregate host PSS
@@ -170,21 +174,44 @@ configurations, so these measurements do not establish a VRAM reduction.
 The report is `release-artifacts/hunyuan-distil-benchmark.json`; raw runs are
 retained under `release-artifacts/benchmark-results/`.
 
-The base W4A8 50-step sample also completed all eight runs: warm medians were
+The earlier adapter's base W4A8 50-step sample completed all eight runs: warm medians were
 459.65 seconds TP1 and 574.02 seconds hybrid EP/TP2 (24.9% slower), with all four
 image pairs pixel-identical. TP2 warm times varied from 520.55 to 597.58 seconds.
-See `release-artifacts/hunyuan-base-benchmark.json`.
+See `release-artifacts/hunyuan-base-benchmark.json`. These TP2 timings do not
+represent the newly selected attention-head strategy; its base rerun is pending.
 
 Hunyuan's autoregressive prompt rewriting and image diffusion share its MoE
-transformer. The current adapter partitions whole experts and dense projection
-output rows in both paths. An execution-scoped model context now keeps each
+transformer. EP and TP can be combined in either path; they are not exclusive
+choices for autoregression and diffusion. An execution-scoped model context now keeps each
 rank's autoregressive KV cache local instead of broadcasting its growing prefix
 every token; 49 targeted tests passed. The full 307-token rewrite produced exactly
 the same output: generation fell from 689 to 348 seconds and workflow time from
 727.38 to 385.57 seconds. This is one matched run, not a repeated full-rewrite
 benchmark. See `release-artifacts/hunyuan-local-kv-validation.json`.
-Expert-only partitioning with replicated dense projections is being evaluated
-separately; it is not yet selected as the production strategy.
+The completed strategy comparison used identical 2 GiB extra VRAM headroom:
+
+| Workload | TP1 | EP-only, 2 GPUs | EP + head TP, 2 GPUs |
+| --- | ---: | ---: | ---: |
+| Instruct rewrite, 64-token warm probe | 167.82 s | 106.71 s | 113.43 s |
+| Distil rewrite, 64-token warm probe | 168.09 s | 140.32 s | 112.19 s |
+| Distil diffusion, 8 steps, warm median | 44.73 s | 56.54 s | 54.85 s |
+
+Autoregressive values are one warm repeat after one cold probe, not repeated
+medians. The 64-token cap intentionally truncates recaptioning; all compared
+prefixes match TP1, while the separate full rewrite validates completion.
+Diffusion uses three warm seeds and all four cold/warm pairs are pixel-identical.
+The combined strategy is selected: its autoregressive probes are 1.48x/1.50x
+faster than TP1 and its KV cache is head-partitioned. Diffusion remains 22.6%
+slower with this memory setting. Experimental switches have been removed.
+Evidence, exact source revisions/diffs and limitations are in
+`release-artifacts/hunyuan-partition-comparison.json`. A separate benchmark is
+checking the normal memory reservation; do not mix the two settings' timings.
+
+Real-model local-KV cancellation, recovery and unload/reload also passed.
+See `release-artifacts/hunyuan-local-kv-lifecycle-validation.json`. The final
+head-partitioned implementation is queued for its own lifecycle/full-rewrite
+checks and remaining sample matrix. The rebuilt candidate wheel matches all
+11 checked integration files; it remains unpublished at the base package version.
 
 Before tagging:
 

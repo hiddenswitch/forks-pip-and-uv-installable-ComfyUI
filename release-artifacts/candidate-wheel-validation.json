@@ -1,12 +1,12 @@
 {
-  "source_commit": "395dd8633b497d13dd3a452cf35a924ce0475901",
-  "wheel": "comfyui-0.39.0.1-py3-none-any.whl",
-  "wheel_sha256": "2d91dbd3dc4688c3ec2a1e77494b026204d7a4f9f02f7c009281006982f55c5d",
-  "note": "Unversioned release candidate; not published. Packaged runtime files match checkout.",
+  "source_commit": "114789c3364bcc235f01c31dbc3e211db3257b8a",
+  "wheel": "release-artifacts/wheels/head-sharded/comfyui-0.39.0.1-py3-none-any.whl",
+  "wheel_sha256": "505ec0425db397a8ffa29e2c9a1f3a8250957feb42cc949629979b385f0fa280",
+  "note": "Unversioned release candidate; not published. Packaged runtime files match the selected expert and attention-head sharding implementation.",
   "verified_files": [
     {
       "path": "comfy/tensor_parallel/hunyuan_image3.py",
-      "sha256": "149ea2607d835664e6f6814211fca209b2a532dcdae49050405c4379abf2dce9"
+      "sha256": "141b97725f488b9c7e47c74f690007f73b32ad323104df69a0a196f62a527606"
     },
     {
       "path": "comfy/tensor_parallel/kandinsky6.py",
@@ -35,6 +35,18 @@
     {
       "path": "comfy/custom_nodes/pip_facade_registry_snapshot.sqlite.xz",
       "sha256": "10c23fdf89fe64a839d453e5d0be2498a533ae4cbb585d3c17dc2dc8fa815b6b"
+    },
+    {
+      "path": "comfy/tensor_parallel/distributed.py",
+      "sha256": "c7c54e9a63a677751edfd5c554b413b8a6d25cdcbf3ff369b960711674d60d31"
+    },
+    {
+      "path": "comfy/tensor_parallel/operations.py",
+      "sha256": "6d853d835b3b1aa6cf2a2fddb4ad89b9ec3954fc402960e545b7fdecdf24ffaf"
+    },
+    {
+      "path": "comfy/tensor_parallel/runtime.py",
+      "sha256": "50e4c7ad7391a003b16a17701b55d0ca75e79adbb09d21b38b18d289c19d1148"
     }
   ]
 }

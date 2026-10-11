@@ -1,0 +1,634 @@
+{
+  "status": "All planned partition comparisons completed",
+  "hardware": "Two NVLinked NVIDIA RTX A5000 24 GiB; TP1 uses display-free GPU1; TP2 also uses desktop GPU0.",
+  "vram_headroom_gib": 2,
+  "autoregressive": {
+    "distil": {
+      "tp1": {
+        "source": {
+          "strategy": "single-device"
+        },
+        "cold_workflow_seconds": 183.61390054799267,
+        "warm_workflow_seconds": 168.08875706998515,
+        "generation": [
+          {
+            "tokens": 64,
+            "seconds_rounded": 164
+          },
+          {
+            "tokens": 64,
+            "seconds_rounded": 164
+          }
+        ],
+        "text_prefix_sha256": [
+          "d148423e92fb4edf6b1ddb8d8c8d9a9129545082531528fc8fc297f5adc3609f",
+          "d148423e92fb4edf6b1ddb8d8c8d9a9129545082531528fc8fc297f5adc3609f"
+        ],
+        "prefix_matches_tp1": true,
+        "memory_after_execution": [
+          [
+            59088133120,
+            [
+              2930966528,
+              16572153856
+            ]
+          ],
+          [
+            59089524736,
+            [
+              2931097600,
+              16706371584
+            ]
+          ]
+        ],
+        "warm_speedup_vs_tp1": 1.0
+      },
+      "expert_only": {
+        "source": {
+          "strategy": "expert-only",
+          "base_commit": "cb21787cf0eb772c84d94cdc71c3bdb8a7987ee9",
+          "adapter_sha256": "73e33e73489df453a7b720c8a4cea665e2ea976c171d58b871b13964caa24d42",
+          "diff": "diff --git a/comfy/tensor_parallel/hunyuan_image3.py b/comfy/tensor_parallel/hunyuan_image3.py\nindex b0f1c2521..0f74e8953 100644\n--- a/comfy/tensor_parallel/hunyuan_image3.py\n+++ b/comfy/tensor_parallel/hunyuan_image3.py\n@@ -204,7 +204,7 @@ def load_rank(load_spec, device, tensor_operations):\n     )\n     model = upstream_base.HunyuanImage3Model(config, device=torch.device(\"cpu\"))\n     parallel = TensorParallelConfig(tensor_operations)\n-    shards = _shard_model(model.diffusion_model, operations, parallel)\n+    shards = _shard_model(model.diffusion_model, operations, parallel, shard_dense=False)\n     state = _load_state(reader, shards, parallel, upstream_model.HEAD_PREFIXES)\n     upstream_loader.shared_codebooks(state)\n     patcher = get_model_patcher_class(load_spec.disable_dynamic)(\n"
+        },
+        "cold_workflow_seconds": 191.4871232000005,
+        "warm_workflow_seconds": 140.31579202401917,
+        "generation": [
+          {
+            "tokens": 64,
+            "seconds_rounded": 155
+          },
+          {
+            "tokens": 64,
+            "seconds_rounded": 137
+          }
+        ],
+        "text_prefix_sha256": [
+          "d148423e92fb4edf6b1ddb8d8c8d9a9129545082531528fc8fc297f5adc3609f",
+          "d148423e92fb4edf6b1ddb8d8c8d9a9129545082531528fc8fc297f5adc3609f"
+        ],
+        "prefix_matches_tp1": true,
+        "memory_after_execution": [
+          [
+            78867674112,
+            [
+              17005871104,
+              21717909504
+            ]
+          ],
+          [
+            78937309184,
+            [
+              17609850880,
+              21717909504
+            ]
+          ]
+        ],
+        "warm_speedup_vs_tp1": 1.1979318553196907
+      },
+      "head_sharded": {
+        "source": {
+          "strategy": "head-sharded",
+          "base_commit": "cb21787cf0eb772c84d94cdc71c3bdb8a7987ee9",
+          "adapter_sha256": "69f9e8861f7645e789c0a17e803b1d5cfda26679ba9ef4a428c31b91065da865",
+          "diff": "diff --git a/comfy/tensor_parallel/hunyuan_image3.py b/comfy/tensor_parallel/hunyuan_image3.py\nindex b0f1c2521..276d67ac3 100644\n--- a/comfy/tensor_parallel/hunyuan_image3.py\n+++ b/comfy/tensor_parallel/hunyuan_image3.py\n@@ -204,7 +204,7 @@ def load_rank(load_spec, device, tensor_operations):\n     )\n     model = upstream_base.HunyuanImage3Model(config, device=torch.device(\"cpu\"))\n     parallel = TensorParallelConfig(tensor_operations)\n-    shards = _shard_model(model.diffusion_model, operations, parallel)\n+    shards = _shard_model(model.diffusion_model, operations, parallel, shard_attention=True)\n     state = _load_state(reader, shards, parallel, upstream_model.HEAD_PREFIXES)\n     upstream_loader.shared_codebooks(state)\n     patcher = get_model_patcher_class(load_spec.disable_dynamic)(\n"
+        },
+        "cold_workflow_seconds": 147.7101435539953,
+        "warm_workflow_seconds": 112.19010999298189,
+        "generation": [
+          {
+            "tokens": 64,
+            "seconds_rounded": 116
+          },
+          {
+            "tokens": 64,
+            "seconds_rounded": 109
+          }
+        ],
+        "text_prefix_sha256": [
+          "d148423e92fb4edf6b1ddb8d8c8d9a9129545082531528fc8fc297f5adc3609f",
+          "d148423e92fb4edf6b1ddb8d8c8d9a9129545082531528fc8fc297f5adc3609f"
+        ],
+        "prefix_matches_tp1": true,
+        "memory_after_execution": [
+          [
+            77223118848,
+            [
+              16847601664,
+              21730492416
+            ]
+          ],
+          [
+            77311577088,
+            [
+              18055626752,
+              21730492416
+            ]
+          ]
+        ],
+        "warm_speedup_vs_tp1": 1.4982493294685246
+      }
+    },
+    "instruct": {
+      "tp1": {
+        "source": {
+          "strategy": "single-device",
+          "base_commit": "cb21787cf0eb772c84d94cdc71c3bdb8a7987ee9",
+          "adapter_sha256": "69c660903625f390761f773e4ff0a7c0a361b1c962e8df0fd7d90e5abc4ac489",
+          "diff": ""
+        },
+        "cold_workflow_seconds": 185.44746309201582,
+        "warm_workflow_seconds": 167.8230037589965,
+        "generation": [
+          {
+            "tokens": 64,
+            "seconds_rounded": 164
+          },
+          {
+            "tokens": 64,
+            "seconds_rounded": 164
+          }
+        ],
+        "text_prefix_sha256": [
+          "b28e0237b33270886db040813209358d212604a09ed04c25a1db6d995ff77433",
+          "b28e0237b33270886db040813209358d212604a09ed04c25a1db6d995ff77433"
+        ],
+        "prefix_matches_tp1": true,
+        "memory_after_execution": [
+          [
+            59072440320,
+            [
+              2931032064,
+              16572153856
+            ]
+          ],
+          [
+            59074095104,
+            [
+              2931032064,
+              16706371584
+            ]
+          ]
+        ],
+        "warm_speedup_vs_tp1": 1.0
+      },
+      "expert_only": {
+        "source": {
+          "strategy": "expert-only",
+          "base_commit": "cb21787cf0eb772c84d94cdc71c3bdb8a7987ee9",
+          "adapter_sha256": "73e33e73489df453a7b720c8a4cea665e2ea976c171d58b871b13964caa24d42",
+          "diff": "diff --git a/comfy/tensor_parallel/hunyuan_image3.py b/comfy/tensor_parallel/hunyuan_image3.py\nindex b0f1c2521..0f74e8953 100644\n--- a/comfy/tensor_parallel/hunyuan_image3.py\n+++ b/comfy/tensor_parallel/hunyuan_image3.py\n@@ -204,7 +204,7 @@ def load_rank(load_spec, device, tensor_operations):\n     )\n     model = upstream_base.HunyuanImage3Model(config, device=torch.device(\"cpu\"))\n     parallel = TensorParallelConfig(tensor_operations)\n-    shards = _shard_model(model.diffusion_model, operations, parallel)\n+    shards = _shard_model(model.diffusion_model, operations, parallel, shard_dense=False)\n     state = _load_state(reader, shards, parallel, upstream_model.HEAD_PREFIXES)\n     upstream_loader.shared_codebooks(state)\n     patcher = get_model_patcher_class(load_spec.disable_dynamic)(\n"
+        },
+        "cold_workflow_seconds": 162.27700234597432,
+        "warm_workflow_seconds": 106.70963825500803,
+        "generation": [
+          {
+            "tokens": 64,
+            "seconds_rounded": 124
+          },
+          {
+            "tokens": 64,
+            "seconds_rounded": 104
+          }
+        ],
+        "text_prefix_sha256": [
+          "b28e0237b33270886db040813209358d212604a09ed04c25a1db6d995ff77433",
+          "b28e0237b33270886db040813209358d212604a09ed04c25a1db6d995ff77433"
+        ],
+        "prefix_matches_tp1": true,
+        "memory_after_execution": [
+          [
+            79114265600,
+            [
+              16407199744,
+              21722103808
+            ]
+          ],
+          [
+            79570466816,
+            [
+              16977625088,
+              21722103808
+            ]
+          ]
+        ],
+        "warm_speedup_vs_tp1": 1.5727070816034776
+      },
+      "head_sharded": {
+        "source": {
+          "strategy": "head-sharded",
+          "base_commit": "af28c84fc9548f185b2d8a6659c1ee07bcfae964",
+          "adapter_sha256": "69f9e8861f7645e789c0a17e803b1d5cfda26679ba9ef4a428c31b91065da865",
+          "diff": "diff --git a/comfy/tensor_parallel/hunyuan_image3.py b/comfy/tensor_parallel/hunyuan_image3.py\nindex b0f1c2521..276d67ac3 100644\n--- a/comfy/tensor_parallel/hunyuan_image3.py\n+++ b/comfy/tensor_parallel/hunyuan_image3.py\n@@ -204,7 +204,7 @@ def load_rank(load_spec, device, tensor_operations):\n     )\n     model = upstream_base.HunyuanImage3Model(config, device=torch.device(\"cpu\"))\n     parallel = TensorParallelConfig(tensor_operations)\n-    shards = _shard_model(model.diffusion_model, operations, parallel)\n+    shards = _shard_model(model.diffusion_model, operations, parallel, shard_attention=True)\n     state = _load_state(reader, shards, parallel, upstream_model.HEAD_PREFIXES)\n     upstream_loader.shared_codebooks(state)\n     patcher = get_model_patcher_class(load_spec.disable_dynamic)(\n"
+        },
+        "cold_workflow_seconds": 164.29631177699775,
+        "warm_workflow_seconds": 113.43478832702385,
+        "generation": [
+          {
+            "tokens": 64,
+            "seconds_rounded": 127
+          },
+          {
+            "tokens": 64,
+            "seconds_rounded": 110
+          }
+        ],
+        "text_prefix_sha256": [
+          "b28e0237b33270886db040813209358d212604a09ed04c25a1db6d995ff77433",
+          "b28e0237b33270886db040813209358d212604a09ed04c25a1db6d995ff77433"
+        ],
+        "prefix_matches_tp1": true,
+        "memory_after_execution": [
+          [
+            81502673920,
+            [
+              16822435840,
+              21705326592
+            ]
+          ],
+          [
+            81504877568,
+            [
+              18063949824,
+              21705326592
+            ]
+          ]
+        ],
+        "warm_speedup_vs_tp1": 1.479466804091665
+      }
+    }
+  },
+  "diffusion": {
+    "expert-only": {
+      "source": {
+        "strategy": "expert-only",
+        "base_commit": "cb21787cf0eb772c84d94cdc71c3bdb8a7987ee9",
+        "adapter_sha256": "73e33e73489df453a7b720c8a4cea665e2ea976c171d58b871b13964caa24d42",
+        "diff": "diff --git a/comfy/tensor_parallel/hunyuan_image3.py b/comfy/tensor_parallel/hunyuan_image3.py\nindex b0f1c2521..0f74e8953 100644\n--- a/comfy/tensor_parallel/hunyuan_image3.py\n+++ b/comfy/tensor_parallel/hunyuan_image3.py\n@@ -204,7 +204,7 @@ def load_rank(load_spec, device, tensor_operations):\n     )\n     model = upstream_base.HunyuanImage3Model(config, device=torch.device(\"cpu\"))\n     parallel = TensorParallelConfig(tensor_operations)\n-    shards = _shard_model(model.diffusion_model, operations, parallel)\n+    shards = _shard_model(model.diffusion_model, operations, parallel, shard_dense=False)\n     state = _load_state(reader, shards, parallel, upstream_model.HEAD_PREFIXES)\n     upstream_loader.shared_codebooks(state)\n     patcher = get_model_patcher_class(load_spec.disable_dynamic)(\n"
+      },
+      "summary": {
+        "warm_median_seconds": {
+          "1": 44.73486836400116,
+          "2": 56.53611735498998
+        },
+        "tp2_speedup": 0.7912617713577881
+      },
+      "results": [
+        {
+          "tp": 1,
+          "seed": 42,
+          "cold": true,
+          "job_wall_seconds": 79.94411909600603,
+          "peak_host_pss_bytes": 58940162048,
+          "peak_device_used_bytes": [
+            21729050624
+          ],
+          "start_time_unix_nano": 1791683338216487549,
+          "end_time_unix_nano": 1791683418160917521,
+          "sampler_seconds": 72.25187782500001,
+          "generator_node_seconds": 72.366398675,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 1,
+          "seed": 43,
+          "cold": false,
+          "job_wall_seconds": 44.73486836400116,
+          "peak_host_pss_bytes": 54255809536,
+          "peak_device_used_bytes": [
+            21720662016
+          ],
+          "start_time_unix_nano": 1791683418161324158,
+          "end_time_unix_nano": 1791683462896586956,
+          "sampler_seconds": 41.131305905,
+          "generator_node_seconds": 41.194561689000004,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 1,
+          "seed": 44,
+          "cold": false,
+          "job_wall_seconds": 44.77544676599791,
+          "peak_host_pss_bytes": 54259828736,
+          "peak_device_used_bytes": [
+            21722759168
+          ],
+          "start_time_unix_nano": 1791683462897086257,
+          "end_time_unix_nano": 1791683507672801881,
+          "sampler_seconds": 41.30110022,
+          "generator_node_seconds": 41.363559871999996,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 1,
+          "seed": 45,
+          "cold": false,
+          "job_wall_seconds": 44.703807101002894,
+          "peak_host_pss_bytes": 54259944448,
+          "peak_device_used_bytes": [
+            21722759168
+          ],
+          "start_time_unix_nano": 1791683507673180635,
+          "end_time_unix_nano": 1791683552377288754,
+          "sampler_seconds": 41.289808754,
+          "generator_node_seconds": 41.354136837999995,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 2,
+          "seed": 42,
+          "cold": true,
+          "job_wall_seconds": 85.24646693401155,
+          "peak_host_pss_bytes": 95502721024,
+          "peak_device_used_bytes": [
+            21710897152,
+            22034579456
+          ],
+          "start_time_unix_nano": 1791683568491588821,
+          "end_time_unix_nano": 1791683653738373585,
+          "sampler_seconds": 60.498576774,
+          "generator_node_seconds": 60.730069195,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 2,
+          "seed": 43,
+          "cold": false,
+          "job_wall_seconds": 51.766968994023046,
+          "peak_host_pss_bytes": 82870608896,
+          "peak_device_used_bytes": [
+            21715091456,
+            22009413632
+          ],
+          "start_time_unix_nano": 1791683653739070759,
+          "end_time_unix_nano": 1791683705506301697,
+          "sampler_seconds": 48.362711083,
+          "generator_node_seconds": 48.511829905999996,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 2,
+          "seed": 44,
+          "cold": false,
+          "job_wall_seconds": 56.53611735498998,
+          "peak_host_pss_bytes": 82503541760,
+          "peak_device_used_bytes": [
+            21715091456,
+            22017802240
+          ],
+          "start_time_unix_nano": 1791683705506701331,
+          "end_time_unix_nano": 1791683762043138008,
+          "sampler_seconds": 53.431950159,
+          "generator_node_seconds": 53.786917393,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 2,
+          "seed": 45,
+          "cold": false,
+          "job_wall_seconds": 56.86380764099886,
+          "peak_host_pss_bytes": 81883452416,
+          "peak_device_used_bytes": [
+            21717188608,
+            21961179136
+          ],
+          "start_time_unix_nano": 1791683762043619196,
+          "end_time_unix_nano": 1791683818907825649,
+          "sampler_seconds": 54.006525958,
+          "generator_node_seconds": 54.130465384000004,
+          "sr_node_seconds": null
+        }
+      ],
+      "quality": [
+        {
+          "seed": 42,
+          "output": "9:0",
+          "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-expert-only-experiment/tp1/hunyuan_image_3_instruct_distil_00001_.png",
+          "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-expert-only-experiment/tp2/hunyuan_image_3_instruct_distil_00001_.png",
+          "identical": true,
+          "rmse": 0.0,
+          "max_absolute_error": 0.0
+        },
+        {
+          "seed": 43,
+          "output": "9:0",
+          "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-expert-only-experiment/tp1/hunyuan_image_3_instruct_distil_00002_.png",
+          "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-expert-only-experiment/tp2/hunyuan_image_3_instruct_distil_00002_.png",
+          "identical": true,
+          "rmse": 0.0,
+          "max_absolute_error": 0.0
+        },
+        {
+          "seed": 44,
+          "output": "9:0",
+          "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-expert-only-experiment/tp1/hunyuan_image_3_instruct_distil_00003_.png",
+          "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-expert-only-experiment/tp2/hunyuan_image_3_instruct_distil_00003_.png",
+          "identical": true,
+          "rmse": 0.0,
+          "max_absolute_error": 0.0
+        },
+        {
+          "seed": 45,
+          "output": "9:0",
+          "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-expert-only-experiment/tp1/hunyuan_image_3_instruct_distil_00004_.png",
+          "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-expert-only-experiment/tp2/hunyuan_image_3_instruct_distil_00004_.png",
+          "identical": true,
+          "rmse": 0.0,
+          "max_absolute_error": 0.0
+        }
+      ]
+    },
+    "head-sharded": {
+      "source": {
+        "strategy": "head-sharded",
+        "base_commit": "af28c84fc9548f185b2d8a6659c1ee07bcfae964",
+        "adapter_sha256": "69f9e8861f7645e789c0a17e803b1d5cfda26679ba9ef4a428c31b91065da865",
+        "diff": "diff --git a/comfy/tensor_parallel/hunyuan_image3.py b/comfy/tensor_parallel/hunyuan_image3.py\nindex b0f1c2521..276d67ac3 100644\n--- a/comfy/tensor_parallel/hunyuan_image3.py\n+++ b/comfy/tensor_parallel/hunyuan_image3.py\n@@ -204,7 +204,7 @@ def load_rank(load_spec, device, tensor_operations):\n     )\n     model = upstream_base.HunyuanImage3Model(config, device=torch.device(\"cpu\"))\n     parallel = TensorParallelConfig(tensor_operations)\n-    shards = _shard_model(model.diffusion_model, operations, parallel)\n+    shards = _shard_model(model.diffusion_model, operations, parallel, shard_attention=True)\n     state = _load_state(reader, shards, parallel, upstream_model.HEAD_PREFIXES)\n     upstream_loader.shared_codebooks(state)\n     patcher = get_model_patcher_class(load_spec.disable_dynamic)(\n"
+      },
+      "summary": {
+        "warm_median_seconds": {
+          "1": 44.73486836400116,
+          "2": 54.84656486098538
+        },
+        "tp2_speedup": 0.8156366488473176
+      },
+      "results": [
+        {
+          "tp": 1,
+          "seed": 42,
+          "cold": true,
+          "job_wall_seconds": 79.94411909600603,
+          "peak_host_pss_bytes": 58940162048,
+          "peak_device_used_bytes": [
+            21729050624
+          ],
+          "start_time_unix_nano": 1791683338216487549,
+          "end_time_unix_nano": 1791683418160917521,
+          "sampler_seconds": 72.25187782500001,
+          "generator_node_seconds": 72.366398675,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 1,
+          "seed": 43,
+          "cold": false,
+          "job_wall_seconds": 44.73486836400116,
+          "peak_host_pss_bytes": 54255809536,
+          "peak_device_used_bytes": [
+            21720662016
+          ],
+          "start_time_unix_nano": 1791683418161324158,
+          "end_time_unix_nano": 1791683462896586956,
+          "sampler_seconds": 41.131305905,
+          "generator_node_seconds": 41.194561689000004,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 1,
+          "seed": 44,
+          "cold": false,
+          "job_wall_seconds": 44.77544676599791,
+          "peak_host_pss_bytes": 54259828736,
+          "peak_device_used_bytes": [
+            21722759168
+          ],
+          "start_time_unix_nano": 1791683462897086257,
+          "end_time_unix_nano": 1791683507672801881,
+          "sampler_seconds": 41.30110022,
+          "generator_node_seconds": 41.363559871999996,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 1,
+          "seed": 45,
+          "cold": false,
+          "job_wall_seconds": 44.703807101002894,
+          "peak_host_pss_bytes": 54259944448,
+          "peak_device_used_bytes": [
+            21722759168
+          ],
+          "start_time_unix_nano": 1791683507673180635,
+          "end_time_unix_nano": 1791683552377288754,
+          "sampler_seconds": 41.289808754,
+          "generator_node_seconds": 41.354136837999995,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 2,
+          "seed": 42,
+          "cold": true,
+          "job_wall_seconds": 81.7876587890205,
+          "peak_host_pss_bytes": 90710799360,
+          "peak_device_used_bytes": [
+            21715943424,
+            21793406976
+          ],
+          "start_time_unix_nano": 1791684494967171533,
+          "end_time_unix_nano": 1791684576755086816,
+          "sampler_seconds": 58.674217296,
+          "generator_node_seconds": 58.914264881,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 2,
+          "seed": 43,
+          "cold": false,
+          "job_wall_seconds": 51.40239133700379,
+          "peak_host_pss_bytes": 79476492288,
+          "peak_device_used_bytes": [
+            21720137728,
+            22542090240
+          ],
+          "start_time_unix_nano": 1791684576755639088,
+          "end_time_unix_nano": 1791684628158301947,
+          "sampler_seconds": 48.107285462,
+          "generator_node_seconds": 48.244718913999996,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 2,
+          "seed": 44,
+          "cold": false,
+          "job_wall_seconds": 57.51928133002366,
+          "peak_host_pss_bytes": 79145270272,
+          "peak_device_used_bytes": [
+            21724332032,
+            21998927872
+          ],
+          "start_time_unix_nano": 1791684628158685160,
+          "end_time_unix_nano": 1791684685678282005,
+          "sampler_seconds": 54.247724128,
+          "generator_node_seconds": 54.5952943,
+          "sr_node_seconds": null
+        },
+        {
+          "tp": 2,
+          "seed": 45,
+          "cold": false,
+          "job_wall_seconds": 54.84656486098538,
+          "peak_host_pss_bytes": 79212739584,
+          "peak_device_used_bytes": [
+            21722234880,
+            21728395264
+          ],
+          "start_time_unix_nano": 1791684685678761469,
+          "end_time_unix_nano": 1791684740525658166,
+          "sampler_seconds": 52.066850934,
+          "generator_node_seconds": 52.197038782,
+          "sr_node_seconds": null
+        }
+      ],
+      "quality": [
+        {
+          "seed": 42,
+          "output": "9:0",
+          "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-head-sharded-experiment/tp1/hunyuan_image_3_instruct_distil_00001_.png",
+          "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-head-sharded-experiment/tp2/hunyuan_image_3_instruct_distil_00001_.png",
+          "identical": true,
+          "rmse": 0.0,
+          "max_absolute_error": 0.0
+        },
+        {
+          "seed": 43,
+          "output": "9:0",
+          "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-head-sharded-experiment/tp1/hunyuan_image_3_instruct_distil_00002_.png",
+          "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-head-sharded-experiment/tp2/hunyuan_image_3_instruct_distil_00002_.png",
+          "identical": true,
+          "rmse": 0.0,
+          "max_absolute_error": 0.0
+        },
+        {
+          "seed": 44,
+          "output": "9:0",
+          "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-head-sharded-experiment/tp1/hunyuan_image_3_instruct_distil_00003_.png",
+          "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-head-sharded-experiment/tp2/hunyuan_image_3_instruct_distil_00003_.png",
+          "identical": true,
+          "rmse": 0.0,
+          "max_absolute_error": 0.0
+        },
+        {
+          "seed": 45,
+          "output": "9:0",
+          "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-head-sharded-experiment/tp1/hunyuan_image_3_instruct_distil_00004_.png",
+          "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-distil-head-sharded-experiment/tp2/hunyuan_image_3_instruct_distil_00004_.png",
+          "identical": true,
+          "rmse": 0.0,
+          "max_absolute_error": 0.0
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Autoregressive probes cap generation at64tokens and compare one cold invocation and one warm repeat. They do not validate completion of a full recaption.",
+    "Generation times come from rounded upstream log values.",
+    "Autoregressive memory is sampled after execution, not peak.",
+    "Diffusion comparison uses one cold and three warm seeds per configuration.",
+    "All strategies partition whole experts when using two GPUs; expert-only replicates dense projections, while head-sharded also partitions dense projection rows and attention heads."
+  ],
+  "selection": {
+    "strategy": "whole-expert partitioning plus dense-output-row and attention-head TP",
+    "commit": "114789c3364bcc235f01c31dbc3e211db3257b8a",
+    "reason": "Improves both bounded autoregressive probes over TP1, divides KV cache heads, and marginally improves diffusion over expert-only under the matched 2 GiB headroom setting. No universal diffusion speedup is claimed.",
+    "experiment_switches_removed": true,
+    "normal_memory_setting_benchmark": "Running separately; the completed strategy comparison uses 2 GiB additional headroom."
+  }
+}
