@@ -111,15 +111,4 @@ def gathered_output_operations(base_operations, parallel: TensorParallelConfig):
             def forward(self, *args, **kwargs):
                 return parallel.operations.gather(super().forward(*args, **kwargs))
 
-        class MoEExperts(base_operations.MoEExperts):
-            tensor_parallel_output = True
-            tensor_parallel = parallel
-            def __init__(self, num_experts, in_features, out_features, bias=True, *, device=None, dtype=None):
-                if out_features % parallel.size:
-                    raise ValueError(f"Expert output size {out_features} must divide {parallel.size} ranks")
-                super().__init__(num_experts, in_features, out_features // parallel.size, bias=bias, device=device, dtype=dtype)
-
-            def expert_linear(self, input, i):
-                return parallel.operations.gather(super().expert_linear(input, i))
-
     return GatheredOutputOperations

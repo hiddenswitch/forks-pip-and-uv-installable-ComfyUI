@@ -196,22 +196,22 @@ def test_row_parallel_bias_is_added_once(size):
 
 
 @pytest.mark.parametrize("size", [2, 4])
-def test_gathered_expert_rows_preserve_full_input_and_output(size):
+def test_gathered_projection_rows_preserve_full_input_and_output(size):
     torch.manual_seed(7)
     base = ops.mixed_precision_ops(compute_dtype=torch.float32)
     collective = Collectives(size)
-    weights = torch.randn(3, 16, 32)
+    weights = torch.randn(16, 32)
     inputs = torch.randn(5, 32)
     modules = []
     for rank in range(size):
         operations = gathered_output_operations(base, TensorParallelConfig(Rank(collective, rank)))
-        module = operations.MoEExperts(3, 32, 16, bias=False)
-        module.load_state_dict({"weight": weights[:, rank * (16 // size):(rank + 1) * (16 // size)].clone()})
+        module = operations.Linear(32, 16, bias=False)
+        module.load_state_dict({"weight": weights[rank * (16 // size):(rank + 1) * (16 // size)].clone()})
         modules.append(module)
     with ThreadPoolExecutor(size) as pool:
-        outputs = list(pool.map(lambda rank: modules[rank].expert_linear(inputs, 1), range(size)))
+        outputs = list(pool.map(lambda rank: modules[rank](inputs), range(size)))
     for output in outputs:
-        torch.testing.assert_close(output, inputs @ weights[1].t())
+        torch.testing.assert_close(output, inputs @ weights.t())
 
 
 @pytest.mark.parametrize("expert_codebook", [False, True])
