@@ -97,8 +97,9 @@ def test_custom_cache_state_survives_rank_transport(cache_kind):
 
 @pytest.mark.parametrize("size", [2, 4])
 @pytest.mark.parametrize("tokens", [1, 5])
+@pytest.mark.parametrize("kv_heads", [2, 4])
 @pytest.mark.parametrize("shard_dense,shard_attention", [(False, False), (True, False), (True, True)])
-def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, shard_dense, shard_attention, tmp_path):
+def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, kv_heads, shard_dense, shard_attention, tmp_path):
     entry = next(ep for ep in distribution("comfyui-hunyuanimage3").entry_points if ep.group == "comfyui.custom_nodes").load()
     root = Path(entry.COMFYUI_VANILLA_NODE_PATH) / "ComfyUI-HunyuanImage3"
     prepare_vanilla_environment()
@@ -109,7 +110,7 @@ def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, sh
     config = json.loads(Path(loader.CONFIG_PATH).read_text())
     config.update(loader.MODEL_TYPES["instruct_distil"], model_type="instruct_distil")
     params = dataclasses.replace(upstream.params_from_config(config),
-        hidden_size=32, num_hidden_layers=2, num_attention_heads=8, num_key_value_heads=4,
+        hidden_size=32, num_hidden_layers=2, num_attention_heads=8, num_key_value_heads=kv_heads,
         attention_head_dim=4, moe_intermediate_size=16, num_experts=8, moe_topk=2,
         num_shared_expert=1, vocab_size=64, pad_token_id=0,
     )
@@ -170,7 +171,8 @@ def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, sh
         outputs = list(pool.map(lambda rank: ranks[rank].model(next_input, next_frequencies, kv_cache=rank_caches[rank]), range(size)))
     for output, cache in zip(outputs, rank_caches):
         torch.testing.assert_close(output, expected, rtol=1e-5, atol=1e-6)
-        expected_heads = params.num_key_value_heads // size if shard_attention else params.num_key_value_heads
+        split_heads = shard_attention and params.num_key_value_heads % size == 0
+        expected_heads = params.num_key_value_heads // size if split_heads else params.num_key_value_heads
         assert all(key.shape[1] == expected_heads and key.shape[2] == tokens + 1 for key, value in cache)
 
 
