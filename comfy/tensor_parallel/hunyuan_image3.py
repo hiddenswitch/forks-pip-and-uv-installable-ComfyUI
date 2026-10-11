@@ -85,7 +85,7 @@ def _moe_forward(self, hidden_states):
     return self.shared_mlp(hidden_states) + routed
 
 
-def _shard_model(model, base_operations, parallel, *, shard_dense=True, shard_attention=False):
+def _shard_model(model, base_operations, parallel):
     operations = gathered_output_operations(base_operations, parallel)
 
     class AttentionOutput(operations.Linear):
@@ -98,7 +98,7 @@ def _shard_model(model, base_operations, parallel, *, shard_dense=True, shard_at
     for name, module in list(model.named_modules()):
         if not name.startswith("model.layers.") or name.endswith(".gate.wg"):
             continue
-        if shard_dense and shard_attention and name.endswith(".self_attn"):
+        if name.endswith(".self_attn"):
             if module.num_key_value_heads % parallel.size == 0:
                 module.num_heads //= parallel.size
                 module.num_key_value_heads //= parallel.size
@@ -113,7 +113,7 @@ def _shard_model(model, base_operations, parallel, *, shard_dense=True, shard_at
                 raise ValueError(f"{name}: {module.num_experts} experts must divide {parallel.size} ranks")
             replacement = base_operations.MoEExperts(module.num_experts // parallel.size, module.in_features, module.out_features, bias=module.bias is not None, device="cpu")
             axis = 0
-        elif shard_dense and isinstance(module, base_operations.Linear):
+        elif isinstance(module, base_operations.Linear):
             owner, _, projection = name.rpartition(".")
             if owner in attention and projection == "qkv_proj":
                 replacement = base_operations.Linear(module.in_features, module.out_features // parallel.size, bias=module.bias is not None, device="cpu")
