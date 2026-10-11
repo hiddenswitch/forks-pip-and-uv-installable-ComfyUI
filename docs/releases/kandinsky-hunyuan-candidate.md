@@ -204,8 +204,11 @@ The combined strategy is selected: its autoregressive probes are 1.48x/1.50x
 faster than TP1 and its KV cache is head-partitioned. Diffusion remains 22.6%
 slower with this memory setting. Experimental switches have been removed.
 Evidence, exact source revisions/diffs and limitations are in
-`release-artifacts/hunyuan-partition-comparison.json`. A separate benchmark is
-checking the normal memory reservation; do not mix the two settings' timings.
+`release-artifacts/hunyuan-partition-comparison.json`. With normal memory settings (no additional headroom), a fresh matched
+eight-run benchmark completed at 43.74 seconds TP1 versus 45.25 seconds TP2
+(warm medians; TP2 3.5% slower). All four images are pixel-identical. See
+`release-artifacts/hunyuan-head-default-memory-benchmark.json`. The TP2 warm
+range was 40.78–46.80 seconds. Do not mix timings from the two memory settings.
 
 Real-model local-KV cancellation, recovery and unload/reload also passed.
 See `release-artifacts/hunyuan-local-kv-lifecycle-validation.json`. The final

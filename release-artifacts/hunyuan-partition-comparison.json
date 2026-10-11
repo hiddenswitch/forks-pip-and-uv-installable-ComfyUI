@@ -629,6 +629,6 @@
     "commit": "114789c3364bcc235f01c31dbc3e211db3257b8a",
     "reason": "Improves both bounded autoregressive probes over TP1, divides KV cache heads, and marginally improves diffusion over expert-only under the matched 2 GiB headroom setting. No universal diffusion speedup is claimed.",
     "experiment_switches_removed": true,
-    "normal_memory_setting_benchmark": "Running separately; the completed strategy comparison uses 2 GiB additional headroom."
+    "normal_memory_setting_benchmark": "Completed separately: hunyuan-head-default-memory-benchmark.json; TP1 warm median 43.7428 s, TP2 45.2548 s. All four images are pixel-identical."
   }
 }
