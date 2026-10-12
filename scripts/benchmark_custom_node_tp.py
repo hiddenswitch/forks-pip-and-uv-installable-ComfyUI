@@ -12,6 +12,7 @@ import importlib.metadata
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import statistics
 import subprocess
@@ -86,9 +87,20 @@ def add_trace_timings(results, output):
             related = [span for span in spans if result["start_time_unix_nano"] <= span["start_time_unix_nano"] <= result["end_time_unix_nano"]]
             samplers = [span for span in related if span["name"] == "Sampler Invoke"]
             result["sampler_seconds"] = sum(span["duration_ms"] for span in samplers) / 1000 if samplers else None
-            for key, classes in (("generator_node_seconds", {"KSampler", "Kandinsky6Sampler"}), ("sr_node_seconds", {"Kandinsky6VSRUpscale"})):
+            for key, classes in (("generator_node_seconds", {"KSampler", "Kandinsky6Sampler"}),
+                                 ("text_encode_node_seconds", {"HunyuanImage3TextEncode"}),
+                                 ("model_loader_seconds", {"HunyuanImage3ModelLoader"}),
+                                 ("sr_node_seconds", {"Kandinsky6VSRUpscale"})):
                 nodes = [span for span in related if span["name"] == "Execute Node" and span.get("attributes", {}).get("class_type") in classes]
                 result[key] = sum(span["duration_ms"] for span in nodes) / 1000 if nodes else None
+
+
+def decode_timings(log):
+    completed = re.findall(r"rewriting:\s+(\d+) tokens in (\d+)s", log)
+    return {
+        "autoregressive_generated_tokens": sum(int(tokens) for tokens, _ in completed) if completed else None,
+        "autoregressive_decode_seconds_rounded": sum(int(seconds) for _, seconds in completed) if completed else None,
+    }
 
 
 def run(args):
@@ -161,6 +173,7 @@ def run(args):
                     (destination / f"seed{seed}.prompt.json").write_text(json.dumps(prompt, indent=2))
                     start_ns = time.time_ns()
                     started = time.monotonic()
+                    log_start = os.fstat(log.fileno()).st_size
                     response = request(base, "/prompt", {"prompt": prompt})
                     if response.get("node_errors"):
                         raise RuntimeError(response)
@@ -186,6 +199,9 @@ def run(args):
                     result = dict(tp=size, seed=seed, cold=index == 0, job_wall_seconds=elapsed,
                                   peak_host_pss_bytes=host_peak, peak_device_used_bytes=gpu_peak,
                                   start_time_unix_nano=start_ns, end_time_unix_nano=time.time_ns())
+                    with (destination / "server.log").open("rb") as completed_log:
+                        completed_log.seek(log_start)
+                        result.update(decode_timings(completed_log.read().decode(errors="replace")))
                     results.append(result)
                     (output / "results.json").write_text(json.dumps(results, indent=2))
                     print(json.dumps(result), flush=True)  # noqa: T201
@@ -202,7 +218,7 @@ def run(args):
     add_trace_timings(results, output)
     (output / "results.json").write_text(json.dumps(results, indent=2))
     with (output / "results.csv").open("w") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=results[0].keys())
+        writer = csv.DictWriter(csv_file, fieldnames=list(dict.fromkeys(key for row in results for key in row)))
         writer.writeheader()
         writer.writerows(results)
     medians = {size: statistics.median(r["job_wall_seconds"] for r in results if r["tp"] == size and not r["cold"]) for size in {r["tp"] for r in results if not r["cold"]}}

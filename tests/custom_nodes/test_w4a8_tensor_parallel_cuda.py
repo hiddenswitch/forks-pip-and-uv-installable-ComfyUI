@@ -1,8 +1,11 @@
 """Run W4A8 projection and expert sharding through real CUDA kernels and NCCL."""
 import json
 import importlib
+from datetime import timedelta
 from importlib.metadata import distribution
 from pathlib import Path
+from types import SimpleNamespace
+import time
 
 import pytest
 import torch
@@ -13,6 +16,7 @@ from comfy import ops
 from comfy.tensor_parallel.operations import gathered_output_operations
 from comfy.tensor_parallel.runtime import TorchDistributedTensorParallelOperations
 from comfy.tensor_parallel.types import TensorParallelConfig
+from comfy.tensor_parallel.distributed import TorchDistributedModelParallelExecutor, _ObjectCoordinator, _run_worker
 from comfy.nodes.vanilla_node_importing import _vanilla_load_custom_nodes_1
 from comfy_compatibility.vanilla import prepare_vanilla_environment
 
@@ -73,3 +77,47 @@ def _w4a8_rank(rank, rendezvous):
 @pytest.mark.skipif(torch.cuda.device_count() < 2, reason="requires two CUDA devices")
 def test_w4a8_tp2_matches_unsharded_cuda(tmp_path):
     mp.spawn(_w4a8_rank, args=((tmp_path / "nccl-init").as_uri(),), nprocs=2, join=True)
+
+
+def _failing_rank(rank, rendezvous):
+    torch.cuda.set_device(rank)
+    device = torch.device("cuda", rank)
+    dist.init_process_group("gloo", init_method=rendezvous, rank=rank, world_size=2, timeout=timedelta(seconds=20))
+    group = dist.new_group(backend="nccl", device_id=device, timeout=timedelta(seconds=20))
+    operations = TorchDistributedTensorParallelOperations(rank, 2, device, group, dist.group.WORLD)
+    coordinator = _ObjectCoordinator()
+
+    class Model:
+        def forward(self):
+            if rank:
+                raise RuntimeError("synthetic peer allocation failure")
+            return operations.sum(torch.ones(1, device=device)).item()
+
+    if rank == 0:
+        executor = TorchDistributedModelParallelExecutor(Model(), operations, coordinator, [], [],
+                                                         [torch.device("cuda", i) for i in range(2)], [0, 0])
+        try:
+            started = time.monotonic()
+            with pytest.raises(RuntimeError):
+                executor.execute()
+            assert time.monotonic() - started < 10, "peer errors must not wait for the NCCL timeout"
+        finally:
+            executor.close()
+    else:
+        _run_worker(operations, coordinator, SimpleNamespace(model=SimpleNamespace(diffusion_model=Model())), "test")
+        dist.destroy_process_group()
+
+
+@pytest.mark.skipif(torch.cuda.device_count() < 2, reason="requires two CUDA devices")
+def test_peer_failure_interrupts_nccl_collective(tmp_path):
+    processes = mp.spawn(_failing_rank, args=((tmp_path / "nccl-failure").as_uri(),), nprocs=2, join=False)
+    deadline = time.monotonic() + 45
+    try:
+        while not processes.join(timeout=1):
+            if time.monotonic() > deadline:
+                pytest.fail("A peer failure left the root blocked in NCCL")
+    finally:
+        for process in processes.processes:
+            if process.is_alive():
+                process.terminate()
+            process.join(timeout=5)
