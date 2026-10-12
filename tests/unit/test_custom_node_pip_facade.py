@@ -863,7 +863,7 @@ async def test_cnr_only_node_becomes_facade_project(monkeypatch):
                 "repository": "https://github.com/Holonica-Development-Team/QwenWhiteBgDetector",
                 "description": "White background detector",
                 "status": "NodeStatusActive",
-                "latest_version": {"version": "1.0.0"},
+                "latest_version": {"version": "1.0.0", "status": "NodeVersionStatusActive"},
             },
             {
                 "id": "banned-node",
@@ -899,6 +899,117 @@ async def test_cnr_only_node_becomes_facade_project(monkeypatch):
     assert await registry.get_project("gguf") is None
 
 
+async def test_flagged_registry_latest_version_is_not_a_declared_latest(monkeypatch):
+    """The registry reports a flagged version as a node's latest_version, but
+    the versions the facade serves are only the active and pending ones."""
+    from comfy.custom_node_facade import registry as registry_module
+    from comfy.custom_node_facade.registry import FacadeRegistry
+    from comfy.custom_node_facade.snapshot import _validated_installable_projects
+
+    async def manager_registry(_session):
+        return [
+            {
+                "title": "Anthropic Claude",
+                "reference": "https://github.com/alexmunteanu/comfyui-anthropic-claude",
+                "description": "",
+            }
+        ]
+
+    def flagged_latest(node_id: str, version: str) -> dict:
+        return {
+            "id": "ffbd422c-f87f-4119-b869-3ead9ffa6a6d",
+            "node_id": node_id,
+            "version": version,
+            "status": "NodeVersionStatusFlagged",
+            "downloadUrl": "",
+            "dependencies": [],
+            "deprecated": False,
+        }
+
+    async def cnr_nodes(_self):
+        return [
+            {
+                "id": "anthropic-claude",
+                "name": "Anthropic Claude",
+                "repository": "https://github.com/alexmunteanu/comfyui-anthropic-claude",
+                "status": "NodeStatusActive",
+                "latest_version": flagged_latest("anthropic-claude", "1.5.25"),
+            },
+            {
+                "id": "4a-prompt-manager",
+                "name": "4A Prompt Manager",
+                "repository": "https://github.com/tsukino4a/ComfyUI-4A-Prompt-Manager",
+                "status": "NodeStatusActive",
+                "latest_version": flagged_latest("4a-prompt-manager", "1.4.4"),
+            },
+            {
+                "id": "qwen-whitebg-detector",
+                "name": "qwen-whitebg-detector",
+                "repository": "https://github.com/Holonica-Development-Team/QwenWhiteBgDetector",
+                "status": "NodeStatusActive",
+                "latest_version": {
+                    "version": "1.0.0",
+                    "status": "NodeVersionStatusActive",
+                    "downloadUrl": "",
+                },
+            },
+        ]
+
+    installable = {
+        "anthropic-claude": "1.5.22",
+        "4a-prompt-manager": "1.4.3",
+        "qwen-whitebg-detector": "1.0.0",
+    }
+
+    class _VersionsResponse:
+        def __init__(self, node_id: str):
+            self._node_id = node_id
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_exc):
+            return False
+
+        def raise_for_status(self):
+            return None
+
+        async def json(self):
+            version = installable[self._node_id]
+            return [
+                {
+                    "version": version,
+                    "status": "NodeVersionStatusActive",
+                    "downloadUrl": f"https://cdn.comfy.org/example/{self._node_id}/{version}/node.zip",
+                    "dependencies": [],
+                    "deprecated": False,
+                }
+            ]
+
+    class _VersionsSession:
+        def get(self, url, params=None):
+            assert params == [
+                ("statuses", "NodeVersionStatusActive"),
+                ("statuses", "NodeVersionStatusPending"),
+            ]
+            return _VersionsResponse(url.split("/nodes/")[1].removesuffix("/versions"))
+
+    monkeypatch.setattr(registry_module, "_load_manager_registry", manager_registry)
+    monkeypatch.setattr(FacadeRegistry, "_fetch_cnr_nodes", cnr_nodes)
+
+    registry = FacadeRegistry(session=_VersionsSession())  # type: ignore[arg-type]
+    projects = await registry.list_projects()
+    by_node_id = {project.node_id: project for project in projects}
+    assert by_node_id["anthropic-claude"].latest_version is None
+    assert by_node_id["4a-prompt-manager"].latest_version is None
+    assert by_node_id["qwen-whitebg-detector"].latest_version == "1.0.0"
+
+    versions = {
+        project.node_id: await registry.list_versions(project) for project in projects
+    }
+    assert _validated_installable_projects(projects, versions) == projects
+
+
 async def test_registry_id_wins_name_collision_and_displaced_project_rekeys(
     monkeypatch,
 ):
@@ -921,14 +1032,14 @@ async def test_registry_id_wins_name_collision_and_displaced_project_rekeys(
                 "name": "longcat_avatar",
                 "repository": "https://github.com/smthemex/ComfyUI_LongCat_Avatar",
                 "status": "NodeStatusActive",
-                "latest_version": {"version": "0.2.0"},
+                "latest_version": {"version": "0.2.0", "status": "NodeVersionStatusActive"},
             },
             {
                 "id": "comfyui-longcat-avatar",
                 "name": "comfyui-longcat-avatar",
                 "repository": "https://github.com/rookiestar28/ComfyUI-LongCat-Avatar",
                 "status": "NodeStatusActive",
-                "latest_version": {"version": "0.2.0"},
+                "latest_version": {"version": "0.2.0", "status": "NodeVersionStatusActive"},
             },
         ]
 
@@ -978,7 +1089,7 @@ async def test_manager_fallback_does_not_poison_registry_owner_versions(monkeypa
                 "name": "ComfyUI-BAGEL",
                 "repository": "https://github.com/neverbiasu/ComfyUI-BAGEL",
                 "status": "NodeStatusActive",
-                "latest_version": {"version": "1.1.0"},
+                "latest_version": {"version": "1.1.0", "status": "NodeVersionStatusActive"},
             }
         ]
 
@@ -1218,14 +1329,14 @@ async def test_manager_name_collision_resolves_to_registry_owner(monkeypatch):
                 "name": "ComfyUI_IPAdapter_plus",
                 "repository": "https://github.com/cubiq/ComfyUI_IPAdapter_plus",
                 "status": "NodeStatusActive",
-                "latest_version": {"version": "2.0.0"},
+                "latest_version": {"version": "2.0.0", "status": "NodeVersionStatusActive"},
             },
             {
                 "id": "comfyui_ipadapter_plus_fork",
                 "name": "ComfyUI_IPAdapter_plus_fork",
                 "repository": "https://github.com/pamparamm/ComfyUI_IPAdapter_plus",
                 "status": "NodeStatusActive",
-                "latest_version": {"version": "2.0.1"},
+                "latest_version": {"version": "2.0.1", "status": "NodeVersionStatusActive"},
             },
         ]
 

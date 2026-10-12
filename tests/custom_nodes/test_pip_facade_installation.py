@@ -78,7 +78,7 @@ def mock_registry_base_url() -> str:
                             "name": "ComfyUI-Custom-Scripts",
                             "repository": _CUSTOM_SCRIPTS_REPO_URL,
                             "description": "Scripts",
-                            "latest_version": {"version": "1.2.5"},
+                            "latest_version": {"version": "1.2.5", "status": "NodeVersionStatusActive"},
                         }
                     ],
                 }
