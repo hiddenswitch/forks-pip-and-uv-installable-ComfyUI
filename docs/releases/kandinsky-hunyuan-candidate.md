@@ -6,7 +6,45 @@ The candidate includes master `088ef4eb5` (0.39.0.1) and develop `0f373939d`.
 The intended next patch is **0.39.0.2**. No model release has been tagged or
 published. Full sample benchmarks and final device CI are still required.
 
-## Latest complete Instruct comparison
+## Diffusion TP loader correction
+
+`9197debf1` fixes checkpoint-shard loading: contiguous shards retain bounded
+file-backed storage and ComfyUI's `TensorFileSlice` streaming metadata, instead
+of being cloned into anonymous host RAM. Noncontiguous slices still copy;
+disabled mmap retains the old loading path. Sharding, model math and quantization
+are unchanged. Profiling showed that native attention compute already halved
+per rank, while weight transfers and unequal rank arrival consumed the savings.
+
+A fresh-process comparison supplies the same completed caption directly to both
+configurations, then runs all 50 steps and saves the image. It uses Instruct
+W4A8, native INT8 attention, 1024², seed 42, CFG 2.5, and 2 GiB extra headroom on
+two NVLinked RTX A5000s. No profiling, warm probes or truncated generations are
+included in these timings.
+
+| Stage | One GPU | Combined EP/TP, two GPUs | Speedup |
+| --- | ---: | ---: | ---: |
+| Denoising loop | 316.99 s | 201.00 s | 1.58× |
+| Diffusion including conditioning preparation | 349.18 s | 222.76 s | 1.57× |
+| Complete fixed-caption image job | 357.31 s | 235.60 s | 1.52× |
+| Peak aggregate host PSS | 58.95 GB | 61.97 GB | — |
+
+Both saved images were visually checked against the fox prompt; pixel RMSE is
+0.862/255. These are single cold-process measurements, with OS caches retained.
+The supplied-caption workflow differs from autoregressive prompt preparation,
+so compare these columns with each other, not their total time with rewrite jobs.
+The 94 affected CPU regressions, Ruff and Pylint error checks pass. Full CI is
+running on the correction. Evidence and the reproduced/reverted allocation-order
+failure are recorded in `release-artifacts/hunyuan-diffusion-tp-fix-validation.json`.
+
+The complete two-GPU rewrite-plus-image workflow also passed: **394.87 s versus
+498.75 s** before the loader fix (20.8% lower total latency). Its diffusion stage,
+including prefix preparation, fell from 327.41 s to 200.68 s; the denoising loop
+fell from 317.12 s to 197.01 s. Cold autoregressive decode increased from 126 s to
+159 s, so this change does not improve that phase. The complete 273-token rewrite
+and saved PNG are **identical** before/after the loader fix. Peak aggregate host
+PSS fell from 90.56 GB to 74.98 GB. The saved image was also visually checked.
+
+## Earlier complete Instruct comparison (before the loader correction)
 
 Runtime `77bd38ffb` batches conditional/unconditional diffusion, reuses static
 conditioning K/V, grows autoregressive K/V in blocks, and reuses resident expert
