@@ -184,6 +184,7 @@ class Configuration(dict):
         distributed_queue_name (str): This name will be used by the frontends and workers to exchange prompt requests and replies. Progress updates will be prefixed by the queue name, followed by a '.', then the user ID.
         external_address (str): Specifies a base URL for external addresses reported by the API, such as for image paths.
         logging_level (str): Specifies a log level
+        aimdo_logging_level (str): Log level of comfy-aimdo's native library (DynamicVRAM), apart from logging_level. Defaults to ERROR: its VRAM usage dump logs every pinned page at WARNING.
         debug_hang (bool): Enable stack trace dumps on Ctrl-C for debugging hangs.
         disable_known_models (bool): Disables automatic downloads of known models and prevents them from appearing in the UI.
         max_queue_size (int): The API will reject prompt requests if the queue's size exceeds this value.
@@ -255,6 +256,7 @@ class Configuration(dict):
         pip_facade_cache_s3_endpoint_url (Optional[str]): Custom S3-compatible endpoint URL for an s3:// pip-facade cache prefix.
         pip_facade_only_known_nodes (bool): Only expose nodes present in this repository's local compatibility registry.
         pip_facade_snapshot_uri (Optional[str]): Read a pip-facade registry snapshot from this fsspec URI instead of querying the live registry API.
+        pip_facade_snapshot_max_age_seconds (int): Maximum snapshot age before metadata and readiness return 503. Zero disables age enforcement.
         pip_facade_snapshot_output (Optional[str]): Output path for `snapshot-pip-registry`. Use a `.xz` suffix or `--pip-facade-snapshot-compression=xz` for a compressed archive.
         pip_facade_snapshot_compression (str): Snapshot compression mode for `snapshot-pip-registry`. One of `auto`, `none`, or `xz`.
         pip_facade_snapshot_overwrite (bool): Overwrite an existing snapshot output file.
@@ -379,6 +381,7 @@ class Configuration(dict):
         self.force_hf_local_dir_mode: bool = False
         self.preview_size: int = 512
         self.logging_level: str = "INFO"
+        self.aimdo_logging_level: str = "ERROR"
         self.debug_hang: bool = False
         self.oneapi_device_selector: Optional[str] = None
         self.log_stdout: bool = False
@@ -455,6 +458,7 @@ class Configuration(dict):
         self.pip_facade_cache_revision: Optional[int] = None
         self.pip_facade_only_known_nodes: bool = False
         self.pip_facade_snapshot_uri: Optional[str] = None
+        self.pip_facade_snapshot_max_age_seconds: int = 0
         self.pip_facade_snapshot_output: Optional[str] = None
         self.pip_facade_snapshot_compression: str = "auto"
         self.pip_facade_snapshot_overwrite: bool = False

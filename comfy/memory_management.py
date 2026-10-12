@@ -177,6 +177,17 @@ def interpret_gathered_like(tensors, gathered):
 
 aimdo_allocator = None
 
+
+def set_aimdo_log_level(control, level: str) -> None:
+    """comfy-aimdo's native log level, from --aimdo-logging-level rather than --logging-level."""
+    {
+        "DEBUG": control.set_log_debug,
+        "WARNING": control.set_log_warning,
+        "ERROR": control.set_log_error,
+        "CRITICAL": control.set_log_critical,
+    }.get(level, control.set_log_info)()
+
+
 _module_properties = create_module_properties()
 
 

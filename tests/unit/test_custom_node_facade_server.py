@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from aiohttp.test_utils import TestClient, TestServer
+import pytest
 
 from comfy.component_model.configuration import Configuration
 from comfy.custom_node_facade import server as facade_server
 from comfy.custom_node_facade.rocm_index import RocmSimpleIndexProxy, _absolute_links
+from comfy.custom_node_facade.snapshot import write_facade_registry_snapshot
 
 
 class _FakeRegistry:
@@ -29,6 +31,80 @@ class _FakeSnapshotRegistry(_FakeRegistry):
 class _FakeBuilder:
     def __init__(self, *args, **kwargs):
         del args, kwargs
+
+
+def test_local_cache_health_checks_usable_directory(tmp_path):
+    root = tmp_path / "cache"
+    cache = facade_server.FacadeCacheStore(root)
+    cache.check_local_storage()
+    assert list(root.iterdir()) == []
+    root.rmdir()
+    root.write_bytes(b"not a directory")
+    with pytest.raises(OSError):
+        cache.check_local_storage()
+    root.unlink()
+    cache.check_local_storage()
+
+
+async def test_snapshot_health_tracks_mount_loss_and_recovers(tmp_path, monkeypatch):
+    snapshot = tmp_path / "registry.sqlite"
+    config = Configuration()
+    config.pip_facade_snapshot_uri = str(snapshot)
+    config.pip_facade_snapshot_max_age_seconds = 2100
+    monkeypatch.setattr(facade_server, "triton_prewarm_targets", _no_prewarm)
+
+    def write():
+        write_facade_registry_snapshot(
+            snapshot, projects=[], versions_by_node_id={},
+            base_url="https://registry.example.invalid", only_known_nodes=True,
+        )
+
+    async with TestClient(TestServer(facade_server.create_facade_app(configuration=config))) as client:
+        for path in ("/readyz", "/healthz", "/simple/"):
+            response = await client.get(path)
+            assert response.status == 503
+            assert response.headers["Cache-Control"] == "no-store"
+        assert (await client.get("/livez")).status == 200
+        write()
+        response = await client.get("/readyz")
+        assert response.status == 200
+        assert (await response.json())["snapshot_created_at"]
+        assert (await client.get("/simple/")).status == 200
+        snapshot.unlink()
+        assert (await client.get("/readyz")).status == 503
+        assert (await client.get("/simple/")).status == 503
+        assert (await client.get("/livez")).status == 200
+        write()
+        assert (await client.get("/readyz")).status == 200
+
+
+async def _no_prewarm(session):
+    for item in ():
+        yield item
+
+
+async def test_readiness_detects_disconnected_wheel_cache(tmp_path, monkeypatch):
+    config = Configuration()
+    config.pip_facade_cache_prefix = str(tmp_path / "cache")
+    monkeypatch.setattr(facade_server, "FacadeRegistry", _FakeRegistry)
+    monkeypatch.setattr(facade_server, "triton_prewarm_targets", _no_prewarm)
+    app = facade_server.create_facade_app(configuration=config)
+    async with TestClient(TestServer(app)) as client:
+        assert (await client.get("/readyz")).status == 200
+        cache = app["facade_triton_cache"]
+        original = cache.check_local_storage
+
+        def disconnected():
+            raise OSError(107, "Transport endpoint is not connected")
+
+        monkeypatch.setattr(cache, "check_local_storage", disconnected)
+        response = await client.get("/readyz")
+        assert response.status == 503
+        assert "Transport endpoint" in (await response.json())["cache_error"]
+        assert response.headers["Cache-Control"] == "no-store"
+        assert (await client.get("/livez")).status == 200
+        monkeypatch.setattr(cache, "check_local_storage", original)
+        assert (await client.get("/readyz")).status == 200
 
 
 class _FakeProxy:

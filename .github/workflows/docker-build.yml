@@ -151,6 +151,7 @@ jobs:
           tags=(--tag "${image}:${short_sha}" --tag "${image}:${short_sha}-cuda")
           if [ "$GITHUB_REF" = refs/heads/master ]; then
             tags+=(--tag "${image}:latest" --tag "${image}:latest-cuda")
+            tags+=(--tag "${image}:master-${short_sha}-$(date +%s)")
           else
             tags+=(--tag "${image}:develop" --tag "${image}:develop-cuda")
           fi

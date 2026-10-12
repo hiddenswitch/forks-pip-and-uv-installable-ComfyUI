@@ -12,6 +12,7 @@ import shutil
 import sqlite3
 import tempfile
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Protocol
@@ -145,6 +146,21 @@ def _normalize_pep440_versions(
     return normalized
 
 
+# The registry version statuses the facade serves.  A node's latest_version in
+# the registry's node listing can name a version in another status (flagged),
+# which the versions query never returns, so it is not a declared latest.
+_INSTALLABLE_VERSION_STATUSES = ("NodeVersionStatusActive", "NodeVersionStatusPending")
+
+
+def _installable_latest_version(cnr: dict[str, Any]) -> str | None:
+    latest = cnr.get("latest_version")
+    if not isinstance(latest, dict):
+        return None
+    if latest.get("status") not in _INSTALLABLE_VERSION_STATUSES:
+        return None
+    return _normalize_pep440_version(latest.get("version", ""))
+
+
 _MANAGER_REGISTRY_URL = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/custom-node-list.json"
 
 
@@ -226,9 +242,17 @@ class FacadeRegistryProtocol(Protocol):
     async def dependency_project_name(self, dependency_id: str) -> str: ...
 
 
+class SnapshotUnavailableError(RuntimeError):
+    """The configured registry snapshot cannot safely serve metadata."""
+
+
 class SnapshotFacadeRegistry:
-    def __init__(self, *, snapshot_uri: str) -> None:
+    def __init__(self, *, snapshot_uri: str, max_age_seconds: int = 0) -> None:
+        if max_age_seconds < 0:
+            raise ValueError("Snapshot maximum age must be nonnegative")
         self._snapshot_uri = snapshot_uri
+        self._max_age_seconds = max_age_seconds
+        self._created_at: datetime | None = None
         self._db_path: str | None = None
         self._lock = asyncio.Lock()
         self._projects: list[FacadeProject] = []
@@ -248,20 +272,18 @@ class SnapshotFacadeRegistry:
     def _needs_reload(self) -> bool:
         path = self._file_path()
         if path is None:
-            return not self._projects
+            return not self._projects or bool(self._max_age_seconds and self.snapshot_age_seconds > self._max_age_seconds)
         signature = self._file_signature()
-        if signature is None:
-            return not self._projects
         return signature != self._loaded_signature
 
     def _file_signature(self) -> tuple[int, int, int, int, int] | None:
         path = self._file_path()
         if path is None:
             return None
-        try:
-            stat = os.stat(path)
-        except OSError:
-            return None
+        # A cached generation must not hide a disconnected shared-volume mount.
+        with open(path, "rb") as source:
+            source.read(1)
+            stat = os.fstat(source.fileno())
         return (
             stat.st_dev,
             stat.st_ino,
@@ -271,6 +293,32 @@ class SnapshotFacadeRegistry:
         )
 
     async def _ensure_loaded(self) -> None:
+        try:
+            await self._reload_if_needed()
+            if self._max_age_seconds and self.snapshot_age_seconds > self._max_age_seconds:
+                raise SnapshotUnavailableError("Registry snapshot has expired")
+        except (OSError, sqlite3.Error, ValueError, KeyError) as exc:
+            raise SnapshotUnavailableError(f"Registry snapshot is unavailable: {exc}") from exc
+
+    @property
+    def snapshot_age_seconds(self) -> float:
+        if self._created_at is None:
+            return 0.0
+        return max(0.0, (datetime.now(timezone.utc) - self._created_at).total_seconds())
+
+    async def health(self) -> dict[str, Any]:
+        error = None
+        try:
+            await self._ensure_loaded()
+        except SnapshotUnavailableError as exc:
+            error = str(exc)
+        return {
+            "snapshot_created_at": self._created_at.isoformat() if self._created_at else None,
+            "snapshot_age_seconds": self.snapshot_age_seconds if self._created_at else None,
+            "snapshot_error": error,
+        }
+
+    async def _reload_if_needed(self) -> None:
         if not self._needs_reload():
             return
         async with self._lock:
@@ -278,7 +326,7 @@ class SnapshotFacadeRegistry:
                 return
             while True:
                 signature_before = self._file_signature()
-                projects, aliases, versions = await asyncio.to_thread(self._load_all)
+                projects, aliases, versions, created_at = await asyncio.to_thread(self._load_all)
                 signature_after = self._file_signature()
                 if (
                     self._file_path() is not None
@@ -292,6 +340,7 @@ class SnapshotFacadeRegistry:
                 self._alias_cache = aliases
                 self._versions_cache = versions
                 self._loaded_signature = signature_after
+                self._created_at = created_at
                 return
 
     async def list_projects(self) -> list[FacadeProject]:
@@ -338,7 +387,7 @@ class SnapshotFacadeRegistry:
 
     def _load_all(
         self,
-    ) -> tuple[list[FacadeProject], dict[str, str], dict[str, list[FacadeVersion]]]:
+    ) -> tuple[list[FacadeProject], dict[str, str], dict[str, list[FacadeVersion]], datetime]:
         path = self._file_path()
         if path is not None and not self._needs_decompression(path):
             db_path = path
@@ -347,9 +396,15 @@ class SnapshotFacadeRegistry:
             db_path = self._materialize_snapshot()
             cleanup = True
         try:
-            conn = sqlite3.connect(db_path, check_same_thread=False)
+            conn = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             try:
+                metadata = dict(conn.execute("SELECT key, value FROM metadata"))
+                if metadata.get("format") != "appmana-comfyui-pip-facade-registry-snapshot" or metadata.get("schema_version") != "1":
+                    raise ValueError("Unsupported registry snapshot format or schema")
+                created_at = datetime.fromisoformat(metadata["created_at"])
+                if created_at.tzinfo is None:
+                    raise ValueError("Registry snapshot created_at must include a timezone")
                 projects = [
                     FacadeProject(
                         canonical_name=row["canonical_name"],
@@ -409,7 +464,7 @@ class SnapshotFacadeRegistry:
             )
 
         aliases = _build_alias_cache(projects)
-        return projects, aliases, versions_cache
+        return projects, aliases, versions_cache, created_at
 
     def _materialize_snapshot(self) -> str:
         with tempfile.NamedTemporaryFile(
@@ -550,10 +605,7 @@ class FacadeRegistry:
         async with self._versions_lock:
             if resolved.node_id in self._versions_cache:
                 return self._versions_cache[resolved.node_id]
-            params = [
-                ("statuses", "NodeVersionStatusActive"),
-                ("statuses", "NodeVersionStatusPending"),
-            ]
+            params = [("statuses", status) for status in _INSTALLABLE_VERSION_STATUSES]
             with tracer.start_as_current_span("List Facade Project Versions") as span:
                 span.set_attribute("facade.project_name", resolved.canonical_name)
                 span.set_attribute("facade.node_id", resolved.node_id)
@@ -742,12 +794,7 @@ class FacadeRegistry:
             canonicalize_project_name(repo_name),
             canonicalize_project_name(display_name),
         }
-        latest = cnr.get("latest_version")
-        latest_version = (
-            _normalize_pep440_version(latest.get("version", ""))
-            if isinstance(latest, dict)
-            else None
-        )
+        latest_version = _installable_latest_version(cnr)
         return FacadeProject(
             canonical_name=canonical_name,
             display_name=display_name,
@@ -835,10 +882,7 @@ class FacadeRegistry:
             seen_requirements.add(normalized)
             deduped_requirements.append(normalized)
 
-        latest_version = None
-        latest = cnr.get("latest_version")
-        if isinstance(latest, dict):
-            latest_version = _normalize_pep440_version(latest.get("version", ""))
+        latest_version = _installable_latest_version(cnr)
 
         return FacadeProject(
             canonical_name=canonical_name,

@@ -16,6 +16,7 @@ from pathlib import Path
 import aiohttp
 
 from ..component_model.configuration import Configuration
+from ..component_model.node_registry import CUSTOM_NODE_REGISTRY
 from .registry import (
     FacadeProject,
     FacadeRegistry,
@@ -83,6 +84,12 @@ def _build_class_type_rows(
                 project.canonical_name
             )
 
+    class_type_to_repo = dict(class_type_to_repo)
+    for spec in CUSTOM_NODE_REGISTRY:
+        if normalize_repo_url(spec.repo_url) not in repo_to_canonical:
+            continue
+        for class_type in spec.expected_node_types:
+            class_type_to_repo[class_type] = spec.repo_url
     rows: list[tuple[str, str]] = []
     for class_type, repo_url in class_type_to_repo.items():
         norm = normalize_repo_url(repo_url)

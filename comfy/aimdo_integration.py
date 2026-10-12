@@ -57,16 +57,7 @@ elif enables_dynamic_vram() and model_management.get_torch_device().type == "cud
         device_initialized = comfy_aimdo.control.init_device(device_indices[0])
 
     if comfy_aimdo.control.lib is not None and device_initialized:
-        if args.verbose == 'DEBUG':
-            comfy_aimdo.control.set_log_debug()
-        elif args.verbose == 'CRITICAL':
-            comfy_aimdo.control.set_log_critical()
-        elif args.verbose == 'ERROR':
-            comfy_aimdo.control.set_log_error()
-        elif args.verbose == 'WARNING':
-            comfy_aimdo.control.set_log_warning()
-        else: #INFO
-            comfy_aimdo.control.set_log_info()
+        memory_management.set_aimdo_log_level(comfy_aimdo.control, args.aimdo_logging_level)
 
         memory_management.aimdo_allocator = comfy_aimdo.torch.get_torch_allocator()
         logger.info("DynamicVRAM support detected and enabled")

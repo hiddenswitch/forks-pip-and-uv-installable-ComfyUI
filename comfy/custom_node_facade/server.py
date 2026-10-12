@@ -22,7 +22,7 @@ from .builder import (
 )
 from .triton_wheels import TritonWheelBuilder, prewarm_targets as triton_prewarm_targets
 from .rocm_index import RocmSimpleIndexProxy
-from .registry import FacadeRegistry, FacadeRegistryProtocol, SnapshotFacadeRegistry, canonicalize_project_name
+from .registry import FacadeRegistry, FacadeRegistryProtocol, SnapshotFacadeRegistry, SnapshotUnavailableError, canonicalize_project_name
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,17 @@ def create_facade_app(
     *,
     configuration: Configuration,
 ) -> web.Application:
-    app = web.Application()
+    @web.middleware
+    async def snapshot_errors(request: web.Request, handler):
+        try:
+            registry = request.app.get("facade_registry")
+            if request.path.startswith("/simple") and isinstance(registry, SnapshotFacadeRegistry):
+                await registry.list_projects()
+            return await handler(request)
+        except SnapshotUnavailableError as exc:
+            raise web.HTTPServiceUnavailable(text=str(exc), headers={"Cache-Control": "no-store"}) from exc
+
+    app = web.Application(middlewares=[snapshot_errors])
     app["facade_ready"] = False
     cache_prefix = configuration.pip_facade_cache_prefix
     if cache_prefix is None:
@@ -54,7 +64,10 @@ def create_facade_app(
             session = aiohttp.ClientSession(timeout=timeout)
             registry: FacadeRegistryProtocol
             if configuration.pip_facade_snapshot_uri:
-                registry = SnapshotFacadeRegistry(snapshot_uri=configuration.pip_facade_snapshot_uri)
+                registry = SnapshotFacadeRegistry(
+                    snapshot_uri=configuration.pip_facade_snapshot_uri,
+                    max_age_seconds=configuration.pip_facade_snapshot_max_age_seconds,
+                )
                 span.set_attribute("facade.snapshot_uri", configuration.pip_facade_snapshot_uri)
             else:
                 registry = FacadeRegistry(
@@ -80,8 +93,11 @@ def create_facade_app(
             application["facade_pypi_rewrite_locks"] = {}
             application["facade_rocm_proxy"] = RocmSimpleIndexProxy()
             with tracer.start_as_current_span("Warm Pip Facade Registry") as warmup_span:
-                projects = await registry.list_projects()
-                warmup_span.set_attribute("facade.project_count", len(projects))
+                try:
+                    projects = await registry.list_projects()
+                    warmup_span.set_attribute("facade.project_count", len(projects))
+                except SnapshotUnavailableError as exc:
+                    logger.warning("Facade snapshot is not ready: %s", exc)
             application["facade_ready"] = True
             # Build the triton / triton-windows wheels in the background so the
             # first request for a patched cu13x wheel is served from cache.
@@ -128,8 +144,18 @@ def create_facade_app(
 
     async def readiness(_: web.Request) -> web.Response:
         ready = bool(app.get("facade_ready"))
+        details = {}
+        if ready and isinstance(app["facade_registry"], SnapshotFacadeRegistry):
+            details = await app["facade_registry"].health()
+            ready = details["snapshot_error"] is None
+        if ready:
+            try:
+                await asyncio.to_thread(app["facade_triton_cache"].check_local_storage)
+            except OSError as exc:
+                details["cache_error"] = str(exc)
+                ready = False
         status = 200 if ready else 503
-        return web.json_response({"ok": ready, "live": True, "ready": ready}, status=status)
+        return web.json_response({"ok": ready, "live": True, "ready": ready, **details}, status=status, headers={"Cache-Control": "no-store"})
 
     async def _build_index(cuda: str) -> web.Response:
         with tracer.start_as_current_span("Serve Pip Facade Index") as span:

@@ -220,6 +220,7 @@ parser.add_argument('--distributed-queue-frontend', required=False, action="stor
 parser.add_argument("--distributed-queue-name", type=str, default="comfyui", help="Queue name.")
 parser.add_argument("--external-address", required=False, help="External address base URL.")
 parser.add_argument("--logging-level", type=str, default='INFO', help='Logging level.')
+parser.add_argument("--aimdo-logging-level", type=str, default='ERROR', help="Log level of comfy-aimdo's native library.")
 parser.add_argument("--disable-known-models", action="store_true", help="Disable known model downloads.")
 parser.add_argument("--max-queue-size", type=int, default=65536, help="Max queue size.")
 

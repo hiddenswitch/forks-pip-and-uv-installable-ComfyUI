@@ -299,10 +299,12 @@ _TELEMETRY_OPTS: list[tuple] = [
 
 _LOGGING_OPTS: list[tuple] = [
     ("logging_level", str, typer.Option("INFO", "--logging-level", click_type=click.Choice(["DEBUG", "DETAIL", "INFO", "WARNING", "ERROR", "CRITICAL"]), help="Specifies the logging level.")),
+    ("aimdo_logging_level", str, typer.Option("ERROR", "--aimdo-logging-level", click_type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]), help="Log level of comfy-aimdo's native library (DynamicVRAM), apart from --logging-level. Its VRAM usage dump logs every pinned page at WARNING.")),
     ("debug_hang", bool, typer.Option(False, "--debug-hang/--no-debug-hang", help="Enable stack trace dumps on Ctrl-C for debugging hangs.")),
 ]
 
 _PIP_FACADE_OPTS: list[tuple] = [
+    ("pip_facade_snapshot_max_age_seconds", int, typer.Option(0, "--pip-facade-snapshot-max-age-seconds", min=0, help="Maximum registry snapshot age in seconds; 0 disables age enforcement.")),
     ("pip_facade_registry_base_url", str, typer.Option("https://api.comfy.org", "--pip-facade-registry-base-url", help="Base URL for the Comfy registry API used to resolve custom node versions.")),
     ("pip_facade_cache_prefix", Optional[str], typer.Option(None, "--pip-facade-cache-prefix", help="Writable fsspec URI prefix where generated facade wheels are cached, e.g. /var/cache/comfyui, file:///var/cache/comfyui, or s3://bucket/prefix.")),
     ("pip_facade_cache_s3_endpoint_url", Optional[str], typer.Option(None, "--pip-facade-cache-s3-endpoint-url", envvar="PIP_FACADE_CACHE_S3_ENDPOINT_URL", help="Custom S3-compatible endpoint URL for an s3:// facade cache prefix, e.g. a SeaweedFS S3 gateway.")),
