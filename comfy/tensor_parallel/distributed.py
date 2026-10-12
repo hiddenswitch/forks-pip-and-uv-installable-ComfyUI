@@ -36,7 +36,18 @@ def _free_tcp_init_method() -> str:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
-    return f"tcp://127.0.0.1:{port}"
+        return f"tcp://127.0.0.1:{port}"
+
+
+def _abort_device_group(process_group):
+    try:
+        abort = getattr(dist.distributed_c10d, "_abort_process_group", None)
+        if abort is not None:
+            abort(process_group)
+        else:
+            process_group.abort()
+    except Exception:
+        logging.exception("Could not abort failed tensor-parallel device group")
 
 
 def _without_execution_caches(value):
@@ -182,18 +193,7 @@ class TorchDistributedModelParallelExecutor:
         if not self._device_group_active:
             return
         self._device_group_active = False
-        try:
-            abort_process_group = getattr(
-                dist.distributed_c10d,
-                "_abort_process_group",
-                None,
-            )
-            if abort_process_group is not None:
-                abort_process_group(self.operations.process_group)
-            else:
-                self.operations.process_group.abort()
-        except Exception:
-            pass
+        _abort_device_group(self.operations.process_group)
 
     def remote_rank_command(self, rank, command):
         self.coordinator.broadcast_command({"kind": "rank_model", "rank": rank, "command": command})
@@ -515,6 +515,9 @@ def _run_worker(operations, coordinator, patcher, span_name, execution_model=Non
                     getattr(execution_model, command["method"])(*args, **kwargs)
                     coordinator.send_object({"kind": "done"}, 0)
                 except Exception:
+                    # The root may already be inside the next device collective.
+                    # Sending an error on the control group alone cannot wake it.
+                    _abort_device_group(operations.process_group)
                     _send_worker_error(coordinator, operations.rank)
                 finally:
                     # Do not keep the last invocation's inputs or custom-node

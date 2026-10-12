@@ -20,6 +20,7 @@ from .distributed import RemoteTensorParallelRankModel, launch_tensor_parallel
 from .custom_node_state import CachedStateExecutor, install_state_transport
 from .operations import gathered_output_operations
 from .types import TensorParallelConfig
+from . import hunyuan_image3_runtime
 
 
 def _modules(extension):
@@ -61,27 +62,37 @@ def _moe_forward(self, hidden_states):
     flat = hidden_states.reshape(-1, hidden_size)
     weights, indices = self.gate(flat)
     weights = weights.to(hidden_states.dtype)
-    expert_mask = torch.nn.functional.one_hot(indices, num_classes=self.num_experts).permute(2, 1, 0)
     count = self.experts_gate_up_proj.num_experts
-    start = self.tensor_parallel.rank * count
-    local_mask = expert_mask[start:start + count]
-    expert_hit = (local_mask.sum(dim=(-1, -2)) > 0).nonzero()
-    combined = torch.zeros((flat.shape[0] * self.top_k, hidden_size), dtype=hidden_states.dtype, device=hidden_states.device)
-    full_bank = len(expert_hit) * 2 >= count or hasattr(self.experts_gate_up_proj, "_prefetch")
-    gate_bank = self.experts_gate_up_proj.bank_resident(flat) if full_bank else contextlib.nullcontext(self.experts_gate_up_proj)
-    down_bank = self.experts_down_proj.bank_resident(flat) if full_bank else contextlib.nullcontext(self.experts_down_proj)
-    linear = source._bank_linear if full_bank else source.expert_linear_sliced
+    parallel = getattr(self, "tensor_parallel", None)
+    start = 0 if parallel is None else parallel.rank * count
+    # One routing synchronization per layer, instead of nonzero/where/item for
+    # every expert. Keep each expert's token order unchanged for quantization.
+    assignments = indices.transpose(0, 1).reshape(-1)
+    order = assignments.argsort(stable=True)
+    counts = assignments.bincount(minlength=self.num_experts).tolist()
+    routes = order.split(counts)
+    expert_hit = [index for index in range(count) if counts[start + index]]
+    combined = torch.zeros(flat.shape, dtype=torch.float32, device=hidden_states.device)
+    full_bank = len(expert_hit) * 2 >= count or getattr(self.experts_gate_up_proj, "_prefetch", None) is not None
+    banks = (self.experts_gate_up_proj, self.experts_down_proj)
+    resident = [full_bank or (hasattr(bank, "bank_cacheable") and bank.bank_cacheable(flat)) for bank in banks]
+    gate_bank, down_bank = [bank.bank_resident(flat) if keep else contextlib.nullcontext(bank) for bank, keep in zip(banks, resident)]
+    gate_linear, down_linear = [source._bank_linear if keep else source.expert_linear_sliced for keep in resident]
     with gate_bank as gate_experts, down_bank as down_experts:
         for expert in expert_hit:
-            index = int(expert.item())
-            position, token = torch.where(local_mask[index])
-            gate_up = linear(gate_experts, flat[token], index)
-            output = linear(down_experts, source._swiglu(gate_up), index)
-            combined[token * self.top_k + position] = (output * weights[token, position, None]).to(combined.dtype)
-    # Each routing slot belongs to one rank. Merge slots before the top-k sum
-    # to preserve upstream's reduction order and avoid an extra bf16 rounding.
-    combined = self.tensor_parallel.operations.sum(combined)
-    routed = combined.view(bsz, seq_len, self.top_k, hidden_size).sum(dim=2)
+            index = expert
+            route = routes[start + index]
+            position = route // flat.shape[0]
+            token = route % flat.shape[0]
+            gate_up = gate_linear(gate_experts, flat[token], index)
+            output = down_linear(down_experts, source._swiglu(gate_up), index)
+            contribution = (output * weights[token, position, None]).to(hidden_states.dtype)
+            combined.index_add_(0, token, contribution.float())
+    # Accumulate before communication, without rounding partial sums to bf16.
+    # For top-k=8 this sends one quarter of the previous routing-slot buffer.
+    if parallel is not None:
+        combined = parallel.operations.sum(combined)
+    routed = combined.to(hidden_states.dtype).view(bsz, seq_len, hidden_size)
     return self.shared_mlp(hidden_states) + routed
 
 
@@ -149,7 +160,7 @@ def _load_state(reader, shards, parallel, head_prefixes):
 
 @contextlib.contextmanager
 def _text_context(self):
-    cache = [[None, None] for _ in self.model.layers]
+    cache = [hunyuan_image3_runtime.KVCache() for _ in self.model.layers]
 
     def forward(embeddings, frequencies, mask):
         return self.model(embeddings, frequencies, mask, cache)
@@ -180,6 +191,16 @@ class _TextModel:
 
     def __getattr__(self, name):
         return getattr(self._model, name)
+
+
+class _LocalTextTransformer:
+    def __init__(self, model):
+        self.model = model
+        self.wte = model.wte
+        self.cache = [hunyuan_image3_runtime.KVCache() for _ in model.layers]
+
+    def __call__(self, embeddings, frequencies, mask, cache):
+        return self.model(embeddings, frequencies, mask, self.cache)
 
 
 def load_rank(load_spec, device, tensor_operations):
@@ -252,10 +273,12 @@ def load_model(checkpoint_path, extension_path, disable_dynamic=False):
 
 
 def install(extension):
-    upstream_loader, upstream_model, _ = _modules(extension.__name__)
+    upstream_loader, upstream_model, upstream_base = _modules(extension.__name__)
     if getattr(upstream_loader.load_hunyuan_image_3, "_comfy_tensor_parallel", False):
         return
     original = upstream_loader.load_hunyuan_image_3
+    hunyuan_image3_runtime.install(upstream_model, upstream_base)
+    upstream_model.HunyuanImage3MoE.forward = _moe_forward
     extension_path = os.path.dirname(extension.__file__)
     upstream_model.LayerLookahead = _LayerPrefetch
 
@@ -277,7 +300,9 @@ def install(extension):
     def generate_text(model, *args, **kwargs):
         executor = getattr(model, "_comfy_tensor_parallel_executor", None)
         if executor is None:
-            return generate(model, *args, **kwargs)
+            proxy = _TextModel(model, None)
+            proxy.model = _LocalTextTransformer(model.model)
+            return generate(proxy, *args, **kwargs)
         model_management.load_models_gpu(executor.root_patcher.get_nested_additional_models())
         try:
             with executor.model_context("tensor_parallel_text_context"):

@@ -2335,6 +2335,12 @@ def mixed_precision_ops(quant_config={}, compute_dtype=torch.bfloat16, full_prec
                     return self._expert_qt_from(self.weight, i)
                 return self.weight[i]
 
+            def bank_cacheable(self, input):
+                """Use the resident bank when it fits the current VRAM watermark."""
+                if self.weight.device == input.device:
+                    return True
+                return self._v is not None and not model_management.is_device_cpu(input.device) and not vbar_above_watermark(self)
+
             def _cast_bank(self, input):
                 # A quantized bank stays quantized: the layouts dequantize one [out, in] matrix at a time, per expert.
                 if isinstance(self.weight, QuantizedTensor):

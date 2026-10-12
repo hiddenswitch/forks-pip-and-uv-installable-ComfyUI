@@ -22,6 +22,19 @@ from comfy.tensor_parallel import distributed
 from comfy.ldm.kandinsky5.model import CrossAttention, FeedForward
 
 
+def test_expert_bank_cacheability_tracks_memory_watermark(monkeypatch):
+    bank = ops.mixed_precision_ops(compute_dtype=torch.float32).MoEExperts(2, 4, 8, bias=False)
+    bank.weight = torch.nn.Parameter(torch.empty(2, 8, 4))
+    assert bank.bank_cacheable(torch.empty(1, 4))
+    device_input = SimpleNamespace(device=torch.device("cuda"))
+    assert not bank.bank_cacheable(device_input)
+    bank._v = (object(), 0, 256)
+    monkeypatch.setattr(ops, "vbar_above_watermark", lambda module: False)
+    assert bank.bank_cacheable(device_input)
+    monkeypatch.setattr(ops, "vbar_above_watermark", lambda module: True)
+    assert not bank.bank_cacheable(device_input)
+
+
 @pytest.mark.parametrize("retained", [False, True])
 def test_new_parallel_load_collects_only_unreachable_executors(monkeypatch, retained):
     commands = []
@@ -188,6 +201,27 @@ def test_worker_releases_inputs_before_waiting_for_next_command(monkeypatch):
                             SimpleNamespace(model=SimpleNamespace(diffusion_model=SimpleNamespace(forward=forward))), "test")
 
 
+def test_worker_failure_aborts_collectives_before_reporting_error(monkeypatch):
+    events = []
+    commands = iter([{"kind": "execute", "method": "forward", "descriptors": {},
+                      "structure": ("tuple", (("tuple", ()), ("dict", ())))}, {"kind": "close"}])
+
+    def forward():
+        raise torch.OutOfMemoryError("peer allocation")
+
+    def send(value, destination):
+        assert value["kind"] == "error" and "peer allocation" in value["traceback"]
+        events.append("report")
+
+    monkeypatch.setattr(distributed, "_abort_device_group", lambda group: events.append("abort"))
+    monkeypatch.setattr(distributed, "_broadcast_tensors", lambda *args, **kwargs: {})
+    monkeypatch.setattr(distributed, "distributed_command_span", lambda *args: nullcontext())
+    distributed._run_worker(SimpleNamespace(rank=1, world_size=2, process_group=object()),
+                            SimpleNamespace(broadcast_command=lambda: next(commands), send_object=send),
+                            SimpleNamespace(model=SimpleNamespace(diffusion_model=SimpleNamespace(forward=forward))), "test")
+    assert events == ["abort", "report"]
+
+
 @pytest.mark.parametrize("cancelled", [False, True])
 def test_hunyuan_prefetch_ignores_unallocated_buffers_and_releases_on_exit(monkeypatch, cancelled):
     layer = torch.nn.Sequential(torch.nn.Linear(4, 4), torch.nn.Linear(4, 4))
@@ -304,10 +338,9 @@ def test_text_context_keeps_prefix_locally_and_releases_it(cancel):
         layers = [object()]
 
         def __call__(self, embeddings, frequencies, mask, cache):
-            previous = cache[0][0]
-            cache[0][0] = embeddings.clone() if previous is None else torch.cat((previous, embeddings))
-            references.append(weakref.ref(cache[0][0]))
-            return cache[0][0].sum()
+            key, _ = cache[0].append(embeddings.reshape(1, 1, -1, 1), embeddings.reshape(1, 1, -1, 1))
+            references.append(weakref.ref(cache[0].key))
+            return key.sum()
 
     model = SimpleNamespace(model=Transformer())
     try:

@@ -26,10 +26,20 @@ attention and dense layers. Omitting `--hunyuan-expert-parallel-only` keeps comb
 EP and TP. The flag applies to HunyuanImage3 and uses the selected rank count.
 Both paths run the upstream custom node without a repository fork.
 
-Every projection retains its full input quantization domain. Expert routing slots
-are merged before the top-k sum, preserving upstream's accumulation order.
+Every projection retains its full input quantization domain. Expert contributions
+are accumulated in FP32 before the rank reduction, reducing communication by
+four times for top-k eight compared with the previous BF16 routing-slot buffer.
+The accumulation order differs; full-generation comparisons assess output quality.
 The adapter uses upstream expert operations and ComfyUI prefetch/offload helpers.
-Prompt rewriting keeps each rank's KV cache inside an execution-scoped context.
+Prompt rewriting keeps each rank's growing KV allocation inside an execution-scoped
+context and reuses expert banks that fit the current dynamic-VRAM watermark.
+Conditional and unconditional prompts can batch with unequal sequence lengths;
+padding is masked and ComfyUI still chooses the batch size from available memory.
+The model's memory estimate includes attention, activations and expert-bank cast
+workspace. `--use-ck-attention` selects native INT8 attention independently of the
+checkpoint's W4A8 linear kernels. GQA heads remain grouped until the selected
+attention backend consumes them. Worker execution failures abort the device group
+before reporting the error so another rank does not remain in a collective.
 Spectrum and MagCache use explicit call-local state transport;
 real-model Hunyuan Spectrum, cancellation, retry and unload/reload checks passed.
 Complete Hunyuan rewriting and Kandinsky MagCache lifecycle checks also passed.
