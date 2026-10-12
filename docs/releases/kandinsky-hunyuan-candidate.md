@@ -6,6 +6,46 @@ The candidate includes master `088ef4eb5` (0.39.0.1) and develop `0f373939d`.
 The intended next patch is **0.39.0.2**. No model release has been tagged or
 published. Full sample benchmarks and final device CI are still required.
 
+## Latest complete Instruct comparison
+
+Runtime `77bd38ffb` batches conditional/unconditional diffusion, reuses static
+conditioning K/V, grows autoregressive K/V in blocks, and reuses resident expert
+banks during decoding. The unchanged upstream custom node comes from the facade.
+Two NVLinked RTX A5000s ran the full W4A8 Instruct workflow with native Comfy
+Kitchen INT8 attention, 2 GiB extra VRAM headroom, seed 42, 1024² output, complete
+greedy rewriting and all 50 Euler steps. There are no warm probes in this comparison.
+
+| Stage | One GPU | Combined EP/TP, two GPUs | EP only, two GPUs |
+| --- | ---: | ---: | ---: |
+| Complete job | 568.87 s | 498.75 s | 549.61 s |
+| Text encode, including prefill/rewrite | 230.38 s | 146.47 s | 146.59 s |
+| Autoregressive decode only (rounded) | 204 s | 126 s | 126 s |
+| Diffusion, including prefix preparation | 328.94 s | 327.41 s | 380.66 s |
+| Denoising loop only | 317.66 s | 317.12 s | 368.30 s |
+| Model loader | 2.47 s | 20.49 s | 17.82 s |
+
+Decode is contained in text encoding; the denoising loop is contained in diffusion.
+Two GPUs improve total latency by 12.3% (1.14×), primarily through autoregression.
+EP-only gives the same decode latency but slower diffusion. Combined EP/TP is
+the fastest tested configuration; this comparison does **not** establish diffusion
+scaling over one GPU. NCCL logs confirm local
+P2P/CUMEM transport. The W4A8 strategy preserves each projection's full activation
+quantization domain using gathers, and expert kernels still run separately;
+kernel-level profiling is needed to attribute the remaining cost.
+
+All three runs produce the same complete 273-token rewrite. All saved images were
+visually checked and match the sleeping red fox, curled pose, grass, golden light
+and bokeh. Pixel RMSE is 3.31/255, so the images are not identical. These are single
+cold-process measurements, with OS file caches retained. They test W4A8 weights,
+not an INT8-weight checkpoint. Evidence: `release-artifacts/hunyuan-optimization-validation.json`.
+
+With two GPUs, caching the static conditioning prefix reduced the complete job
+from 507.52 s to 498.75 s in one run; the diffusion stage went from 337.87 s to
+327.41 s, including approximately 10 s of prefix preparation. This small result
+is not a repeated statistical benchmark. Historical results below use earlier
+implementations and attention settings and must not be treated as isolated GPU
+scaling comparisons with these runs.
+
 ## Packages and model integration
 
 | Facade package | Version | Source |
@@ -256,8 +296,8 @@ floating-point differences can change later greedy token choices. See
 `release-artifacts/hunyuan-head-full-rewrite-validation.json` and
 `release-artifacts/hunyuan-attention-parity-validation.json`;
 `scripts/validate_hunyuan_attention_tp.py` reproduces the numerical check.
-The base rerun and all Hunyuan diffusion samples completed. Standard Kandinsky
-video samples remain incomplete. The rebuilt candidate wheel matches all
+The base rerun, all Hunyuan diffusion samples and both standard Kandinsky
+video comparisons completed. The rebuilt candidate wheel matches all
 15 checked integration files; it remains unpublished at the base package version.
 
 The distilled image-to-image sample also completed all eight runs: warm medians
@@ -298,8 +338,11 @@ Additional completed 50-step diffusion runs (rewriting disabled) measured cold
 Instruct T2I at 542.32 s on one GPU and 549.71 s with combined EP/TP; Instruct I2I
 at 766.22 s and 788.84 s. Distilled Kandinsky I2AV measured 846.17 s and 570.27 s.
 The corresponding full reports preserve the earlier warm repeats as historical
-measurements. Standard Kandinsky cold TP1 I2AV completed in 7391.41 s; remaining
-standard-video runs are incomplete.
+measurements. Standard Kandinsky cold T2AV completed in 7172.74 s on one GPU
+and 7817.27 s on two; I2AV completed in 7391.41 s and 8344.53 s. These standard
+workflows are slower with two GPUs, unlike the distilled Pro workflows. Reports:
+`release-artifacts/kandinsky6_pro_standard_t2av-cold-validation.json` and
+`release-artifacts/kandinsky6_pro_standard_i2av-cold-validation.json`.
 
 EP-only complete generation passed: **1346.30 s cold** (22m 26s), including a
 287-token complete rewrite (709 s, rounded), 50 diffusion steps (590.56 s sampler trace), VAE decoding and saving a 1024×1024 PNG. Peak sampled host PSS was

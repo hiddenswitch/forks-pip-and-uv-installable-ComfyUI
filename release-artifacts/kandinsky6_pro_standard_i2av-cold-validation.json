@@ -1,0 +1,85 @@
+{
+  "status": "Both cold workflows completed",
+  "source": {
+    "commit": "80aff8d09bf50c193817bb99486d1a20b08d36d1"
+  },
+  "baseline": {
+    "directory": "release-artifacts/benchmark-results/kandinsky6_pro_standard_i2av-final",
+    "note": "Preserved complete cold seed42 run; no warm measurements used. Kandinsky runtime unchanged."
+  },
+  "summary": {
+    "cold_seconds": {
+      "1": 7391.409995052993,
+      "2": 8344.526255667995
+    },
+    "cold_tp2_speedup": 0.8857794641166595,
+    "warm_median_seconds": {},
+    "tp2_speedup": null
+  },
+  "results": [
+    {
+      "tp": 1,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 7391.409995052993,
+      "peak_host_pss_bytes": 64510046208,
+      "peak_device_used_bytes": [
+        22647603200
+      ],
+      "start_time_unix_nano": 1791706664695457338,
+      "end_time_unix_nano": 1791714056105843228,
+      "sampler_seconds": 7332.49806341,
+      "generator_node_seconds": 7333.7293220130005,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 8344.526255667995,
+      "peak_host_pss_bytes": 101846461440,
+      "peak_device_used_bytes": [
+        23981195264,
+        21805989888
+      ],
+      "start_time_unix_nano": 1791729038519786406,
+      "end_time_unix_nano": 1791737383046529052,
+      "sampler_seconds": 8241.120836760001,
+      "generator_node_seconds": 8242.335923446,
+      "sr_node_seconds": null
+    }
+  ],
+  "quality": [
+    {
+      "seed": 42,
+      "output": "19:0",
+      "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_standard_i2av-cold/tp1/kandinsky6/K6_I2VA_00001_.mp4",
+      "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_standard_i2av-cold/tp2/kandinsky6/K6_I2VA_00001_.mp4",
+      "video": {
+        "codec_type": "video",
+        "width": 864,
+        "height": 480,
+        "avg_frame_rate": "24/1",
+        "duration": "5.041667",
+        "nb_frames": "121"
+      },
+      "decoded_video_ssim": 0.964771,
+      "audio": {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "channels": 1,
+        "avg_frame_rate": "0/0",
+        "duration": "5.041678",
+        "nb_frames": "219",
+        "identical": false,
+        "rmse": 0.06191025640605571,
+        "max_absolute_error": 0.8969481587409973
+      }
+    }
+  ],
+  "raw_results": "release-artifacts/benchmark-results/kandinsky6_pro_standard_i2av-cold",
+  "limits": [
+    "One cold job per configuration; OS cache not flushed. No warm repeats.",
+    "Generation-only workflow omits original SR postprocessing."
+  ]
+}
