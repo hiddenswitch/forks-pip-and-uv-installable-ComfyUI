@@ -5,6 +5,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from comfy.component_model.configuration import Configuration
 from comfy.custom_node_facade import server as facade_server
 from comfy.custom_node_facade.rocm_index import RocmSimpleIndexProxy, _absolute_links
+from comfy.custom_node_facade.snapshot import write_facade_registry_snapshot
 
 
 class _FakeRegistry:
@@ -29,6 +30,43 @@ class _FakeSnapshotRegistry(_FakeRegistry):
 class _FakeBuilder:
     def __init__(self, *args, **kwargs):
         del args, kwargs
+
+
+async def test_snapshot_health_tracks_mount_loss_and_recovers(tmp_path, monkeypatch):
+    snapshot = tmp_path / "registry.sqlite"
+    config = Configuration()
+    config.pip_facade_snapshot_uri = str(snapshot)
+    config.pip_facade_snapshot_max_age_seconds = 2100
+    monkeypatch.setattr(facade_server, "triton_prewarm_targets", _no_prewarm)
+
+    def write():
+        write_facade_registry_snapshot(
+            snapshot, projects=[], versions_by_node_id={},
+            base_url="https://registry.example.invalid", only_known_nodes=True,
+        )
+
+    async with TestClient(TestServer(facade_server.create_facade_app(configuration=config))) as client:
+        for path in ("/readyz", "/healthz", "/simple/"):
+            response = await client.get(path)
+            assert response.status == 503
+            assert response.headers["Cache-Control"] == "no-store"
+        assert (await client.get("/livez")).status == 200
+        write()
+        response = await client.get("/readyz")
+        assert response.status == 200
+        assert (await response.json())["snapshot_created_at"]
+        assert (await client.get("/simple/")).status == 200
+        snapshot.unlink()
+        assert (await client.get("/readyz")).status == 503
+        assert (await client.get("/simple/")).status == 503
+        assert (await client.get("/livez")).status == 200
+        write()
+        assert (await client.get("/readyz")).status == 200
+
+
+async def _no_prewarm(session):
+    for item in ():
+        yield item
 
 
 class _FakeProxy:

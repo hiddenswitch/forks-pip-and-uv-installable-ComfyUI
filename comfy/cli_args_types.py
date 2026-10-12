@@ -256,6 +256,7 @@ class Configuration(dict):
         pip_facade_cache_s3_endpoint_url (Optional[str]): Custom S3-compatible endpoint URL for an s3:// pip-facade cache prefix.
         pip_facade_only_known_nodes (bool): Only expose nodes present in this repository's local compatibility registry.
         pip_facade_snapshot_uri (Optional[str]): Read a pip-facade registry snapshot from this fsspec URI instead of querying the live registry API.
+        pip_facade_snapshot_max_age_seconds (int): Maximum snapshot age before metadata and readiness return 503. Zero disables age enforcement.
         pip_facade_snapshot_output (Optional[str]): Output path for `snapshot-pip-registry`. Use a `.xz` suffix or `--pip-facade-snapshot-compression=xz` for a compressed archive.
         pip_facade_snapshot_compression (str): Snapshot compression mode for `snapshot-pip-registry`. One of `auto`, `none`, or `xz`.
         pip_facade_snapshot_overwrite (bool): Overwrite an existing snapshot output file.
@@ -457,6 +458,7 @@ class Configuration(dict):
         self.pip_facade_cache_revision: Optional[int] = None
         self.pip_facade_only_known_nodes: bool = False
         self.pip_facade_snapshot_uri: Optional[str] = None
+        self.pip_facade_snapshot_max_age_seconds: int = 0
         self.pip_facade_snapshot_output: Optional[str] = None
         self.pip_facade_snapshot_compression: str = "auto"
         self.pip_facade_snapshot_overwrite: bool = False
