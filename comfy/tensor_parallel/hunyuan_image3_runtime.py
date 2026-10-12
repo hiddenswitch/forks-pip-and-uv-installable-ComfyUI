@@ -77,6 +77,7 @@ def batched_forward(original, self, x, timestep, context=None, transformer_optio
                         cond_latent=cond_latent, cond_vit=cond_vit, cond_vit_grid=cond_vit_grid, **kwargs)
     if not isinstance(ids, (list, tuple)):
         ids = (ids,) * x.shape[0]
+    ids = tuple(prompt.to(device=x.device) for prompt in ids)
     # Spectrum owns a separate forecast for each CFG lane.
     if options.get("hy3_spectrum") is not None:
         lanes = options.get("cond_or_uncond", [0])

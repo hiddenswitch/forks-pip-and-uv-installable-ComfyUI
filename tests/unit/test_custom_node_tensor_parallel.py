@@ -222,6 +222,33 @@ def test_worker_failure_aborts_collectives_before_reporting_error(monkeypatch):
     assert events == ["abort", "report"]
 
 
+def test_peer_error_interrupts_root_before_its_forward_returns(monkeypatch):
+    aborted = threading.Event()
+
+    def receive(rank):
+        if rank == 1:
+            assert aborted.wait(5), "rank 2's error was hidden behind rank 1"
+            return {"kind": "done"}
+        return {"kind": "error", "traceback": "peer allocation failed"}
+
+    def forward():
+        assert aborted.wait(5), "root remained blocked inside a collective"
+
+    coordinator = SimpleNamespace(broadcast_command=lambda value: None, receive_object=receive)
+    executor = distributed.TorchDistributedModelParallelExecutor(
+        SimpleNamespace(forward=forward), SimpleNamespace(process_group=object()), coordinator,
+        [], [], [torch.device("cpu")] * 3, [0] * 3,
+    )
+    monkeypatch.setattr(distributed, "_broadcast_tensors", lambda *args, **kwargs: {})
+    monkeypatch.setattr(distributed, "_abort_device_group", lambda group: aborted.set())
+    monkeypatch.setattr(distributed.dist, "is_initialized", lambda: False)
+    try:
+        with pytest.raises(RuntimeError, match="peer allocation failed"):
+            executor.execute()
+    finally:
+        executor.close()
+
+
 @pytest.mark.parametrize("cancelled", [False, True])
 def test_hunyuan_prefetch_ignores_unallocated_buffers_and_releases_on_exit(monkeypatch, cancelled):
     layer = torch.nn.Sequential(torch.nn.Linear(4, 4), torch.nn.Linear(4, 4))

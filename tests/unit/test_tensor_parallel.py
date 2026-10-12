@@ -380,11 +380,12 @@ def test_model_parallel_cancel_finishes_collectives_and_allows_retry(monkeypatch
     try:
         with pytest.raises(interruption.InterruptProcessingException):
             executor.execute(True)
-        assert events == ["forward", "peer_done"]
+        assert sorted(events) == ["forward", "peer_done"]
         assert executor._device_group_active
         assert executor.execute(False) == 7
     finally:
         interruption.interrupt_current_processing(False)
+        executor.close()
 
 
 def test_model_parallel_transport_keeps_only_diffusion_model_wrappers():

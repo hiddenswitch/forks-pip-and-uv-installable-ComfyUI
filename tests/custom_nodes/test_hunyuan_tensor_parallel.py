@@ -47,14 +47,14 @@ def test_hunyuan_cfg_batch_matches_separate_unequal_prompts(device, dtype):
                                   operations=ops.mixed_precision_ops(compute_dtype=dtype))
     initialize(model, dtype)
     model.to(device)
-    prompts = (torch.tensor([1, 2, 3, 4, 5, 63, 63, 63, 63], device=device),
-               torch.tensor([2, 4, 5, 63, 63, 63, 63], device=device))
+    prompts = (torch.tensor([1, 2, 3, 4, 5, 63, 63, 63, 63]),
+               torch.tensor([2, 4, 5, 63, 63, 63, 63]))
     x = torch.randn(2, params.vae_latent_channels, 1, 2, 2, device=device, dtype=dtype)
     timestep = torch.full((2,), 1000.0, device=device, dtype=dtype)
     options = {"sample_sigmas": torch.tensor([1.0, 0.5, 0.0], device=device),
                "sigmas": torch.ones(2, device=device), "cond_or_uncond": [0, 1]}
     original = upstream.HunyuanImage3.forward.__wrapped__
-    expected = torch.cat([original(model, x[i:i + 1], timestep[i:i + 1], ids=prompt,
+    expected = torch.cat([original(model, x[i:i + 1], timestep[i:i + 1], ids=prompt.to(device),
                                   transformer_options=options) for i, prompt in enumerate(prompts)])
     actual = model(x, timestep, ids=prompts, transformer_options=options)
     torch.testing.assert_close(actual, expected, rtol=0.03 if dtype == torch.bfloat16 else 1e-4,

@@ -15,7 +15,7 @@ import torch.distributed as dist
 
 from ..distributed.config import DistributedConfiguration, resolve_distributed_configuration
 from ..distributed.device import accelerator_device_provider
-from ..distributed.executors import ContextVarProcessPoolExecutor
+from ..distributed.executors import ContextVarExecutor, ContextVarProcessPoolExecutor
 from ..distributed.process_group import (
     create_independent_process_groups,
     destroy_independent_process_groups,
@@ -106,6 +106,7 @@ class TorchDistributedModelParallelExecutor:
         self.process_groups = process_groups
         self._closed = False
         self._device_group_active = True
+        self._responses = ContextVarExecutor(max_workers=max(1, len(self.devices) - 1))
 
     def configure_torch_compile(self, compile_kwargs, root_patcher=None):
         root_patcher = root_patcher or self.root_patcher
@@ -174,6 +175,8 @@ class TorchDistributedModelParallelExecutor:
         })
         tensors = _broadcast_tensors(self.operations, tensors=tensors)
         args, kwargs = unpack_pipeline_value(structure, tensors)
+        responses = [self._responses.submit(self._receive_execution_result, rank)
+                     for rank in range(1, len(self.devices))]
         try:
             output = getattr(self.root_model, method)(*args, **kwargs)
         except BaseException:
@@ -182,12 +185,19 @@ class TorchDistributedModelParallelExecutor:
             # Abort the NCCL group so that peer leaves that collective and can
             # return to the control loop instead of hanging the workflow.
             self._abort_device_group()
+            concurrent.futures.wait(responses)
             raise
-        for rank in range(1, len(self.devices)):
-            response = self.coordinator.receive_object(rank)
-            if response["kind"] == "error":
-                raise RuntimeError(f"Tensor-parallel rank {rank} failed:\n{response['traceback']}")
+        for response in responses:
+            response.result()
         return output
+
+    def _receive_execution_result(self, rank):
+        response = self.coordinator.receive_object(rank)
+        if response["kind"] == "error":
+            # Watch the control channel while the root computes: its next CUDA
+            # synchronization may otherwise wait forever for this failed peer.
+            self._abort_device_group()
+            raise RuntimeError(f"Tensor-parallel rank {rank} failed:\n{response['traceback']}")
 
     def _abort_device_group(self):
         if not self._device_group_active:
@@ -216,6 +226,7 @@ class TorchDistributedModelParallelExecutor:
         if self._closed:
             return
         self._closed = True
+        self._responses.shutdown(wait=False, cancel_futures=True)
         try:
             self.coordinator.broadcast_command({"kind": "close"})
         except Exception:
