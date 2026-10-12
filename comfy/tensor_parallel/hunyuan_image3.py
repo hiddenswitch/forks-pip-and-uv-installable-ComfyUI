@@ -97,6 +97,7 @@ def _moe_forward(self, hidden_states):
 
 
 def _shard_model(model, base_operations, parallel, expert_only=False):
+    model.tensor_parallel = parallel
     operations = gathered_output_operations(base_operations, parallel)
 
     class AttentionOutput(operations.Linear):

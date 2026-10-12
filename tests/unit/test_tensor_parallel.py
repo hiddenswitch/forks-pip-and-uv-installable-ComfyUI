@@ -513,7 +513,7 @@ def test_dynamic_rank_load_flushes_stale_allocator_reservations(monkeypatch):
     emptied = []
     monkeypatch.setattr(model_management, "free_memory", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(model_management, "get_free_memory", lambda _device: 10_000)
-    monkeypatch.setattr(memory_management, "aimdo_allocator", object())
+    monkeypatch.setattr(memory_management, "aimdo_enabled", True)
     monkeypatch.setattr(
         model_management,
         "_soft_empty_cache",

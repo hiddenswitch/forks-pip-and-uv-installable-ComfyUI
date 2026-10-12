@@ -40,6 +40,10 @@ workspace. `--use-ck-attention` selects native INT8 attention independently of t
 checkpoint's W4A8 linear kernels. GQA heads remain grouped until the selected
 attention backend consumes them. Worker execution failures abort the device group
 before reporting the error so another rank does not remain in a collective.
+The root monitors peer errors while computing. Full non-distilled text-to-image
+workflows prepare the static conditioning prefix once through `extra_conds`;
+its K/V, RoPE and mask tensors belong to that sampling execution. Distilled,
+reference-image, Spectrum and scheduled-hook paths retain uncached conditioning.
 Spectrum and MagCache use explicit call-local state transport;
 real-model Hunyuan Spectrum, cancellation, retry and unload/reload checks passed.
 Complete Hunyuan rewriting and Kandinsky MagCache lifecycle checks also passed.

@@ -26,7 +26,7 @@ from tests.unit.test_custom_node_tensor_parallel import Collectives, Rank
 
 
 @pytest.mark.parametrize("device,dtype", [("cpu", torch.float32), ("cuda", torch.bfloat16)])
-def test_hunyuan_cfg_batch_matches_separate_unequal_prompts(device, dtype):
+def test_hunyuan_cfg_batch_matches_separate_unequal_prompts(device, dtype, tmp_path):
     if device == "cuda" and not torch.cuda.is_available():
         pytest.skip("CUDA unavailable")
     entry = next(ep for ep in distribution("comfyui-hunyuanimage3").entry_points if ep.group == "comfyui.custom_nodes").load()
@@ -42,6 +42,7 @@ def test_hunyuan_cfg_batch_matches_separate_unequal_prompts(device, dtype):
         num_hidden_layers=2, num_attention_heads=4, num_key_value_heads=2, attention_head_dim=8,
         moe_intermediate_size=16, num_experts=8, moe_topk=2, num_shared_expert=1,
         vocab_size=64, pad_token_id=0, image_token_id=63, patch_embed_hidden_dim=32,
+        vit_aligner={"projector_type": "mlp_gelu", "input_dim": 8, "n_embed": 32, "depth": 2},
     )
     model = upstream.HunyuanImage3(params, dtype=dtype, device=device,
                                   operations=ops.mixed_precision_ops(compute_dtype=dtype))
@@ -59,6 +60,33 @@ def test_hunyuan_cfg_batch_matches_separate_unequal_prompts(device, dtype):
     actual = model(x, timestep, ids=prompts, transformer_options=options)
     torch.testing.assert_close(actual, expected, rtol=0.03 if dtype == torch.bfloat16 else 1e-4,
                                atol=0.01 if dtype == torch.bfloat16 else 1e-5)
+    prefixes = tuple(model.prepare_condition(prompt, x[index:index + 1]) for index, prompt in enumerate(prompts))
+    saved = [state["kv"].clone() for state in prefixes]
+    cached = model(x, timestep, ids=prompts, hy3_prefix=prefixes, transformer_options=options)
+    torch.testing.assert_close(cached, expected, rtol=0.03 if dtype == torch.bfloat16 else 1e-4,
+                               atol=0.01 if dtype == torch.bfloat16 else 1e-5)
+    for state, value in zip(prefixes, saved):
+        torch.testing.assert_close(state["kv"], value, rtol=0, atol=0)
+    if device == "cpu":
+        checkpoint = tmp_path / "prefix.safetensors"
+        save_file(model.state_dict(), checkpoint)
+        reader = SafetensorsCheckpointReader(checkpoint)
+        collective = Collectives(2)
+        ranks = []
+        for rank in range(2):
+            operations = ops.mixed_precision_ops(compute_dtype=dtype)
+            local = upstream.HunyuanImage3(params, dtype=dtype, device=device, operations=operations)
+            shards = _shard_model(local, operations, TensorParallelConfig(Rank(collective, rank)))
+            local.load_state_dict(_load_state(reader, shards, local.tensor_parallel, ()))
+            ranks.append(local)
+        with ThreadPoolExecutor(2) as pool:
+            prepared = list(pool.map(lambda local: tuple(local.prepare_condition(prompt, x[:1]) for prompt in prompts), ranks))
+            outputs = list(pool.map(lambda rank: ranks[rank](x, timestep, ids=prompts, hy3_prefix=prepared[rank],
+                                                             transformer_options=options), range(2)))
+        for output in outputs:
+            torch.testing.assert_close(output, expected, rtol=1e-4, atol=1e-5)
+        for reference, sharded in zip(prefixes, prepared[0]):
+            torch.testing.assert_close(sharded["kv"], reference["kv"], rtol=1e-4, atol=1e-5)
     condition = PromptCondition((prompts[0],)).process_cond(2)
     other = PromptCondition((prompts[1],)).process_cond(2)
     assert condition.can_concat(other)
