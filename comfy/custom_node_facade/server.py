@@ -148,6 +148,12 @@ def create_facade_app(
         if ready and isinstance(app["facade_registry"], SnapshotFacadeRegistry):
             details = await app["facade_registry"].health()
             ready = details["snapshot_error"] is None
+        if ready:
+            try:
+                await asyncio.to_thread(app["facade_triton_cache"].check_local_storage)
+            except OSError as exc:
+                details["cache_error"] = str(exc)
+                ready = False
         status = 200 if ready else 503
         return web.json_response({"ok": ready, "live": True, "ready": ready, **details}, status=status, headers={"Cache-Control": "no-store"})
 

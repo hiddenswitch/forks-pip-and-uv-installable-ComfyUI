@@ -707,6 +707,13 @@ class FacadeCacheStore:
     def exists(self, path: str) -> bool:
         return bool(self._fs.exists(path))
 
+    def check_local_storage(self) -> None:
+        """Detect disconnected or read-only filesystem cache mounts."""
+        if isinstance(self._fs, fsspec.implementations.local.LocalFileSystem):
+            self._fs.makedirs(self._root, exist_ok=True)
+            with tempfile.TemporaryFile(dir=self._root):
+                pass
+
     def write_bytes(self, path: str, data: bytes) -> None:
         if self._is_object_cache:
             with self._fs.open(path, "wb") as handle:
