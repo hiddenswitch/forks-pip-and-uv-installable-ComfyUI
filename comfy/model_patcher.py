@@ -2596,7 +2596,6 @@ def get_model_patcher_class(disable_dynamic: bool = False) -> type[ModelPatcher]
 # Module-level property for CoreModelPatcher
 # This allows `from .model_patcher import CoreModelPatcher` to work while
 # returning the correct class (ModelPatcher or ModelPatcherDynamic) based on configuration.
-# See docs/merging.md for explanation of this pattern.
 from .component_model.module_property import create_module_properties
 
 _module_properties = create_module_properties()

@@ -3,7 +3,7 @@
 Initial snapshot set fetched: 2026-06-03. Individual files may carry a newer
 fetch date in their header.
 
-These are local snapshots of the vendor prompting guides referenced from `../../llms.txt`. Use the original source links when freshness matters; update these snapshots when `llms.txt` changes or a model family is refreshed.
+These are local snapshots of the vendor prompting guides referenced from `../../llms.txt`. Use the original source links when freshness matters.
 
 The snapshots retain upstream instructions for provenance. Do not copy their
 environment-install commands into a ComfyUI environment: use the repository's

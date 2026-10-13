@@ -438,8 +438,7 @@ def cast_modules_with_vbar(
             # forward apply the dtype cast. Materializing the target dtype here
             # routes the tensor through cast_to_gathered(target_geometries=...),
             # a raw fp8->bf16 cast that drops the per-tensor weight scale, so the
-            # streamed result silently diverges from the resident path (see
-            # docs/merging.md, "Dynamic VRAM streaming of quantized weights").
+            # streamed result silently diverges from the resident path.
             return model_management.tensor_materialization_geometry(tensor)
         return model_management.tensor_materialization_geometry(tensor, dtype=target_dtype)
 

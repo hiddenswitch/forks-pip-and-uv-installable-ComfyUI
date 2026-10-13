@@ -490,72 +490,25 @@ Key rules:
 
 ---
 
-## Custom Node Example Workflow Tests
+## Workflow test coverage
 
-The `tests/custom_nodes/` suite clones popular custom nodes, discovers their example workflows, and executes each one. This produces a report of which custom nodes ship example workflows and whether they run successfully.
+The custom-node example suite discovers workflows, substitutes stub media, and
+reduces inference cost to check execution. Missing examples are skipped;
+missing-model errors are warnings, and other execution failures fail the test.
 
-```shell
-pytest tests/custom_nodes/test_custom_node_execution.py::TestCustomNodeExecution::test_execute_example_workflows \
-  -v -s --log-cli-level=INFO --tb=short -m "slow and git_clone"
-```
+The Playwright parity test compares Python `convert_ui_to_api()` with the
+frontend's `graphToPrompt()` in headless Chromium. Frontend outputs are cached
+by `comfyui-frontend-package` version. An uncached comparison requires browser
+binaries; without them, the test is skipped rather than passed.
 
-For each registered custom node the test:
+## IPython notebook tests
 
-1. Scans for JSON files in `example_workflows/`, `examples/`, `workflows/`, etc.
-2. Applies cost reduction (2 steps, 256px resolution, 2 video frames).
-3. Substitutes `LoadImage`/`LoadAudio`/`LoadVideo` with stub data URIs.
-4. Queues the prompt and logs the full output dict.
+The `notebook-tests` extra supplies the kernel test dependencies.
+`@pytest.mark.ipython` runs a module-level test body in a fresh Jupyter/IPython
+kernel using pytest's Python interpreter. Kernel errors fail the test, and the
+kernel is shut down afterward. No browser or notebook server is needed.
 
-Nodes without example workflows are reported as `SKIPPED`. Missing-model errors are logged as warnings (expected in CI without large checkpoints); other failures are logged as errors and fail the test.
-
-Custom node installations are cached in `~/.cache/comfy-test/custom_nodes/` (override with `COMFY_TEST_CACHE_DIR`). Delete the `.installed` marker to force a fresh clone.
-
----
-
-## Playwright Frontend Parity Tests
-
-The `test_workflow_convert_playwright.py` test cross-validates the Python `convert_ui_to_api()` against the real frontend `graphToPrompt()`. It loads template workflows in a headless Chromium browser and compares the output.
-
-If this test does not reproduce locally but fails in CI, first check whether Chromium is installed. Without browser binaries, the test is skipped rather than passed.
-
-Install the browser runtime with:
-
-```shell
-source .venv/bin/activate
-python -m playwright install chromium
-```
-
-### Cache
-
-Frontend outputs are cached on disk at `tests/unit/playwright_cache/{frontend_version}/` keyed by the `comfyui-frontend-package` version. Playwright is only needed when the cache is missing for a template.
-
-### Invalidating the Cache
-
-After adding new node implementations (e.g. adding a custom node to `comfy_extras/nodes/`), the cached frontend outputs may be stale — the frontend previously serialized those nodes as `class_type: null` but will now serialize them properly.
-
-Clear affected cache entries:
-
-```python
-from tests.unit.test_workflow_convert_playwright import invalidate_stale_cache
-deleted = invalidate_stale_cache()
-print(f"Deleted {len(deleted)} stale cache entries: {deleted}")
-```
-
-Or from the command line:
-
-```shell
-python -c "from tests.unit.test_workflow_convert_playwright import invalidate_stale_cache; print(invalidate_stale_cache())"
-```
-
-The next test run will regenerate those entries via Playwright (requires `uv pip install playwright && python -m playwright install chromium`).
-
-If you want to reproduce a current frontend mismatch from scratch, delete the whole cache directory for the active frontend version and rerun a specific template:
-
-```shell
-source .venv/bin/activate
-cd path/to/appmana-comfyui/src
-rm -rf tests/unit/playwright_cache/$(python -c "from importlib.metadata import version; print(version('comfyui-frontend-package'))")
-pytest -q "tests/unit/test_workflow_convert_playwright.py::TestFrontendParity::test_convert_matches_frontend[api_google_gemini_image]"
-```
-
-Use `pytest -rs` if you need to distinguish a real pass from a Playwright skip.
+`@pytest.mark.ipython(capture_fd_output=False)` exercises notebook streams
+without a file descriptor. Marked functions must be self-contained:
+JSON-serializable parametrization is supported, but host pytest fixtures are
+not passed into the kernel.
