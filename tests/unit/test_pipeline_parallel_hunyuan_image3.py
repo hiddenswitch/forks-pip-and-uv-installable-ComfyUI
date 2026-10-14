@@ -170,6 +170,33 @@ def test_hunyuan_image3_stage_modules_hold_exactly_their_planned_keys(hunyuan):
         assert set(module.state_dict()) == stage.owned_keys
 
 
+def test_hunyuan_image3_stages_prune_by_structure_when_ops_create_weights_on_load(hunyuan):
+    # mixed_precision_ops (quantized checkpoints) and DynamicVRAM's ops register a Linear's weight
+    # only when a state dict arrives, so at construction time_embed_2 (Linears only) has no keys to
+    # decide its stage by; it survived on stage 0 of the bf16 launch and failed the load there
+    from comfy import ops
+    from comfy.pipeline_parallel.types import PipelineMissingLayer
+
+    upstream = hunyuan("hunyuan_image_3.model")
+    params = _tiny_params(hunyuan, "instruct")
+    operations = ops.mixed_precision_ops(compute_dtype=torch.float32)
+
+    first = upstream.HunyuanImage3(params, dtype=torch.float32, device="cpu", operations=operations,
+                                   pipeline_stage=PipelineStageConfig(0, 2, 0, 1))
+    last = upstream.HunyuanImage3(params, dtype=torch.float32, device="cpu", operations=operations,
+                                  pipeline_stage=PipelineStageConfig(1, 2, 1, 2))
+
+    for name in ("final_layer", "time_embed_2"):
+        assert isinstance(getattr(first, name), PipelineMissingLayer)
+        assert not isinstance(getattr(last, name), PipelineMissingLayer)
+    for name in ("patch_embed", "time_embed", "timestep_emb", "vision_aligner"):
+        assert not isinstance(getattr(first, name), PipelineMissingLayer)
+        assert isinstance(getattr(last, name), PipelineMissingLayer)
+    assert isinstance(last.model.wte, PipelineMissingLayer)
+    assert isinstance(first.model.layers[1], PipelineMissingLayer)
+    assert isinstance(last.model.layers[0], PipelineMissingLayer)
+
+
 def _write_shards(directory, shards):
     weight_map = {}
     for name, tensors in shards.items():

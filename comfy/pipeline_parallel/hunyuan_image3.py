@@ -54,30 +54,27 @@ def _upstream(package: str, name: str):
     return importlib.import_module(f"{package}.{name}")
 
 
-def _owns(stage: PipelineStageConfig):
+def _prune(module: torch.nn.Module, prefix: str, stage: PipelineStageConfig, device) -> torch.nn.Module:
+    """`module` with every submodule another stage owns replaced, the rest materialized on `device`.
+
+    Ownership is decided by module name, the way the stage spec decides it for a key: a decoder
+    layer by its index, anything else by its prefix. A module's parameters cannot decide it, since
+    ops that create a weight only when a state dict arrives (mixed precision, DynamicVRAM) leave a
+    Linear-only module such as `time_embed_2` with no keys at construction.
+    """
     spec = HunyuanImage3PipelineStageSpec()
     plan = PipelineStagePlan(stage.index, torch.device("meta"), stage.start_layer, stage.end_layer, 0, frozenset())
-    return lambda key: spec.owns_key(key, plan, stage.count)
-
-
-def _prune(module: torch.nn.Module, prefix: str, owns, device) -> torch.nn.Module:
-    """`module` with every submodule the stage owns no key of replaced, the rest materialized."""
-    keys = [prefix + key for key in module.state_dict()]
-    if not keys:
-        return module
-    owned = [owns(key) for key in keys]
-    if all(owned):
-        return module.to_empty(device=device)
-    if not any(owned):
-        return PipelineMissingLayer()
+    holds_layers = prefix == "" or any(
+        spec.block_index(f"{prefix}{name}.") is not None for name, _ in module.named_modules() if name
+    )
+    if spec.block_index(prefix) is not None or not holds_layers:
+        return module.to_empty(device=device) if spec.owns_key(prefix, plan, stage.count) else PipelineMissingLayer()
     for name, child in list(module.named_children()):
-        replacement = _prune(child, f"{prefix}{name}.", owns, device)
+        replacement = _prune(child, f"{prefix}{name}.", stage, device)
         if replacement is not child:
             module._modules[name] = replacement
-    for name, tensor in list(module.named_parameters(recurse=False)) + list(module.named_buffers(recurse=False)):
-        if not owns(prefix + name):
-            raise ValueError(f"{prefix}{name} is not owned by the stage that owns its siblings")
-    module._apply(lambda tensor: torch.empty_like(tensor, device=device) if tensor.is_meta else tensor, recurse=False)
+    if next(module.parameters(recurse=False), None) is not None or next(module.buffers(recurse=False), None) is not None:
+        raise ValueError(f"{prefix or 'the model'} holds tensors of its own beside decoder layers of several stages")
     return module
 
 
@@ -90,7 +87,7 @@ def _stage_init(original):
             return
         original(self, config, dtype=dtype, device="meta", operations=operations)
         self.pipeline_stage = pipeline_stage
-        _prune(self, "", _owns(pipeline_stage), device)
+        _prune(self, "", pipeline_stage, device)
 
     return __init__
 
