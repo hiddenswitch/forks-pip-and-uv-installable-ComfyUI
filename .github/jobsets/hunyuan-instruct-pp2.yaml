@@ -41,44 +41,59 @@ spec:
             - command:
               - /bin/bash
               - -lc
-              - "set -euo pipefail\nexport RANK=\"${JOBSET_JOB_INDEX}\" WORLD_SIZE=2\
-                \ LOCAL_RANK=0 LOCAL_WORLD_SIZE=1\nexport NCCL_IB_HCA=usb4_rdma NCCL_NET=IB\
-                \ NCCL_NET_PLUGIN=none\nPRIMARY_IFACE=\"$(awk '$2 == \"00000000\"\
-                \ {print $1; exit}' /proc/net/route)\"\nexport NCCL_SOCKET_IFNAME=\"\
-                ${PRIMARY_IFACE}\" GLOO_SOCKET_IFNAME=\"${PRIMARY_IFACE}\"\nuv pip\
-                \ install --no-deps \"comfyui @ https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/archive/${COMFYUI_REVISION}.tar.gz\"\
-                \nuv pip install --no-deps --extra-index-url https://nodes.appmana.com/simple\
-                \ \"comfyui-hunyuanimage3==0.1.0\"\nOUT=\"/outputs/comfy-hy3-pp2-benchmark/${JOBSET_UID}\"\
-                \nmkdir -p \"${OUT}\" /workspace/comfyui\nibv_devices\npython - <<'CHECK'\n\
-                import torch\nprint(torch.__version__,torch.cuda.get_device_name(0),flush=True)\n\
-                CHECK\nif [ \"${RANK}\" -eq 0 ]; then\npython - <<'WEIGHTS'\nfrom\
-                \ huggingface_hub import hf_hub_download\nfor name in ('vae/hunyuan_image_3_vae_fp16.safetensors','hunyuan_image_3_instruct_w4a8.safetensors'):\n\
-                \ print(hf_hub_download('PedroMarinhoDev/HunyuanImage-3.0-Instruct-ComfyUI',name),flush=True)\n\
-                WEIGHTS\ncurl -fsSL \"https://raw.githubusercontent.com/hiddenswitch/pip-and-uv-installable-ComfyUI/${COMFYUI_REVISION}/release-artifacts/workflows/api/hunyuan-instruct-fixed-rewrite-txt2img.json\"\
-                \ -o \"${OUT}/workflow.json\"\npython - \"${OUT}/workflow.json\" <<'STEPS'\n\
-                import json, os, sys\nfrom pathlib import Path\npath = Path(sys.argv[1])\n\
-                workflow = json.loads(path.read_text())\nfor node in workflow.values():\n\
-                \    if node.get(\"class_type\") == \"KSampler\":\n        node[\"\
-                inputs\"][\"steps\"] = max(2, int(os.environ[\"BENCHMARK_STEPS\"]))\n\
-                path.write_text(json.dumps(workflow))\nSTEPS\ntouch \"${OUT}/weights.ready\"\
-                \nelse\nuntil [ -e \"${OUT}/weights.ready\" ]; do sleep 5; done\n\
-                fi\npython - <<'STAGE'\nfrom pathlib import Path\nfrom shutil import\
-                \ copyfile\nfrom huggingface_hub import hf_hub_download\nfor filename,\
-                \ directory in (\n    ('hunyuan_image_3_instruct_w4a8.safetensors',\
-                \ 'diffusion_models'),\n    ('vae/hunyuan_image_3_vae_fp16.safetensors',\
-                \ 'vae'),\n):\n    source = hf_hub_download('PedroMarinhoDev/HunyuanImage-3.0-Instruct-ComfyUI',\
-                \ filename, local_files_only=True)\n    destination = Path('/workspace/comfyui/models')\
-                \ / directory / Path(filename).name\n    destination.parent.mkdir(parents=True,\
-                \ exist_ok=True)\n    copyfile(source, destination)\nSTAGE\ncd /workspace/comfyui\n\
-                curl -fsSL \"https://raw.githubusercontent.com/hiddenswitch/pip-and-uv-installable-ComfyUI/${COMFYUI_REVISION}/tests/inference_benchmark.py\"\
-                \ -o /tmp/comfy_benchmark.py\nexport COMFY_BENCHMARK_PATH=\"${OUT}/step2-rank${RANK}.jsonl\"\
-                \nHF_HUB_OFFLINE=1 python -c 'import os,sys; sys.path.insert(0,\"\
-                /tmp\"); from comfy_benchmark import install_benchmark; patches=install_benchmark(os.environ[\"\
-                COMFY_BENCHMARK_PATH\"]); from comfy.cmd.cli import entrypoint; entrypoint()'\
-                \ workflows run \"${OUT}/workflow.json\" --output-directory \"${OUT}\"\
-                \ --no-guess-settings --use-ck-attention --tensor-parallel-size 1 --pipeline-parallel-size\
-                \ 2 --distributed-executor-backend external_launcher --logging-level\
-                \ INFO 2>&1 | tee \"${OUT}/rank${RANK}.log\"\n"
+              - |
+                set -euo pipefail
+                export RANK="${JOBSET_JOB_INDEX}" WORLD_SIZE=2 LOCAL_RANK=0 LOCAL_WORLD_SIZE=1
+                export NCCL_IB_HCA=usb4_rdma NCCL_NET=IB NCCL_NET_PLUGIN=none
+                PRIMARY_IFACE="$(awk '$2 == "00000000" {print $1; exit}' /proc/net/route)"
+                export NCCL_SOCKET_IFNAME="${PRIMARY_IFACE}" GLOO_SOCKET_IFNAME="${PRIMARY_IFACE}"
+                uv pip install --no-deps "comfyui @ https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/archive/${COMFYUI_REVISION}.tar.gz"
+                uv pip install --no-deps --extra-index-url https://nodes.appmana.com/simple "comfyui-hunyuanimage3==0.1.0"
+                OUT="/outputs/comfy-hy3-pp2-benchmark/${JOBSET_UID}"
+                mkdir -p "${OUT}" /workspace/comfyui
+                ibv_devices
+                python - <<'CHECK'
+                import torch
+                print(torch.__version__,torch.cuda.get_device_name(0),flush=True)
+                CHECK
+                if [ "${RANK}" -eq 0 ]; then
+                python - <<'WEIGHTS'
+                from huggingface_hub import hf_hub_download
+                for name in ('vae/hunyuan_image_3_vae_fp16.safetensors','hunyuan_image_3_instruct_w4a8.safetensors'):
+                 print(hf_hub_download('PedroMarinhoDev/HunyuanImage-3.0-Instruct-ComfyUI',name),flush=True)
+                WEIGHTS
+                curl -fsSL "https://raw.githubusercontent.com/hiddenswitch/pip-and-uv-installable-ComfyUI/${COMFYUI_REVISION}/release-artifacts/workflows/api/hunyuan-instruct-fixed-rewrite-txt2img.json" -o "${OUT}/workflow.json"
+                python - "${OUT}/workflow.json" <<'STEPS'
+                import json, os, sys
+                from pathlib import Path
+                path = Path(sys.argv[1])
+                workflow = json.loads(path.read_text())
+                for node in workflow.values():
+                    if node.get("class_type") == "KSampler":
+                        node["inputs"]["steps"] = max(2, int(os.environ["BENCHMARK_STEPS"]))
+                path.write_text(json.dumps(workflow))
+                STEPS
+                touch "${OUT}/weights.ready"
+                else
+                until [ -e "${OUT}/weights.ready" ]; do sleep 5; done
+                fi
+                python - <<'STAGE'
+                from pathlib import Path
+                from shutil import copyfile
+                from huggingface_hub import hf_hub_download
+                for filename, directory in (
+                    ('hunyuan_image_3_instruct_w4a8.safetensors', 'diffusion_models'),
+                    ('vae/hunyuan_image_3_vae_fp16.safetensors', 'vae'),
+                ):
+                    source = hf_hub_download('PedroMarinhoDev/HunyuanImage-3.0-Instruct-ComfyUI', filename, local_files_only=True)
+                    destination = Path('/workspace/comfyui/models') / directory / Path(filename).name
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    copyfile(source, destination)
+                STAGE
+                cd /workspace/comfyui
+                curl -fsSL "https://raw.githubusercontent.com/hiddenswitch/pip-and-uv-installable-ComfyUI/${COMFYUI_REVISION}/tests/inference_benchmark.py" -o /tmp/comfy_benchmark.py
+                export COMFY_BENCHMARK_PATH="${OUT}/step2-rank${RANK}.jsonl"
+                HF_HUB_OFFLINE=1 python -c 'import os,sys; sys.path.insert(0,"/tmp"); from comfy_benchmark import install_benchmark; patches=install_benchmark(os.environ["COMFY_BENCHMARK_PATH"]); from comfy.cmd.cli import entrypoint; entrypoint()' workflows run "${OUT}/workflow.json" --output-directory "${OUT}" --no-guess-settings --use-ck-attention --tensor-parallel-size 1 --pipeline-parallel-size 2 --distributed-executor-backend external_launcher --logging-level INFO 2>&1 | tee "${OUT}/rank${RANK}.log"
               env:
               - name: COMFYUI_REVISION
                 value: 33a27d8c98d556475b6eb8637d189685475400dd
