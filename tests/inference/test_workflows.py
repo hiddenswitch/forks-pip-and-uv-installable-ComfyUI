@@ -22,6 +22,7 @@ from comfy.distributed.process_pool_executor import ProcessPoolExecutor
 from comfy.model_downloader import add_known_models
 from comfy.model_downloader_types import HuggingFile
 from . import workflows
+from tests.inference_benchmark import install_benchmark, benchmark_rows, prepare_benchmark_prompt
 from comfy.cli_args import default_configuration
 from comfy.cli_args_types import PerformanceFeature
 
@@ -121,9 +122,12 @@ async def client(tmp_path_factory, request) -> AsyncGenerator[Any, Any]:
     config.disable_all_custom_nodes = True
     config.update(request.param)
     # use ProcessPoolExecutor to respect various config settings
-    with ProcessPoolExecutor(max_workers=1) as executor:
+    benchmark_path = tmp_path_factory.mktemp("benchmark") / "steps.jsonl"
+    with ProcessPoolExecutor(max_workers=1, initializer=install_benchmark, initargs=(str(benchmark_path),)) as executor:
         async with Comfy(configuration=config, executor=executor) as client:
             yield client
+    for row in benchmark_rows(benchmark_path):
+        request.node.user_properties.append(("inference_benchmark", row))
 
 
 def _prepare_for_workflows() -> dict[str, Traversable]:
@@ -155,6 +159,7 @@ async def test_workflow(workflow_name: str, workflow_file: Traversable, has_gpu:
     workflow = json.loads(workflow_file.read_text(encoding="utf8"))
 
     _replace_remote_media_inputs(workflow)
+    workflow = prepare_benchmark_prompt(workflow)
     prompt = Prompt.validate(workflow)
     # todo: add all the models we want to test a bit m2ore elegantly
     outputs = {}

@@ -26,6 +26,7 @@ _STEPS_CLASS_TYPES = frozenset({
     "Flux2Scheduler",
     "LTXVScheduler",
     "AlignYourStepsScheduler",
+    "Ideogram4Scheduler",
 })
 
 # class_type -> seed field name

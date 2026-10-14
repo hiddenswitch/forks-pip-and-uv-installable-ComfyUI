@@ -14,7 +14,8 @@ import pytest
 from comfy.app.custom_node_manager import CustomNodeManager
 from comfy.cmd.workflow_templates import _collect_class_types
 from comfy.component_model.prompt_utils import replace_steps, replace_width, replace_height
-from comfy.component_model.workflow_convert import is_ui_workflow
+from comfy.component_model.workflow_convert import is_ui_workflow, convert_ui_to_api
+from tests.inference_benchmark import prepare_benchmark_prompt
 
 from comfy.component_model.node_registry import get_spec
 from .conftest import (
@@ -732,7 +733,7 @@ class TestCustomNodeExecution:
         _ALL_WORKFLOW_PARAMS,
         ids=_PARAM_IDS,
     )
-    async def test_execute_workflow(self, node_id, workflow_name, workflow_path, shared_base_dir):
+    async def test_execute_workflow(self, node_id, workflow_name, workflow_path, shared_base_dir, inference_benchmark):
         from comfy.client.embedded_comfy_client import Comfy
 
         test_key = f"{node_id}/{workflow_name}"
@@ -770,6 +771,9 @@ class TestCustomNodeExecution:
         config = build_config(base_dir, base_paths=[real_base])
 
         async with Comfy(configuration=config) as client:
+            if is_ui_workflow(data):
+                data = convert_ui_to_api(data)
+            data = prepare_benchmark_prompt(_apply_cost_reduction_api(data))
             start = time.monotonic()
             outputs = await client.queue_prompt(data)
             elapsed = time.monotonic() - start
