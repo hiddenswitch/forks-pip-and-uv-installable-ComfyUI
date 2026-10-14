@@ -13,6 +13,9 @@ from importlib import resources
 import pytest
 import requests
 from alembic.script import ScriptDirectory
+from tests.conftest import server_startup_timeout_seconds
+
+pytestmark = [pytest.mark.server_process, pytest.mark.xdist_group(name="server-process")]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENABLED_EVENT = "[assets-event] assets.enabled "
@@ -44,7 +47,7 @@ def _quick_start(base: Path, *flags: str) -> subprocess.CompletedProcess:
         cwd=base,
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=max(120, server_startup_timeout_seconds()),
     )
 
 
@@ -138,7 +141,7 @@ def _serve(tmp_path, *flags):
         )
     base_url = f"http://127.0.0.1:{port}"
     try:
-        deadline = time.monotonic() + 120
+        deadline = time.monotonic() + max(120, server_startup_timeout_seconds())
         while time.monotonic() < deadline:
             assert server.poll() is None, log_path.read_text()[-4000:]
             with contextlib.suppress(requests.RequestException):

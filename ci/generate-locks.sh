@@ -44,11 +44,11 @@ uv pip compile "${common[@]}" \
   --output-file ci/locks/pylock.linux-py312-numpy1.toml
 
 uv pip compile "${common[@]}" \
-  --constraints ci/torch-constraints.txt \
-  "${without_torch[@]}" \
-  --python-version 3.11 \
+  ci/xpu-requirements.txt \
+  --python-version 3.14 \
   --python-platform linux \
-  --output-file ci/locks/pylock.linux-py311.toml
+  --torch-backend xpu \
+  --output-file ci/locks/pylock.linux-py314-xpu.toml
 
 uv pip compile "${common[@]}" \
   --constraints ci/torch-constraints.txt \

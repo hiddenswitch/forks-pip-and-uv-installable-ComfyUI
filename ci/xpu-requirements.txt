@@ -1,0 +1,4 @@
+# Native XPU wheels; TorchAudio 2.11 is the latest published audio release.
+torch==2.14.1+xpu
+torchvision==0.29.1+xpu
+torchaudio==2.11.0+xpu

@@ -89,7 +89,7 @@ jobs:
           python - <<'PY'
           import os
           import torch
-          assert torch.__version__.startswith("2.13.0"), torch.__version__
+          assert torch.__version__ == "2.14.0+rocm10.1.0", torch.__version__
           assert torch.version.hip is not None
           assert torch.cuda.is_available()
           print("torch", torch.__version__)

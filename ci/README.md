@@ -1,21 +1,14 @@
 # CI dependency locks
 
 The CI environments install from the platform-specific `pylock.*.toml` files in
-this directory. Backend locks omit ComfyUI and Torch: ComfyUI is installed from
-the checkout, while the CUDA, XPU, and Windows jobs retain the Torch build
+this directory. ComfyUI is installed from the checkout. CUDA and Windows locks
+omit Torch, while those jobs retain the Torch build
 provided or explicitly selected by that backend. CUDA image builds freeze the
 Python environment supplied by NGC, except for named compatibility exceptions,
 as resolver overrides before adding ComfyUI. Hardware jobs test that immutable
 candidate image without installing anything. All locks use the single
 headless OpenCV distribution in `headless-requirements.txt` instead of
 installing multiple distributions that provide the same `cv2` module.
-
-Regenerate every lock from the repository root after changing project or custom
-node dependencies:
-
-```sh
-ci/generate-locks.sh
-```
 
 Lock changes are reviewed and committed with the dependency change that caused
 them. CI installs the locks without resolving dependency versions. Lock
@@ -25,7 +18,7 @@ silently change a lock. The AppMana node index is combined with the public
 indexes only while generating the trusted lock; installs use the exact URLs and
 hashes recorded in the resulting pylock files.
 
-`torch-constraints.txt` holds the Torch line every lock resolves against, so
+`torch-constraints.txt` holds the default Torch line locks resolve against, so
 `--upgrade` cannot move Torch (or the Triton the Linux locks emit) as a side
 effect of an unrelated dependency change. Bump it deliberately.
 
@@ -35,6 +28,11 @@ without turning every dependency into a moving nightly-build target.
 
 The macOS lock targets macOS 14 and Python 3.12. It includes the native macOS
 PyTorch 2.13 wheels; Python 3.15 is not one of the CI targets.
+
+The XPU lock includes native PyTorch 2.14.1, torchvision 0.29.1, TorchAudio
+2.11.0 and their Intel runtime dependencies. The XPU job uses an isolated
+Python 3.14.7 environment; the base image supplies the GPU driver libraries.
+`xpu-requirements.txt` pins this backend independently of the CUDA and CPU jobs.
 
 `pylock.linux-py312-numpy1.toml` is the compatibility lock for the CUDA 12.8
 NGC image. Its Torch and bundled extensions use the NumPy 1 ABI, so the whole
