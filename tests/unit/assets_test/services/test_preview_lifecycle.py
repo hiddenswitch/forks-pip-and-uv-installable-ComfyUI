@@ -2,11 +2,11 @@ from pathlib import Path
 
 import pytest
 
-import folder_paths
-from app.assets.database.models import Asset, AssetContent
-from app.assets.database.queries.records import create_content, create_record, mark_content_missing
-from app.assets.lifecycle import wipe_temp_db_rows
-from app.assets.services.asset_management import delete_asset_reference, update_asset_metadata
+from comfy.cmd import folder_paths
+from comfy.app.assets.database.models import Asset, AssetContent
+from comfy.app.assets.database.queries.records import create_content, create_record, mark_content_missing
+from comfy.app.assets.lifecycle import wipe_temp_db_rows
+from comfy.app.assets.services.asset_management import delete_asset_reference, update_asset_metadata
 
 
 @pytest.fixture

@@ -313,9 +313,9 @@ def test_qualified_event_log_import_is_scanned(tmp_path: Path) -> None:
     _write_scan_fixture(
         tmp_path,
         relative,
-        "import app.assets.event_log\n\n"
+        "import comfy.app.assets.event_log\n\n"
         "def probe():\n"
-        '    app.assets.event_log.emit("seeder.scan_started", phase="fast")\n',
+        '    comfy.app.assets.event_log.emit("seeder.scan_started", phase="fast")\n',
     )
 
     sites, faults = _scan_file(tmp_path, relative)
@@ -331,7 +331,7 @@ def test_unresolvable_emit_receiver_is_a_scan_failure(tmp_path: Path) -> None:
     _write_scan_fixture(
         tmp_path,
         relative,
-        "from app.assets import event_log\n\n"
+        "from comfy.app.assets import event_log\n\n"
         "def probe(provider):\n"
         '    provider().emit("seeder.scan_started", phase="fast")\n',
     )

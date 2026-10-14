@@ -3,7 +3,7 @@ import mimetypes
 import os
 import urllib.parse
 
-from app.assets.services.path_utils import compute_asset_response_paths
+from .path_utils import compute_asset_response_paths
 
 
 # What a client can render from the bytes themselves; anything else needs a nominated preview.

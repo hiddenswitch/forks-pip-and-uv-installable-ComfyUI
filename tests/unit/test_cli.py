@@ -486,3 +486,13 @@ def test_workflows_run_workflow_specific_help_order_legacy_windows(monkeypatch):
     default_params = out.index("Arguments")
 
     assert explanation < workflow_params < default_params, out[:300]
+
+
+def test_asset_flags_and_preview_directory_reach_configuration(tmp_path):
+    command = typer.main.get_command(app).commands['serve']
+    preview_dir = str(tmp_path / 'previews')
+    with command.make_context('serve', ['--no-guess-settings', '--enable-assets', '--disable-assets', '--previews-directory', preview_dir]) as context:
+        configuration = cli_module._build_config(context.params)
+    assert configuration.enable_assets
+    assert configuration.disable_assets
+    assert configuration.previews_directory == preview_dir

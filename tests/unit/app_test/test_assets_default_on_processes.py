@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from importlib import resources
 
 import pytest
 import requests
@@ -15,14 +16,14 @@ from alembic.script import ScriptDirectory
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENABLED_EVENT = "[assets-event] assets.enabled "
-HEAD = ScriptDirectory(str(REPO_ROOT / "alembic_db")).get_current_head()
+HEAD = ScriptDirectory(str(resources.files("comfy") / "alembic_db")).get_current_head()
 
 
 def _comfy_args(base: Path, *flags: str) -> list[str]:
     # Always an explicit database: without one, startup relocates the checkout's own user/comfyui.db.
     return [
         sys.executable,
-        str(REPO_ROOT / "main.py"),
+        "-c", "from comfy.cmd.cli import entrypoint; entrypoint()",
         "--cpu",
         "--disable-all-custom-nodes",
         "--disable-partner-nodes",
@@ -210,3 +211,12 @@ def test_running_a_prompt_rescans_the_output_folder(enabled_server, tmp_path):
     while "undeclared.png" not in _listed_names(enabled_server):
         assert time.monotonic() < deadline, f"the output folder was not rescanned after the prompt\n{log_path.read_text()[-4000:]}"
         time.sleep(0.25)
+
+
+def test_default_workflow_is_served_from_the_installed_package(default_server):
+    import json
+
+    response = requests.get(f"{default_server}/api/default_workflow", timeout=10)
+    assert response.status_code == 200
+    expected = json.loads((resources.files("comfy") / "default_workflow.json").read_text())
+    assert response.json() == expected

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from importlib import resources
+
 from asyncio import AbstractEventLoop
 from asyncio import Future
 from asyncio import Task
@@ -891,7 +893,7 @@ class PromptServer(ExecutorToClientProgress):
 
         @routes.get("/default_workflow")
         async def get_default_workflow(request):
-            return web.FileResponse(os.path.join(os.path.dirname(os.path.realpath(__file__)), "default_workflow.json"), headers={"Cache-Control": "no-cache"})
+            return web.FileResponse(str(resources.files("comfy").joinpath("default_workflow.json")), headers={"Cache-Control": "no-cache"})
 
         @routes.get("/prompt")
         async def get_prompt(request):

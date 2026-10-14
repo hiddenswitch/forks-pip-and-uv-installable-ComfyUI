@@ -198,16 +198,9 @@ def test_noassets_is_disabled() -> None:
 def test_assets_are_off_unless_enabled(
     flags: list[str], expected: type, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A fresh interpreter, because the rules after parse_args only run when comfy.cli_args is imported.
-    parsed = subprocess.run(
-        [sys.executable, "-c", "import comfy.options; comfy.options.enable_args_parsing(); "
-         "from comfy.cli_args import args; print(args.disable_assets)", *flags],
-        cwd=Path(__file__).resolve().parents[3],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    disable_assets = {"True": True, "False": False}[parsed.stdout.strip()]
-    monkeypatch.setattr(manager, "args", SimpleNamespace(disable_assets=disable_assets, enable_asset_hashing=False))
+    from comfy.cli_args_types import Configuration
+    from comfy.execution_context import context_configuration
 
-    assert isinstance(manager.default_asset_manager(), expected)
+    config = Configuration(**{flag[2:].replace("-", "_"): True for flag in flags})
+    with context_configuration(config):
+        assert isinstance(manager.default_asset_manager(), expected)

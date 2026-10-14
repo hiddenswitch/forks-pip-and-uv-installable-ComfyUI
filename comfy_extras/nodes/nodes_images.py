@@ -1254,8 +1254,8 @@ class ImageSDRToHDR(IO.ComfyNode):
         target_luminance = algorithm["target_luminance"] or None
         if image.shape[-1] == 1:
             image = image.expand(*image.shape[:-1], 3)
-        output = torch.empty_like(image, device=comfy.model_management.intermediate_device(), dtype=comfy.model_management.intermediate_dtype())
-        device = comfy.model_management.get_torch_device()
+        output = torch.empty_like(image, device=model_management.intermediate_device(), dtype=model_management.intermediate_dtype())
+        device = model_management.get_torch_device()
         for i, frame in enumerate(image):
             rgb = frame[..., :3].to(device=device, dtype=torch.float32)
             output[i, ..., :3] = _sdr_to_hdr_lottes(rgb, target_luminance)
@@ -2094,7 +2094,7 @@ class SaveImageAdvanced(IO.ComfyNode):
                 ui["animated"] = (True,)
             return IO.NodeOutput(images, ui=ui)
 
-        write_previews = file_format == "exr" and PromptServer.instance.asset_manager.enabled
+        write_previews = file_format == "exr" and (args.enable_assets or args.windows_standalone_build) and not args.disable_assets
         for batch_number, image in enumerate(images):
             if file_format == "exr":
                 if image.ndim == 2:

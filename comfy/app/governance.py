@@ -14,7 +14,7 @@ import unicodedata
 
 import yaml
 
-from utils.ed25519 import Ed25519PublicKey
+from ..ed25519 import Ed25519PublicKey
 
 
 GOVERNANCE_REQUIRED = False

@@ -10,6 +10,7 @@ AFFECTS_PATHS: frozenset[str] = frozenset({
     'base_paths',
     'output_directory',
     'input_directory',
+    'previews_directory',
     'temp_directory',
     'user_directory',
     'extra_model_paths_config',

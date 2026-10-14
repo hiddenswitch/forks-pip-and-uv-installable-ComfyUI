@@ -66,7 +66,7 @@ async def test_put_rejects_an_asset_as_its_own_preview(session, mock_create_sess
     from aiohttp import web
     from aiohttp.test_utils import make_mocked_request
 
-    from app.assets.api import routes
+    from comfy.app.assets.api import routes
 
     record = _create_record(session, "/output/self.png")
     request = make_mocked_request("PUT", f"/api/assets/{record.id}", match_info={"id": record.id})

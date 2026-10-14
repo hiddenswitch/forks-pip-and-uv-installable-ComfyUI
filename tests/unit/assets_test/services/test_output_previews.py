@@ -3,10 +3,10 @@
 from sqlalchemy import event
 from sqlalchemy.orm import Session
 
-from app.assets.database.models import Asset, AssetContent
-from app.assets.services.ingest import register_executed_output
+from comfy.app.assets.database.models import Asset, AssetContent
+from comfy.app.assets.services.ingest import register_executed_output
 
-from .preview_helpers import write_exr, write_preview
+from tests.unit.assets_test.services.preview_helpers import write_exr, write_preview
 
 
 def test_the_output_row_is_never_committed_without_its_preview(session, mock_create_session, roots):

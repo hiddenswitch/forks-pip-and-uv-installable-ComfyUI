@@ -229,4 +229,4 @@ class AssetsEnabled:
 
 
 def default_asset_manager() -> AssetManager:
-    return NoAssets(args) if args.disable_assets else AssetsEnabled(args)
+    return AssetsEnabled(args) if (args.enable_assets or args.windows_standalone_build) and not args.disable_assets else NoAssets(args)

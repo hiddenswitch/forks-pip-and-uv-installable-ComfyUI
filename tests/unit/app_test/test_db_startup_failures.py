@@ -8,6 +8,9 @@ import os
 import sqlite3
 import sys
 from pathlib import Path
+from importlib import resources
+
+from comfy.execution_context import current_execution_context
 
 import pytest
 import torch
@@ -16,14 +19,14 @@ from alembic.script import ScriptDirectory
 from sqlalchemy.engine import URL, make_url
 from filelock import FileLock
 
-import folder_paths
-from app.database import db as db_module
+from comfy.cmd import folder_paths
+from comfy.app.database import db as db_module
 from comfy.cli_args import args as cli_args
 
 if not torch.cuda.is_available():
     cli_args.cpu = True
 
-import main  # noqa: E402
+from comfy.cmd import main
 
 
 class _AssetsOn:
@@ -36,7 +39,8 @@ class _AssetsOn:
 @pytest.fixture
 def db_path(tmp_path, monkeypatch):
     path = str(tmp_path / "comfyui.db")
-    monkeypatch.setattr(db_module.args, "database_url", f"sqlite:///{path}")
+    monkeypatch.setattr(current_execution_context().configuration, "database_url", f"sqlite:///{path}")
+    monkeypatch.setattr(current_execution_context().configuration, "_database_url_explicit", True, raising=False)
     monkeypatch.setattr(db_module, "Session", None)
     monkeypatch.setattr(db_module, "WriteSession", None)
     monkeypatch.setattr(db_module, "_db_lock", None)
@@ -61,18 +65,15 @@ def _stamp(path, revision):
         conn.execute("INSERT INTO alembic_version VALUES (?)", (revision,))
 
 
-def test_lock_held_by_another_comfyui(db_path, caplog):
+def test_lock_held_by_another_comfyui_uses_memory(db_path, caplog):
     holder = FileLock(db_path + ".lock")
     holder.acquire(timeout=0)
     try:
-        error = _startup_error(caplog, kind="in_use")
+        main.setup_database(_AssetsOn())
+        assert "using an in-memory database" in caplog.text
+        assert db_module.Session.kw["bind"].url.database == ":memory:"
     finally:
         holder.release()
-
-    # Launchers match "already using this database"; keep that phrase.
-    assert f"Another ComfyUI is already using this database: '{db_path}'." in error
-    assert "Close the other ComfyUI" in error
-    assert "Or give this ComfyUI its own database" not in error  # it already has --database-url
 
 
 def test_database_locked_by_another_program(db_path, caplog):
@@ -164,7 +165,7 @@ def test_database_path_is_a_directory(db_path, caplog):
 def test_folder_path_runs_through_a_file(tmp_path, monkeypatch, db_path, caplog, parts):
     (tmp_path / "taken").write_text("")
     path = str(tmp_path.joinpath(*parts))
-    monkeypatch.setattr(db_module.args, "database_url", f"sqlite:///{path}")
+    monkeypatch.setattr(current_execution_context().configuration, "database_url", f"sqlite:///{path}")
 
     error = _startup_error(caplog, kind="path_blocked")
 
@@ -216,7 +217,7 @@ def test_failure_after_the_database_opened_doesnt_suggest_deleting_it(db_path, c
     "url", ["postgresql://user:secret@localhost/comfy", "sqlite:relative.db", "sqlite://user:secret@host/x.db"]
 )
 def test_database_url_that_is_not_sqlite_file_url(monkeypatch, db_path, caplog, url):
-    monkeypatch.setattr(db_module.args, "database_url", url)
+    monkeypatch.setattr(current_execution_context().configuration, "database_url", url)
 
     error = _startup_error(caplog, kind="unsupported_url", level=logging.DEBUG)
 
@@ -226,28 +227,13 @@ def test_database_url_that_is_not_sqlite_file_url(monkeypatch, db_path, caplog, 
     assert "secret" not in caplog.text
 
 
-def test_default_database_in_use_suggests_its_own_database(tmp_path, monkeypatch, db_path, caplog):
-    user_dir = tmp_path / "user"
-    user_dir.mkdir()
-    monkeypatch.setattr(db_module.args, "database_url", None)
-    monkeypatch.setattr(db_module, "get_legacy_default_db_path", lambda: None)
-    monkeypatch.setattr(folder_paths, "get_user_directory", lambda: str(user_dir))
-    holder = FileLock(str(user_dir / "comfyui.db.lock"))
-    holder.acquire(timeout=0)
-    try:
-        error = _startup_error(caplog, kind="in_use")
-    finally:
-        holder.release()
-
-    assert "Or give this ComfyUI its own database: --database-url sqlite:///path/to/another.db" in error
-
 
 def test_no_second_database_suggested_for_a_broken_one(tmp_path, monkeypatch, db_path, caplog):
     # A fresh file would quietly start a second, empty catalog instead of fixing this one.
     user_dir = tmp_path / "user"
     user_dir.mkdir()
     (user_dir / "comfyui.db").write_bytes(b"not a database" * 1000)
-    monkeypatch.setattr(db_module.args, "database_url", None)
+    monkeypatch.setattr(current_execution_context().configuration, "database_url", None)
     monkeypatch.setattr(db_module, "get_legacy_default_db_path", lambda: None)
     monkeypatch.setattr(folder_paths, "get_user_directory", lambda: str(user_dir))
 
@@ -291,7 +277,7 @@ def _sqlalchemy_quotes_question_marks():
 def test_default_database_path_is_used_literally(tmp_path, monkeypatch, db_path, folder):
     # SQLAlchemy 2.1 decodes %xx in a URL and ends the path at ?, so the path must be quoted.
     user_dir = tmp_path / folder
-    monkeypatch.setattr(db_module.args, "database_url", None)
+    monkeypatch.setattr(current_execution_context().configuration, "database_url", None)
     monkeypatch.setattr(db_module, "get_legacy_default_db_path", lambda: None)
     monkeypatch.setattr(folder_paths, "get_user_directory", lambda: str(user_dir))
 
@@ -308,4 +294,4 @@ def _revision(path):
 
 
 def _head():
-    return ScriptDirectory(str(Path(main.__file__).parent / "alembic_db")).get_current_head()
+    return ScriptDirectory(str(resources.files("comfy") / "alembic_db")).get_current_head()

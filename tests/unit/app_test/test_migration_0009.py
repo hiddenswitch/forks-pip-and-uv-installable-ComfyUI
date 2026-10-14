@@ -1,4 +1,4 @@
-import os
+from importlib import resources
 import sqlite3
 from datetime import datetime, timedelta
 
@@ -25,9 +25,9 @@ def _ns(when: datetime) -> int:
 
 
 def _make_config(db_path: str) -> Config:
-    root = os.path.join(os.path.dirname(__file__), "../..")
-    cfg = Config(os.path.abspath(os.path.join(root, "alembic.ini")))
-    cfg.set_main_option("script_location", os.path.abspath(os.path.join(root, "alembic_db")))
+    root = resources.files("comfy")
+    cfg = Config(str(root / "alembic.ini"))
+    cfg.set_main_option("script_location", "comfy:alembic_db")
     cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
     return cfg
 

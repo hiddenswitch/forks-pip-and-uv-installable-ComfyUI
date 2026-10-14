@@ -11,20 +11,25 @@ from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
 from sqlalchemy.orm import Session
 
-import folder_paths
-from app.assets.api import routes
-from app.assets.database.models import Asset
-from app.assets.helpers import mtime_ns_to_utc
-from app.assets.scanner import SeedAssetSpec, insert_asset_specs
-from app.assets.services.ingest import register_executed_output, register_file_in_place
+from comfy.cmd import folder_paths
+from comfy.app.assets.api import routes
+from comfy.app.assets.database.models import Asset
+from comfy.app.assets.helpers import mtime_ns_to_utc
+from comfy.app.assets.scanner import SeedAssetSpec, insert_asset_specs
+from comfy.app.assets.services.ingest import register_executed_output, register_file_in_place
 
 _EPOCH = datetime(1970, 1, 1)
 
 
 @pytest.fixture
 def output_dir(temp_dir: Path, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(folder_paths, "output_directory", str(temp_dir))
-    return temp_dir
+    from comfy.component_model.folder_path_types import FolderNames
+    from comfy.execution_context import context_folder_names_and_paths
+
+    folders = FolderNames(base_paths=[temp_dir])
+    folders.application_paths.output_directory = temp_dir
+    with context_folder_names_and_paths(folders):
+        yield temp_dir
 
 
 @pytest.fixture
@@ -34,8 +39,8 @@ def one_database(db_engine, mock_create_session, monkeypatch: pytest.MonkeyPatch
         with Session(db_engine) as session:
             yield session
 
-    monkeypatch.setattr("app.assets.scanner.create_session", _create_session)
-    monkeypatch.setattr("app.assets.scanner.create_write_session", _create_session)
+    monkeypatch.setattr("comfy.app.assets.scanner.create_session", _create_session)
+    monkeypatch.setattr("comfy.app.assets.scanner.create_write_session", _create_session)
     monkeypatch.setattr(routes, "create_session", lambda: Session(db_engine))
     monkeypatch.setattr(routes, "_ASSETS_ENABLED", True)
     return db_engine
@@ -181,7 +186,7 @@ def test_ctime_only_dates_a_file_whose_mtime_is_in_the_future():
 
 def test_future_ctime_is_capped_at_now(monkeypatch: pytest.MonkeyPatch):
     now = datetime(2026, 10, 1)
-    monkeypatch.setattr("app.assets.helpers.get_utc_now", lambda: now)
+    monkeypatch.setattr("comfy.app.assets.helpers.get_utc_now", lambda: now)
     future = _ns(datetime(2200, 1, 1))
     assert mtime_ns_to_utc(future, future) == now
 
@@ -189,5 +194,5 @@ def test_future_ctime_is_capped_at_now(monkeypatch: pytest.MonkeyPatch):
 def test_future_mtime_with_a_pre_1970_ctime_is_dated_now(monkeypatch: pytest.MonkeyPatch):
     # An unset Windows creation time reads as 1601, which a cursor can't encode.
     now = datetime(2026, 10, 1)
-    monkeypatch.setattr("app.assets.helpers.get_utc_now", lambda: now)
+    monkeypatch.setattr("comfy.app.assets.helpers.get_utc_now", lambda: now)
     assert mtime_ns_to_utc(_ns(datetime(2200, 1, 1)), -11_644_473_600 * 10**9) == now

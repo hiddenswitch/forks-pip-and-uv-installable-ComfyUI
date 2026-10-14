@@ -1,4 +1,4 @@
-from execution import PromptExecutor
+from comfy.cmd.execution import PromptExecutor
 
 
 def test_executor_built_without_a_manager_leaves_assets_off():

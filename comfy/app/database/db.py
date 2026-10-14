@@ -111,7 +111,7 @@ def copy_legacy_default_db(db_path: str) -> None:
         return
 
     legacy_db_path = get_legacy_default_db_path()
-    if os.path.abspath(legacy_db_path) == os.path.abspath(db_path):
+    if legacy_db_path is None or os.path.abspath(legacy_db_path) == os.path.abspath(db_path):
         return
     if os.path.exists(db_path) or not os.path.exists(legacy_db_path):
         return
@@ -322,7 +322,7 @@ def _init_file_db(db_url, use_chain_hash: bool = True):
     If the file lock cannot be acquired, falls back to an in-memory database
     so multiple instances can coexist without crashing.
     """
-    original_path = db_url.split("///", 1)[1]
+    original_path = make_url(db_url).database
     prepare_file_db_path(original_path)
     config = get_alembic_config()
     script = ScriptDirectory.from_config(config)
@@ -378,7 +378,7 @@ def _migrate_and_bind(db_url, db_path, config, script, target_rev, source_spec):
             _backup_database(source, db_path)
             db_exists = True
 
-    config.set_main_option("sqlalchemy.url", db_url)
+    config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
     engine = create_engine(db_url)
     write_engine = create_engine(db_url)

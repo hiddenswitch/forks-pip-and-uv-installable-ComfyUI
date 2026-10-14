@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.assets import previews
+from comfy.app.assets import previews
 
 
 @pytest.mark.parametrize(("height", "skipped"), [(4000, False), (4001, True)])

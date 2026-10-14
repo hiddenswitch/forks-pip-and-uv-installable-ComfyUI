@@ -7,9 +7,9 @@ from aiohttp import FormData
 from aiohttp.test_utils import TestClient, TestServer
 from PIL import Image
 
-from app.assets.manager import AssetsEnabled
+from comfy.app.assets.manager import AssetsEnabled
 
-from .preview_helpers import duplicate_data_window, write_exr
+from tests.unit.assets_test.services.preview_helpers import duplicate_data_window, write_exr
 
 
 class _Args:
@@ -24,12 +24,9 @@ def _png() -> bytes:
 
 
 async def _client(asset_manager) -> TestClient:
-    from comfy.cli_args import args
-    from utils.mime_types import init_mime_types
+    from comfy.mime_types import init_mime_types
 
-    # Importing server initialises the device; these tests never touch a model.
-    with patch.object(args, "cpu", True):
-        import server
+    from comfy.cmd import server
     init_mime_types()
     prompt_server = server.PromptServer(None, asset_manager)
     prompt_server.app.add_routes(prompt_server.routes)
@@ -47,8 +44,8 @@ def _form(name: str, data: bytes, **fields) -> FormData:
 async def _assets_client():
     from aiohttp import web
 
-    from app.assets.api import routes
-    from utils.mime_types import init_mime_types
+    from comfy.app.assets.api import routes
+    from comfy.mime_types import init_mime_types
 
     init_mime_types()
     app = web.Application()
@@ -58,7 +55,7 @@ async def _assets_client():
 
 @pytest.fixture
 def assets_routes_on():
-    from app.assets.api import routes
+    from comfy.app.assets.api import routes
 
     with (
         patch.object(routes, "_ASSETS_ENABLED", True),
@@ -79,8 +76,8 @@ async def _upload(route: str, exr: bytes, roots, session) -> dict:
             form.add_field("tags", json.dumps(["input"]))
             resp = await client.post("/api/assets", data=form)
         else:  # from-hash, over content a previous run already stored
-            from app.assets import mode
-            from app.assets.database.queries.records import create_content
+            from comfy.app.assets import mode
+            from comfy.app.assets.database.queries.records import create_content
 
             class _HashingOn:
                 enable_asset_hashing = True
@@ -101,7 +98,7 @@ async def _upload(route: str, exr: bytes, roots, session) -> dict:
 @pytest.mark.parametrize("route", ["/upload/image", "multipart", "from-hash"])
 @pytest.mark.parametrize(("value", "mode"), [((0.5, 0.5, 0.5), "RGB"), ((0.5, 0.5, 0.5, 0.25), "RGBA")])
 async def test_an_uploaded_exr_comes_back_with_its_preview(mock_create_session, roots, tmp_path, assets_routes_on, session, route, value, mode):
-    from app.assets import previews
+    from comfy.app.assets import previews
 
     exr = write_exr(tmp_path / "src.exr", 64, 48, value=value).read_bytes()
 

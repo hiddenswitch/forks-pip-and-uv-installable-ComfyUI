@@ -206,7 +206,7 @@ def test_scenario_4_delete_no_revival(session, tmp_path):
     record_id, content_id = record.id, record.content_id
 
     with patch(
-        "comfy.app.assets.services.asset_management.create_session",
+        "comfy.app.assets.services.asset_management.create_write_session",
         lambda: nullcontext(session),
     ):
         assert delete_asset_reference(record_id) is True

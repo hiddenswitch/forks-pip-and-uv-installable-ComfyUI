@@ -9,7 +9,7 @@ import pytest
 import torch
 from PIL import Image
 
-import folder_paths
+from comfy.cmd import folder_paths
 from comfy.cli_args import args
 from comfy_execution.preview_tonemap import linear_to_preview
 
@@ -17,8 +17,8 @@ previous_nodes = sys.modules.get("nodes")
 previous_server = sys.modules.get("server")
 sys.modules["nodes"] = MagicMock(MAX_RESOLUTION=16384)
 sys.modules["server"] = MagicMock()
-from comfy_extras import nodes_images  # noqa: E402
-from comfy_extras.nodes_images import SaveImageAdvanced  # noqa: E402
+from comfy_extras.nodes import nodes_images  # noqa: E402
+from comfy_extras.nodes.nodes_images import SaveImageAdvanced  # noqa: E402
 for name, previous in (("nodes", previous_nodes), ("server", previous_server)):
     if previous is None:
         sys.modules.pop(name)
@@ -32,7 +32,8 @@ def dirs(tmp_path, monkeypatch):
     folder_paths.set_output_directory(str(tmp_path / "output"))
     folder_paths.set_previews_directory(str(tmp_path / "previews"))
     (tmp_path / "output").mkdir()
-    monkeypatch.setattr(nodes_images.PromptServer, "instance", SimpleNamespace(asset_manager=SimpleNamespace(enabled=True)), raising=False)
+    monkeypatch.setattr(args, "enable_assets", True)
+    monkeypatch.setattr(args, "disable_assets", False)
     monkeypatch.setattr(args, "disable_metadata", True)
     monkeypatch.setattr(SaveImageAdvanced, "hidden", SimpleNamespace(prompt=None, extra_pnginfo=None), raising=False)
     yield tmp_path
@@ -61,7 +62,7 @@ def test_an_rgba_exr_gets_a_webp_with_straight_alpha_within_one_megapixel(dirs):
 
 
 def test_with_assets_off_no_preview_is_written(dirs, monkeypatch):
-    monkeypatch.setattr(nodes_images.PromptServer.instance.asset_manager, "enabled", False)
+    monkeypatch.setattr(args, "disable_assets", True)
 
     entry = _save(torch.full((1, 8, 8, 3), 0.5))[0]
 
@@ -88,7 +89,7 @@ def test_a_failing_preview_never_fails_the_save(dirs):
     ],
 )
 def test_the_preview_pixels_match_the_golden_for_outputs_and_uploads(dirs, image, colorspace, expected):
-    from app.assets.previews import _decode_for_preview
+    from comfy.app.assets.previews import _decode_for_preview
 
     with patch.object(nodes_images, "linear_to_preview", wraps=linear_to_preview) as tonemap:
         entry = _save(image, colorspace, bit_depth="16-bit float")[0]

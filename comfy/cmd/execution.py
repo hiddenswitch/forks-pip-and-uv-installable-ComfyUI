@@ -570,7 +570,7 @@ async def execute(server: ExecutorToClientProgress, dynprompt: DynamicPrompt, ca
     :return:
     """
     if asset_manager is None:
-        asset_manager = default_asset_manager()
+        asset_manager = NoAssets(current_execution_context().configuration)
     with (
         context_execute_node(node_id),
         suppress_error_stack_trace(),
@@ -833,7 +833,7 @@ class PromptExecutor:
         self.cache_args = cache_args or {}
         self.cache_type = cache_type
         self.server = server
-        self.asset_manager = asset_manager if asset_manager is not None else NoAssets(args)
+        self.asset_manager = asset_manager if asset_manager is not None else NoAssets(current_execution_context().configuration)
         self.prompt_model_tracker = model_patcher_module.PromptModelTracker()
         self.raise_exceptions = False
         self.reset()
