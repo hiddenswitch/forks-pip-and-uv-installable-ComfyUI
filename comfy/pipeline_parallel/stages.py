@@ -167,6 +167,22 @@ class MiniMaxH3PipelineStageSpec(_ContiguousBlockStageSpec):
     exit_prefixes = ("final_layer.",)
 
 
+class HunyuanImage3PipelineStageSpec(_ContiguousBlockStageSpec):
+    """The HunyuanImage3 custom node's transformer, in its ComfyUI checkpoint layout.
+
+    The first stage builds each step's input sequence: the token embeddings, the latent patch
+    embedding (`patch_embed`, conditioned by `time_embed`), the timestep, guidance and meanflow
+    embedders, and the vision aligner for conditioning images. The last stage turns the image
+    rows back into a velocity: `final_layer`, conditioned by `time_embed_2`. The 32 MoE decoder
+    layers between them are partitioned by bytes.
+    """
+
+    model_family = "hunyuan_image3"
+    block_count = 32
+    block_prefix = "model.layers."
+    exit_prefixes = ("final_layer.", "time_embed_2.")
+
+
 class Flux2PipelineStageSpec(AbstractBasePipelineStageSpec):
     model_family = "flux2"
     double_block_count = 8
@@ -228,4 +244,6 @@ def get_pipeline_stage_spec(image_model: str) -> AbstractBasePipelineStageSpec:
         return MiniMaxH3PipelineStageSpec()
     if image_model == "flux2":
         return Flux2PipelineStageSpec()
+    if image_model == "hunyuan_image3":
+        return HunyuanImage3PipelineStageSpec()
     raise ValueError(f"Pipeline parallel loading is not supported for {image_model}")

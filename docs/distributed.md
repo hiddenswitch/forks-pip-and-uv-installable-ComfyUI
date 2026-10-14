@@ -43,6 +43,7 @@ pipeline-parallel sizes this machine supports.
 | Model family | TP | PP | Ulysses/Ring |
 |---|:---:|:---:|:---:|
 | Flux2 Dev | ✅ | ✅ | ✅ |
+| HunyuanImage 3.0 (`comfyui-hunyuanimage3` node) | — | ✅ | — |
 | Ideogram 4 | ✅ | — | — |
 | Krea 2 | ✅ | — | — |
 | MiniMax H3 | ✅ | ✅ | ✅ |

@@ -278,6 +278,99 @@ def test_external_pipeline_memory_coordinator_combines_rank_local_budgets():
     assert [budget.available_weight_bytes for budget in budgets] == [700, 300]
 
 
+def _external_runtime_with_recorded_groups(monkeypatch, rank):
+    from comfy.distributed.process_group import IndependentProcessGroups
+    from comfy.pipeline_parallel import external
+
+    created = {}
+
+    def create_independent_process_groups(init_method, rank, world_size, device, group_name, timeout=None):
+        created.update(init_method=init_method, rank=rank, world_size=world_size, device=device,
+                       group_name=group_name, timeout=timeout)
+        return IndependentProcessGroups("store", "control", "device")
+
+    def init_process_group(**_kwargs):
+        raise AssertionError("an external launch must not initialize torch.distributed's default group")
+
+    class Coordinator:
+        def __init__(self, rank, device, device_group, control_group=None):
+            self.device_group = device_group
+            self.control_group = control_group
+
+    monkeypatch.setattr(external.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(external.dist, "is_nccl_available", lambda: True)
+    monkeypatch.setattr(external.dist, "init_process_group", init_process_group)
+    monkeypatch.setattr(external.torch.cuda, "set_device", lambda device: None)
+    monkeypatch.setattr(external, "create_independent_process_groups", create_independent_process_groups)
+    monkeypatch.setattr(external, "TorchDistributedProcessGroupCoordinator", Coordinator)
+    monkeypatch.setattr(model_management, "set_torch_device", lambda device: None)
+    runtime = external.ExternalTorchDistributedRuntime(DistributedConfiguration(
+        rank=rank,
+        world_size=2,
+        local_rank=0,
+        local_world_size=1,
+        master_addr="rank-0.example",
+        master_port=20123,
+        pipeline_parallel_size=2,
+        externally_launched=True,
+    ))
+    return runtime, created
+
+
+def test_external_rank_groups_leave_the_default_process_group_to_other_libraries(monkeypatch):
+    # Libraries imported by custom nodes act on torch.distributed's default group whenever one is
+    # initialized: Ultralytics' import calls dist.barrier() on rank 0, which waited forever on
+    # ranks that were blocked receiving the driver's next command.
+    runtime, created = _external_runtime_with_recorded_groups(monkeypatch, rank=1)
+
+    assert created["init_method"] == "tcp://rank-0.example:20123"
+    assert (created["rank"], created["world_size"]) == (1, 2)
+    assert runtime.coordinator.control_group == "control"
+    assert runtime.coordinator.device_group == "device"
+    assert runtime.device_group == "device"
+
+
+def test_external_rank_control_plane_outlasts_an_idle_driver(monkeypatch):
+    # A launcher rank waits on the gloo control group for the driver's next command for as long
+    # as the driver is busy elsewhere: idle between prompts, loading its own stage, or waiting on
+    # another rank's load. Gloo fails a pending receive once the group timeout passes, which
+    # stopped every worker of a driver that was idle for five minutes.
+    from datetime import timedelta
+
+    _runtime, created = _external_runtime_with_recorded_groups(monkeypatch, rank=1)
+
+    assert created["timeout"] >= timedelta(days=1)
+
+
+def test_process_group_coordinator_uses_its_control_group(monkeypatch):
+    from comfy.pipeline_parallel import distributed
+
+    calls = []
+
+    def broadcast_object_list(values, src, group=None):
+        calls.append(("broadcast", src, group))
+
+    def send_object_list(values, dst, group=None):
+        calls.append(("send", dst, group))
+
+    def recv_object_list(values, src, group=None):
+        calls.append(("recv", src, group))
+
+    monkeypatch.setattr(distributed.dist, "broadcast_object_list", broadcast_object_list)
+    monkeypatch.setattr(distributed.dist, "send_object_list", send_object_list)
+    monkeypatch.setattr(distributed.dist, "recv_object_list", recv_object_list)
+    monkeypatch.setattr(distributed.torch.cuda, "Stream", lambda device: None)
+    coordinator = distributed.TorchDistributedProcessGroupCoordinator(
+        1, torch.device("cuda:0"), "device", control_group="control",
+    )
+
+    coordinator.broadcast_command()
+    coordinator.send_object({}, 0)
+    coordinator.receive_object(0)
+
+    assert calls == [("broadcast", 0, "control"), ("send", 0, "control"), ("recv", 0, "control")]
+
+
 def test_external_worker_resolves_logical_stage_to_rank_local_device(monkeypatch):
     plan = PipelinePartitionPlan(
         "qwen_image",

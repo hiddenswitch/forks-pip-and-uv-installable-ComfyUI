@@ -75,6 +75,9 @@ class IndependentProcessGroups:
     device_process_group: object
 
 
+DEFAULT_PROCESS_GROUP_TIMEOUT = timedelta(minutes=5)
+
+
 class AbstractBaseIndependentProcessGroupFactory(ABC):
     @abstractmethod
     def create(
@@ -85,6 +88,7 @@ class AbstractBaseIndependentProcessGroupFactory(ABC):
         device: torch.device,
         group_name: str,
         nccl_proto: str,
+        timeout: timedelta = DEFAULT_PROCESS_GROUP_TIMEOUT,
     ) -> IndependentProcessGroups:
         raise NotImplementedError
 
@@ -140,6 +144,7 @@ class TorchDistributedCudaIndependentProcessGroupFactory(
         device: torch.device,
         group_name: str,
         nccl_proto: str,
+        timeout: timedelta = DEFAULT_PROCESS_GROUP_TIMEOUT,
     ) -> IndependentProcessGroups:
         if device.type != "cuda":
             raise ValueError(f"NCCL process groups require a CUDA device, got {device}")
@@ -148,7 +153,6 @@ class TorchDistributedCudaIndependentProcessGroupFactory(
                 f"Independent process groups require a TCP init method, got {init_method!r}"
             )
         host, port = init_method.removeprefix("tcp://").rsplit(":", 1)
-        timeout = timedelta(minutes=5)
         store = dist.TCPStore(
             host,
             int(port),
@@ -193,6 +197,7 @@ def create_independent_process_groups(
     group_name: str,
     configuration=None,
     factory: AbstractBaseIndependentProcessGroupFactory | None = None,
+    timeout: timedelta = DEFAULT_PROCESS_GROUP_TIMEOUT,
 ) -> IndependentProcessGroups:
     if configuration is None:
         from ..execution_context import current_execution_context
@@ -207,6 +212,7 @@ def create_independent_process_groups(
         device,
         group_name,
         configuration.nccl_proto,
+        timeout,
     )
 
 

@@ -889,6 +889,7 @@ KNOWN_VAES: Final[KnownDownloadables] = KnownDownloadables([
     # Hunyuan Image
     HuggingFile("Comfy-Org/HunyuanImage_2.1_ComfyUI", "split_files/vae/hunyuan_image_2.1_vae_fp16.safetensors"),
     HuggingFile("Comfy-Org/HunyuanImage_2.1_ComfyUI", "split_files/vae/hunyuan_image_refiner_vae_fp16.safetensors"),
+    HuggingFile("PedroMarinhoDev/HunyuanImage-3.0-Instruct-ComfyUI", "vae/hunyuan_image_3_vae_fp16.safetensors"),
     HuggingFile("Comfy-Org/HunyuanVideo_1.5_repackaged", "split_files/vae/hunyuanvideo15_vae_fp16.safetensors"),
     HuggingFile("Comfy-Org/Qwen-Image-Layered_ComfyUI", "split_files/vae/qwen_image_layered_vae.safetensors"),
     HuggingFile("Comfy-Org/Wan_2.1_ComfyUI_repackaged", "split_files/vae/wan_alpha_2.1_vae_alpha_channel.safetensors"),
@@ -1115,6 +1116,9 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     # Hunyuan Image
     HuggingFile("Comfy-Org/HunyuanImage_2.1_ComfyUI", "split_files/diffusion_models/hunyuanimage2.1_bf16.safetensors"),
     HuggingFile("Comfy-Org/HunyuanImage_2.1_ComfyUI", "split_files/diffusion_models/hunyuanimage2.1_refiner_bf16.safetensors"),
+    # HunyuanImage 3.0 Instruct, for the comfyui-hunyuanimage3 node
+    HuggingFile("PedroMarinhoDev/HunyuanImage-3.0-Instruct-ComfyUI", "hunyuan_image_3_instruct_bf16.safetensors"),
+    HuggingFile("PedroMarinhoDev/HunyuanImage-3.0-Instruct-ComfyUI", "hunyuan_image_3_instruct_w4a8.safetensors"),
     HuggingFile("Comfy-Org/HunyuanVideo_1.5_repackaged", "split_files/diffusion_models/capybara_v0.1.safetensors"),
     HuggingFile("Comfy-Org/HunyuanVideo_1.5_repackaged", "split_files/diffusion_models/hunyuanvideo1.5_1080p_sr_distilled_fp16.safetensors"),
     HuggingFile("Comfy-Org/HunyuanVideo_1.5_repackaged", "split_files/diffusion_models/hunyuanvideo1.5_720p_i2v_fp16.safetensors"),
