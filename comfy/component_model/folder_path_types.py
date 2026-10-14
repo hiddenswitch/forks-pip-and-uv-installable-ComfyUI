@@ -187,6 +187,7 @@ class ApplicationPaths:
     output_directory: Path = dataclasses.field(default_factory=lambda: construct_path("output"))
     temp_directory: Path = dataclasses.field(default_factory=lambda: construct_path("temp"))
     input_directory: Path = dataclasses.field(default_factory=lambda: construct_path("input"))
+    previews_directory: Path = dataclasses.field(default_factory=lambda: construct_path("previews"))
     user_directory: Path = dataclasses.field(default_factory=lambda: construct_path("user"))
 
     def __iter__(self) -> typing.Generator[Path]:
@@ -194,6 +195,7 @@ class ApplicationPaths:
         yield self.output_directory
         yield self.temp_directory
         yield self.input_directory
+        yield self.previews_directory
         yield self.user_directory
 
 

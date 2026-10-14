@@ -167,9 +167,17 @@ def test_this_hosts_btrfs_nvme_resolves(tmp_path):
     device = os.stat(path).st_dev
     if os.path.exists(f"/sys/dev/block/{os.major(device)}:{os.minor(device)}"):
         pytest.skip("st_dev resolves directly on this host")
+    mounts = []
     with open("/proc/self/mountinfo", encoding="utf-8") as f:
-        mounts = [line.split(" - ", 1)[1].split()[:2] for line in f]
-    if not any(fstype == "btrfs" and source.startswith("/dev/nvme") for fstype, source in mounts):
-        pytest.skip("no btrfs on NVMe here")
+        for line in f:
+            head, tail = line.split(" - ", 1)
+            mount_point = storage._unescape_mountinfo(head.split()[4])
+            if os.path.commonpath([path, mount_point]) == mount_point:
+                mounts.append((mount_point, *tail.split()[:2]))
+    _, fstype, source = max(mounts, key=lambda mount: len(mount[0]))
+    if fstype != "btrfs" or not source.startswith("/dev/nvme"):
+        pytest.skip("test file is not on btrfs over NVMe")
+    if not os.path.exists(f"/sys/class/block/{os.path.basename(source)}"):
+        pytest.skip("backing block device is not exposed in this namespace")
     storage._linux_fast_storage.cache_clear()
     assert storage.fast_storage(path) is not None

@@ -1,0 +1,11 @@
+{
+  "image": "ghcr.io/hiddenswitch/comfyui:facade-1966f6012@sha256:9af20e94039b59defc29d119cf740801e0adff25c6f554bbc38c6b0088c4e608",
+  "gitops_commit": "7ad2eeb585ecad9ffbf14ed54796bf024f5994a1",
+  "ready_replicas": 3,
+  "varnish_ready_replicas": 2,
+  "refresh_job": "comfyui-snapshot-kandinsky-1966f6012",
+  "refresh_duration_seconds": 62,
+  "hunyuan_wheel_sha256": "63ca49771fb4ea27cc16f47bffdd34d791a52f32a4b440377d6ead5114ce04c1",
+  "public_wheel_members_match_tested_local_wheel": true,
+  "note": "Facade lock entries have no archive hash. The public wheel excludes local .git metadata; all remaining members match."
+}

@@ -4,6 +4,11 @@ Vendored snapshot from: https://github.com/Tencent-Hunyuan/HunyuanImage-3.0/blob
 
 Fetched: 2026-06-03
 
+For Instruct rewriting and reference-image tasks, see
+[the Instruct references](hunyuan_image3_instruct_prompting.md). The official
+[Prompt Handbook](https://docs.qq.com/doc/DUVVadmhCdG9qRXBU) is a separate
+QQ document linked by this upstream guide.
+
 ---
 
 # HunyuanImage-3.0 (Text-to-image)

@@ -1,0 +1,19 @@
+{
+  "ready": {
+    "ok": true,
+    "live": true,
+    "ready": true,
+    "snapshot_created_at": "2026-10-10T20:42:06.315836+00:00",
+    "snapshot_age_seconds": 650.361635,
+    "snapshot_error": null
+  },
+  "missing_snapshot": {
+    "ok": false,
+    "live": true,
+    "ready": false,
+    "snapshot_created_at": "2026-10-10T20:42:06.315836+00:00",
+    "snapshot_age_seconds": 650.368658,
+    "snapshot_error": "Registry snapshot is unavailable: [Errno 2] No such file or directory: '/data/registry.sqlite'"
+  },
+  "recovered": true
+}

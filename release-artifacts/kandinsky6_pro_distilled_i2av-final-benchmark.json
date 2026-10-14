@@ -1,0 +1,259 @@
+{
+  "status": "All eight jobs completed",
+  "source": {
+    "commit": "1f4c28c8c7fb65cc610b17346e715725eec35939",
+    "files": {
+      "comfy/tensor_parallel/hunyuan_image3.py": "141b97725f488b9c7e47c74f690007f73b32ad323104df69a0a196f62a527606",
+      "comfy/tensor_parallel/distributed.py": "570ef96b649f6a788f367d332a0fd526ba609a221880157a01299b0b03e4269a",
+      "comfy/tensor_parallel/operations.py": "6d853d835b3b1aa6cf2a2fddb4ad89b9ec3954fc402960e545b7fdecdf24ffaf"
+    }
+  },
+  "workflow": "release-artifacts/workflows/api/generation/kandinsky6_pro_distilled_i2av.json",
+  "vram_headroom_gib": 2,
+  "hardware": "Two NVLinked RTX A5000 24 GiB. TP1 uses GPU1; TP2 also uses desktop GPU0.",
+  "summary": {
+    "warm_median_seconds": {
+      "1": 755.5565681399894,
+      "2": 490.69613063900033
+    },
+    "tp2_speedup": 1.5397646750466103
+  },
+  "results": [
+    {
+      "tp": 1,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 846.1713677730004,
+      "peak_host_pss_bytes": 53170302976,
+      "peak_device_used_bytes": [
+        22379167744
+      ],
+      "start_time_unix_nano": 1791701460811009719,
+      "end_time_unix_nano": 1791702306982701493,
+      "sampler_seconds": null,
+      "generator_node_seconds": 791.6331562439999,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 756.6637846899976,
+      "peak_host_pss_bytes": 56029811712,
+      "peak_device_used_bytes": [
+        23587127296
+      ],
+      "start_time_unix_nano": 1791702306983105736,
+      "end_time_unix_nano": 1791703063647248140,
+      "sampler_seconds": null,
+      "generator_node_seconds": 729.338145777,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 755.5565681399894,
+      "peak_host_pss_bytes": 56033547264,
+      "peak_device_used_bytes": [
+        23587127296
+      ],
+      "start_time_unix_nano": 1791703063647685656,
+      "end_time_unix_nano": 1791703819204691130,
+      "sampler_seconds": null,
+      "generator_node_seconds": 728.044789728,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 754.6530039260106,
+      "peak_host_pss_bytes": 56036893696,
+      "peak_device_used_bytes": [
+        23587127296
+      ],
+      "start_time_unix_nano": 1791703819205200881,
+      "end_time_unix_nano": 1791704573858563363,
+      "sampler_seconds": null,
+      "generator_node_seconds": 727.574374208,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 570.2748454199755,
+      "peak_host_pss_bytes": 101970734080,
+      "peak_device_used_bytes": [
+        22749052928,
+        21728395264
+      ],
+      "start_time_unix_nano": 1791704589472352952,
+      "end_time_unix_nano": 1791705159747541640,
+      "sampler_seconds": null,
+      "generator_node_seconds": 488.65221455,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 483.31384499100386,
+      "peak_host_pss_bytes": 86182263808,
+      "peak_device_used_bytes": [
+        22753247232,
+        23196401664
+      ],
+      "start_time_unix_nano": 1791705159748291103,
+      "end_time_unix_nano": 1791705643062546977,
+      "sampler_seconds": null,
+      "generator_node_seconds": 456.928751763,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 493.07807585800765,
+      "peak_host_pss_bytes": 84391921664,
+      "peak_device_used_bytes": [
+        22752788480,
+        21728395264
+      ],
+      "start_time_unix_nano": 1791705643063138072,
+      "end_time_unix_nano": 1791706136141610657,
+      "sampler_seconds": null,
+      "generator_node_seconds": 466.664587046,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 490.69613063900033,
+      "peak_host_pss_bytes": 84100688896,
+      "peak_device_used_bytes": [
+        22752854016,
+        22592421888
+      ],
+      "start_time_unix_nano": 1791706136142250494,
+      "end_time_unix_nano": 1791706626838823246,
+      "sampler_seconds": null,
+      "generator_node_seconds": 463.963009121,
+      "sr_node_seconds": null
+    }
+  ],
+  "quality": [
+    {
+      "seed": 42,
+      "output": "19:0",
+      "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_distilled_i2av-final/tp1/kandinsky6/K6_I2VA_00001_.mp4",
+      "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_distilled_i2av-final/tp2/kandinsky6/K6_I2VA_00001_.mp4",
+      "video": {
+        "codec_type": "video",
+        "width": 864,
+        "height": 480,
+        "avg_frame_rate": "24/1",
+        "duration": "5.041667",
+        "nb_frames": "121"
+      },
+      "decoded_video_ssim": 0.98862,
+      "audio": {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "channels": 1,
+        "avg_frame_rate": "0/0",
+        "duration": "5.041678",
+        "nb_frames": "219",
+        "identical": false,
+        "rmse": 0.014056118680639303,
+        "max_absolute_error": 0.41729266941547394
+      }
+    },
+    {
+      "seed": 43,
+      "output": "19:0",
+      "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_distilled_i2av-final/tp1/kandinsky6/K6_I2VA_00002_.mp4",
+      "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_distilled_i2av-final/tp2/kandinsky6/K6_I2VA_00002_.mp4",
+      "video": {
+        "codec_type": "video",
+        "width": 864,
+        "height": 480,
+        "avg_frame_rate": "24/1",
+        "duration": "5.041667",
+        "nb_frames": "121"
+      },
+      "decoded_video_ssim": 0.987185,
+      "audio": {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "channels": 1,
+        "avg_frame_rate": "0/0",
+        "duration": "5.041678",
+        "nb_frames": "219",
+        "identical": false,
+        "rmse": 0.017196678230977206,
+        "max_absolute_error": 0.3720360994338989
+      }
+    },
+    {
+      "seed": 44,
+      "output": "19:0",
+      "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_distilled_i2av-final/tp1/kandinsky6/K6_I2VA_00003_.mp4",
+      "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_distilled_i2av-final/tp2/kandinsky6/K6_I2VA_00003_.mp4",
+      "video": {
+        "codec_type": "video",
+        "width": 864,
+        "height": 480,
+        "avg_frame_rate": "24/1",
+        "duration": "5.041667",
+        "nb_frames": "121"
+      },
+      "decoded_video_ssim": 0.857446,
+      "audio": {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "channels": 1,
+        "avg_frame_rate": "0/0",
+        "duration": "5.041678",
+        "nb_frames": "219",
+        "identical": false,
+        "rmse": 0.03139797486106011,
+        "max_absolute_error": 0.4487632215023041
+      }
+    },
+    {
+      "seed": 45,
+      "output": "19:0",
+      "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_distilled_i2av-final/tp1/kandinsky6/K6_I2VA_00004_.mp4",
+      "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_distilled_i2av-final/tp2/kandinsky6/K6_I2VA_00004_.mp4",
+      "video": {
+        "codec_type": "video",
+        "width": 864,
+        "height": 480,
+        "avg_frame_rate": "24/1",
+        "duration": "5.041667",
+        "nb_frames": "121"
+      },
+      "decoded_video_ssim": 0.987317,
+      "audio": {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "channels": 1,
+        "avg_frame_rate": "0/0",
+        "duration": "5.041678",
+        "nb_frames": "219",
+        "identical": false,
+        "rmse": 0.02075832713240102,
+        "max_absolute_error": 0.3140670657157898
+      }
+    }
+  ],
+  "raw_results": "release-artifacts/benchmark-results/kandinsky6_pro_distilled_i2av-final",
+  "baseline": null,
+  "limits": [
+    "One cold and three warm seeds per configuration.",
+    "TP2 shares GPU0 with desktop graphics. Video/audio similarity metrics do not establish perceptual equivalence."
+  ]
+}

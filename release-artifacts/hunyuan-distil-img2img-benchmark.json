@@ -1,0 +1,184 @@
+{
+  "status": "All eight jobs completed; all four image pairs are pixel-identical",
+  "source_commit": "114789c3364bcc235f01c31dbc3e211db3257b8a",
+  "strategy": "whole-expert partitioning plus dense-output-row and attention-head TP",
+  "workflow": "release-artifacts/workflows/api/hunyuan_image_3_instruct_distil_img2img.json",
+  "vram_headroom_gib": 2,
+  "hardware": "Two NVLinked RTX A5000 24 GiB; TP1 uses GPU1; TP2 also uses desktop GPU0.",
+  "summary": {
+    "warm_median_seconds": {
+      "1": 64.89349560198025,
+      "2": 68.89903835498262
+    },
+    "tp2_speedup": 0.9418635898462768
+  },
+  "results": [
+    {
+      "tp": 1,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 104.62318471699837,
+      "peak_host_pss_bytes": 59407749120,
+      "peak_device_used_bytes": [
+        21724856320
+      ],
+      "start_time_unix_nano": 1791686068565544782,
+      "end_time_unix_nano": 1791686173189034974,
+      "sampler_seconds": 93.018474399,
+      "generator_node_seconds": 93.11649023700001,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 64.89321281801676,
+      "peak_host_pss_bytes": 54768906240,
+      "peak_device_used_bytes": [
+        21712273408
+      ],
+      "start_time_unix_nano": 1791686173189469163,
+      "end_time_unix_nano": 1791686238083026130,
+      "sampler_seconds": 58.224684215,
+      "generator_node_seconds": 58.291707639,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 65.26411420997465,
+      "peak_host_pss_bytes": 54743490560,
+      "peak_device_used_bytes": [
+        21729050624
+      ],
+      "start_time_unix_nano": 1791686238083675104,
+      "end_time_unix_nano": 1791686303348104328,
+      "sampler_seconds": 58.369833392000004,
+      "generator_node_seconds": 58.431051831999994,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 64.89349560198025,
+      "peak_host_pss_bytes": 54755454976,
+      "peak_device_used_bytes": [
+        21712273408
+      ],
+      "start_time_unix_nano": 1791686303348579224,
+      "end_time_unix_nano": 1791686368242432190,
+      "sampler_seconds": 58.343314293000006,
+      "generator_node_seconds": 58.405040489,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 99.51076175601338,
+      "peak_host_pss_bytes": 93462827008,
+      "peak_device_used_bytes": [
+        21722234880,
+        21724200960
+      ],
+      "start_time_unix_nano": 1791686384907081396,
+      "end_time_unix_nano": 1791686484418190066,
+      "sampler_seconds": 74.740389529,
+      "generator_node_seconds": 74.973655152,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 66.59680483798729,
+      "peak_host_pss_bytes": 81401761792,
+      "peak_device_used_bytes": [
+        21730623488,
+        21722103808
+      ],
+      "start_time_unix_nano": 1791686484418864428,
+      "end_time_unix_nano": 1791686551016024205,
+      "sampler_seconds": 61.338137435,
+      "generator_node_seconds": 61.465854292,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 71.14931038298528,
+      "peak_host_pss_bytes": 81850611712,
+      "peak_device_used_bytes": [
+        21722234880,
+        21980053504
+      ],
+      "start_time_unix_nano": 1791686551016562720,
+      "end_time_unix_nano": 1791686622166255975,
+      "sampler_seconds": 65.747940388,
+      "generator_node_seconds": 66.118650094,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 68.89903835498262,
+      "peak_host_pss_bytes": 82310717440,
+      "peak_device_used_bytes": [
+        21722234880,
+        22179282944
+      ],
+      "start_time_unix_nano": 1791686622166798428,
+      "end_time_unix_nano": 1791686691066257497,
+      "sampler_seconds": 64.057782639,
+      "generator_node_seconds": 64.184444278,
+      "sr_node_seconds": null
+    }
+  ],
+  "quality": [
+    {
+      "seed": 42,
+      "output": "9:0",
+      "tp1": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_distil_img2img-final/tp1/hunyuan_image_3_instruct_distil_edit_00001_.png",
+      "tp2": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_distil_img2img-final/tp2/hunyuan_image_3_instruct_distil_edit_00001_.png",
+      "identical": true,
+      "rmse": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "seed": 43,
+      "output": "9:0",
+      "tp1": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_distil_img2img-final/tp1/hunyuan_image_3_instruct_distil_edit_00002_.png",
+      "tp2": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_distil_img2img-final/tp2/hunyuan_image_3_instruct_distil_edit_00002_.png",
+      "identical": true,
+      "rmse": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "seed": 44,
+      "output": "9:0",
+      "tp1": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_distil_img2img-final/tp1/hunyuan_image_3_instruct_distil_edit_00003_.png",
+      "tp2": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_distil_img2img-final/tp2/hunyuan_image_3_instruct_distil_edit_00003_.png",
+      "identical": true,
+      "rmse": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "seed": 45,
+      "output": "9:0",
+      "tp1": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_distil_img2img-final/tp1/hunyuan_image_3_instruct_distil_edit_00004_.png",
+      "tp2": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_distil_img2img-final/tp2/hunyuan_image_3_instruct_distil_edit_00004_.png",
+      "identical": true,
+      "rmse": 0.0,
+      "max_absolute_error": 0.0
+    }
+  ],
+  "raw_results": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_distil_img2img-final",
+  "limits": [
+    "One cold and three warm seeds per configuration.",
+    "TP2 uses a GPU shared with desktop graphics."
+  ]
+}

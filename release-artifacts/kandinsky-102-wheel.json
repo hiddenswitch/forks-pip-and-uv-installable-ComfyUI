@@ -1,0 +1,8 @@
+{
+  "package": "kandinsky6",
+  "version": "1.0.2",
+  "wheel_sha256": "cf7fcdecbc4bbc7b35584dfa723da8afec4f1cb1178f4c0fcc29b5b867a7dd6d",
+  "size_bytes": 2449480,
+  "python_files_byte_identical_to_registry": 36,
+  "source": "https://cdn.comfy.org/kandinskylab/kandinsky6/1.0.2/node.zip"
+}

@@ -1,0 +1,196 @@
+{
+  "checks": "Static references/output indices, required inputs including Autogrow, and referenced checkpoint files; execution validation is separate.",
+  "workflows": [
+    {
+      "workflow": "release-artifacts/workflows/api/hunyuan_image_3_base_txt2img.json",
+      "node_count": 9,
+      "issues": [],
+      "weights": [
+        {
+          "file": "hunyuan_image_3_base_w4a8.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_image_3_vae_fp16.safetensors",
+          "present": true
+        }
+      ]
+    },
+    {
+      "workflow": "release-artifacts/workflows/api/hunyuan_image_3_instruct_distil_img2img.json",
+      "node_count": 15,
+      "issues": [],
+      "weights": [
+        {
+          "file": "hunyuan_image_3_instruct_distil_w4a8.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_image_3_vae_fp16.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_image_3_instruct_distil_siglip2_so400m_naflex.safetensors",
+          "present": true
+        }
+      ]
+    },
+    {
+      "workflow": "release-artifacts/workflows/api/hunyuan_image_3_instruct_distil_txt2img.json",
+      "node_count": 12,
+      "issues": [],
+      "weights": [
+        {
+          "file": "hunyuan_image_3_instruct_distil_w4a8.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_image_3_vae_fp16.safetensors",
+          "present": true
+        }
+      ]
+    },
+    {
+      "workflow": "release-artifacts/workflows/api/hunyuan_image_3_instruct_img2img.json",
+      "node_count": 14,
+      "issues": [],
+      "weights": [
+        {
+          "file": "hunyuan_image_3_instruct_w4a8.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_image_3_vae_fp16.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_image_3_instruct_siglip2_so400m_naflex.safetensors",
+          "present": true
+        }
+      ]
+    },
+    {
+      "workflow": "release-artifacts/workflows/api/hunyuan_image_3_instruct_txt2img.json",
+      "node_count": 11,
+      "issues": [],
+      "weights": [
+        {
+          "file": "hunyuan_image_3_instruct_w4a8.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_image_3_vae_fp16.safetensors",
+          "present": true
+        }
+      ]
+    },
+    {
+      "workflow": "release-artifacts/workflows/api/generation/kandinsky6_pro_distilled_i2av.json",
+      "node_count": 20,
+      "issues": [],
+      "weights": [
+        {
+          "file": "Kandinsky-6.0-Pro-distill-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+          "present": true
+        },
+        {
+          "file": "qwen_2.5_vl_7b.safetensors",
+          "present": true
+        },
+        {
+          "file": "clip_l.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_video_vae_bf16.safetensors",
+          "present": true
+        },
+        {
+          "file": "v1-44.pth",
+          "present": true
+        }
+      ]
+    },
+    {
+      "workflow": "release-artifacts/workflows/api/generation/kandinsky6_pro_standard_i2av.json",
+      "node_count": 20,
+      "issues": [],
+      "weights": [
+        {
+          "file": "Kandinsky-6.0-Pro-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+          "present": true
+        },
+        {
+          "file": "qwen_2.5_vl_7b.safetensors",
+          "present": true
+        },
+        {
+          "file": "clip_l.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_video_vae_bf16.safetensors",
+          "present": true
+        },
+        {
+          "file": "v1-44.pth",
+          "present": true
+        }
+      ]
+    },
+    {
+      "workflow": "release-artifacts/workflows/api/generation/kandinsky6_pro_distilled_t2av.json",
+      "node_count": 13,
+      "issues": [],
+      "weights": [
+        {
+          "file": "Kandinsky-6.0-Pro-distill-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+          "present": true
+        },
+        {
+          "file": "qwen_2.5_vl_7b.safetensors",
+          "present": true
+        },
+        {
+          "file": "clip_l.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_video_vae_bf16.safetensors",
+          "present": true
+        },
+        {
+          "file": "v1-44.pth",
+          "present": true
+        }
+      ]
+    },
+    {
+      "workflow": "release-artifacts/workflows/api/generation/kandinsky6_pro_standard_t2av.json",
+      "node_count": 13,
+      "issues": [],
+      "weights": [
+        {
+          "file": "Kandinsky-6.0-Pro-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+          "present": true
+        },
+        {
+          "file": "qwen_2.5_vl_7b.safetensors",
+          "present": true
+        },
+        {
+          "file": "clip_l.safetensors",
+          "present": true
+        },
+        {
+          "file": "hunyuan_video_vae_bf16.safetensors",
+          "present": true
+        },
+        {
+          "file": "v1-44.pth",
+          "present": true
+        }
+      ]
+    }
+  ]
+}

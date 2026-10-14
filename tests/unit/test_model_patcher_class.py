@@ -225,3 +225,30 @@ def test_dynamic_vbar_block_ignores_force_loaded_modules():
     assert extend_dynamic_vbar_block(None, first) is first
     assert extend_dynamic_vbar_block(first, None) is first
     assert extend_dynamic_vbar_block(first, later) == (first[0], 1024, 1536)
+
+
+def test_attention_config_lora_isolated_from_original_and_weight_patches():
+    import json
+
+    from comfy.ldm.modules.attention import ComfyAttention
+    from comfy.model_patcher import ModelPatcher
+
+    model = torch.nn.Module()
+    model.attention = ComfyAttention()
+    model.linear = torch.nn.Linear(2, 2)
+    patcher = ModelPatcher(model, load_device=torch.device('cpu'), offload_device=torch.device('cpu'))
+    clone = patcher.clone()
+    weights_uuid = clone.patches_uuid
+    config = {'attention': 'unavailable-test-backend'}
+    encoded = torch.tensor(list(json.dumps(config).encode()), dtype=torch.uint8)
+
+    assert clone.add_patches({'attention.config': ('config', (encoded,))}) == ['attention.config']
+    assert clone.get_model_object('attention').config == config
+    assert patcher.get_model_object('attention').config is None
+    assert model.attention.config is None
+    assert clone.patches_uuid == weights_uuid
+    assert clone.patches == {}
+
+    clone.add_patches({'linear.weight': ('diff', (torch.ones_like(model.linear.weight),))})
+    assert clone.patches_uuid != weights_uuid
+    assert 'linear.weight' in clone.patches

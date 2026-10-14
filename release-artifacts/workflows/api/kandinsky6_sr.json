@@ -1,0 +1,130 @@
+{
+  "1": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "lq.mp4"
+    },
+    "_meta": {
+      "title": "Load Input Video"
+    }
+  },
+  "2": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": [
+        "1",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Extract Frames, Audio and FPS"
+    }
+  },
+  "3": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Kandinsky6 SR DiT"
+    }
+  },
+  "4": {
+    "class_type": "Kandinsky6VSRUpscale",
+    "inputs": {
+      "seed": 42,
+      "steps": 5,
+      "tiles_batch_size": 1,
+      "scale": "2x",
+      "overlap": 0.2,
+      "frame_rate": [
+        "2",
+        2
+      ],
+      "target_resolution": "none",
+      "use_nabla": false,
+      "sr_model": [
+        "3",
+        0
+      ],
+      "sr_vae": [
+        "7",
+        0
+      ],
+      "images": [
+        "2",
+        0
+      ],
+      "latent_upscaler": [
+        "8",
+        0
+      ],
+      "audio": [
+        "2",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Kandinsky6 SR Upscale"
+    }
+  },
+  "5": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "fps": [
+        "4",
+        1
+      ],
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "codec": "none",
+      "images": [
+        "4",
+        0
+      ],
+      "audio": [
+        "4",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "Rebuild Video"
+    }
+  },
+  "6": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "filename_prefix": "video/K6_VSR",
+      "format": "auto",
+      "format.codec": "auto",
+      "codec": "auto",
+      "video": [
+        "5",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Save Upscaled Video"
+    }
+  },
+  "7": {
+    "class_type": "Kandinsky6SRVAELoader",
+    "inputs": {
+      "kvae_checkpoint": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/vae/diffusion_pytorch_model.safetensors"
+    },
+    "_meta": {
+      "title": "Load Kandinsky6 SR VAE"
+    }
+  },
+  "8": {
+    "class_type": "Kandinsky6LatentUpscalerLoader",
+    "inputs": {
+      "latent_upscaler_checkpoint": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/latent_upscaler/diffusion_pytorch_model.safetensors",
+      "target_scale": "2x"
+    },
+    "_meta": {
+      "title": "Load Latent Upscaler (x2 / x4)"
+    }
+  }
+}

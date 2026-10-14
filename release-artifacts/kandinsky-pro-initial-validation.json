@@ -1,0 +1,30 @@
+{
+  "status": "cold sample succeeded; warm repeat failed with peer OOM; excluded from final aggregate benchmark",
+  "model_code_commit": "93051f725",
+  "cold_run": {
+    "tp": 2,
+    "seed": 42,
+    "cold": true,
+    "job_wall_seconds": 576.3830081540218,
+    "peak_host_pss_bytes": 98379345920,
+    "peak_device_used_bytes": [
+      23873388544,
+      23873781760
+    ],
+    "start_time_unix_nano": 1791668142576763254,
+    "end_time_unix_nano": 1791668718960105358
+  },
+  "generator_node_seconds": 478.382623827,
+  "output": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-peers/tp2/kandinsky6/K6_00001_.mp4",
+  "media_validation": {
+    "video": "h264",
+    "width": 864,
+    "height": 480,
+    "fps": 24,
+    "frames": 121,
+    "duration_seconds": 5.041667,
+    "audio": "aac",
+    "visual_check": "Frames 12, 60 and 108 show two scarlet macaws on a rainforest branch, with wing motion and preening."
+  },
+  "warm_failure": "Peer rank CUDA OOM during fp32 gated residual; requested 786 MiB with 738 MiB free. Both phases will be repeated with 2 GiB additional DynamicVRAM headroom."
+}

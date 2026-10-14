@@ -1,0 +1,114 @@
+{
+  "status": "Completion, cancellation, retry and reload passed",
+  "runtime_commit": "f871e68f9",
+  "strategy": "whole-expert partition + dense-output-row TP with execution-local KV caches",
+  "tp_size": 2,
+  "bounded_probe_tokens": 64,
+  "results": [
+    {
+      "phase": "initial",
+      "seconds": 184.609114063991,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        75306651648,
+        [
+          17050435584,
+          21720006656
+        ]
+      ]
+    },
+    {
+      "phase": "cancel",
+      "seconds": 19.53114903200185,
+      "status": {
+        "status_str": "error",
+        "completed": false,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_interrupted"
+        ]
+      },
+      "memory": [
+        76737214464,
+        [
+          17755078656,
+          21720006656
+        ]
+      ]
+    },
+    {
+      "phase": "recovery",
+      "seconds": 135.48982924499433,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        76217868288,
+        [
+          17754292224,
+          21720006656
+        ]
+      ]
+    }
+  ],
+  "reload_probe_tokens": 16,
+  "reload_results": [
+    {
+      "phase": "initial",
+      "seconds": 66.95381257100962,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        81960701952,
+        [
+          17056071680,
+          21730492416
+        ]
+      ]
+    },
+    {
+      "phase": "reload",
+      "seconds": 72.93533384401235,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        79352152064,
+        [
+          17116889088,
+          21726298112
+        ]
+      ]
+    }
+  ],
+  "reload_text_prefix_identical": true,
+  "note": "These bounded probes do not reach a completed recaption. The separate full307-token rewrite validation checks complete output parity. An initial reload attempt was stopped by the test client HTTP30s/WebSocket ping timeout. The retry with HTTP180s and no client ping timer passed; server behavior was unchanged."
+}

@@ -13,7 +13,7 @@ def test_default_database_url_uses_effective_user_directory(tmp_path):
     user_dir = tmp_path / "custom_user"
     user_dir.mkdir()
     with context_configuration(Configuration(user_directory=str(user_dir), database_url=None)):
-        assert db.get_database_url() == f"sqlite:///{user_dir / 'comfyui.db'}"
+        assert db.get_db_path() == str(user_dir / "comfyui.db")
 
 
 def test_default_db_path_matches_legacy_default_without_custom_user_directory():

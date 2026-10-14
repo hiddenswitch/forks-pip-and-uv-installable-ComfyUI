@@ -95,7 +95,7 @@ def test_held_lock_blocks_before_any_migration_work(stale_db, monkeypatch):
 def test_setup_database_starts_assets_after_database_init(monkeypatch):
     events = []
     monkeypatch.setattr(db_module, "dependencies_available", lambda: True)
-    monkeypatch.setattr(db_module, "init_db", lambda: events.append("database"))
+    monkeypatch.setattr(main, "init_db", lambda: events.append("database"))
     manager = Mock()
     manager.startup.side_effect = lambda: events.append("assets")
     main.setup_database(manager)
@@ -104,10 +104,11 @@ def test_setup_database_starts_assets_after_database_init(monkeypatch):
 
 def test_setup_database_does_not_start_assets_after_database_failure(monkeypatch):
     monkeypatch.setattr(db_module, "dependencies_available", lambda: True)
-    monkeypatch.setattr(db_module, "init_db", Mock(side_effect=RuntimeError("migration failed")))
+    monkeypatch.setattr(main, "init_db", Mock(side_effect=RuntimeError("migration failed")))
     manager = Mock()
-    with pytest.raises(RuntimeError, match="migration failed"):
+    with pytest.raises(SystemExit) as stopped:
         main.setup_database(manager)
+    assert stopped.value.code == 1
     manager.startup.assert_not_called()
 
 
@@ -146,6 +147,7 @@ def test_legacy_database_copy_runs_under_file_lock(tmp_path, monkeypatch):
             db_module._db_lock.release(force=True)
 
     assert copied == [(str(legacy_db) + ".bak", str(target_db))]
+
 
 def test_failed_restore_does_not_mask_the_upgrade_error(stale_db, monkeypatch, caplog):
     real_backup = db_module._backup_database

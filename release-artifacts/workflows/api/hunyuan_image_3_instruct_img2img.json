@@ -1,0 +1,236 @@
+{
+  "2": {
+    "class_type": "HunyuanImage3ModelLoader",
+    "inputs": {
+      "model": "hunyuan_image_3_instruct_w4a8.safetensors"
+    },
+    "_meta": {
+      "title": "HunyuanImage3ModelLoader"
+    }
+  },
+  "3": {
+    "class_type": "HunyuanImage3VAELoader",
+    "inputs": {
+      "vae_name": "hunyuan_image_3_vae_fp16.safetensors"
+    },
+    "_meta": {
+      "title": "HunyuanImage3VAELoader"
+    }
+  },
+  "4": {
+    "class_type": "HunyuanImage3Spectrum",
+    "inputs": {
+      "enabled": false,
+      "warmup_steps": 5,
+      "window_size": 2,
+      "flex_window": 0.75,
+      "w": 0.5,
+      "max_w": 0.8,
+      "M": 4,
+      "lam": 0.1,
+      "history": 12,
+      "time_axis": "step",
+      "validate": false,
+      "verbose": false,
+      "model": [
+        "2",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "HunyuanImage3Spectrum"
+    }
+  },
+  "6": {
+    "class_type": "HunyuanImage3EmptyLatent",
+    "inputs": {
+      "width": [
+        "17",
+        0
+      ],
+      "height": [
+        "17",
+        1
+      ],
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "HunyuanImage3EmptyLatent"
+    }
+  },
+  "7": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 1234,
+      "steps": 50,
+      "cfg": 2.5,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "6",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "7",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEDecode"
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "hunyuan_image_3_instruct_edit",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SaveImage"
+    }
+  },
+  "10": {
+    "class_type": "HunyuanImage3ImageEncode",
+    "inputs": {
+      "prompt": "Turn the photograph into a watercolour painting",
+      "width": [
+        "17",
+        0
+      ],
+      "height": [
+        "17",
+        1
+      ],
+      "vit_strength": 1,
+      "latent_strength": 1,
+      "reference_vit_padding": true,
+      "model": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "clip_vision": [
+        "14",
+        0
+      ],
+      "images.image_1": [
+        "15",
+        0
+      ],
+      "prompt_rewriting": [
+        "11",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "HunyuanImage3ImageEncode"
+    }
+  },
+  "11": {
+    "class_type": "HunyuanImage3PromptRewriting",
+    "inputs": {
+      "enabled": false,
+      "mode": "rewrite only",
+      "cot_head": "auto",
+      "max_new_tokens": 2048,
+      "seed": 0,
+      "do_sample": true,
+      "temperature": 0.6,
+      "top_p": 0.95,
+      "top_k": 1024,
+      "repetition_penalty": 1
+    },
+    "_meta": {
+      "title": "HunyuanImage3PromptRewriting"
+    }
+  },
+  "13": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": [
+        "10",
+        2
+      ],
+      "previewMode": false
+    },
+    "_meta": {
+      "title": "Rewritten prompt"
+    }
+  },
+  "14": {
+    "class_type": "CLIPVisionLoader",
+    "inputs": {
+      "clip_name": "hunyuan_image_3_instruct_siglip2_so400m_naflex.safetensors"
+    },
+    "_meta": {
+      "title": "CLIPVisionLoader"
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "kandinsky6_i2va_portrait.png"
+    },
+    "_meta": {
+      "title": "LoadImage"
+    }
+  },
+  "16": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "upscale_method": "lanczos",
+      "megapixels": 1,
+      "resolution_steps": 16,
+      "image": [
+        "15",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "ImageScaleToTotalPixels"
+    }
+  },
+  "17": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "16",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "GetImageSize"
+    }
+  }
+}

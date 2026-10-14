@@ -1,0 +1,187 @@
+{
+  "status": "All eight jobs passed; existing hybrid EP/TP is slower on this sample",
+  "workflow": "release-artifacts/workflows/api/hunyuan_image_3_base_txt2img.json",
+  "runtime_tree": "ee04054cc64e6e5b4403c3961eeb452e4d04c789",
+  "settings": {
+    "width": 1024,
+    "height": 1024,
+    "steps": 50,
+    "cfg": 5,
+    "quantization": "W4A8",
+    "vram_headroom_gib": 2,
+    "rewrite": false,
+    "spectrum": false
+  },
+  "summary": {
+    "warm_median_seconds": {
+      "1": 459.6501536590222,
+      "2": 574.0167117879901
+    },
+    "tp2_speedup": 0.8007609259794364
+  },
+  "results": [
+    {
+      "tp": 1,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 497.4135237239825,
+      "peak_host_pss_bytes": 58814350336,
+      "peak_device_used_bytes": [
+        21729050624
+      ],
+      "start_time_unix_nano": 1791676591099788333,
+      "end_time_unix_nano": 1791677088513568711,
+      "sampler_seconds": 488.881788124,
+      "generator_node_seconds": 488.984320982,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 459.6501536590222,
+      "peak_host_pss_bytes": 54116439040,
+      "peak_device_used_bytes": [
+        21705981952
+      ],
+      "start_time_unix_nano": 1791677088513867414,
+      "end_time_unix_nano": 1791677548164304407,
+      "sampler_seconds": 455.64193506500004,
+      "generator_node_seconds": 455.70602244099996,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 459.1071986250172,
+      "peak_host_pss_bytes": 54119891968,
+      "peak_device_used_bytes": [
+        21722759168
+      ],
+      "start_time_unix_nano": 1791677548164720050,
+      "end_time_unix_nano": 1791678007272196830,
+      "sampler_seconds": 455.313295827,
+      "generator_node_seconds": 455.37535651900004,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 459.7383233399887,
+      "peak_host_pss_bytes": 54121243648,
+      "peak_device_used_bytes": [
+        21705981952
+      ],
+      "start_time_unix_nano": 1791678007272634195,
+      "end_time_unix_nano": 1791678467011202987,
+      "sampler_seconds": 455.449734002,
+      "generator_node_seconds": 455.51256071,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 507.07768968498567,
+      "peak_host_pss_bytes": 90721079296,
+      "peak_device_used_bytes": [
+        21725970432,
+        22045065216
+      ],
+      "start_time_unix_nano": 1791678484332541280,
+      "end_time_unix_nano": 1791678991410568080,
+      "sampler_seconds": 482.369551279,
+      "generator_node_seconds": 482.711098255,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 520.551528654003,
+      "peak_host_pss_bytes": 84105964544,
+      "peak_device_used_bytes": [
+        21719744512,
+        21720006656
+      ],
+      "start_time_unix_nano": 1791678991411031192,
+      "end_time_unix_nano": 1791679511962822270,
+      "sampler_seconds": 516.89690099,
+      "generator_node_seconds": 517.2223176480001,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 574.0167117879901,
+      "peak_host_pss_bytes": 84273470464,
+      "peak_device_used_bytes": [
+        21720924160,
+        22003122176
+      ],
+      "start_time_unix_nano": 1791679511963203789,
+      "end_time_unix_nano": 1791680085980163554,
+      "sampler_seconds": 570.650581054,
+      "generator_node_seconds": 570.81066203,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 597.5828499109775,
+      "peak_host_pss_bytes": 83322841088,
+      "peak_device_used_bytes": [
+        21722169344,
+        21969567744
+      ],
+      "start_time_unix_nano": 1791680085980569499,
+      "end_time_unix_nano": 1791680683563710818,
+      "sampler_seconds": 594.2196934719999,
+      "generator_node_seconds": 594.360203382,
+      "sr_node_seconds": null
+    }
+  ],
+  "quality": [
+    {
+      "seed": 42,
+      "output": "9:0",
+      "tp1": "release-artifacts/benchmark-results/hunyuan_image_3_base_txt2img-final/tp1/hunyuan_image_3_base_00001_.png",
+      "tp2": "release-artifacts/benchmark-results/hunyuan_image_3_base_txt2img-final/tp2/hunyuan_image_3_base_00001_.png",
+      "identical": true,
+      "rmse": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "seed": 43,
+      "output": "9:0",
+      "tp1": "release-artifacts/benchmark-results/hunyuan_image_3_base_txt2img-final/tp1/hunyuan_image_3_base_00002_.png",
+      "tp2": "release-artifacts/benchmark-results/hunyuan_image_3_base_txt2img-final/tp2/hunyuan_image_3_base_00002_.png",
+      "identical": true,
+      "rmse": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "seed": 44,
+      "output": "9:0",
+      "tp1": "release-artifacts/benchmark-results/hunyuan_image_3_base_txt2img-final/tp1/hunyuan_image_3_base_00003_.png",
+      "tp2": "release-artifacts/benchmark-results/hunyuan_image_3_base_txt2img-final/tp2/hunyuan_image_3_base_00003_.png",
+      "identical": true,
+      "rmse": 0.0,
+      "max_absolute_error": 0.0
+    },
+    {
+      "seed": 45,
+      "output": "9:0",
+      "tp1": "release-artifacts/benchmark-results/hunyuan_image_3_base_txt2img-final/tp1/hunyuan_image_3_base_00004_.png",
+      "tp2": "release-artifacts/benchmark-results/hunyuan_image_3_base_txt2img-final/tp2/hunyuan_image_3_base_00004_.png",
+      "identical": true,
+      "rmse": 0.0,
+      "max_absolute_error": 0.0
+    }
+  ],
+  "note": "TP2 warm latency varied from520.55 to597.58 seconds. Measurements include offloading and the desktop on GPU0. Do not generalize this result to larger-memory GPUs or other interconnects."
+}

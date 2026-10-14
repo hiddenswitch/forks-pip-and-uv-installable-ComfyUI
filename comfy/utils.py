@@ -165,7 +165,7 @@ def _incomplete_safetensors_error(message, ckpt):
     return ValueError("{}\n\nFile path: {}\n\nThe safetensors file is corrupt/incomplete. Check the file size and make sure you have copied/downloaded it correctly.".format(message, ckpt))
 
 
-def load_safetensors(ckpt, include_keys=None) -> tuple[dict[str, torch.Tensor], FileMetadata]:
+def load_safetensors(ckpt, include_keys=None, tensor_slices=None) -> tuple[dict[str, torch.Tensor], FileMetadata]:
     import comfy_aimdo.model_mmap
 
     file_size = os.path.getsize(ckpt)
@@ -214,11 +214,24 @@ def load_safetensors(ckpt, include_keys=None) -> tuple[dict[str, torch.Tensor], 
 
         if start == end:
             sd[name] = torch.empty(info["shape"], dtype=dtype)
+            if tensor_slices is not None and tensor_slices.get(name) is not None:
+                sd[name] = sd[name][tensor_slices[name]]
         else:
             with warnings.catch_warnings():
                 # We are working with read-only RAM by design
                 warnings.filterwarnings("ignore", message="The given buffer is not writable")
                 tensor = torch.frombuffer(mv[start:end], dtype=dtype).view(info["shape"])
+                selection = None if tensor_slices is None else tensor_slices.get(name)
+                if selection is not None:
+                    selected = tensor[selection]
+                    if not selected.is_contiguous() or selected.numel() == 0:
+                        sd[name] = selected.clone()
+                        continue
+                    # Give the shard its own bounded storage and file range so
+                    # DynamicVRAM can stream it without an anonymous RAM copy.
+                    start += selected.storage_offset() * selected.element_size()
+                    end = start + selected.nbytes
+                    tensor = torch.frombuffer(mv[start:end], dtype=dtype).view(selected.shape).detach()
                 storage = tensor.untyped_storage()
                 setattr(storage,
                         "_comfy_tensor_file_slice",

@@ -82,14 +82,12 @@ def tensor_parallel_operations(base_operations, parallel: TensorParallelConfig):
         class RowParallelLinear(base_operations.Linear):
             def __init__(self, in_features, out_features, bias=True, *,
                          device=None, dtype=None):
-                if bias:
-                    raise NotImplementedError("Row-parallel bias is not implemented")
                 if in_features % parallel.size:
                     raise ValueError(
                         f"Row-parallel input {in_features} must divide {parallel.size} ranks"
                     )
                 super().__init__(
-                    in_features // parallel.size, out_features, bias=False,
+                    in_features // parallel.size, out_features, bias=bias and parallel.rank == 0,
                     device=device, dtype=dtype,
                 )
                 self.tensor_parallel_in_features = in_features
@@ -99,3 +97,18 @@ def tensor_parallel_operations(base_operations, parallel: TensorParallelConfig):
 
     TensorParallelOperations.__name__ = f"TensorParallel{base_operations.__name__}"
     return TensorParallelOperations
+
+
+def gathered_output_operations(base_operations, parallel: TensorParallelConfig):
+    """Shard output rows while keeping the full activation quantization domain."""
+    class GatheredOutputOperations(base_operations):
+        class Linear(base_operations.Linear):
+            def __init__(self, in_features, out_features, bias=True, *, device=None, dtype=None):
+                if out_features % parallel.size:
+                    raise ValueError(f"Output size {out_features} must divide {parallel.size} ranks")
+                super().__init__(in_features, out_features // parallel.size, bias=bias, device=device, dtype=dtype)
+
+            def forward(self, *args, **kwargs):
+                return parallel.operations.gather(super().forward(*args, **kwargs))
+
+    return GatheredOutputOperations

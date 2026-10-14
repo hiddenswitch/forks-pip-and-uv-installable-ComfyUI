@@ -1,0 +1,1 @@
+{"726":{"_meta":{"title":"Sonilo Text to Music"},"class_type":"SoniloTextToMusic","inputs":{"duration":60,"prompt":"Ethereal light music, soft atmosphere, clean and healing\n","seed":0}},"728":{"_meta":{"title":"Save Audio (Advanced)"},"class_type":"SaveAudioAdvanced","inputs":{"audio":["726",0],"filename_prefix":"audio/Sonilo","format":"mp3","format.quality":"V0"}}}

@@ -1,0 +1,131 @@
+{
+  "status": "One complete cold workflow per configuration succeeded",
+  "workflow": "release-artifacts/workflows/api/hunyuan-instruct-complete-rewrite-txt2img.json",
+  "source": {
+    "commit": "ce0fab3d2f08d11cd861c15a054f7bd7c115d9c6",
+    "dirty": true,
+    "runtime_sha256": {
+      "comfy/tensor_parallel/hunyuan_image3.py": "3f7f84730942f6216ecb10c56aa3eb1b09cb5c9d5347725af4a8954c4a3d5361",
+      "comfy/cmd/cli.py": "7f83d0b3528497184f0f66b34ba4e6d74dc1258199ec54f36ad43201a2f29824",
+      "comfy/cli_args.py": "86253fc5625a7a55a161bb384ec8e24b153ab57ec44f9bd7fbac4482960373c2",
+      "comfy/cli_args_types.py": "8f10721a0dff1dff96fdb856fcf65ec064ebb0a8a84dea903c207fc06789a539",
+      "comfy/component_model/configuration.py": "db8750e53e5726eb6c720823e25baffbdd6cb18773366191f3875a4bf005489e"
+    },
+    "matching_committed_runtime": "5584d6f3fd5805ebaa496c2f0be44e0eeffb2899",
+    "baseline_source": {
+      "commit": "84a79a0a3372e91b3f4d567d7a58eccebb7e0060",
+      "note": "Adds CLI inverse option only; Hunyuan runtime and positive flag behavior identical to EP run.",
+      "runtime_sha256": {
+        "comfy/tensor_parallel/hunyuan_image3.py": "3f7f84730942f6216ecb10c56aa3eb1b09cb5c9d5347725af4a8954c4a3d5361",
+        "comfy/cmd/cli.py": "475aa6bbe52a3004e2cc73ad23f8374ec85be4192a7f1807641559994570f0b5",
+        "comfy/cli_args.py": "86253fc5625a7a55a161bb384ec8e24b153ab57ec44f9bd7fbac4482960373c2",
+        "comfy/cli_args_types.py": "8f10721a0dff1dff96fdb856fcf65ec064ebb0a8a84dea903c207fc06789a539",
+        "comfy/component_model/configuration.py": "db8750e53e5726eb6c720823e25baffbdd6cb18773366191f3875a4bf005489e"
+      }
+    }
+  },
+  "summary": {
+    "cold_seconds": {
+      "2": 1346.2989342299988,
+      "1": 1289.508144641004
+    },
+    "cold_tp2_speedup": 0.9578171027659056,
+    "warm_median_seconds": {},
+    "tp2_speedup": null
+  },
+  "results": [
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 1346.2989342299988,
+      "peak_host_pss_bytes": 95426306048,
+      "peak_device_used_bytes": [
+        21884829696,
+        22042968064
+      ],
+      "start_time_unix_nano": 1791726348178917166,
+      "end_time_unix_nano": 1791727694478169676,
+      "sampler_seconds": 590.555133037,
+      "generator_node_seconds": 590.7516870300001,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 1289.508144641004,
+      "peak_host_pss_bytes": 61005011968,
+      "peak_device_used_bytes": [
+        21720662016
+      ],
+      "start_time_unix_nano": 1791727731487287459,
+      "end_time_unix_nano": 1791729020995713199,
+      "sampler_seconds": 514.300806089,
+      "generator_node_seconds": 514.3795479419999,
+      "sr_node_seconds": null
+    }
+  ],
+  "quality": [
+    {
+      "seed": 42,
+      "output": "9:0",
+      "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-instruct-ep-cold/tp1/hunyuan_image_3_instruct_00001_.png",
+      "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-instruct-ep-cold/tp2/hunyuan_image_3_instruct_00001_.png",
+      "identical": true,
+      "rmse": 0.0,
+      "max_absolute_error": 0.0
+    }
+  ],
+  "rewritten_text_identical": true,
+  "raw_results": "release-artifacts/benchmark-results/hunyuan-instruct-ep-cold",
+  "limits": [
+    "One fresh-process run per configuration, no warm probes. OS file cache is not flushed.",
+    "Full rewrite plus 50-step image generation; rewritten text is identical across configurations.",
+    "W4A8 packed 4-bit weights, not an INT8-weight checkpoint.",
+    "GPU0 also serves desktop graphics. EP image visually matches the prompt; single-GPU image is pixel-identical."
+  ],
+  "node_seconds": {
+    "1": {
+      "HunyuanImage3PromptRewriting": 0.000164911,
+      "HunyuanImage3ModelLoader": 2.366879944,
+      "HunyuanImage3Resolutions": 0.000110569,
+      "HunyuanImage3TextEncode": 766.003521035,
+      "PreviewAny": 5.9773e-05,
+      "HunyuanImage3VAELoader": 1.157758512,
+      "HunyuanImage3EmptyLatent": 0.000193024,
+      "HunyuanImage3Spectrum": 0.00018568000000000002,
+      "KSampler": 514.3795479419999,
+      "VAEDecode": 4.366554476,
+      "SaveImage": 0.13153711799999998
+    },
+    "2": {
+      "HunyuanImage3VAELoader": 0.623248326,
+      "HunyuanImage3Resolutions": 0.00012856300000000002,
+      "HunyuanImage3PromptRewriting": 0.00014944199999999998,
+      "HunyuanImage3ModelLoader": 22.908521385,
+      "HunyuanImage3TextEncode": 727.677317836,
+      "PreviewAny": 7.1114e-05,
+      "HunyuanImage3EmptyLatent": 0.000217149,
+      "HunyuanImage3Spectrum": 0.0005284069999999999,
+      "KSampler": 590.7516870300001,
+      "VAEDecode": 2.99099336,
+      "SaveImage": 0.12749940599999998
+    }
+  },
+  "rewrite": {
+    "1": {
+      "tokens": 287,
+      "generation_seconds_rounded": 738
+    },
+    "2": {
+      "tokens": 287,
+      "generation_seconds_rounded": 709
+    }
+  },
+  "ep_total_latency_increase_percent": 4.404065986322658,
+  "ep_text_encode_latency_reduction_percent": 5.0033977842836475,
+  "ep_diffusion_latency_increase_percent": 14.84742917823234,
+  "visual_validation": "release-artifacts/hunyuan-visual-validation.json",
+  "conclusion": "EP-only completes the full workflow with identical rewritten text and pixel-identical images. Text encoding is faster, but total cold workflow latency is 4.4% higher on this hardware."
+}

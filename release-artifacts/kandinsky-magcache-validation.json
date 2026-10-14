@@ -1,0 +1,174 @@
+{
+  "runtime_commit": "395dd8633",
+  "workflow": "release-artifacts/workflows/api/smoke/kandinsky-magcache.json",
+  "model": "Kandinsky 6 Pro standard",
+  "tp_size": 2,
+  "vram_headroom_gib": 2,
+  "results": [
+    {
+      "phase": "initial",
+      "seconds": 150.18941800197354,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        95089726464,
+        [
+          4672192512,
+          21715812352
+        ]
+      ]
+    },
+    {
+      "phase": "cancel",
+      "seconds": 16.077663254982326,
+      "status": {
+        "status_str": "error",
+        "completed": false,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_interrupted"
+        ]
+      },
+      "memory": [
+        95097874432,
+        [
+          20681850880,
+          21730492416
+        ]
+      ]
+    },
+    {
+      "phase": "recovery",
+      "seconds": 48.188897376006935,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        95103399936,
+        [
+          4672192512,
+          21726298112
+        ]
+      ]
+    },
+    {
+      "phase": "reload",
+      "seconds": 123.32443718999275,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        101720896512,
+        [
+          4673372160,
+          21715812352
+        ]
+      ]
+    }
+  ],
+  "cache_summaries": [
+    "Kandinsky 6 MagCache (t2va): computed 8, skipped 16 of 24 logical DiT forwards"
+  ],
+  "reload": "POST /free with unload_models and free_memory; MagCache threshold changed from 0.5 to 0.4.",
+  "memory_note": "Memory sampled after each phase, not peak.",
+  "outputs": [
+    {
+      "phase": "initial",
+      "file": "release-artifacts/benchmark-results/kandinsky-magcache-lifecycle/kandinsky6/K6_00001_.mp4",
+      "sha256": "192963f349b5695a60d447e080f5774f28d5fb6d7d81e0dbb53c038f37b21b37",
+      "metadata": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 256,
+            "height": 256,
+            "avg_frame_rate": "24/1",
+            "duration": "0.708333",
+            "nb_frames": "17"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "avg_frame_rate": "0/0",
+            "duration": "0.708345",
+            "nb_frames": "32"
+          }
+        ]
+      }
+    },
+    {
+      "phase": "recovery",
+      "file": "release-artifacts/benchmark-results/kandinsky-magcache-lifecycle/kandinsky6/K6_00002_.mp4",
+      "sha256": "62894a9986cb871d96e2168044e6aad2b99e93e813b2ca3772b4ed2cd0fe3c9a",
+      "metadata": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 256,
+            "height": 256,
+            "avg_frame_rate": "24/1",
+            "duration": "0.708333",
+            "nb_frames": "17"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "avg_frame_rate": "0/0",
+            "duration": "0.708345",
+            "nb_frames": "32"
+          }
+        ]
+      }
+    },
+    {
+      "phase": "reload",
+      "file": "release-artifacts/benchmark-results/kandinsky-magcache-lifecycle/kandinsky6/K6_00003_.mp4",
+      "sha256": "99ad6cda4743622d9f50bec557ccb35795d03e03f381df3b4ef4118fe0dbb0ed",
+      "metadata": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 256,
+            "height": 256,
+            "avg_frame_rate": "24/1",
+            "duration": "0.708333",
+            "nb_frames": "17"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "avg_frame_rate": "0/0",
+            "duration": "0.708345",
+            "nb_frames": "32"
+          }
+        ]
+      }
+    }
+  ]
+}

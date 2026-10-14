@@ -2,6 +2,7 @@
 name: Python Validation
 
 on:
+  workflow_dispatch:
   push:
     branches: [develop, master]
 
@@ -11,7 +12,7 @@ concurrency:
 
 jobs:
   full:
-    if: github.ref_name == 'develop'
+    if: github.ref_name == 'develop' || github.event_name == 'workflow_dispatch'
     name: Full suite — Arch Python / PyTorch 2.14 CPU
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -103,4 +103,3 @@ Full documentation is available in [docs/index.md](docs/index.md).
 
 ### Development
 - [Linting](docs/linting.md)
-- [Merging Upstream](docs/merging.md)

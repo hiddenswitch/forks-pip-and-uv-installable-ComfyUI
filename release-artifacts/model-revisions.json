@@ -1,0 +1,158 @@
+[
+  {
+    "repo_id": "PedroMarinhoDev/HunyuanImage-3.0-Instruct-Distil-ComfyUI",
+    "revision": "b57626bc1840b64b47cb8d885a61298b352acf79",
+    "files": [
+      {
+        "path": "clip_vision/hunyuan_image_3_instruct_distil_siglip2_so400m_naflex.safetensors",
+        "size": 898839512
+      },
+      {
+        "path": "hunyuan_image_3_instruct_distil_cot_head.safetensors",
+        "size": 1090527456
+      },
+      {
+        "path": "hunyuan_image_3_instruct_distil_w4a8.safetensors",
+        "size": 46910931103
+      },
+      {
+        "path": "vae/hunyuan_image_3_vae_fp16.safetensors",
+        "size": 2521382348
+      },
+      {
+        "path": "vae/hunyuan_image_3_vae_fp32.safetensors",
+        "size": 5042729700
+      }
+    ]
+  },
+  {
+    "repo_id": "PedroMarinhoDev/HunyuanImage-3.0-Instruct-ComfyUI",
+    "revision": "50543c5af85fc9424f87208618f520fd28f5b882",
+    "files": [
+      {
+        "path": "clip_vision/hunyuan_image_3_instruct_siglip2_so400m_naflex.safetensors",
+        "size": 898839512
+      },
+      {
+        "path": "hunyuan_image_3_instruct_cot_head.safetensors",
+        "size": 1090527456
+      },
+      {
+        "path": "hunyuan_image_3_instruct_w4a8.safetensors",
+        "size": 46839594273
+      },
+      {
+        "path": "vae/hunyuan_image_3_vae_fp16.safetensors",
+        "size": 2521382348
+      },
+      {
+        "path": "vae/hunyuan_image_3_vae_fp32.safetensors",
+        "size": 5042729700
+      }
+    ]
+  },
+  {
+    "repo_id": "PedroMarinhoDev/HunyuanImage-3.0-Base-ComfyUI",
+    "revision": "1f4622ee59acf5682b3ae561e06da66717f73f24",
+    "files": [
+      {
+        "path": "clip_vision/hunyuan_image_3_base_siglip2_so400m_naflex.safetensors",
+        "size": 898839512
+      },
+      {
+        "path": "hunyuan_image_3_base_cot_head.safetensors",
+        "size": 1090527456
+      },
+      {
+        "path": "hunyuan_image_3_base_w4a8.safetensors",
+        "size": 46839594273
+      },
+      {
+        "path": "vae/hunyuan_image_3_vae_fp16.safetensors",
+        "size": 2521382348
+      },
+      {
+        "path": "vae/hunyuan_image_3_vae_fp32.safetensors",
+        "size": 5042729700
+      }
+    ]
+  },
+  {
+    "repo_id": "kandinskylab/Kandinsky-6.0-Pro-distill-5s-Diffusers",
+    "revision": "1018d5828716e8bea3de99609f45c924de9c5564",
+    "files": [
+      {
+        "path": "audio_vae/config.json",
+        "size": 826
+      },
+      {
+        "path": "audio_vae/diffusion_pytorch_model.safetensors",
+        "size": 1711158920
+      },
+      {
+        "path": "transformer/diffusion_pytorch_model.safetensors",
+        "size": 60344993576
+      },
+      {
+        "path": "vae/config.json",
+        "size": 718
+      },
+      {
+        "path": "vae/diffusion_pytorch_model.safetensors",
+        "size": 985943868
+      },
+      {
+        "path": "vocoder/diffusion_pytorch_model.safetensors",
+        "size": 488692656
+      }
+    ]
+  },
+  {
+    "repo_id": "kandinskylab/Kandinsky-6.0-Pro-5s-Diffusers",
+    "revision": "295ca976810e318fb45c870ba4fc72c9a37fd548",
+    "files": [
+      {
+        "path": "audio_vae/config.json",
+        "size": 827
+      },
+      {
+        "path": "audio_vae/diffusion_pytorch_model.safetensors",
+        "size": 1711158920
+      },
+      {
+        "path": "transformer/diffusion_pytorch_model.safetensors",
+        "size": 69734820096
+      },
+      {
+        "path": "vae/config.json",
+        "size": 718
+      },
+      {
+        "path": "vae/diffusion_pytorch_model.safetensors",
+        "size": 985943868
+      },
+      {
+        "path": "vocoder/diffusion_pytorch_model.safetensors",
+        "size": 488692656
+      }
+    ]
+  },
+  {
+    "repo_id": "kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers",
+    "revision": "a14152d22f296dee41eb1822511b3aacc2696327",
+    "files": [
+      {
+        "path": "latent_upscaler/diffusion_pytorch_model.safetensors",
+        "size": 7308101968
+      },
+      {
+        "path": "transformer/diffusion_pytorch_model.safetensors",
+        "size": 3187645192
+      },
+      {
+        "path": "vae/diffusion_pytorch_model.safetensors",
+        "size": 6955556660
+      }
+    ]
+  }
+]

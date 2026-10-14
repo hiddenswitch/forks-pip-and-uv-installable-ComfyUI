@@ -29,6 +29,7 @@ from comfy.app.assets.seeder import asset_seeder
 from comfy.app.assets.services import hash_mode_state
 from comfy.app.assets.services.hash_mode_state import clear_transition_queue
 from comfy.app.assets.services.hash_mode_state import write_stored_mode
+from comfy.app.assets.lifecycle import start_asset_seeder
 
 from tests.unit.assets_test.services.path_prefix_cases import expected_prefix_case_paths
 from tests.unit.assets_test.services.path_prefix_cases import prefix_case_paths
@@ -175,6 +176,13 @@ def test_run_startup_enabled_delegates_to_asset_startup_not_bare_sweep():
 
     asset_startup_mock.assert_called_once_with()
     cleanup_mock.assert_not_called()
+
+
+def test_startup_scan_covers_models_input_and_output():
+    with patch.object(asset_seeder, "start", return_value=True) as start_mock:
+        start_asset_seeder()
+
+    assert start_mock.call_args.kwargs["roots"] == ("models", "input", "output")
 
 
 def test_run_startup_logs_and_absorbs_disabled_filesystem_failure(caplog):

@@ -1,0 +1,79 @@
+[
+  {
+    "name": "hunyuan_image_3_base_txt2img",
+    "workflow": "hunyuan_image_3_base_txt2img.json",
+    "node_package": "comfyui-hunyuanimage3==0.1.0",
+    "source_commit": "84ad3a3e2a54472e69e195269729f774b242d120",
+    "purpose": "tp-comparison"
+  },
+  {
+    "name": "hunyuan_image_3_instruct_distil_img2img",
+    "workflow": "hunyuan_image_3_instruct_distil_img2img.json",
+    "node_package": "comfyui-hunyuanimage3==0.1.0",
+    "source_commit": "84ad3a3e2a54472e69e195269729f774b242d120",
+    "purpose": "tp-comparison"
+  },
+  {
+    "name": "hunyuan_image_3_instruct_distil_txt2img",
+    "workflow": "hunyuan_image_3_instruct_distil_txt2img.json",
+    "node_package": "comfyui-hunyuanimage3==0.1.0",
+    "source_commit": "84ad3a3e2a54472e69e195269729f774b242d120",
+    "purpose": "tp-comparison"
+  },
+  {
+    "name": "hunyuan_image_3_instruct_img2img",
+    "workflow": "hunyuan_image_3_instruct_img2img.json",
+    "node_package": "comfyui-hunyuanimage3==0.1.0",
+    "source_commit": "84ad3a3e2a54472e69e195269729f774b242d120",
+    "purpose": "tp-comparison"
+  },
+  {
+    "name": "hunyuan_image_3_instruct_txt2img",
+    "workflow": "hunyuan_image_3_instruct_txt2img.json",
+    "node_package": "comfyui-hunyuanimage3==0.1.0",
+    "source_commit": "84ad3a3e2a54472e69e195269729f774b242d120",
+    "purpose": "tp-comparison"
+  },
+  {
+    "name": "kandinsky6_pro_distilled_i2av",
+    "workflow": "kandinsky6_pro_distilled_i2av.json",
+    "node_package": "kandinsky6==1.0.2",
+    "source_workflow": "Kandinsky 6.0 Image to Video+Audio.json",
+    "purpose": "tp-comparison",
+    "model_revision": "1018d5828716e8bea3de99609f45c924de9c5564",
+    "benchmark_workflow": "api/generation/kandinsky6_pro_distilled_i2av.json"
+  },
+  {
+    "name": "kandinsky6_pro_standard_i2av",
+    "workflow": "kandinsky6_pro_standard_i2av.json",
+    "node_package": "kandinsky6==1.0.2",
+    "source_workflow": "Kandinsky 6.0 Image to Video+Audio.json",
+    "purpose": "tp-comparison",
+    "model_revision": "295ca976810e318fb45c870ba4fc72c9a37fd548",
+    "benchmark_workflow": "api/generation/kandinsky6_pro_standard_i2av.json"
+  },
+  {
+    "name": "kandinsky6_pro_distilled_t2av",
+    "workflow": "kandinsky6_pro_distilled_t2av.json",
+    "node_package": "kandinsky6==1.0.2",
+    "source_workflow": "Kandinsky 6.0 Text to Video+Audio.json",
+    "purpose": "tp-comparison",
+    "model_revision": "1018d5828716e8bea3de99609f45c924de9c5564",
+    "benchmark_workflow": "api/generation/kandinsky6_pro_distilled_t2av.json"
+  },
+  {
+    "name": "kandinsky6_pro_standard_t2av",
+    "workflow": "kandinsky6_pro_standard_t2av.json",
+    "node_package": "kandinsky6==1.0.2",
+    "source_workflow": "Kandinsky 6.0 Text to Video+Audio.json",
+    "purpose": "tp-comparison",
+    "model_revision": "295ca976810e318fb45c870ba4fc72c9a37fd548",
+    "benchmark_workflow": "api/generation/kandinsky6_pro_standard_t2av.json"
+  },
+  {
+    "name": "kandinsky6_sr",
+    "workflow": "Kandinsky 6.0 Video Super Resolution.json",
+    "node_package": "kandinsky6-sr==0.1.2",
+    "purpose": "sr-smoke"
+  }
+]

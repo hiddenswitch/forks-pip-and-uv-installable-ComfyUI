@@ -281,6 +281,7 @@ class Configuration(dict):
         self.output_directory: Optional[str] = None
         self.temp_directory: Optional[str] = None
         self.input_directory: Optional[str] = None
+        self.previews_directory: Optional[str] = None
         self.auto_launch: bool = False
         self.disable_auto_launch: bool = False
         self.cuda_device: Optional[str] = None
@@ -293,6 +294,7 @@ class Configuration(dict):
         self.master_port: Optional[int] = None
         self.pipeline_parallel_size: Optional[int] = None
         self.tensor_parallel_size: Optional[int] = None
+        self.hunyuan_expert_parallel_only: bool = False
         self.ulysses_degree: Optional[int] = None
         self.ring_degree: Optional[int] = None
         self.nccl_proto: str = "auto"
@@ -440,6 +442,7 @@ class Configuration(dict):
         self.database_url: Optional[str] = None
         self._database_url_explicit: bool = False
         self.enable_assets: bool = False
+        self.disable_assets: bool = False
         self.enable_asset_hashing: bool = False
         self.disable_assets_autoscan: bool = False
         self.feature_flag: list[str] = []
