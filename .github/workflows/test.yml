@@ -22,7 +22,7 @@ env:
 jobs:
   intel:
     environment: Testing
-    name: Python 3.11 PyTorch 2.11 XPU
+    name: Python 3.14 PyTorch 2.14 XPU
     runs-on: [self-hosted, linux, X64, ipex-a380-6gb]
     timeout-minutes: 30
     container:
@@ -30,8 +30,6 @@ jobs:
       options: --shm-size=8g
     env:
       ONEAPI_DEVICE_SELECTOR: level_zero:0
-      UV_BREAK_SYSTEM_PACKAGES: "true"
-      UV_SYSTEM_PYTHON: "true"
       SYCL_CACHE_PERSISTENT: "1"
       SYCL_CACHE_DIR: /opt/comfyui-ci-cache/sycl
       PYTORCH_JIT: "0"
@@ -43,30 +41,36 @@ jobs:
           apt-get install -y --no-install-recommends curl ca-certificates git $COMFYUI_LINUX_SYSTEM_PACKAGES
           curl -LsSf https://astral.sh/uv/install.sh | sh
       - uses: actions/checkout@v7
-      - name: Install PyTorch XPU
-        run: |
-          uv pip install --torch-backend=xpu --reinstall \
-            "torch==2.11.0+xpu" "torchvision==0.26.0+xpu" "torchaudio==2.11.0+xpu"
+      - name: Create Python 3.14 environment
+        run: uv venv --python 3.14.7 .venv
       - name: Install locked dependencies
-        run: ci/install-locked.sh ci/locks/pylock.linux-py311.toml python
+        run: ci/install-locked.sh ci/locks/pylock.linux-py314-xpu.toml .venv/bin/python
       - name: XPU smoke
         run: |
           mkdir -p "$SYCL_CACHE_DIR"
-          python - <<'PY'
+          .venv/bin/python - <<'PY'
+          import sys
           import torch
+          import torchvision
+          import torchaudio
+          assert sys.version_info[:3] == (3, 14, 7)
           print("torch", torch.__version__)
-          assert torch.__version__.startswith("2.11.0+xpu")
+          assert torch.__version__ == "2.14.1+xpu"
+          assert torchvision.__version__ == "0.29.1+xpu"
+          assert torchaudio.__version__ == "2.11.0+xpu"
           assert torch.xpu.is_available()
           print("device", torch.xpu.get_device_name(0))
           result = (torch.ones(16, device="xpu") * 2).sum()
           torch.xpu.synchronize()
           assert result.item() == 32
+          compiled = torch.compile(lambda x: (x * 2).sum())
+          assert compiled(torch.ones(16, device="xpu")).item() == 32
           PY
       - name: Custom-node registration
-        run: python -m pytest -v -s --timeout=900 tests/custom_nodes/test_installed_node_registration.py
+        run: .venv/bin/python -m pytest -v -s --timeout=900 tests/custom_nodes/test_installed_node_registration.py
       - name: XPU unit tests
         run: |
-          pytest -v --timeout=900 tests/unit
+          .venv/bin/python -m pytest -v --timeout=900 tests/unit
 
   windows_nvidia:
     environment: Testing

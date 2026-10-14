@@ -27,13 +27,13 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
     uv pip install --python /opt/venv/bin/python \
     --index-url https://stable.repo.amd.com/rocm/whl-next/ \
-    "torch==2.13.0+rocm10.0.0" \
-    "torchvision==0.28.0+rocm10.0.0" \
-    "torchaudio==2.11.0.2+rocm10.0.0" \
+    "torch==2.14.0+rocm10.1.0" \
+    "torchvision==0.29.0a0+rocm10.1.0" \
+    "torchaudio==2.11.0.3+rocm10.1.0" \
     && for arch in gfx1010 gfx1011 gfx1012 gfx1030 gfx1031 gfx1032 gfx1033 gfx1034 gfx1035 gfx1036 gfx1100 gfx1101 gfx1102 gfx1103 gfx1150 gfx1151 gfx1152 gfx1153 gfx1200 gfx1201 gfx1250 gfx908 gfx90a gfx942 gfx950; do \
          uv pip install --python /opt/venv/bin/python --index-url https://stable.repo.amd.com/rocm/whl-next/ \
-           "amd-torch-device-${arch}==2.13.0+rocm10.0.0" \
-           "amd-torchvision-device-${arch}==0.28.0+rocm10.0.0"; \
+           "amd-torch-device-${arch}==2.14.0+rocm10.1.0" \
+           "amd-torchvision-device-${arch}==0.29.0a0+rocm10.1.0"; \
        done \
     && uv pip list --python /opt/venv/bin/python --format freeze --exclude-editable > /overrides.txt \
     && printf "%s\n" \
@@ -63,7 +63,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
 
 RUN python - <<'PY'
 import torch
-assert torch.__version__.startswith("2.13.0")
+assert torch.__version__ == "2.14.0+rocm10.1.0"
 assert torch.version.hip is not None
 print("torch", torch.__version__, "hip", torch.version.hip)
 PY
