@@ -25,6 +25,11 @@ from .types import PipelineDeviceMemoryBudget
 
 logger = logging.getLogger(__name__)
 _runtime: ExternalTorchDistributedRuntime | None = None
+# A launcher rank waits on the control group for its driver's next command for as long as the
+# driver is busy elsewhere (idle between prompts, loading its own stage, waiting on another rank's
+# load), and gloo fails a pending receive once the group timeout passes. The bound only has to
+# exceed any such wait; gloo adds it to a nanosecond steady clock, so it cannot be unbounded.
+CONTROL_PLANE_TIMEOUT = timedelta(days=30)
 
 
 class AbstractBaseExternalPipelinePlacementProvider(ABC):
@@ -141,7 +146,7 @@ class ExternalTorchDistributedRuntime(AbstractBaseExternalPipelineRuntime):
                 init_method="env://",
                 rank=configuration.rank,
                 world_size=configuration.world_size,
-                timeout=timedelta(minutes=5),
+                timeout=CONTROL_PLANE_TIMEOUT,
             )
         elif (
             dist.get_rank() != configuration.rank

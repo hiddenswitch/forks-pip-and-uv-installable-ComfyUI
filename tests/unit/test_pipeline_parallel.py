@@ -277,6 +277,42 @@ def test_external_pipeline_memory_coordinator_combines_rank_local_budgets():
     assert [budget.available_weight_bytes for budget in budgets] == [700, 300]
 
 
+def test_external_rank_control_plane_outlasts_an_idle_driver(monkeypatch):
+    # A launcher rank waits on the gloo control group for the driver's next command for as long
+    # as the driver is busy elsewhere: idle between prompts, loading its own stage, or waiting on
+    # another rank's load. Gloo fails a pending receive once the group timeout passes, which
+    # stopped every worker of a driver that was idle for five minutes.
+    from datetime import timedelta
+
+    from comfy.pipeline_parallel import external
+
+    initialized = {}
+
+    def init_process_group(**kwargs):
+        initialized.update(kwargs)
+
+    monkeypatch.setattr(external.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(external.dist, "is_nccl_available", lambda: True)
+    monkeypatch.setattr(external.dist, "is_initialized", lambda: False)
+    monkeypatch.setattr(external.dist, "init_process_group", init_process_group)
+    monkeypatch.setattr(external.torch.cuda, "set_device", lambda device: None)
+    monkeypatch.setattr(external, "create_device_process_group", lambda ranks, device: object())
+    monkeypatch.setattr(external, "TorchDistributedProcessGroupCoordinator", lambda *args: object())
+    monkeypatch.setattr(model_management, "set_torch_device", lambda device: None)
+
+    external.ExternalTorchDistributedRuntime(DistributedConfiguration(
+        rank=1,
+        world_size=2,
+        local_rank=0,
+        local_world_size=1,
+        pipeline_parallel_size=2,
+        externally_launched=True,
+    ))
+
+    assert initialized["backend"] == "gloo"
+    assert initialized["timeout"] >= timedelta(days=1)
+
+
 def test_external_worker_resolves_logical_stage_to_rank_local_device(monkeypatch):
     plan = PipelinePartitionPlan(
         "qwen_image",
