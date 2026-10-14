@@ -30,6 +30,8 @@ jobs:
       options: --shm-size=8g
     env:
       ONEAPI_DEVICE_SELECTOR: level_zero:0
+      # Triton recognizes DG2 G10 but misses the A380's G11 architecture id.
+      TRITON_INTEL_DEVICE_ARCH: dg2
       SYCL_CACHE_PERSISTENT: "1"
       SYCL_CACHE_DIR: /opt/comfyui-ci-cache/sycl
       PYTORCH_JIT: "0"
