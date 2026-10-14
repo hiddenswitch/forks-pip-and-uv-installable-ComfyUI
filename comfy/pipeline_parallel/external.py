@@ -11,7 +11,10 @@ import torch
 import torch.distributed as dist
 
 from ..distributed.config import DistributedConfiguration
-from ..distributed.process_group import create_device_process_group
+from ..distributed.process_group import (
+    create_independent_process_groups,
+    destroy_independent_process_groups,
+)
 
 from .distributed import (
     TorchDistributedPipelineExecutor,
@@ -140,29 +143,23 @@ class ExternalTorchDistributedRuntime(AbstractBaseExternalPipelineRuntime):
         self._device = self.placement_provider.local_device(configuration)
         self._logical_devices = self.placement_provider.logical_devices(configuration)
         torch.cuda.set_device(self.device)
-        if not dist.is_initialized():
-            dist.init_process_group(
-                backend="gloo",
-                init_method="env://",
-                rank=configuration.rank,
-                world_size=configuration.world_size,
-                timeout=CONTROL_PLANE_TIMEOUT,
-            )
-        elif (
-            dist.get_rank() != configuration.rank
-            or dist.get_world_size() != configuration.world_size
-        ):
-            raise RuntimeError(
-                "Existing torch.distributed process group does not match canonical configuration"
-            )
-        self.device_group = create_device_process_group(
-            range(configuration.world_size),
+        # Groups of this runtime's own, not torch.distributed's default group: libraries that
+        # custom nodes import act on the default group whenever one is initialized (Ultralytics'
+        # import calls dist.barrier() on rank 0), and a collective no other rank joins never ends.
+        self.process_groups = create_independent_process_groups(
+            f"tcp://{configuration.master_addr}:{configuration.master_port}",
+            configuration.rank,
+            configuration.world_size,
             self.device,
+            "comfy-external-pipeline",
+            timeout=CONTROL_PLANE_TIMEOUT,
         )
+        self.device_group = self.process_groups.device_process_group
         self.coordinator = TorchDistributedProcessGroupCoordinator(
             configuration.rank,
             self.device,
             self.device_group,
+            control_group=self.process_groups.control_process_group,
         )
         self._closed = False
 
@@ -316,16 +313,13 @@ class ExternalTorchDistributedRuntime(AbstractBaseExternalPipelineRuntime):
         if self._closed:
             return
         self._closed = True
-        if self.is_driver and dist.is_initialized():
+        if self.is_driver:
             try:
                 self.coordinator.broadcast_command({"kind": "close"})
             except Exception:
                 logger.debug("Could not stop external pipeline ranks", exc_info=True)
-        if dist.is_initialized():
-            try:
-                dist.destroy_process_group(self.device_group)
-            finally:
-                dist.destroy_process_group()
+        self.coordinator.close()
+        destroy_independent_process_groups(self.process_groups)
         if _runtime is self:
             _runtime = None
 

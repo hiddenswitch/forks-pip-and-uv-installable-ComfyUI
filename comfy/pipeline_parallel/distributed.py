@@ -69,30 +69,51 @@ class AbstractBaseProcessGroupCoordinator(ABC):
     def wait(self, work: Sequence[object]) -> None:
         raise NotImplementedError
 
+    def is_open(self) -> bool:
+        """Whether the control plane can still carry a command."""
+        return dist.is_initialized()
+
 
 class TorchDistributedProcessGroupCoordinator(AbstractBaseProcessGroupCoordinator):
-    """Gloo control plane plus an injected torch.distributed device group."""
+    """Gloo control plane plus an injected torch.distributed device group.
 
-    def __init__(self, rank: int, device: torch.device, device_group):
+    The control plane is `control_group` when given, else torch.distributed's default group.
+    """
+
+    def __init__(self, rank: int, device: torch.device, device_group, control_group=None):
         self.rank = rank
         self.device = device
         self.device_group = device_group
+        self.control_group = control_group
         self._buffers: dict[tuple, dict[str, torch.Tensor]] = {}
         self._communication_stream = torch.cuda.Stream(device=device)
+        self._closed = False
+
+    def is_open(self) -> bool:
+        if self._closed:
+            return False
+        return self.control_group is not None or dist.is_initialized()
+
+    def close(self) -> None:
+        """Mark the control plane closed before its owner destroys the groups."""
+        self._closed = True
+
+    def _control(self) -> dict:
+        return {} if self.control_group is None else {"group": self.control_group}
 
     def broadcast_command(self, command=None):
         if command is not None:
             command = inject_trace_context(command)
         values = [command]
-        dist.broadcast_object_list(values, src=0)
+        dist.broadcast_object_list(values, src=0, **self._control())
         return values[0]
 
     def send_object(self, value, destination_rank: int) -> None:
-        dist.send_object_list([value], dst=destination_rank)
+        dist.send_object_list([value], dst=destination_rank, **self._control())
 
     def receive_object(self, source_rank: int):
         values = [None]
-        dist.recv_object_list(values, src=source_rank)
+        dist.recv_object_list(values, src=source_rank, **self._control())
         return values[0]
 
     def send_tensors(self, tensors: Mapping[str, torch.Tensor], destination_rank: int) -> Sequence[object]:
@@ -290,7 +311,7 @@ class TorchDistributedPipelineExecutor(AbstractBasePipelineExecutor):
             return
         self._closed = True
         try:
-            if dist.is_initialized():
+            if self.coordinator.is_open():
                 self.coordinator.broadcast_command({"kind": self.close_command})
                 if self.close_command == "unload_pipeline":
                     for rank in range(1, self.plan.size):
