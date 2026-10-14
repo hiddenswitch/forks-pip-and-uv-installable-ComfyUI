@@ -997,6 +997,10 @@ def select_optimized_attention():
     so a spawned model-parallel rank cannot retain the startup default.
     """
 
+    if model_management.comfy_kitchen_attention_enabled():
+        if not COMFY_KITCHEN_INT8_ATTENTION_IS_AVAILABLE:
+            raise RuntimeError("Comfy Kitchen attention is unavailable; install a build with attention support to use --use-ck-attention")
+        return attention_comfy_kitchen_int8
     if model_management.sage_attention_enabled() and SAGE_ATTENTION_IS_AVAILABLE:
         return attention_sage
     if model_management.xformers_enabled():
@@ -1017,14 +1021,6 @@ def optimized_attention(*args, **kwargs):
 def optimized_attention_no_sage(*args, **kwargs):
     return attention_pytorch(*args, **kwargs)
 
-
-if model_management.comfy_kitchen_attention_enabled():
-    if COMFY_KITCHEN_INT8_ATTENTION_IS_AVAILABLE:
-        logging.info("Using Comfy Kitchen attention")
-        optimized_attention = attention_comfy_kitchen_int8
-    else:
-        logging.error("Comfy Kitchen attention is unavailable. Install a Comfy Kitchen build with attention support to use --use-ck-attention.")
-        exit(-1)
 
 optimized_attention_masked = optimized_attention
 optimized_attention_no_sage_masked = optimized_attention_no_sage

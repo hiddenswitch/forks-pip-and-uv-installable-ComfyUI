@@ -43,6 +43,31 @@ async def _progress_generator():
     yield None
 
 
+def test_comfy_kitchen_attention_follows_execution_configuration(monkeypatch):
+    from comfy.ldm.modules import attention
+
+    # Keep the imported entry point across configuration changes, as workers do.
+    dispatch = attention.optimized_attention_masked
+    monkeypatch.setattr(attention, "COMFY_KITCHEN_INT8_ATTENTION_IS_AVAILABLE", True)
+    monkeypatch.setattr(attention, "attention_comfy_kitchen_int8", lambda: "int8")
+    monkeypatch.setattr(attention, "attention_pytorch", lambda: "sdpa")
+    monkeypatch.setattr(attention.model_management, "xformers_enabled", lambda: False)
+    with context_configuration(Configuration(use_pytorch_cross_attention=True)):
+        assert dispatch() == "sdpa"
+        with context_configuration(Configuration(use_ck_attention=True)):
+            assert dispatch() == "int8"
+        assert dispatch() == "sdpa"
+
+
+def test_unavailable_comfy_kitchen_attention_fails_when_requested(monkeypatch):
+    from comfy.ldm.modules import attention
+
+    monkeypatch.setattr(attention, "COMFY_KITCHEN_INT8_ATTENTION_IS_AVAILABLE", False)
+    with context_configuration(Configuration(use_ck_attention=True)):
+        with pytest.raises(RuntimeError, match="--use-ck-attention"):
+            attention.optimized_attention_masked()
+
+
 @pytest.mark.parametrize("rank", [0, 1])
 def test_external_tensor_parallel_fails_before_running_a_workflow(rank):
     configuration = DistributedConfiguration(

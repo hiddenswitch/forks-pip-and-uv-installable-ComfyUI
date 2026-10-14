@@ -63,6 +63,7 @@ def install_benchmark(path):
 
     def record(seconds):
         enabled = [name for name, flag in (
+            ('Comfy Kitchen INT8', args.use_ck_attention),
             ('SageAttention', args.use_sage_attention),
             ('FlashAttention', args.use_flash_attention),
             ('PyTorch SDPA', args.use_pytorch_cross_attention),
