@@ -13,7 +13,7 @@ from comfy.app.assets import mode
 from comfy.app.assets import scanner as scanner_module
 from comfy.app.assets import seeder as seeder_module
 from comfy.app.assets.seeder import ScanPhase, State, _AssetSeeder, _ScanState
-from comfy.app.assets.services import ingest
+from comfy.app.assets.services import ingest, path_utils
 
 
 @pytest.fixture
@@ -105,6 +105,9 @@ def test_output_registration_gets_in_while_the_scan_inserts(hashing_off, file_db
     output.mkdir()
     monkeypatch.setattr(folder_paths, "get_input_directory", lambda: str(library))
     monkeypatch.setattr(folder_paths, "get_output_directory", lambda: str(output))
+    # Only input/output files participate; custom-node folder discovery is not
+    # part of the SQLite contention measurement.
+    monkeypatch.setattr(path_utils, "get_comfy_models_folders", lambda: [])
     old = time.time() - 3600
     for path in library.iterdir():
         os.utime(path, (old, old))

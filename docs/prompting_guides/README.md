@@ -41,7 +41,11 @@ environment-install commands into a ComfyUI environment: use the repository's
 ## Tongyi-MAI
 - [Z-Image Turbo model card](z_image_turbo_model_card.md) ([source](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo))
 
+## Kandinsky Lab
+- [Kandinsky 6.0 Video prompting](kandinsky6_prompting.md) ([official text-to-video instructions](https://github.com/kandinskylab/kandinsky-6/blob/main/comfyui/kandinsky6/beautifier_prompts/t2av_system.txt), [image-to-video instructions](https://github.com/kandinskylab/kandinsky-6/blob/main/comfyui/kandinsky6/beautifier_prompts/i2av_system.txt); source summary)
+
 ## Tencent
+- [Hunyuan Image 3.0 Instruct prompting references](hunyuan_image3_instruct_prompting.md) ([official model card](https://huggingface.co/tencent/HunyuanImage-3.0-Instruct), [Prompt Handbook](https://docs.qq.com/doc/DUVVadmhCdG9qRXBU); source summary)
 - [Hunyuan Image 3.0 prompting](hunyuan_image3_prompting.md) ([source](https://github.com/Tencent-Hunyuan/HunyuanImage-3.0/blob/main/Hunyuan-Image3.md))
 - [Hunyuan Video 1.5 prompt handbook](hunyuan_video_1_5_prompt_handbook.md) ([source](https://github.com/Tencent-Hunyuan/HunyuanVideo-1.5/blob/main/assets/HunyuanVideo_1_5_Prompt_Handbook_EN.md))
 
