@@ -2,7 +2,6 @@
 import dataclasses
 import importlib
 import json
-import struct
 from importlib.metadata import distribution
 from pathlib import Path
 
