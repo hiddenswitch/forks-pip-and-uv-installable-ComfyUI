@@ -2,7 +2,7 @@
   "3": {
     "inputs": {
       "seed": 215668140279030,
-      "steps": 1,
+      "steps": 2,
       "cfg": 3.5,
       "sampler_name": "euler",
       "scheduler": "simple",
@@ -246,7 +246,7 @@
   "66:63": {
     "inputs": {
       "seed": 770039891896361,
-      "steps": 1,
+      "steps": 2,
       "cfg": 1,
       "sampler_name": "euler",
       "scheduler": "simple",

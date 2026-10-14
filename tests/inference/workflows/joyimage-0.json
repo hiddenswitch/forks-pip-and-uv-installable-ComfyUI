@@ -49,7 +49,7 @@
   "9": {
     "inputs": {
       "seed": 42,
-      "steps": 1,
+      "steps": 2,
       "cfg": 4.0,
       "sampler_name": "euler",
       "scheduler": "simple",

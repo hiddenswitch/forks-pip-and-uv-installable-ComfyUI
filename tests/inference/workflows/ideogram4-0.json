@@ -116,7 +116,7 @@
   "98:17": {
     "class_type": "Ideogram4Scheduler",
     "inputs": {
-      "steps": 1,
+      "steps": 2,
       "width": 512,
       "height": 512,
       "mu": [

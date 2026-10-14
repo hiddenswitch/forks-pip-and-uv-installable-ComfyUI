@@ -12,7 +12,7 @@ def _load_workflow():
     return json.loads(WORKFLOW_PATH.read_text(encoding="utf-8"))
 
 
-def test_hidream_o1_inference_workflow_is_api_and_one_step():
+def test_hidream_o1_inference_workflow_is_api_and_two_steps():
     workflow = _load_workflow()
 
     Prompt.validate(workflow)
@@ -20,7 +20,7 @@ def test_hidream_o1_inference_workflow_is_api_and_one_step():
     assert "nodes" not in workflow
     ksamplers = [node for node in workflow.values() if node["class_type"] == "KSampler"]
     assert len(ksamplers) == 1
-    assert ksamplers[0]["inputs"]["steps"] == 1
+    assert ksamplers[0]["inputs"]["steps"] == 2
 
 
 def test_hidream_o1_inference_workflow_uses_known_o1_repo():

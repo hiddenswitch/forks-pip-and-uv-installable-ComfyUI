@@ -114,7 +114,7 @@
     "class_type": "BasicScheduler",
     "inputs": {
       "scheduler": "normal",
-      "steps": 1,
+      "steps": 2,
       "denoise": 1.0,
       "model": ["7", 0]
     },
