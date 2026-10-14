@@ -123,7 +123,10 @@ the **second completed step**, with PyTorch SDPA observed at runtime.
 includes revisions and runtime details. Each row is one fresh process; the OS
 file cache was not flushed. The runs use different neighboring host pairs and
 have no matching single-GPU baseline, so they do not establish a PP speedup.
-Two-step output validates execution, not image quality.
+Two-step output validates execution, not image quality. A separate 50-step
+fresh-process PP=2 run completed and its saved image visually matched the fox,
+grass, golden light, and bokeh in the supplied caption; this is one inspected
+sample, not a general quality comparison.
 
 ## Memory and limitations
 

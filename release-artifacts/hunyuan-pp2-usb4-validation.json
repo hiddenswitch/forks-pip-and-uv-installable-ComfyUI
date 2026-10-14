@@ -1,5 +1,5 @@
 {
-  "status": "Two-step inference completed and saved 1024x1024 PNGs; separate 50-step visual validation pending",
+  "status": "Two-step PP2 runs and a fresh-process 50-step SDPA generation completed; the full image visually matches the prompt",
   "model": "HunyuanImage3 Instruct W4A8",
   "weight_bits": 4,
   "activation_bits": 8,
@@ -50,5 +50,26 @@
     "PP uses supplied captions with prompt rewriting and Spectrum disabled.",
     "Attention is observed PyTorch SDPA, not INT8 attention; W4A8 describes model weights and activations.",
     "No matching single-GPU baseline; do not report these as PP speedups."
-  ]
+  ],
+  "visual_validation": {
+    "revision": "900fe3307",
+    "steps": 50,
+    "prompt": "A red fox asleep curled in tall grass at golden hour, telephoto bokeh",
+    "output": "/outputs/comfy-hy3-release-pp2-local/b9a9a2b5-1262-4dab-aaee-c02bd0d44ae8/hunyuan_image_3_instruct_00002_.png",
+    "sha256": "a0b7ac606ab8574cd49d70d77cf50c5291ce87f8729809e4ec0ccc7a487080bb",
+    "observed": "Red fox curled with eyes closed and its head resting in grass; warm golden illumination and blurred circular background highlights.",
+    "prompt_match": true,
+    "benchmark": {
+      "node_id": "7",
+      "second_step_seconds": 4.730052744038403,
+      "iterations_per_second": 0.21141413301582437,
+      "hardware": "cuda:0 NVIDIA GeForce RTX 3090 : native",
+      "torch": "2.13.0a0+9186a08b2c.nv26.07",
+      "attention": "PyTorch SDPA",
+      "configured_attention": "automatic",
+      "tp": "auto",
+      "pp": 2
+    },
+    "limits": "One image inspected. Fresh Python process after the two-step run; filesystem cache not flushed. PyTorch logged recoverable allocation retries during sampling; generation and VAE decoding completed."
+  }
 }
