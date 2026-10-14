@@ -367,6 +367,11 @@ version = "1.1.10"
 wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-gguf/1.1.10/comfyui_gguf-1.1.10-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
+name = "comfyui-hunyuanimage3"
+version = "0.1.0"
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-hunyuanimage3/0.1.0/comfyui_hunyuanimage3-0.1.0-py3-none-any.whl", hashes = {} }]
+
+[[packages]]
 name = "comfyui-impact-pack"
 version = "8.28.3"
 wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-impact-pack/8.28.3/comfyui_impact_pack-8.28.3-py3-none-any.whl", hashes = {} }]

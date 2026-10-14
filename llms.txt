@@ -52,7 +52,9 @@ select multiple devices at process startup, for example `--cuda-device 0,1`.
 Qwen Image (including Layered), MiniMax H3, and Flux2 Dev then use transparent
 exact PP; selecting one device keeps ordinary DynamicVRAM offloading. Flux2 Dev
 maps its eight double-stream and 48 single-stream blocks into one ordered stage
-space. Stage placement
+space. HunyuanImage 3.0's `Load HunyuanImage 3.0 Model` node (the
+`comfyui-hunyuanimage3` facade package) splits its 32 MoE layers the same way;
+its bf16 checkpoint (150 GiB) needs eight 24 GB ranks. Stage placement
 uses DynamicVRAM's loaded-module geometry and per-device available-memory
 signal and may be asymmetric; there is no PP workflow node or byte-balance
 control. Injected pipeline operations select asynchronous CUDA peer copies

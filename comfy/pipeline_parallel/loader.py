@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 import logging
 import os
+from typing import Mapping
 
 import torch
 
@@ -10,7 +12,7 @@ from ..distributed.config import resolve_distributed_configuration
 from ..execution_context import current_execution_context
 from ..model_patcher import get_model_patcher_class
 
-from .checkpoint import SafetensorsCheckpointReader
+from .checkpoint import SafetensorsCheckpointReader, is_safetensors_checkpoint
 from .distributed import RemotePipelineStageModel
 from .memory import (
     AbstractBasePipelineMemoryCoordinator,
@@ -23,7 +25,15 @@ from .patcher import get_pipeline_model_patcher_class
 from .operations import select_pipeline_operations
 from .runtime import AbstractBasePipelineOperations
 from .stages import get_pipeline_stage_spec
-from .types import PipelineModelMemoryGeometry, PipelineParallelConfig, PipelineStageConfig, PipelineWorkerLoadSpec
+from .types import (
+    PipelineModelMemoryGeometry,
+    PipelineParallelConfig,
+    PipelinePartitionPlan,
+    PipelineStageConfig,
+    PipelineStagePlan,
+    PipelineWorkerLoadSpec,
+    TensorDescriptor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -111,25 +121,132 @@ def _load_pipeline_stage(
     return patcher
 
 
+class AbstractBasePipelineStageLoader(ABC):
+    """How one model family builds a pipeline stage from its checkpoint.
+
+    `load_pipeline_model` owns everything the families share: the memory budgets, the
+    checkpoint-geometry plan, the DynamicVRAM repartition and the worker ranks. A family supplies
+    the keys the stage spec plans over and the construction of one stage's model.
+    """
+
+    @property
+    @abstractmethod
+    def checkpoint_path(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def model_family(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def descriptors(self) -> Mapping[str, TensorDescriptor]:
+        """The checkpoint tensors the stage spec partitions, by the keys stages own."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def resolve_dtype(self, device: torch.device) -> torch.dtype:
+        """Choose the stages' compute dtype once, for the first stage's device."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def load_stage(self, plan: PipelinePartitionPlan, stage: PipelineStagePlan, offload_device: torch.device):
+        """A model patcher holding exactly `stage`'s keys."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def worker_load_spec(self, plan: PipelinePartitionPlan, stage: PipelineStagePlan) -> PipelineWorkerLoadSpec:
+        raise NotImplementedError
+
+
+class ComfyDetectedPipelineStageLoader(AbstractBasePipelineStageLoader):
+    """A diffusion model ComfyUI detects from its checkpoint and builds through its model config."""
+
+    def __init__(self, unet_path, model_options=None, disable_dynamic=False, dtype=None):
+        self.unet_path = unet_path
+        self.model_options = dict(model_options or {})
+        self.disable_dynamic = disable_dynamic
+        self.reader = SafetensorsCheckpointReader(unet_path)
+        detection_state, self.metadata, self.prefix = _normalize_detection_state(self.reader)
+        self.model_config = model_detection.model_config_from_unet(detection_state, "", metadata=self.metadata)
+        if self.model_config is None:
+            raise RuntimeError(f"Pipeline parallel loading could not detect the model type of {unet_path}")
+        self._descriptors, self.original_keys = _normalized_descriptors(self.reader, self.prefix)
+        self.parameters = utils.calculate_parameters(detection_state)
+        self.weight_dtype = None if self.model_config.quant_config is not None else utils.weight_dtype(detection_state)
+        self.dtype = dtype
+
+    @property
+    def checkpoint_path(self) -> str:
+        return os.fspath(self.unet_path)
+
+    @property
+    def model_family(self) -> str:
+        return self.model_config.unet_config.get("image_model")
+
+    @property
+    def descriptors(self) -> Mapping[str, TensorDescriptor]:
+        return self._descriptors
+
+    def resolve_dtype(self, device: torch.device) -> torch.dtype:
+        dtype = self.model_options.get("dtype")
+        if dtype is None:
+            dtype = model_management.unet_dtype(
+                device=device,
+                model_params=self.parameters,
+                supported_dtypes=list(self.model_config.supported_inference_dtypes),
+                weight_dtype=self.weight_dtype,
+            )
+        self.dtype = dtype
+        return dtype
+
+    def load_stage(self, plan, stage, offload_device):
+        return _load_pipeline_stage(
+            self.reader,
+            self.model_config,
+            self.metadata,
+            self.prefix,
+            self.original_keys,
+            self.unet_path,
+            plan,
+            stage,
+            self.model_options,
+            self.disable_dynamic,
+            self.dtype,
+            offload_device,
+        )
+
+    def worker_load_spec(self, plan, stage) -> PipelineWorkerLoadSpec:
+        return PipelineWorkerLoadSpec(
+            checkpoint_path=self.checkpoint_path,
+            plan=plan,
+            stage_index=stage.index,
+            model_options=self.model_options,
+            disable_dynamic=self.disable_dynamic,
+            dtype=self.dtype,
+        )
+
+
 def load_pipeline_worker_stage(load_spec: PipelineWorkerLoadSpec):
-    reader = SafetensorsCheckpointReader(load_spec.checkpoint_path)
-    detection_state, metadata, prefix = _normalize_detection_state(reader)
-    model_config = model_detection.model_config_from_unet(detection_state, "", metadata=metadata)
-    if model_config is None:
-        raise RuntimeError(f"Pipeline worker could not detect {load_spec.checkpoint_path}")
-    _descriptors, original_keys = _normalized_descriptors(reader, prefix)
-    return _load_pipeline_stage(
-        reader,
-        model_config,
-        metadata,
-        prefix,
-        original_keys,
+    if load_spec.plan.model_family == "hunyuan_image3":
+        from .hunyuan_image3 import load_worker_stage
+
+        return load_worker_stage(load_spec)
+    stage_loader = ComfyDetectedPipelineStageLoader(
         load_spec.checkpoint_path,
-        load_spec.plan,
-        load_spec.plan.stages[load_spec.stage_index],
         load_spec.model_options,
         load_spec.disable_dynamic,
-        load_spec.dtype,
+        dtype=load_spec.dtype,
+    )
+    if stage_loader.model_family != load_spec.plan.model_family:
+        raise RuntimeError(
+            f"Pipeline worker detected {stage_loader.model_family!r}, expected "
+            f"{load_spec.plan.model_family!r} in {load_spec.checkpoint_path}"
+        )
+    return stage_loader.load_stage(
+        load_spec.plan,
+        load_spec.plan.stages[load_spec.stage_index],
         torch.device("cpu"),
     )
 
@@ -144,84 +261,51 @@ def load_diffusion_model_pipeline(
     stage_memory_estimator: AbstractBasePipelineStageMemoryEstimator | None = None,
 ):
     model_options = dict(model_options or {})
-    reader = SafetensorsCheckpointReader(unet_path)
-    detection_state, metadata, prefix = _normalize_detection_state(reader)
-    model_config = model_detection.model_config_from_unet(detection_state, "", metadata=metadata)
-    if model_config is None:
-        raise RuntimeError(f"Pipeline parallel loading could not detect the model type of {unet_path}")
+    root = load_pipeline_model(
+        ComfyDetectedPipelineStageLoader(unet_path, model_options, disable_dynamic),
+        pipeline_config,
+        disable_dynamic=disable_dynamic,
+        pipeline_operations=pipeline_operations,
+        memory_coordinator=memory_coordinator,
+        stage_memory_estimator=stage_memory_estimator,
+        offload_device=model_options.get("offload_device", torch.device("cpu")),
+    )
+    root.cached_patcher_init = (
+        load_diffusion_model_pipeline,
+        (unet_path, pipeline_config, model_options, disable_dynamic),
+    )
+    return root
 
-    image_model = model_config.unet_config.get("image_model")
+
+def load_pipeline_model(
+    stage_loader: AbstractBasePipelineStageLoader,
+    pipeline_config: PipelineParallelConfig,
+    disable_dynamic=False,
+    pipeline_operations: AbstractBasePipelineOperations | None = None,
+    memory_coordinator: AbstractBasePipelineMemoryCoordinator | None = None,
+    stage_memory_estimator: AbstractBasePipelineStageMemoryEstimator | None = None,
+    offload_device: torch.device = torch.device("cpu"),
+):
+    """Load `stage_loader`'s model as pipeline stages and return the first stage's patcher."""
+    image_model = stage_loader.model_family
     stage_spec = get_pipeline_stage_spec(image_model)
-    descriptors, original_keys = _normalized_descriptors(reader, prefix)
+    descriptors = stage_loader.descriptors
     memory_coordinator = memory_coordinator or ComfyPipelineMemoryCoordinator()
     stage_memory_estimator = stage_memory_estimator or ComfyDynamicVRAMStageMemoryEstimator()
     budgets = memory_coordinator.budgets(pipeline_config.devices)
     plan = stage_spec.plan(descriptors, pipeline_config, memory_budgets=budgets)
     pipeline_operations = select_pipeline_operations(pipeline_config.devices, pipeline_operations)
-
-    parameters = utils.calculate_parameters(detection_state)
-    weight_dtype = utils.weight_dtype(detection_state)
-    if model_config.quant_config is not None:
-        weight_dtype = None
-    supported_dtypes = list(model_config.supported_inference_dtypes)
-    dtype = model_options.get("dtype")
-    if dtype is None:
-        dtype = model_management.unet_dtype(
-            device=plan.stages[0].device,
-            model_params=parameters,
-            supported_dtypes=supported_dtypes,
-            weight_dtype=weight_dtype,
-        )
-
-    offload_device = model_options.get("offload_device", torch.device("cpu"))
+    dtype = stage_loader.resolve_dtype(plan.stages[0].device)
+    checkpoint_name = os.path.basename(stage_loader.checkpoint_path)
 
     def load_stages(stage_plan):
-        return [
-            _load_pipeline_stage(
-                reader,
-                model_config,
-                metadata,
-                prefix,
-                original_keys,
-                unet_path,
-                stage_plan,
-                stage,
-                model_options,
-                disable_dynamic,
-                dtype,
-                offload_device,
-            )
-            for stage in stage_plan.stages
-        ]
+        return [stage_loader.load_stage(stage_plan, stage, offload_device) for stage in stage_plan.stages]
 
     def load_root(stage_plan):
-        return _load_pipeline_stage(
-            reader,
-            model_config,
-            metadata,
-            prefix,
-            original_keys,
-            unet_path,
-            stage_plan,
-            stage_plan.stages[0],
-            model_options,
-            disable_dynamic,
-            dtype,
-            offload_device,
-        )
+        return stage_loader.load_stage(stage_plan, stage_plan.stages[0], offload_device)
 
     def worker_load_specs(stage_plan):
-        return tuple(
-            PipelineWorkerLoadSpec(
-                checkpoint_path=os.fspath(unet_path),
-                plan=stage_plan,
-                stage_index=stage.index,
-                model_options=model_options,
-                disable_dynamic=disable_dynamic,
-                dtype=dtype,
-            )
-            for stage in stage_plan.stages[1:]
-        )
+        return tuple(stage_loader.worker_load_spec(stage_plan, stage) for stage in stage_plan.stages[1:])
 
     def worker_geometry(stage_plan, root_patcher, worker_geometries):
         geometries = (
@@ -312,7 +396,7 @@ def load_diffusion_model_pipeline(
                 model_memory_geometry.stage_bytes(stage),
                 dtype,
                 not disable_dynamic,
-                os.path.basename(unet_path),
+                checkpoint_name,
                 self_managed_device=self_managed_remote_devices,
             )
             for stage in plan.stages[1:]
@@ -324,10 +408,6 @@ def load_diffusion_model_pipeline(
     root.model.pipeline_executor = executor
     root.set_attachments("pipeline_parallel_plan", plan)
     root.set_attachments("pipeline_parallel_executor", executor)
-    root.cached_patcher_init = (
-        load_diffusion_model_pipeline,
-        (unet_path, pipeline_config, model_options, disable_dynamic),
-    )
     logger.info(
         "Loaded %s with pipeline stages %s",
         image_model,
@@ -341,18 +421,14 @@ def load_diffusion_model_pipeline(
     return root
 
 
-def try_load_diffusion_model_pipeline(
-    unet_path,
-    model_options=None,
-    disable_dynamic=False,
-    pipeline_operations: AbstractBasePipelineOperations | None = None,
+def resolve_pipeline_devices(
     memory_coordinator: AbstractBasePipelineMemoryCoordinator | None = None,
-    stage_memory_estimator: AbstractBasePipelineStageMemoryEstimator | None = None,
 ):
-    """Load a supported checkpoint transparently when multiple devices are selected."""
-    if os.path.splitext(os.fspath(unet_path))[1].lower() not in (".safetensors", ".sft"):
-        return None
+    """The stage devices of a transparently pipelined load and the coordinator for their budgets.
 
+    None when this process should load a model ordinarily: one device, or pipeline parallelism
+    explicitly set to one stage. An external launch spans every launched rank.
+    """
     runtime_configuration = current_execution_context().configuration
     distributed = resolve_distributed_configuration(runtime_configuration)
     requested_size = distributed.pipeline_parallel_size
@@ -382,6 +458,24 @@ def try_load_diffusion_model_pipeline(
             return None
     if len(devices) < 2:
         return None
+    return devices, memory_coordinator
+
+
+def try_load_diffusion_model_pipeline(
+    unet_path,
+    model_options=None,
+    disable_dynamic=False,
+    pipeline_operations: AbstractBasePipelineOperations | None = None,
+    memory_coordinator: AbstractBasePipelineMemoryCoordinator | None = None,
+    stage_memory_estimator: AbstractBasePipelineStageMemoryEstimator | None = None,
+):
+    """Load a supported checkpoint transparently when multiple devices are selected."""
+    if not is_safetensors_checkpoint(unet_path):
+        return None
+    placement = resolve_pipeline_devices(memory_coordinator)
+    if placement is None:
+        return None
+    devices, memory_coordinator = placement
 
     reader = SafetensorsCheckpointReader(unet_path)
     detection_state, metadata, _prefix = _normalize_detection_state(reader)

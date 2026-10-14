@@ -20,3 +20,5 @@ comfyui-frame-interpolation
 comfyui-crystools
 comfyui-detail-daemon
 comfyui-prompt-combinator
+# HunyuanImage3's transformer, which comfy.pipeline_parallel splits into stages
+comfyui-hunyuanimage3==0.1.0

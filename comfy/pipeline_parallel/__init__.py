@@ -36,6 +36,7 @@ from .external import (
 from .stages import (
     AbstractBasePipelineStageSpec,
     Flux2PipelineStageSpec,
+    HunyuanImage3PipelineStageSpec,
     MiniMaxH3PipelineStageSpec,
     QwenImagePipelineStageSpec,
     get_pipeline_stage_spec,
@@ -81,6 +82,7 @@ __all__ = [
     "ExternalTorchDistributedRuntime",
     "ExternalPipelineMemoryCoordinator",
     "Flux2PipelineStageSpec",
+    "HunyuanImage3PipelineStageSpec",
     "MiniMaxH3PipelineStageSpec",
     "PipelineIntermediateSchema",
     "PipelineDeviceMemoryBudget",

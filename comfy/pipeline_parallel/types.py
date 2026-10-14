@@ -107,6 +107,9 @@ class PipelineWorkerLoadSpec:
     model_options: dict
     disable_dynamic: bool
     dtype: torch.dtype
+    # a model family built by a custom node: the node's package directory, which a worker rank
+    # imports itself because launcher ranks other than zero do not load custom nodes
+    custom_node_path: str | None = None
 
 
 @dataclass(frozen=True)
