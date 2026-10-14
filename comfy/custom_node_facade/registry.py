@@ -146,6 +146,21 @@ def _normalize_pep440_versions(
     return normalized
 
 
+# The registry version statuses the facade serves.  A node's latest_version in
+# the registry's node listing can name a version in another status (flagged),
+# which the versions query never returns, so it is not a declared latest.
+_INSTALLABLE_VERSION_STATUSES = ("NodeVersionStatusActive", "NodeVersionStatusPending")
+
+
+def _installable_latest_version(cnr: dict[str, Any]) -> str | None:
+    latest = cnr.get("latest_version")
+    if not isinstance(latest, dict):
+        return None
+    if latest.get("status") not in _INSTALLABLE_VERSION_STATUSES:
+        return None
+    return _normalize_pep440_version(latest.get("version", ""))
+
+
 _MANAGER_REGISTRY_URL = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/custom-node-list.json"
 
 
@@ -590,10 +605,7 @@ class FacadeRegistry:
         async with self._versions_lock:
             if resolved.node_id in self._versions_cache:
                 return self._versions_cache[resolved.node_id]
-            params = [
-                ("statuses", "NodeVersionStatusActive"),
-                ("statuses", "NodeVersionStatusPending"),
-            ]
+            params = [("statuses", status) for status in _INSTALLABLE_VERSION_STATUSES]
             with tracer.start_as_current_span("List Facade Project Versions") as span:
                 span.set_attribute("facade.project_name", resolved.canonical_name)
                 span.set_attribute("facade.node_id", resolved.node_id)
@@ -782,12 +794,7 @@ class FacadeRegistry:
             canonicalize_project_name(repo_name),
             canonicalize_project_name(display_name),
         }
-        latest = cnr.get("latest_version")
-        latest_version = (
-            _normalize_pep440_version(latest.get("version", ""))
-            if isinstance(latest, dict)
-            else None
-        )
+        latest_version = _installable_latest_version(cnr)
         return FacadeProject(
             canonical_name=canonical_name,
             display_name=display_name,
@@ -875,10 +882,7 @@ class FacadeRegistry:
             seen_requirements.add(normalized)
             deduped_requirements.append(normalized)
 
-        latest_version = None
-        latest = cnr.get("latest_version")
-        if isinstance(latest, dict):
-            latest_version = _normalize_pep440_version(latest.get("version", ""))
+        latest_version = _installable_latest_version(cnr)
 
         return FacadeProject(
             canonical_name=canonical_name,
