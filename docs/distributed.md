@@ -110,9 +110,20 @@ file cache was not flushed. Hunyuan and distilled Kandinsky reserve 2 GiB of
 extra VRAM headroom. Hunyuan W4A8 means 4-bit weights and 8-bit activations.
 Standard Kandinsky Pro was slower with TP=2 in these samples.
 
-PP=2 is supported for the families above, but no measured PP=2 timing has yet
-been recovered for this table. Support and correctness tests alone do not
-establish a throughput improvement.
+The following PP measurements use the same 1024² HunyuanImage3 Instruct W4A8
+fixed-caption workflow reduced to two Euler steps, CFG 2.5, seed 1234. They time
+the **second completed step**, with PyTorch SDPA observed at runtime.
+
+| Model | GPU configuration | Mode / transport | Checkpoint storage | Step 2 (s) | it/s |
+|---|---|---|---|---:|---:|
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | Node-local disk | 4.937 | 0.203 |
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | SeaweedFS network mount | 18.323 | 0.055 |
+
+[Recorded PP evidence](../release-artifacts/hunyuan-pp2-usb4-validation.json)
+includes revisions and runtime details. Each row is one fresh process; the OS
+file cache was not flushed. The runs use different neighboring host pairs and
+have no matching single-GPU baseline, so they do not establish a PP speedup.
+Two-step output validates execution, not image quality.
 
 ## Memory and limitations
 

@@ -1,0 +1,54 @@
+{
+  "status": "Two-step inference completed and saved 1024x1024 PNGs; separate 50-step visual validation pending",
+  "model": "HunyuanImage3 Instruct W4A8",
+  "weight_bits": 4,
+  "activation_bits": 8,
+  "workflow": "release-artifacts/workflows/api/hunyuan-instruct-fixed-rewrite-txt2img.json",
+  "overrides": {
+    "steps": 2
+  },
+  "hardware": "2 x NVIDIA GeForce RTX 3090 24 GiB, one per host",
+  "transport": "NCCL 2.30.7 routed fork, internal IB network, USB4 libibverbs provider; GPU Direct RDMA disabled",
+  "image": "ghcr.io/appmana/forks-diffusion-pipe-prod:1d7a529",
+  "runs": [
+    {
+      "storage": "node-local disk",
+      "revision": "900fe3307",
+      "jobset_uid": "b9a9a2b5-1262-4dab-aaee-c02bd0d44ae8",
+      "benchmark": {
+        "node_id": "7",
+        "second_step_seconds": 4.936994215007871,
+        "iterations_per_second": 0.2025523945238015,
+        "hardware": "cuda:0 NVIDIA GeForce RTX 3090 : native",
+        "torch": "2.13.0a0+9186a08b2c.nv26.07",
+        "attention": "PyTorch SDPA",
+        "configured_attention": "automatic",
+        "tp": "auto",
+        "pp": 2
+      }
+    },
+    {
+      "storage": "SeaweedFS network mount",
+      "revision": "97e47b270",
+      "jobset_uid": "17121bbd-3b48-4a6f-95e2-65cd7532a536",
+      "benchmark": {
+        "node_id": "7",
+        "second_step_seconds": 18.323111467063427,
+        "iterations_per_second": 0.05457588367551781,
+        "hardware": "cuda:0 NVIDIA GeForce RTX 3090 : native",
+        "torch": "2.13.0a0+9186a08b2c.nv26.07",
+        "attention": "PyTorch SDPA",
+        "configured_attention": "automatic",
+        "tp": "auto",
+        "pp": 2
+      }
+    }
+  ],
+  "limits": [
+    "One fresh process per configuration; no warm probes; OS cache was not flushed.",
+    "Different neighboring pairs of hosts; this is not a controlled storage-only speedup measurement.",
+    "PP uses supplied captions with prompt rewriting and Spectrum disabled.",
+    "Attention is observed PyTorch SDPA, not INT8 attention; W4A8 describes model weights and activations.",
+    "No matching single-GPU baseline; do not report these as PP speedups."
+  ]
+}
