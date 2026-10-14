@@ -10,7 +10,6 @@ from alembic.config import Config
 from filelock import FileLock, Timeout
 
 from comfy.app.database import db as db_module
-from comfy.cmd import main
 
 _PRE_HEAD = "0006_add_loader_path"
 
@@ -146,6 +145,7 @@ def test_legacy_database_copy_runs_under_file_lock(tmp_path, monkeypatch):
             db_module._db_lock.release(force=True)
 
     assert copied == [(str(legacy_db) + ".bak", str(target_db))]
+
 
 def test_failed_restore_does_not_mask_the_upgrade_error(stale_db, monkeypatch, caplog):
     real_backup = db_module._backup_database

@@ -3,12 +3,12 @@ import json
 from pathlib import Path
 import sys
 
-from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 import pytest
 
 from comfy.app import governance
+from comfy.ed25519 import InvalidSignature
 
 
 DOMAIN_SEPARATOR = b"comfyui-governance-v1\x00"

@@ -76,6 +76,7 @@ from .patcher_extension import PatcherInjection
 from .patcher_extension import WrappersMP
 from .quant_ops import QuantizedTensor
 import comfy_aimdo.host_buffer
+from .configurable import ConfigurableModule
 
 logger = logging.getLogger(__name__)
 
@@ -1037,6 +1038,7 @@ class ModelPatcher(ModelManageable, PatchSupport, metaclass=_ModelPatcherFactory
     def add_patches(self, patches: PatchDict, strength_patch=1.0, strength_model=1.0) -> list[PatchDictKey]:
         with self.use_ejected():
             p: set[PatchDictKey] = set()
+            weights_changed = False
             model_sd = self.model.state_dict()
             k: PatchDictKey
             for k in patches:
@@ -1050,13 +1052,28 @@ class ModelPatcher(ModelManageable, PatchSupport, metaclass=_ModelPatcherFactory
                     if len(k) > 2:
                         function = k[2]
 
+                patch = patches[k]
+                if isinstance(patch, tuple) and len(patch) == 2 and patch[0] == "config":
+                    module_name, _, attribute = key.rpartition(".")
+                    try:
+                        module = self.get_model_object(module_name)
+                    except AttributeError:
+                        continue
+                    if attribute == "config" and isinstance(module, ConfigurableModule):
+                        p.add(k)
+                        if strength_patch != 0:
+                            self.add_object_patch(module_name, module.with_config(patch[1][0]))
+                    continue
+
                 if key in model_sd:
                     p.add(k)
                     current_patches = self.patches.get(key, [])
                     current_patches.append(PatchTuple(strength_patch, patches[k], strength_model, offset, function))
                     self.patches[key] = current_patches
+                    weights_changed = True
 
-            self.patches_uuid = uuid.uuid4()
+            if weights_changed:
+                self.patches_uuid = uuid.uuid4()
             return list(p)
 
     def get_key_patches(self, filter_prefix=None):
@@ -1849,6 +1866,8 @@ class ModelPatcher(ModelManageable, PatchSupport, metaclass=_ModelPatcherFactory
             p = set()
             model_sd = self.model.state_dict()
             for k in patches:
+                if isinstance(patches[k], tuple) and len(patches[k]) == 2 and patches[k][0] == "config":
+                    continue
                 offset = None
                 function = None
                 if isinstance(k, str):

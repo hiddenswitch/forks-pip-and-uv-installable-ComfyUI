@@ -78,7 +78,7 @@ from ..nodes.package_typing import InputTypeSpec
 from ..nodes.package_typing import IntSpecOptions
 from ..nodes_context import get_nodes
 from ..app.assets.manager import AssetManager
-from ..app.assets.manager import default_asset_manager
+from ..app.assets.manager import NoAssets
 from comfy_api.internal import _ComfyNodeInternal
 from comfy_api.internal import _NodeOutputInternal
 from comfy_api.internal import first_real_override
@@ -89,6 +89,7 @@ from comfy_api.latest import io
 from comfy_compatibility.vanilla import vanilla_environment_node_execution_hooks
 from comfy_execution.asset_enrichment import emit_cached_output
 from comfy_execution.asset_enrichment import register_executed_outputs
+from comfy_execution.asset_enrichment import take_asset_previews
 from comfy_execution.media_enrichment import enrich_output_with_media_metadata
 from comfy_execution.cache_provider import _get_cache_providers
 from comfy_execution.cache_provider import _has_cache_providers
@@ -713,6 +714,7 @@ async def _execute(server, dynprompt: DynamicPrompt, caches: CacheSet, current_i
                 return RecursiveExecutionTuple(ExecutionResult.PENDING, None, None)
         cache_ui_value = ui_outputs.get(unique_id)
         if len(output_ui) > 0:
+            asset_previews = take_asset_previews(output_ui)
             output_ui = enrich_output_with_media_metadata(output_ui)
             meta = {
                 "node_id": unique_id,
@@ -720,7 +722,7 @@ async def _execute(server, dynprompt: DynamicPrompt, caches: CacheSet, current_i
                 "parent_node": parent_node_id,
                 "real_node_id": real_node_id,
             }
-            enriched_output_ui = register_executed_outputs(output_ui, prompt_id, asset_manager)
+            enriched_output_ui = register_executed_outputs(output_ui, prompt_id, asset_manager, asset_previews)
             ui_outputs[unique_id] = {"meta": meta, "output": enriched_output_ui}
             cache_ui_value = {"meta": meta, "output": output_ui}
             if server.client_id is not None:
@@ -831,7 +833,7 @@ class PromptExecutor:
         self.cache_args = cache_args or {}
         self.cache_type = cache_type
         self.server = server
-        self.asset_manager = asset_manager if asset_manager is not None else default_asset_manager()
+        self.asset_manager = asset_manager if asset_manager is not None else NoAssets(args)
         self.prompt_model_tracker = model_patcher_module.PromptModelTracker()
         self.raise_exceptions = False
         self.reset()

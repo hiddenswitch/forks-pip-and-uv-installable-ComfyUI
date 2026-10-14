@@ -1,7 +1,7 @@
 """Selects and implements the enabled and disabled asset managers.
 
-``default_asset_manager`` checks database dependencies before enabling assets
-and chooses ``NoAssets`` when the requested mode cannot run.
+``default_asset_manager`` chooses ``NoAssets`` unless assets are enabled (see cli_args); main.py
+stops startup before that if assets are on and the database packages are missing.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from .services.ingest import (
 )
 from .services.path_utils import get_known_subfolder_tags
 from .services.schemas import RegisteredAsset, UploadAssetView
-from ..database.db import dependencies_available, missing_dependencies
+from ..database.db import dependencies_available
 from ..user_manager import UserManager
 from ...cli_args import args
 
@@ -58,7 +58,7 @@ class AssetManager(Protocol):
     ) -> UploadAssetView | None: ...
 
     def register_executed_output(
-        self, abs_path: str, job_id: str | None
+        self, abs_path: str, job_id: str | None, preview_ref: dict | None = None
     ) -> RegisteredAsset | None: ...
 
     def register_cached_output(
@@ -69,7 +69,7 @@ class AssetManager(Protocol):
 
 
 class _ArgsLike(Protocol):
-    enable_assets: bool
+    disable_assets: bool
     enable_asset_hashing: bool
 
 
@@ -126,7 +126,7 @@ class NoAssets:
         return None
 
     def register_executed_output(
-        self, abs_path: str, job_id: str | None
+        self, abs_path: str, job_id: str | None, preview_ref: dict | None = None
     ) -> RegisteredAsset | None:
         return None
 
@@ -201,6 +201,7 @@ class AssetsEnabled:
                 content_id=result.content_id,
                 job_id=result.ref.job_id,
                 name=result.ref.name,
+                preview_id=result.ref.preview_id,
             )
             return UploadAssetView(
                 asset=asset,
@@ -214,9 +215,9 @@ class AssetsEnabled:
             return None
 
     def register_executed_output(
-        self, abs_path: str, job_id: str | None
+        self, abs_path: str, job_id: str | None, preview_ref: dict | None = None
     ) -> RegisteredAsset | None:
-        return ingest_register_executed_output(abs_path, job_id)
+        return ingest_register_executed_output(abs_path, job_id, preview_ref)
 
     def register_cached_output(
         self, abs_path: str, job_id: str | None
@@ -228,11 +229,4 @@ class AssetsEnabled:
 
 
 def default_asset_manager() -> AssetManager:
-    if args.enable_assets and not dependencies_available():
-        missing = ", ".join(missing_dependencies()) or "see the import error above"
-        logging.error(
-            f"--enable-assets requires packages that could not be imported: {missing}. "
-            "Assets are disabled. Reinstall comfyui with its dependencies, e.g. `uv pip install comfyui`."
-        )
-        return NoAssets(args)
-    return AssetsEnabled(args) if args.enable_assets else NoAssets(args)
+    return NoAssets(args) if args.disable_assets else AssetsEnabled(args)

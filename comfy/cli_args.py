@@ -62,6 +62,7 @@ parser.add_argument("--extra-model-paths-config", type=str, default=[], metavar=
 parser.add_argument("--output-directory", type=str, default=None, help="Set the ComfyUI output directory.")
 parser.add_argument("--temp-directory", type=str, default=None, help="Set the ComfyUI temp directory.")
 parser.add_argument("--input-directory", type=str, default=None, help="Set the ComfyUI input directory.")
+parser.add_argument("--previews-directory", type=str, default=None, help="Set the directory for generated asset previews.")
 parser.add_argument("--auto-launch", action="store_true", help="Automatically launch ComfyUI in the default browser.")
 parser.add_argument("--disable-auto-launch", action="store_true", help="Disable auto launching the browser.")
 parser.add_argument("--cuda-device", type=str, default=None, metavar="DEVICE_ID",
@@ -325,6 +326,7 @@ parser.add_argument("--enable-asset-hashing", action="store_true", help="Compute
 parser.add_argument("--disable-assets-autoscan", action="store_true", help="Disable asset scanning on startup for database synchronization.")
 parser.add_argument("--feature-flag", type=str, action="append", default=[], metavar="KEY[=VALUE]", help="Set a server feature flag.")
 parser.add_argument("--list-feature-flags", action="store_true", help="Print known CLI-settable feature flags as JSON and exit.")
+parser.add_argument("--disable-assets", action="store_true", help="Disable assets, overriding --enable-assets.")
 
 def default_configuration() -> Configuration:
     """Return a Configuration with all defaults (no CLI parsing)."""
