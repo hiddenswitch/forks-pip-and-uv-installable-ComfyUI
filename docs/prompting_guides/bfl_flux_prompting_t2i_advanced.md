@@ -143,7 +143,7 @@ export const PromptDisplay = ({prompt}) => {
     * JSON structured prompts supported for production workflows
     * Reference specific camera models for authentic photorealistic looks
 
-    See: [JSON Prompting →](/guides/usecases_t2i_json_prompting) · [Typography & Design →](/guides/usecases_t2i_typography_design) · [HEX Color Prompting →](/guides/usecases_t2i_hex_color_prompting)
+    See: [JSON Prompting →](https://docs.bfl.ml/guides/usecases_t2i_json_prompting) · [Typography & Design →](https://docs.bfl.ml/guides/usecases_t2i_typography_design) · [HEX Color Prompting →](https://docs.bfl.ml/guides/usecases_t2i_hex_color_prompting)
   </Accordion>
 
   <Accordion title="FLUX.2 [klein]">
@@ -153,7 +153,7 @@ export const PromptDisplay = ({prompt}) => {
     * Supports image editing with single and multi-reference inputs
     * Add `Style: [style]. Mood: [mood].` at the end for consistent aesthetics
 
-    See: [Single-Reference Editing →](/guides/prompting_editing_single_reference) · [Multi-Reference Editing →](/guides/prompting_editing_multi_reference)
+    See: [Single-Reference Editing →](https://docs.bfl.ml/guides/prompting_editing_single_reference) · [Multi-Reference Editing →](https://docs.bfl.ml/guides/prompting_editing_multi_reference)
   </Accordion>
 
   <Accordion title="FLUX.1 Kontext">

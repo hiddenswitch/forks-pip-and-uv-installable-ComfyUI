@@ -1,6 +1,6 @@
 # Qwen Image 2.1 prompting guide
 
-Vendored snapshot, complete and unedited, of:
+Vendored snapshot, complete, with source links made absolute, of:
 1. https://github.com/QwenLM/Qwen-Image-2.1/blob/main/README.md
 2. https://github.com/QwenLM/Qwen-Image-2.1/blob/main/prompt_rewrite/README.md
 3. https://github.com/QwenLM/Qwen-Image-2.1/blob/main/prompt_rewrite/prompts/system_prompt_t2i.txt
@@ -24,7 +24,7 @@ the last step is at 0.02.
 # 1. README.md
 
 <p align="center">
-    <img src="./assets/logo.png" width="400"/>
+    <img src="https://raw.githubusercontent.com/QwenLM/Qwen-Image-2.1/main/assets/logo.png" width="400"/>
 </p>
 <p align="center">
     🤖 <a href="https://modelscope.cn/models/Qwen/Qwen-Image-2.1">ModelScope</a>&nbsp;&nbsp;|
@@ -200,7 +200,7 @@ For best results, we recommend using the official **prompt rewriting models** to
 The rewriting code and weights are available at:
 - **T2I**: [Qwen/Qwen-Image-2.1-PE-T2I](https://huggingface.co/Qwen/Qwen-Image-2.1-PE-T2I)
 - **Edit**: [Qwen/Qwen-Image-2.1-PE-I2I](https://huggingface.co/Qwen/Qwen-Image-2.1-PE-I2I)
-- **Code**: [`prompt_rewrite/`](./prompt_rewrite/) — unified codebase with `--task t2i` or `--task edit`
+- **Code**: [`prompt_rewrite/`](https://github.com/QwenLM/Qwen-Image-2.1/tree/main/prompt_rewrite/) — unified codebase with `--task t2i` or `--task edit`
 
 ```
 prompt_rewrite/
@@ -467,7 +467,7 @@ The mixed-granularity attention architecture enables efficient **prefix KV cache
 ### Panorama and Storyboard
 
 <p align="center">
-<img src="./assets/example-38.jpg" width="100%"/>
+<img src="https://raw.githubusercontent.com/QwenLM/Qwen-Image-2.1/main/assets/example-38.jpg" width="100%"/>
 </p>
 <p align="center"><em>Panorama generated from a selfie</em></p>
 
@@ -520,7 +520,7 @@ Prebuilt images and weights for 8 chip platforms are released under [FlagRelease
 
 ## License Agreement
 
-This repository is licensed under the [Qwen Research License Agreement](./LICENSE).
+This repository is licensed under the [Qwen Research License Agreement](https://github.com/QwenLM/Qwen-Image-2.1/blob/main/LICENSE).
 
 ## Feedback
 

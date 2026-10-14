@@ -22,22 +22,22 @@ Welcome to the official **FLUX** Prompting Guide. Whether you're just getting st
 
 This guide covers prompting for the entire FLUX model family — FLUX.1, FLUX.1 Kontext and FLUX.2. Where behavior differs meaningfully between models, we'll call it out explicitly.
 
-If you're still choosing a model, see [Which Model to Choose?](/flux_2/flux2_overview#which-model-to-choose) in the FLUX.2 overview.
+If you're still choosing a model, see [Which Model to Choose?](https://docs.bfl.ml/flux_2/flux2_overview#which-model-to-choose) in the FLUX.2 overview.
 
 <CardGroup cols={2}>
-  <Card title="Prompt Basics" icon="pen" href="/guides/prompting_unified_basics">
+  <Card title="Prompt Basics" icon="pen" href="https://docs.bfl.ml/guides/prompting_unified_basics">
     How FLUX reads prompts — structure, word order, and what actually matters.
   </Card>
 
-  <Card title="Editing Workflows" icon="pen-to-square" href="/guides/prompting_editing_overview">
+  <Card title="Editing Workflows" icon="pen-to-square" href="https://docs.bfl.ml/guides/prompting_editing_overview">
     Single-reference and multi-reference editing with FLUX.2.
   </Card>
 
-  <Card title="Use Cases" icon="images" href="/guides/prompting_unified_usecases">
+  <Card title="Use Cases" icon="images" href="https://docs.bfl.ml/guides/prompting_unified_usecases">
     Photorealism, typography, style transfer, and more — with example prompts.
   </Card>
 
-  <Card title="Model Comparison" icon="table" href="/flux_2/flux2_overview#which-model-to-choose">
+  <Card title="Model Comparison" icon="table" href="https://docs.bfl.ml/flux_2/flux2_overview#which-model-to-choose">
     Which FLUX.2 variant fits your workflow.
   </Card>
 </CardGroup>

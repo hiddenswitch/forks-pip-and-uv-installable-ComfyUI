@@ -8,7 +8,7 @@ Fetched: 2026-06-03
 
 # ACE-Step 1.5 Ultimate Guide (Must Read)
 
-**Language / 语言 / 言語:** [English](Tutorial.md) | [中文](../zh/Tutorial.md) | [日本語](../ja/Tutorial.md)
+**Language / 语言 / 言語:** [English](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Tutorial.md) | [中文](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/zh/Tutorial.md) | [日本語](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/ja/Tutorial.md)
 
 ---
 
@@ -256,7 +256,7 @@ You can reshape DiT's capabilities and preferences with your own data recipe:
 
 This greatly expands **customization and playability**—train a model unique to you with your aesthetic taste.
 
-> For the detailed LoRA training guide, see the [LoRA Training Tutorial](./LoRA_Training_Tutorial.md). You can also use the "LoRA Training" tab in Gradio UI for one-click training.
+> For the detailed LoRA training guide, see the [LoRA Training Tutorial](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/LoRA_Training_Tutorial.md). You can also use the "LoRA Training" tab in Gradio UI for one-click training.
 
 #### XL (4B) Models
 

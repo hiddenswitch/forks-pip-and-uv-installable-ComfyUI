@@ -20,7 +20,7 @@ Ideogram 4.0 was trained **exclusively on structured JSON captions**. Natural la
 * **Consistent, repeatable outputs**: Two runs from the same JSON prompt stay close to each other in composition — useful for design workflows.
 
 {% hint style="info" %}
-You don't have to write JSON yourself. **Magic Prompt** can automatically expand a plain-text description into a full structured JSON caption, giving you JSON-quality results from a casual prompt. See [Using Magic Prompt](/using-ideogram/getting-started/prompting-guide/7-creative-tools-in-ideogram/using-magic-prompt.md) for more.
+You don't have to write JSON yourself. **Magic Prompt** can automatically expand a plain-text description into a full structured JSON caption, giving you JSON-quality results from a casual prompt. See [Using Magic Prompt](https://docs.ideogram.ai/using-ideogram/getting-started/prompting-guide/7-creative-tools-in-ideogram/using-magic-prompt.md) for more.
 {% endhint %}
 
 **This section will be doing a deeper dive on JSON formatting and variables.** We know that this can be a bit complex for first-time users, but we'll do our best to make the details as clear as possible. We're also working on product updates that make JSON prompting more visual and easier for first-time users! Our goal is for everyone to use the power of Ideogram 4.0 and JSON prompting — whether you have previous technical experience or not :sunglasses:.
@@ -172,9 +172,9 @@ A clean starting point — great for anyone new to JSON prompting:
 
 **Output:**
 
-• [Magic Prompt](/using-ideogram/generation-settings/magic-prompt.md): OFF (automatically turned off when using JSON format for Ideogram 4.0)\
-• [Aspect ratio](/using-ideogram/generation-settings/aspect-ratio-and-dimensions.md): 1:2\
-• [Model](/using-ideogram/generation-settings/available-models.md): 4.0
+• [Magic Prompt](https://docs.ideogram.ai/using-ideogram/generation-settings/magic-prompt.md): OFF (automatically turned off when using JSON format for Ideogram 4.0)\
+• [Aspect ratio](https://docs.ideogram.ai/using-ideogram/generation-settings/aspect-ratio-and-dimensions.md): 1:2\
+• [Model](https://docs.ideogram.ai/using-ideogram/generation-settings/available-models.md): 4.0
 
 <figure><img src="https://1799634369-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FzjhNby3LLsIikYuvxAJP%2Fuploads%2FySvsEMEF1FI10iOm4qsG%2Fhigh-level-description-a-lone-sailboat-o_LWy40HW7XgyaVD4dEwWhOg_iesvurn3SqO0mvA8LYomEg_cover%20(1).png?alt=media&amp;token=596cfb4c-07c5-49d0-a425-1e5168618ca2" alt="Photograph of a lone sailboat silhouetted against a golden sunset over a calm ocean, the sun low on the horizon" width="375"><figcaption></figcaption></figure>
 
@@ -233,9 +233,9 @@ When exact placement matters — for design work, posters, or complex compositio
 
 **Output:**
 
-• [Magic Prompt](/using-ideogram/generation-settings/magic-prompt.md): OFF (automatically turned off when using JSON format for Ideogram 4.0)\
-• [Aspect ratio](/using-ideogram/generation-settings/aspect-ratio-and-dimensions.md): 1:2\
-• [Model](/using-ideogram/generation-settings/available-models.md): 4.0
+• [Magic Prompt](https://docs.ideogram.ai/using-ideogram/generation-settings/magic-prompt.md): OFF (automatically turned off when using JSON format for Ideogram 4.0)\
+• [Aspect ratio](https://docs.ideogram.ai/using-ideogram/generation-settings/aspect-ratio-and-dimensions.md): 1:2\
+• [Model](https://docs.ideogram.ai/using-ideogram/generation-settings/available-models.md): 4.0
 
 <figure><img src="https://1799634369-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FzjhNby3LLsIikYuvxAJP%2Fuploads%2FKYqvYPmYcmwUkZYfQaed%2Fimage.png?alt=media&amp;token=f636b92e-5b5e-401d-945b-4732b7fe8b2f" alt="Vintage jazz poster of a spotlit trumpeter reading Blue Note Sessions, Live jazz every Saturday night, The Velvet Room, Sat August 9" width="375"><figcaption></figcaption></figure>
 
@@ -262,9 +262,11 @@ The two examples below describe the same subject. Notice how the JSON version pr
 
 > *A vintage 1950s collectible natural-history trading card showing a goldcrest bird (Regulus regulus) perched on a pine sprig. The card has a small halftone illustration centered on cream cardstock, with the common name "GOLDCREST" in bold black serif capitals across the top, the Latin name "Regulus regulus" in italic beneath the bird, a small caption noting it is the smallest of the British songbirds at around 9 centimetres, card number "17 OF 50" in the lower right, and the series mark "BRITISH SONGBIRDS" along the bottom in dark green ink. Slight foxing on the paper edges, fine halftone print texture, soft even lighting.*
 
-**JSON:**
+**JSON excerpt:**
 
-```json
+The upstream snapshot includes only the tail of this example; use one of the complete JSON examples above as a template.
+
+```text
             "type":"text",
             "bbox":[
                775,

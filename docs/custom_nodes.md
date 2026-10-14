@@ -18,6 +18,7 @@ The wheel is built and attached to each GitHub release by
 Install custom nodes from the package index at `nodes.appmana.com`:
 
 ```bash
+uv pip install --extra-index-url https://nodes.appmana.com/simple/ kandinsky6 kandinsky6-sr comfyui-hunyuanimage3
 uv pip install --extra-index-url https://nodes.appmana.com/simple/ comfyui-wanvideowrapper
 uv pip install --extra-index-url https://nodes.appmana.com/simple/ comfyui-kjnodes
 uv pip install --extra-index-url https://nodes.appmana.com/simple/ comfyui-controlnet-aux
@@ -27,6 +28,10 @@ uv pip install --extra-index-url https://nodes.appmana.com/simple/ comfyui-video
 All supported installation paths use uv so the active Torch backend remains
 under one resolver and lockfile policy.
 
+Kandinsky 6 and HunyuanImage3 remain pip-installed custom nodes. Their upstream
+prompting references are [Kandinsky 6](prompting_guides/kandinsky6_prompting.md)
+and [HunyuanImage3 Instruct](prompting_guides/hunyuan_image3_instruct_prompting.md).
+
 ### AMD TheRock packages
 
 The facade exposes AMD’s allowlisted TheRock simple index without rehosting
@@ -34,7 +39,7 @@ large wheels. Use it when installing the split host/device packages directly:
 
 ```bash
 uv pip install --index-url https://nodes.appmana.com/simple/rocm/ \
-  torch==2.13.0+rocm10.0.0 torchvision==0.28.0+rocm10.0.0
+  torch==2.14.0+rocm10.1.0 torchvision==0.29.0a0+rocm10.1.0
 ```
 
 The current stable uv resolver does not select TheRock’s `device-all` extras
@@ -114,7 +119,7 @@ ComfyUI-Manager is a popular extension to help you install and manage other cust
 
 #### Manual Install
 
-The installation process for ComfyUI-Manager requires two steps: installing its Python dependencies, and then cloning its code into the `custom_nodes` directory.
+The installation process for ComfyUI-Manager requires installing its Python dependencies, cloning its code into the `custom_nodes` directory, and enabling it at startup.
 
 1.  **Install dependencies.**
     First, ensure you have installed `comfyui` from this repository as described in the Installing section. Then, run the following command from your ComfyUI workspace directory (the one containing your `.venv` folder) to install the extra dependencies for ComfyUI-Manager:
@@ -134,7 +139,7 @@ The installation process for ComfyUI-Manager requires two steps: installing its 
     This command will place the manager's code into `custom_nodes/ComfyUI-Manager/`.
 
 3.  **Restart ComfyUI.**
-    After the cloning is complete, restart ComfyUI. You should now see a "Manager" button in the menu.
+    After cloning, start `comfyui serve --enable-manager`. The manager UI is available when enabled.
 
 ### ComfyUI-Manager Command Line Options
 
@@ -146,7 +151,7 @@ The installation process for ComfyUI-Manager requires two steps: installing its 
 
 ### Vanilla Custom Nodes
 
-This fork is fully compatible with ordinary ComfyUI custom nodes from the ecosystem. As long as you install a node's dependencies into your virtual environment and clone it into the `custom_nodes/` directory that ComfyUI is scanning, everything will work.
+This fork imports ordinary ecosystem nodes through its compatibility layer. Nodes still need compatible Python dependencies, accelerator extensions, and frontend APIs. Private upstream APIs can require node-specific fixes.
 
 #### Step 1: Open a Terminal in Your Workspace
 
@@ -254,7 +259,7 @@ The installed wheel is only a transport wrapper. It exposes a `comfyui.custom_no
 
 ### Local Facade Build for Long-Tail Packages
 
-The bundled `pip_facade_registry_snapshot.sqlite.xz` carries the `class_type → canonical_name` mapping for ~3956 packages, but only the ~44 most popular have pre-built wheels on `nodes.appmana.com/simple/`. When `comfyui run-workflow ... --all` resolves a workflow's custom-node requirements and a package isn't on the index, the CLI falls back to building a facade wheel **locally in-process** rather than installing from git directly:
+The bundled `pip_facade_registry_snapshot.sqlite.xz` carries the `class_type → canonical_name` mapping for registry packages; the public index builds and caches wheels on demand. When `comfyui run-workflow ... --all` resolves a workflow's custom-node requirements and a package isn't on the index, the CLI falls back to building a facade wheel **locally in-process** rather than installing from git directly:
 
 1. `comfy.custom_node_facade.repo_lookup.resolve_package_repo_url(canonical_name)` looks up the source repository URL via comfy.org's node registry (`api.comfy.org/nodes/<name>`), then ComfyUI-Manager's `extension-node-map.json` as a second source.
 2. `comfy.custom_node_facade.local_build.build_local_facade_wheel(canonical_name)` synthesizes a one-shot `FacadeRegistry`, points `FacadeWheelBuilder` at the GitHub or GitLab archive URL (`https://api.github.com/repos/<owner>/<repo>/zipball` or `https://gitlab.com/api/v4/projects/<encoded>/repository/archive.zip`), and produces the same kind of wheel the remote facade serves.
@@ -700,7 +705,7 @@ Create a `requirements.txt`:
 comfyui
 ```
 
-Observe `comfyui` is now a requirement for using your custom nodes. This will ensure you will be able to access `comfyui` as a library. For example, your code will now be able to import the folder paths using `from comfyui.cmd import folder_paths`. Because you will be using my fork, point your `requirements.txt` at the package index so `comfyui` resolves to it:
+Observe `comfyui` is now a requirement for using your custom nodes. This will ensure you will be able to access `comfyui` as a library. For example, your code will now be able to import the folder paths using `from comfy.cmd import folder_paths`. Because you will be using my fork, point your `requirements.txt` at the package index so `comfyui` resolves to it:
 
 ```
 --extra-index-url https://nodes.appmana.com/simple/
@@ -813,69 +818,15 @@ def add_configuration(parser: configargparse.ArgParser) -> configargparse.ArgPar
 
 ```
 
-You can now see your configuration option at the bottom of the `--help` command along with hints for how to use it:
+Pass custom options to the server command:
 
 ```shell
-$ comfyui --help
-usage: comfyui.exe [-h] [-c CONFIG_FILE] [--write-out-config-file CONFIG_OUTPUT_PATH] [-w CWD] [-H [IP]] [--port PORT]
-                   [--enable-cors-header [ORIGIN]] [--max-upload-size MAX_UPLOAD_SIZE] [--extra-model-paths-config PATH [PATH ...]]
-...
-                   [--openai-api-key OPENAI_API_KEY]
-
-options:
-  -h, --help            show this help message and exit
-  -c CONFIG_FILE, --config CONFIG_FILE
-                        config file path
-  --write-out-config-file CONFIG_OUTPUT_PATH
-                        takes the current command line args and writes them out to a config file at the given path, then exits
-  -w CWD, --cwd CWD     Specify the working directory. If not set, this is the current working directory. models/, input/, output/ and other
-                        directories will be located here by default. [env var: COMFYUI_CWD]
-  -H [IP], --listen [IP]
-                        Specify the IP address to listen on (default: 127.0.0.1). If --listen is provided without an argument, it defaults to
-                        0.0.0.0. (listens on all) [env var: COMFYUI_LISTEN]
-  --port PORT           Set the listen port. [env var: COMFYUI_PORT]
-...
-  --distributed-queue-name DISTRIBUTED_QUEUE_NAME
-                        This name will be used by the frontends and workers to exchange prompt requests and replies. Progress updates will be
-                        prefixed by the queue name, followed by a '.', then the user ID [env var: COMFYUI_DISTRIBUTED_QUEUE_NAME]
-  --external-address EXTERNAL_ADDRESS
-                        Specifies a base URL for external addresses reported by the API, such as for image paths. [env var:
-                        COMFYUI_EXTERNAL_ADDRESS]
-  --openai-api-key OPENAI_API_KEY
-                        Configures the OpenAI API Key for the OpenAI nodes [env var: OPENAI_API_KEY]
+uv run comfyui serve --openai-api-key=example-value
 ```
 
-You can now start `comfyui` with:
-
-```shell
-uv run comfyui --openai-api-key=abcdefg12345
-```
-
-or set the environment variable you specified:
-
-```shell
-export OPENAI_API_KEY=abcdefg12345
-uv run comfyui
-```
-
-or add it to your config file:
-
-**config.yaml**:
-
-```txt
-openapi-api-key: abcdefg12345
-```
-
-```shell
-comfyui --config config.yaml
-```
-
-Since `comfyui` looks for a `config.yaml` in your current working directory by default, you can omit the argument if
-`config.yaml` is located in your current working directory:
-
-```shell
-uv run comfyui
-```
+Custom configuration hooks use a separate parser; their options are not listed
+in the Typer-generated `comfyui serve --help`. Configuration files describe the
+built-in server options; pass custom-node options explicitly on the command line.
 
 Your entry point for adding configuration options should **not** import your nodes. This gives you the opportunity to
 use the configuration you added in your nodes; otherwise, if you imported your nodes in your configuration entry point,
@@ -903,7 +854,7 @@ class OpenAINode(CustomNode):
     ...
 
     def execute(self):
-        openai_api_key = args.open_api_key
+        openai_api_key = args.openai_api_key
 ```
 
 ---

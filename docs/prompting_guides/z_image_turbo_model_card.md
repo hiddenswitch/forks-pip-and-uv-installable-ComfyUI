@@ -26,7 +26,7 @@ library_name: diffusers
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Mobile_Demo-Z--Image--Turbo-red)](https://huggingface.co/spaces/akhaliq/Z-Image-Turbo)&#160;
 [![ModelScope Model](https://img.shields.io/badge/🤖%20Checkpoint-Z--Image--Turbo-624aff)](https://www.modelscope.cn/models/Tongyi-MAI/Z-Image-Turbo)&#160;
 [![ModelScope Space](https://img.shields.io/badge/🤖%20Online_Demo-Z--Image--Turbo-17c7a7)](https://www.modelscope.cn/aigc/imageGeneration?tab=advanced&versionId=469191&modelType=Checkpoint&sdVersion=Z_IMAGE_TURBO&modelUrl=modelscope%3A%2F%2FTongyi-MAI%2FZ-Image-Turbo%3Frevision%3Dmaster)&#160;
-[![Art Gallery PDF](https://img.shields.io/badge/%F0%9F%96%BC%20Art_Gallery-PDF-ff69b4)](assets/Z-Image-Gallery.pdf)&#160;
+[![Art Gallery PDF](https://img.shields.io/badge/%F0%9F%96%BC%20Art_Gallery-PDF-ff69b4)](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/Z-Image-Gallery.pdf)&#160;
 [![Web Art Gallery](https://img.shields.io/badge/%F0%9F%8C%90%20Web_Art_Gallery-online-00bfff)](https://modelscope.cn/studios/Tongyi-MAI/Z-Image-Gallery/summary)&#160;
 <a href="https://arxiv.org/abs/2511.22699" target="_blank"><img src="https://img.shields.io/badge/Report-b5212f.svg?logo=arxiv" height="21px"></a>
 
@@ -62,31 +62,31 @@ Z-Image is a powerful and highly efficient image generation model family with **
 
 📸 **Photorealistic Quality**: **Z-Image-Turbo** delivers strong photorealistic image generation while maintaining excellent aesthetic quality.
 
-![Showcase of Z-Image on Photo-realistic image Generation](assets/showcase_realistic.png)
+![Showcase of Z-Image on Photo-realistic image Generation](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/showcase_realistic.png)
 
 📖 **Accurate Bilingual Text Rendering**: **Z-Image-Turbo** excels at accurately rendering complex Chinese and English text.
 
-![Showcase of Z-Image on Bilingual Text Rendering](assets/showcase_rendering.png)
+![Showcase of Z-Image on Bilingual Text Rendering](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/showcase_rendering.png)
 
 💡  **Prompt Enhancing & Reasoning**: Prompt Enhancer empowers the model with reasoning capabilities, enabling it to transcend surface-level descriptions and tap into underlying world knowledge.
 
-![reasoning.jpg](assets/reasoning.png)
+![reasoning.jpg](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/reasoning.png)
 
 🧠 **Creative Image Editing**: **Z-Image-Edit** shows a strong understanding of bilingual editing instructions, enabling imaginative and flexible image transformations.
 
-![Showcase of Z-Image-Edit on Image Editing](assets/showcase_editing.png)
+![Showcase of Z-Image-Edit on Image Editing](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/showcase_editing.png)
 
 ### 🏗️ Model Architecture
 We adopt a **Scalable Single-Stream DiT** (S3-DiT) architecture. In this setup, text, visual semantic tokens, and image VAE tokens are concatenated at the sequence level to serve as a unified input stream, maximizing parameter efficiency compared to dual-stream approaches.
 
-![Architecture of Z-Image and Z-Image-Edit](assets/architecture.webp)
+![Architecture of Z-Image and Z-Image-Edit](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/architecture.webp)
 
 ### 📈 Performance
 According to the Elo-based Human Preference Evaluation (on [*Alibaba AI Arena*](https://aiarena.alibaba-inc.com/corpora/arena/leaderboard?arenaType=T2I)), Z-Image-Turbo shows highly competitive performance against other leading models, while achieving state-of-the-art results among open-source models.
 
 <p align="center">
   <a href="https://aiarena.alibaba-inc.com/corpora/arena/leaderboard?arenaType=T2I">
-    <img src="assets/leaderboard.png" alt="Z-Image Elo Rating on AI Arena"/><br />
+    <img src="https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/leaderboard.png" alt="Z-Image Elo Rating on AI Arena"/><br />
     <span style="font-size:1.05em; cursor:pointer; text-decoration:underline;"> Click to view the full leaderboard</span>
   </a>
 </p>
@@ -159,7 +159,7 @@ Our core insight in Decoupled-DMD  is that the success of existing DMD (Distribu
 
 By recognizing and decoupling these two mechanisms, we were able to study and optimize them in isolation. This ultimately motivated us to develop an improved distillation process that significantly enhances the performance of few-step generation.
 
-![Diagram of Decoupled-DMD](assets/decoupled-dmd.webp)
+![Diagram of Decoupled-DMD](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/decoupled-dmd.webp)
 
 ## 🤖 DMDR: Fusing DMD with Reinforcement Learning
 
@@ -172,7 +172,7 @@ Our core insight behind DMDR is that Reinforcement Learning (RL) and Distributio
 -   **RL Unlocks the Performance of DMD** 🚀
 -   **DMD Effectively Regularizes RL** ⚖️
 
-![Diagram of DMDR](assets/DMDR.webp)
+![Diagram of DMDR](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/resolve/main/assets/DMDR.webp)
 
 ## ⏬ Download
 ```bash

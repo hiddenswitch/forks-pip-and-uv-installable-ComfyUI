@@ -26,4 +26,4 @@
 
 ## Community & Support
 - [Discord](https://comfy.org/discord)
-- [Issues](https://github.com/hiddenswitch/ComfyUI/issues)
+- [Issues](https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/issues)

@@ -126,7 +126,7 @@ When you catch yourself writing negative phrases, use this mental process:
 </AccordionGroup>
 
 <Tip>
-  When building prompts with positive alternatives, maintain the [Subject + Action + Style + Context framework](/guides/prompting_guide_t2i_fundamentals#basic-prompt-structure) for best results.
+  When building prompts with positive alternatives, maintain the [Subject + Action + Style + Context framework](https://docs.bfl.ml/guides/prompting_guide_t2i_fundamentals#basic-prompt-structure) for best results.
 </Tip>
 
 ## Advanced Positive Techniques
@@ -159,7 +159,7 @@ When you catch yourself writing negative phrases, use this mental process:
 If you're still getting unwanted elements despite positive framing:
 
 1. **Be more specific** about what you do want in that space
-2. **Front-load the positive description** following [word order principles](/guides/prompting_guide_t2i_fundamentals#word-order-importance)
+2. **Front-load the positive description** following [word order principles](https://docs.bfl.ml/guides/prompting_guide_t2i_fundamentals#word-order-importance)
 3. **Add more descriptive detail** to strengthen the positive alternative
 4. **Use environmental context** to make the positive element more natural
 

@@ -10,11 +10,11 @@ See the [README](../README.md) for installation and getting started.
 uv pip install --torch-backend=auto --extra-index-url https://nodes.appmana.com/simple/ comfyui
 ```
 
-`--torch-backend=auto` installs the correct `torch`, `torchvision`, and `torchaudio` for your platform. Omit `--torch-backend` if you want to keep your currently installed PyTorch.
+`--torch-backend=auto` installs the correct `torch`, `torchvision`, and `torchaudio` for your platform. Pin the installed Torch build with resolver constraints when preserving an existing accelerator stack.
 
 ## Running a Workflow
 
-Save a workflow from the ComfyUI web UI as a JSON file. You can use either the standard Save (UI format) or Save -> API Format — `queue_prompt` accepts both and automatically converts UI workflows to API format. The API format JSON is a valid Python `dict[str, Any]` literal — paste it directly into your code:
+Save a workflow from the ComfyUI web UI as a JSON file. You can use either the standard Save (UI format) or Save -> API Format — `queue_prompt` accepts both and automatically converts UI workflows to API format. Load JSON with `json.loads()`; JSON booleans and null are not Python literals. The equivalent Python dictionary looks like:
 
 ```python
 from comfy.client.embedded_comfy_client import Comfy
@@ -205,7 +205,7 @@ async def run_with_previews():
 
         result = await task.get()
         save_image_node_id = next(
-            key for key, value in prompt.items() if value.get("class_type") == "SaveImage"
+            key for key, value in prompt.items() if value.class_type == "SaveImage"
         )
         return result.outputs[save_image_node_id]["images"][0]["abs_path"]
 ```
@@ -245,8 +245,8 @@ config.use_sage_attention = True
 # Enable cuBLAS ops for faster matrix multiplications (NVIDIA Ampere+ GPUs)
 config.fast = {PerformanceFeature.CublasOps}
 
-# Minimize VRAM usage by aggressively offloading models to CPU
-config.novram = True
+# Use the normal hardware-aware DynamicVRAM policy
+config.guess_settings = True
 
 # Run VAE in full precision (recommended for AMD GPUs)
 config.fp32_vae = True
@@ -256,7 +256,7 @@ config.disable_all_custom_nodes = True
 
 config.update({
     "use_sage_attention": True,
-    "novram": True,
+    "guess_settings": True,
     "fast": {PerformanceFeature.CublasOps},
 })
 
@@ -283,7 +283,7 @@ from comfy.api.components.schema.prompt import Prompt
 from comfy.cli_args import default_configuration
 
 config = default_configuration()
-config.novram = True
+config.guess_settings = True
 
 workflow_dir = Path("./my_workflows")
 
@@ -397,10 +397,10 @@ To authenticate:
 ```bash
 export HF_TOKEN=hf_your_token_here
 # or
-huggingface-cli login
+hf auth login
 ```
 
-ComfyUI passes `token=True` to `hf_hub_download`, which automatically uses the `HF_TOKEN` environment variable or the token stored by `huggingface-cli login`.
+ComfyUI passes `token=True` to `hf_hub_download`, which automatically uses the `HF_TOKEN` environment variable or the token stored by `hf auth login`.
 
 ### Disabling Automatic Downloads
 

@@ -22,7 +22,7 @@ Tsinghua University | Intelligent Creation Team, ByteDance
 </div>
 
 <p align="center">
-<img src="assets/teaser.png" width=95%>
+<img src="https://raw.githubusercontent.com/Phantom-video/HuMo/main/assets/teaser.png" width=95%>
 <p>
 
 ## 🔥 Latest News
@@ -93,13 +93,13 @@ huggingface-cli download huangjackson/Kim_Vocal_2 --local-dir ./weights/audio_se
 
 Our model is compatible with both 480P and 720P resolutions. 720P inference will achieve much better quality.
 > Some tips
-> - Please prepare your text, reference images and audio as described in [test_case.json](./examples/test_case.json).
+> - Please prepare your text, reference images and audio as described in [test_case.json](https://github.com/Phantom-video/HuMo/blob/main/examples/test_case.json).
 > - We support Multi-GPU inference using FSDP + Sequence Parallel.
 > - ​The model is trained on 97-frame videos at 25 FPS. Generating video longer than 97 frames may degrade the performance. We will provide a new checkpoint for longer generation.
 
 #### Configure HuMo
 
-HuMo’s behavior and output can be customized by modifying [generate.yaml](humo/configs/inference/generate.yaml) configuration file.  
+HuMo’s behavior and output can be customized by modifying [generate.yaml](https://github.com/Phantom-video/HuMo/blob/main/humo/configs/inference/generate.yaml) configuration file.
 The following parameters control generation length, video resolution, and how text, image, and audio inputs are balanced:
 
 ```yaml

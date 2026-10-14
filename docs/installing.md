@@ -30,14 +30,17 @@ availability follows the installed PyTorch MPS build.
 
 For a supported Linux AMD host, verify `/dev/kfd` and a render node exist, then
 install from AMD’s stable TheRock index. The current AppMana image uses the
-same host/device split and all-architecture closure:
+same host/device split and all-architecture closure. This example selects
+RX 7600 (`gfx1102`); select the matching device packages for other GPUs:
 
 ```console
 uv venv --python 3.12
 uv pip install --index-url https://stable.repo.amd.com/rocm/whl-next/ \
-  torch==2.13.0+rocm10.0.0 \
-  torchvision==0.28.0+rocm10.0.0 \
-  torchaudio==2.11.0.2+rocm10.0.0
+  torch==2.14.0+rocm10.1.0 \
+  torchvision==0.29.0a0+rocm10.1.0 \
+  torchaudio==2.11.0.3+rocm10.1.0 \
+  amd-torch-device-gfx1102==2.14.0+rocm10.1.0 \
+  amd-torchvision-device-gfx1102==0.29.0a0+rocm10.1.0
 uv pip install --extra-index-url https://nodes.appmana.com/simple/ comfyui
 comfyui serve --guess-settings --fp32-vae
 ```
@@ -52,8 +55,9 @@ GPU’s architecture.
 Install the XPU backend with uv and verify it before starting ComfyUI:
 
 ```console
-uv venv --python 3.11
-uv pip install --torch-backend=xpu --extra-index-url https://nodes.appmana.com/simple/ comfyui
+uv venv --python 3.14.7
+uv pip install --torch-backend=xpu --extra-index-url https://nodes.appmana.com/simple/ \
+  comfyui "torch==2.14.1+xpu" "torchvision==0.29.1+xpu" "torchaudio==2.11.0+xpu"
 source .venv/bin/activate
 python -c "import torch; assert torch.xpu.is_available(); print(torch.xpu.get_device_name(0))"
 comfyui serve --guess-settings

@@ -270,4 +270,4 @@ Note: Original `llms.txt` URL `https://docs.bfl.ml/guides/prompting_guide_flux2_
   Signed URLs are only valid for 10 minutes. Please retrieve your result within this timeframe.
 </Warning>
 
-For all available parameters, endpoints, and model options, see the [API Reference](/api-reference).
+For all available parameters, endpoints, and model options, see the [API Reference](https://docs.bfl.ml/api-reference).
