@@ -29,7 +29,7 @@ A massive thank you to our supporters who make this project possible.
 *   **Anonymous donor** whose incredible generosity funded the pretraining run and data collections. Your support has been transformative for open-source AI.
 *   **Fictional.ai** for their fantastic support and for helping push the boundaries of open-source AI. You can try Chroma on their platform:
 
-[![FictionalChromaBanner_1.png](./images/FictionalChromaBanner_1.png)](https://fictional.ai/?ref=chroma_hf)
+[![FictionalChromaBanner_1.png](https://huggingface.co/lodestones/Chroma1-HD/resolve/main/images/FictionalChromaBanner_1.png)](https://fictional.ai/?ref=chroma_hf)
 
 ## How to Use
 
@@ -138,8 +138,8 @@ For advanced users and customized workflows, you can use Chroma with ComfyUI.
 *   [FLUX VAE](https://huggingface.co/lodestones/Chroma/resolve/main/ae.safetensors).
 *   [Chroma Workflow JSON](https://huggingface.co/lodestones/Chroma1-HD/resolve/main/ComfyUI_Chroma1-HD_T2I-workflow.json).
 
-![Chroma Workflow](./ComfyUI_Chroma1-HD_T2I-sample.png)
-![Workflow Overview](./ComfyUI_Chroma1-HD_T2I-overview.png)
+![Chroma Workflow](https://huggingface.co/lodestones/Chroma1-HD/resolve/main/ComfyUI_Chroma1-HD_T2I-sample.png)
+![Workflow Overview](https://huggingface.co/lodestones/Chroma1-HD/resolve/main/ComfyUI_Chroma1-HD_T2I-overview.png)
 
 **Setup:**
 1.  Place the `T5_xxl` model in your `ComfyUI/models/clip` folder.
