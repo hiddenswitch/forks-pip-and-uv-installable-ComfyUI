@@ -45,6 +45,8 @@ servers:
 - url: /
   description: Default ComfyUI server (typically http://127.0.0.1:8188)
 tags:
+- name: workflow
+  description: Workflow loading and execution management
 - name: prompt
   description: Workflow submission and prompt info
 - name: queue

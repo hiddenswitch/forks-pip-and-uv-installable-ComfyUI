@@ -294,7 +294,7 @@ def _find_best_source_db(db_dir, db_basename, db_ext, script, exclude_path):
         if db_file == exclude_path or not os.path.isfile(db_file):
             continue
         try:
-            eng = create_engine(f"sqlite:///{db_file}")
+            eng = create_engine(URL.create("sqlite", database=db_file))
             with eng.connect() as conn:
                 ctx = MigrationContext.configure(conn)
                 rev = ctx.get_current_revision()
@@ -333,7 +333,7 @@ def _init_file_db(db_url, use_chain_hash: bool = True):
         db_dir = os.path.dirname(original_path)
         base, ext = os.path.splitext(os.path.basename(original_path))
         db_path = os.path.join(db_dir, f"{base}-{chain_hash}{ext}")
-        db_url = f"sqlite:///{db_path}"
+        db_url = URL.create("sqlite", database=db_path).render_as_string()
         source_spec = (db_dir, base, ext)
     else:
         db_path = original_path
