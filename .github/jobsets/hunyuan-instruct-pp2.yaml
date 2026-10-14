@@ -76,7 +76,7 @@ spec:
                 /tmp\"); from comfy_benchmark import install_benchmark; patches=install_benchmark(os.environ[\"\
                 COMFY_BENCHMARK_PATH\"]); from comfy.cmd.cli import entrypoint; entrypoint()'\
                 \ workflows run \"${OUT}/workflow.json\" --output-directory \"${OUT}\"\
-                \ --no-guess-settings --tensor-parallel-size 1 --pipeline-parallel-size\
+                \ --no-guess-settings --use-ck-attention --tensor-parallel-size 1 --pipeline-parallel-size\
                 \ 2 --distributed-executor-backend external_launcher --logging-level\
                 \ INFO 2>&1 | tee \"${OUT}/rank${RANK}.log\"\n"
               env:

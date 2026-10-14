@@ -87,7 +87,7 @@ also served desktop graphics. Results describe the recorded checkpoint and
 workload, not a guarantee for every model variant or memory setting.
 
 | Model / workload | GPU configuration | Mode | Attention | Measurement | One GPU | Two GPUs | Speedup |
-|---|---|---|---|---|---:|---:|---:|
+|---|---|---|---|---|---|---:|---:|---:|
 | Krea 2 Turbo, INT8 ConvRot, 1024², 8 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 1.170 | 0.876 | 1.34× |
 | Ideogram 4, INT8 ConvRot conditional + unconditional, 1024², 20 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 2.754 | 1.823 | 1.51× |
 | Flux2 Dev, full INT8 ConvRot, 1024², 20 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 4.018 | 1.662 | 2.42× |
@@ -112,21 +112,22 @@ Standard Kandinsky Pro was slower with TP=2 in these samples.
 
 The following PP measurements use the same 1024² HunyuanImage3 Instruct W4A8
 fixed-caption workflow reduced to two Euler steps, CFG 2.5, seed 1234. They time
-the **second completed step**, with PyTorch SDPA observed at runtime.
+the **second completed step**, with the attention backend observed at runtime.
 
-| Model | GPU configuration | Mode / transport | Checkpoint storage | Step 2 (s) | it/s |
-|---|---|---|---|---:|---:|
-| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | Node-local disk | 4.937 | 0.203 |
-| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | SeaweedFS network mount | 18.323 | 0.055 |
+| Model | GPU configuration | Mode / transport | Checkpoint storage | Attention | Step 2 (s) | it/s |
+|---|---|---|---|---|---:|---:|
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | Node-local disk | PyTorch SDPA | 4.937 | 0.203 |
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | SeaweedFS network mount | PyTorch SDPA | 18.323 | 0.055 |
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | Node-local disk | Comfy Kitchen INT8 (`--use-ck-attention`) | 4.687 | 0.213 |
 
 [Recorded PP evidence](../release-artifacts/hunyuan-pp2-usb4-validation.json)
 includes revisions and runtime details. Each row is one fresh process; the OS
 file cache was not flushed. The runs use different neighboring host pairs and
 have no matching single-GPU baseline, so they do not establish a PP speedup.
-Two-step output validates execution, not image quality. A separate 50-step
-fresh-process PP=2 run completed and its saved image visually matched the fox,
-grass, golden light, and bokeh in the supplied caption; this is one inspected
-sample, not a general quality comparison.
+Two-step output validates execution, not image quality. Separate 50-step
+fresh-process PP=2 runs with SDPA and native INT8 attention completed. Both saved
+images visually matched the fox, grass, golden light, and bokeh in the supplied
+caption; this is one seed per backend, not a general quality comparison.
 
 ## Memory and limitations
 

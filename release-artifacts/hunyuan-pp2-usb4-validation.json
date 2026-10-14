@@ -1,5 +1,5 @@
 {
-  "status": "Two-step PP2 runs and a fresh-process 50-step SDPA generation completed; the full image visually matches the prompt",
+  "status": "Two-step PP2 checks and fresh-process 50-step SDPA and native INT8 generations completed; both full images visually match the prompt",
   "model": "HunyuanImage3 Instruct W4A8",
   "weight_bits": 4,
   "activation_bits": 8,
@@ -42,34 +42,86 @@
         "tp": "auto",
         "pp": 2
       }
+    },
+    {
+      "storage": "node-local disk",
+      "revision": "fe42bf404",
+      "jobset_uid": "1673b0ca-7507-45b4-b87b-ef8fcfecab97",
+      "additional_arguments": [
+        "--use-ck-attention",
+        "--tensor-parallel-size",
+        "1"
+      ],
+      "benchmark": {
+        "node_id": "7",
+        "second_step_seconds": 4.687352724839002,
+        "iterations_per_second": 0.2133400362001448,
+        "hardware": "cuda:0 NVIDIA GeForce RTX 3090 : native",
+        "torch": "2.13.0a0+9186a08b2c.nv26.07",
+        "attention": "Comfy Kitchen INT8",
+        "configured_attention": "Comfy Kitchen INT8",
+        "tp": 1,
+        "pp": 2
+      }
     }
   ],
   "limits": [
     "One fresh process per configuration; no warm probes; OS cache was not flushed.",
     "Different neighboring pairs of hosts; this is not a controlled storage-only speedup measurement.",
     "PP uses supplied captions with prompt rewriting and Spectrum disabled.",
-    "Attention is observed PyTorch SDPA, not INT8 attention; W4A8 describes model weights and activations.",
+    "Attention is recorded per run; W4A8 describes 4-bit model weights and 8-bit activations, independently of the attention backend.",
     "No matching single-GPU baseline; do not report these as PP speedups."
   ],
-  "visual_validation": {
-    "revision": "900fe3307",
-    "steps": 50,
-    "prompt": "A red fox asleep curled in tall grass at golden hour, telephoto bokeh",
-    "output": "/outputs/comfy-hy3-release-pp2-local/b9a9a2b5-1262-4dab-aaee-c02bd0d44ae8/hunyuan_image_3_instruct_00002_.png",
-    "sha256": "a0b7ac606ab8574cd49d70d77cf50c5291ce87f8729809e4ec0ccc7a487080bb",
-    "observed": "Red fox curled with eyes closed and its head resting in grass; warm golden illumination and blurred circular background highlights.",
-    "prompt_match": true,
-    "benchmark": {
-      "node_id": "7",
-      "second_step_seconds": 4.730052744038403,
-      "iterations_per_second": 0.21141413301582437,
-      "hardware": "cuda:0 NVIDIA GeForce RTX 3090 : native",
-      "torch": "2.13.0a0+9186a08b2c.nv26.07",
-      "attention": "PyTorch SDPA",
-      "configured_attention": "automatic",
-      "tp": "auto",
-      "pp": 2
+  "visual_validations": [
+    {
+      "revision": "900fe3307",
+      "steps": 50,
+      "prompt": "A red fox asleep curled in tall grass at golden hour, telephoto bokeh",
+      "output": "/outputs/comfy-hy3-release-pp2-local/b9a9a2b5-1262-4dab-aaee-c02bd0d44ae8/hunyuan_image_3_instruct_00002_.png",
+      "sha256": "a0b7ac606ab8574cd49d70d77cf50c5291ce87f8729809e4ec0ccc7a487080bb",
+      "observed": "Red fox curled with eyes closed and its head resting in grass; warm golden illumination and blurred circular background highlights.",
+      "prompt_match": true,
+      "benchmark": {
+        "node_id": "7",
+        "second_step_seconds": 4.730052744038403,
+        "iterations_per_second": 0.21141413301582437,
+        "hardware": "cuda:0 NVIDIA GeForce RTX 3090 : native",
+        "torch": "2.13.0a0+9186a08b2c.nv26.07",
+        "attention": "PyTorch SDPA",
+        "configured_attention": "automatic",
+        "tp": "auto",
+        "pp": 2
+      },
+      "limits": "One image inspected. Fresh Python process after the two-step run; filesystem cache not flushed. PyTorch logged recoverable allocation retries during sampling; generation and VAE decoding completed.",
+      "recoverable_allocation_warnings": 138
     },
-    "limits": "One image inspected. Fresh Python process after the two-step run; filesystem cache not flushed. PyTorch logged recoverable allocation retries during sampling; generation and VAE decoding completed."
+    {
+      "revision": "fe42bf404",
+      "steps": 50,
+      "prompt": "A red fox asleep curled in tall grass at golden hour, telephoto bokeh",
+      "output": "/outputs/comfy-hy3-release-pp2-int8/1673b0ca-7507-45b4-b87b-ef8fcfecab97/hunyuan_image_3_instruct_00002_.png",
+      "sha256": "41a76dfbd2d116d531fa70fe26705188e1c9b759088db906a66eceac5002ab7f",
+      "observed": "Red fox curled with eyes closed and its head resting in grass; warm golden illumination and blurred circular background highlights.",
+      "prompt_match": true,
+      "benchmark": {
+        "node_id": "7",
+        "second_step_seconds": 4.350932237925008,
+        "iterations_per_second": 0.2298358019192934,
+        "hardware": "cuda:0 NVIDIA GeForce RTX 3090 : native",
+        "torch": "2.13.0a0+9186a08b2c.nv26.07",
+        "attention": "Comfy Kitchen INT8",
+        "configured_attention": "Comfy Kitchen INT8",
+        "tp": 1,
+        "pp": 2
+      },
+      "limits": "One image inspected. Fresh Python process after the two-step run; filesystem cache not flushed. Sampling, VAE decoding, and image saving completed.",
+      "recoverable_allocation_warnings": 0
+    }
+  ],
+  "visual_comparison": {
+    "identical_pixels": false,
+    "rmse_8bit": 1.6464420557022095,
+    "maximum_absolute_error_8bit": 59.0,
+    "limits": "SDPA versus native INT8 for one seed; both were inspected visually."
   }
 }
