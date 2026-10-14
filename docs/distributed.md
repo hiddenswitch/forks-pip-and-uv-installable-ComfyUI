@@ -116,6 +116,14 @@ establish a throughput improvement.
 
 ## Memory and limitations
 
+Pipeline stages execute sequentially for each sample. Partitioning can reduce
+offloading enough to improve latency, but it does not by itself make both GPUs
+compute different layers of that sample simultaneously.
+
+Hunyuan PP currently supports diffusion with supplied captions; its autoregressive
+prompt rewriting and Spectrum acceleration are not supported by the pipeline
+stages. TP supports the separate autoregressive path.
+
 Pipeline boundaries are selected from checkpoint geometry and then refined
 using measured DynamicVRAM geometry on every participating device. Text
 encoders and other dependencies can be ejected by the same general memory
