@@ -7,8 +7,9 @@ import struct
 from typing import Collection, Mapping
 
 import torch
+from safetensors import safe_open
 
-from .. import utils
+from .. import memory_management, utils
 
 from .types import TensorDescriptor
 
@@ -82,3 +83,17 @@ class SafetensorsCheckpointReader(AbstractBaseCheckpointReader):
         if unknown:
             raise KeyError(f"Checkpoint does not contain pipeline keys: {sorted(unknown)[:5]}")
         return utils.load_torch_file(str(self.path), include_keys=frozenset(keys))
+
+    def load_slices(self, slices: Mapping[str, tuple[slice, ...] | None]) -> dict[str, torch.Tensor]:
+        """Read owned checkpoint slices without retaining the full backing tensors."""
+        unknown = set(slices).difference(self._tensors)
+        if unknown:
+            raise KeyError(f"Checkpoint does not contain pipeline keys: {sorted(unknown)[:5]}")
+        if memory_management.aimdo_enabled and not utils.DISABLE_MMAP:
+            return utils.load_safetensors(str(self.path), include_keys=slices, tensor_slices=slices)[0]
+        result = {}
+        with safe_open(self.path, framework="pt", device="cpu") as checkpoint:
+            for key, selection in slices.items():
+                tensor = checkpoint.get_tensor(key) if selection is None else checkpoint.get_slice(key)[selection]
+                result[key] = tensor.clone()
+        return result

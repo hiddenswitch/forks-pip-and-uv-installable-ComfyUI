@@ -1,0 +1,33 @@
+{
+  "workflow": "kandinsky6_pro_distilled_t2av",
+  "tp": 1,
+  "seed": 42,
+  "status": {
+    "status_str": "error",
+    "completed": false,
+    "messages": [
+      "execution_start",
+      "execution_cached",
+      "execution_error: CUDA out of memory. Tried to allocate 6.38 GiB. GPU 0 has a total capacity of 22.06 GiB of which 3.43 GiB is free. Including non-PyTorch memory, this process has 18.53 GiB memory in use. Of the allocated memory 14.02 GiB is allocated by PyTorch, and 2.39 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+    ]
+  },
+  "node_timings_seconds": {
+    "PreviewAny": 9.2566e-05,
+    "Kandinsky6EmptyLatent": 0.001576594,
+    "DualCLIPLoader": 0.309612863,
+    "Kandinsky6TextEncode": 1.162258405,
+    "UNETLoader": 0.024552776999999998,
+    "Kandinsky6Sampler": 756.6459467459999,
+    "Kandinsky6AudioVAELoader": 9.908422645,
+    "Kandinsky6AudioVAEDecode": 0.8982751889999999,
+    "Kandinsky6LatentUpscalerLoader": 16.815785576,
+    "VAELoader": 0.127048885,
+    "VAEDecode": 23.413106969,
+    "Kandinsky6SRVAELoader": 14.787645516000001,
+    "Kandinsky6VSRUpscale": 36.809986799
+  },
+  "hardware": "NVIDIA RTX A5000 24GB (22.06 GiB reported CUDA capacity)",
+  "failed_stage": "Kandinsky6VSRUpscale causal VAE decode",
+  "resolution": "864x480, 121 frames, 2.25x SR",
+  "interpretation": "Pro generation completed. Full SR decode exceeded VRAM; this run is excluded from TP performance comparisons."
+}

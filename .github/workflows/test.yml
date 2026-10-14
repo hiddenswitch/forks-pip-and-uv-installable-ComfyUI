@@ -5,6 +5,7 @@ name: Backend Tests
 # device-specific install, imports, kernels, compatibility shims, and model
 # backends that a hosted CPU runner cannot cover.
 on:
+  workflow_dispatch:
   push:
     branches: [develop]
 
@@ -85,7 +86,10 @@ jobs:
           git config --global credential.helper store
           git config --global core.longpaths true
           echo "https://x-access-token:${GITHUB_TOKEN}@github.com" > ~/.git-credentials
-          git clone --depth=1 --branch "${GITHUB_REF_NAME}" "https://github.com/${GITHUB_REPOSITORY}.git" .
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "${GITHUB_SHA}"
+          git checkout --detach FETCH_HEAD
       - name: Initialize Windows graphics environment
         shell: powershell
         run: '& "./.github/scripts/enable-graphics-apis.ps1"'

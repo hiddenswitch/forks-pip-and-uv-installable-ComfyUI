@@ -62,6 +62,7 @@ parser.add_argument("--extra-model-paths-config", type=str, default=[], metavar=
 parser.add_argument("--output-directory", type=str, default=None, help="Set the ComfyUI output directory.")
 parser.add_argument("--temp-directory", type=str, default=None, help="Set the ComfyUI temp directory.")
 parser.add_argument("--input-directory", type=str, default=None, help="Set the ComfyUI input directory.")
+parser.add_argument("--previews-directory", type=str, default=None, help="Set the directory for generated asset previews.")
 parser.add_argument("--auto-launch", action="store_true", help="Automatically launch ComfyUI in the default browser.")
 parser.add_argument("--disable-auto-launch", action="store_true", help="Disable auto launching the browser.")
 parser.add_argument("--cuda-device", type=str, default=None, metavar="DEVICE_ID",
@@ -77,6 +78,7 @@ parser.add_argument("--master-addr", type=str, default=None, help="Process-group
 parser.add_argument("--master-port", type=int, default=None, help="Process-group rendezvous port. Defaults to MASTER_PORT.")
 parser.add_argument("--pipeline-parallel-size", type=int, default=None, help="Number of pipeline stages. Defaults to world size for external launchers and selected device count otherwise.")
 parser.add_argument("--tensor-parallel-size", type=int, default=1, help="Number of tensor-parallel ranks. One keeps the ordinary model path.")
+parser.add_argument("--hunyuan-expert-parallel-only", action="store_true", help="Shard only HunyuanImage3 MoE experts across --tensor-parallel-size ranks; replicate attention and dense layers.")
 parser.add_argument("--nccl-proto", choices=("auto", "simple", "ll", "ll128"), default="auto", help="Select the NCCL collective protocol. auto preserves NCCL tuning.")
 parser.add_argument("--distributed-executor-backend", choices=("auto", "peer", "mp", "external_launcher"), default="auto", help="Pipeline executor backend.")
 
@@ -324,6 +326,7 @@ parser.add_argument("--enable-asset-hashing", action="store_true", help="Compute
 parser.add_argument("--disable-assets-autoscan", action="store_true", help="Disable asset scanning on startup for database synchronization.")
 parser.add_argument("--feature-flag", type=str, action="append", default=[], metavar="KEY[=VALUE]", help="Set a server feature flag.")
 parser.add_argument("--list-feature-flags", action="store_true", help="Print known CLI-settable feature flags as JSON and exit.")
+parser.add_argument("--disable-assets", action="store_true", help="Disable assets, overriding --enable-assets.")
 
 def default_configuration() -> Configuration:
     """Return a Configuration with all defaults (no CLI parsing)."""

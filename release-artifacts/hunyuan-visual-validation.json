@@ -1,0 +1,25 @@
+{
+  "reviewed_at": "2026-10-11T14:09:11.068603+00:00",
+  "reviews": [
+    {
+      "workflow_prompt": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_txt2img-final/tp2/seed42.prompt.json",
+      "image": "release-artifacts/benchmark-results/hunyuan_image_3_instruct_txt2img-final/tp2/hunyuan_image_3_instruct_00001_.png",
+      "image_sha256": "98e43c3c4b582e35adcb5755b42efce5ef1f0cb122d1a31859a5263e42e3ea97",
+      "prompt": "A red fox asleep curled in tall grass at golden hour, telephoto bokeh",
+      "configuration": "Combined expert and tensor parallelism, 2 ranks, W4A8 Instruct, 50 steps, rewriting disabled",
+      "observed": "A red fox with closed eyes is curled up in grass; golden backlighting and a strongly blurred background match the requested golden hour and telephoto bokeh.",
+      "prompt_match": true,
+      "limits": "Qualitative visual review of one saved image, not a general quality evaluation."
+    },
+    {
+      "workflow_prompt": "release-artifacts/benchmark-results/hunyuan-instruct-ep-cold/tp2/seed42.prompt.json",
+      "image": "release-artifacts/benchmark-results/hunyuan-instruct-ep-cold/tp2/hunyuan_image_3_instruct_00001_.png",
+      "image_sha256": "51025dbe212740f64dd6a1c6d5ecc9914e9fcc573675b0ca73656a8827a04430",
+      "prompt": "A red fox asleep curled in tall grass at golden hour, telephoto bokeh",
+      "configuration": "EP-only, 2 ranks, W4A8 Instruct, complete greedy rewrite plus 50 diffusion steps",
+      "observed": "A red fox lies curled with eyes closed and its head resting low in grass. Golden light, blurred foreground grasses and round background bokeh match the requested lighting and telephoto treatment.",
+      "prompt_match": true,
+      "limits": "Qualitative visual review of one complete saved image."
+    }
+  ]
+}

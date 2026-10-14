@@ -73,23 +73,6 @@ For an externally launched process group, use canonical launcher values
 and Slurm aliases are also accepted. Model-parallel choices still come from
 `Configuration`/CLI; launcher variables identify the process.
 
-## Collected TP benchmark
-
-These are sampler spans, not process startup or checkpoint-loading time. The
-workload used two NVLink-connected RTX A5000 24GB GPUs, `--fast
-fp16_accumulation`, SageAttention, and the stated INT8 ConvRot checkpoint.
-
-| Model | Resolution | Frames | Steps | Weights | Attention | TP=1 | TP=2 | Speedup |
-|---|---:|---:|---:|---|---|---:|---:|---:|
-| Krea 2 Turbo | 1024×1024 | — | 8 | INT8 ConvRot | SageAttention | 1.170 s/it | 0.876 s/it | 1.34× |
-| Ideogram 4 | 1024×1024 | — | 20 | INT8 ConvRot conditional + unconditional | SageAttention | 2.754 s/it | 1.823 s/it | 1.51× |
-| Flux2 Dev | 1024×1024 | — | 20 | Full INT8 ConvRot | SageAttention | 4.018 s/it | 1.662 s/it | 2.42× |
-| MiniMax H3 | 864×480 | 124 | 20 | Pruned INT8 ConvRot | SageAttention | 9.497 s/it | 6.272 s/it | 1.51× |
-
-To reproduce a measurement, run the same workflow once for warm-up, enable
-sampler OpenTelemetry JSONL output, and compare the sampler span rather than
-end-to-end startup. See [configuration](configuration.md#tracing-and-benchmarking).
-
 ## Memory and limitations
 
 Pipeline boundaries are selected from checkpoint geometry and then refined

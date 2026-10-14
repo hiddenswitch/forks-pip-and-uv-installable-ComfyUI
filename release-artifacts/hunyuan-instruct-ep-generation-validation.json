@@ -1,0 +1,145 @@
+{
+  "status": "Complete cold EP-only image generation passed and output visually matches prompt",
+  "source": {
+    "commit": "ce0fab3d2f08d11cd861c15a054f7bd7c115d9c6",
+    "dirty": true,
+    "runtime_sha256": {
+      "comfy/tensor_parallel/hunyuan_image3.py": "3f7f84730942f6216ecb10c56aa3eb1b09cb5c9d5347725af4a8954c4a3d5361",
+      "comfy/cmd/cli.py": "7f83d0b3528497184f0f66b34ba4e6d74dc1258199ec54f36ad43201a2f29824",
+      "comfy/cli_args.py": "86253fc5625a7a55a161bb384ec8e24b153ab57ec44f9bd7fbac4482960373c2",
+      "comfy/cli_args_types.py": "8f10721a0dff1dff96fdb856fcf65ec064ebb0a8a84dea903c207fc06789a539",
+      "comfy/component_model/configuration.py": "db8750e53e5726eb6c720823e25baffbdd6cb18773366191f3875a4bf005489e"
+    },
+    "matching_committed_runtime": "5584d6f3fd5805ebaa496c2f0be44e0eeffb2899",
+    "baseline_source": {
+      "commit": "84a79a0a3372e91b3f4d567d7a58eccebb7e0060",
+      "note": "Adds CLI inverse option only; Hunyuan runtime and positive flag behavior identical to EP run.",
+      "runtime_sha256": {
+        "comfy/tensor_parallel/hunyuan_image3.py": "3f7f84730942f6216ecb10c56aa3eb1b09cb5c9d5347725af4a8954c4a3d5361",
+        "comfy/cmd/cli.py": "475aa6bbe52a3004e2cc73ad23f8374ec85be4192a7f1807641559994570f0b5",
+        "comfy/cli_args.py": "86253fc5625a7a55a161bb384ec8e24b153ab57ec44f9bd7fbac4482960373c2",
+        "comfy/cli_args_types.py": "8f10721a0dff1dff96fdb856fcf65ec064ebb0a8a84dea903c207fc06789a539",
+        "comfy/component_model/configuration.py": "db8750e53e5726eb6c720823e25baffbdd6cb18773366191f3875a4bf005489e"
+      }
+    }
+  },
+  "command": {
+    "command": [
+      "/home/administrator/Documents/appmana/.release-kandinsky/.venv/bin/comfyui",
+      "serve",
+      "--listen",
+      "127.0.0.1",
+      "--port",
+      "8197",
+      "--no-guess-settings",
+      "--cuda-device",
+      "0,1",
+      "--tensor-parallel-size",
+      "2",
+      "--distributed-executor-backend",
+      "mp",
+      "--output-directory",
+      "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-instruct-ep-cold/tp2",
+      "--otel-exporter-otlp-endpoint",
+      "file:///home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-instruct-ep-cold/tp2/trace.jsonl",
+      "--base-directory",
+      "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-base",
+      "--input-directory",
+      "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/workflows/inputs",
+      "--vram-headroom",
+      "2",
+      "--hunyuan-expert-parallel-only"
+    ],
+    "environment": {
+      "NCCL_DEBUG": "INFO",
+      "NCCL_DEBUG_SUBSYS": "INIT,GRAPH,P2P,ENV",
+      "NCCL_DEBUG_FILE": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/hunyuan-instruct-ep-cold/tp2/nccl.%p.log",
+      "HF_HUB_OFFLINE": "1"
+    }
+  },
+  "measurement": {
+    "tp": 2,
+    "seed": 42,
+    "cold": true,
+    "job_wall_seconds": 1346.2989342299988,
+    "peak_host_pss_bytes": 95426306048,
+    "peak_device_used_bytes": [
+      21884829696,
+      22042968064
+    ],
+    "start_time_unix_nano": 1791726348178917166,
+    "end_time_unix_nano": 1791727694478169676,
+    "sampler_seconds": 590.555133037,
+    "generator_node_seconds": 590.7516870300001,
+    "sr_node_seconds": null
+  },
+  "rewrite": {
+    "tokens": 287,
+    "generation_seconds_rounded": 709,
+    "closed_recaption": true,
+    "text": "A red fox is curled up and sleeping in a field of tall grass. The fox's body forms a compact, rounded shape in the center of the frame. Its fur is a dense coat of vibrant orange and red tones, with lighter, almost white fur visible on its chest and the lower part of its face. The fox's head rests on the ground, turned slightly to its right. Its eyes are closed, indicated by thin, dark lines. A small, black nose is visible at the end of its snout. Two pointed ears stand erect; they are orange with prominent black tips and a hint of white fur on their inner surfaces. The fox is nestled in a bed of grass that is a mix of dry, pale yellow stalks and some shorter, green blades. The ground immediately around the fox is in sharp focus, while the foreground and background are heavily blurred. The foreground is a soft, out-of-focus wash of golden-yellow grass. The background is a dark, indistinct area of deep greens and browns, suggesting distant foliage in shadow. Scattered throughout the upper portion of the background are numerous bright, circular bokeh highlights, which are out-of-focus points of light, appearing as soft, glowing orbs of warm yellow and white. The entire scene is bathed in a warm, low-angled light that illuminates the fox's fur and the tips of the grass. telephoto bokeh."
+  },
+  "sampler": {
+    "seed": 42,
+    "steps": 50,
+    "cfg": 2.5,
+    "sampler_name": "euler",
+    "scheduler": "simple",
+    "denoise": 1,
+    "model": [
+      "4",
+      0
+    ],
+    "positive": [
+      "10",
+      0
+    ],
+    "negative": [
+      "10",
+      1
+    ],
+    "latent_image": [
+      "6",
+      0
+    ]
+  },
+  "checkpoint": {
+    "filename": "hunyuan_image_3_instruct_w4a8.safetensors",
+    "quantization_metadata": {
+      "format": "asym_w4a8_int8",
+      "group_size": 16,
+      "convrot_groupsize": 256
+    },
+    "weight_bits": 4,
+    "activation_bits": 8,
+    "storage_dtype": "I8; packed 4-bit weights, not an 8-bit-weight checkpoint"
+  },
+  "visual_review": {
+    "workflow_prompt": "release-artifacts/benchmark-results/hunyuan-instruct-ep-cold/tp2/seed42.prompt.json",
+    "image": "release-artifacts/benchmark-results/hunyuan-instruct-ep-cold/tp2/hunyuan_image_3_instruct_00001_.png",
+    "image_sha256": "51025dbe212740f64dd6a1c6d5ecc9914e9fcc573675b0ca73656a8827a04430",
+    "prompt": "A red fox asleep curled in tall grass at golden hour, telephoto bokeh",
+    "configuration": "EP-only, 2 ranks, W4A8 Instruct, complete greedy rewrite plus 50 diffusion steps",
+    "observed": "A red fox lies curled with eyes closed and its head resting low in grass. Golden light, blurred foreground grasses and round background bokeh match the requested lighting and telephoto treatment.",
+    "prompt_match": true,
+    "limits": "Qualitative visual review of one complete saved image."
+  },
+  "limits": [
+    "One fresh-process cold run. No warm repeats. OS file cache was not flushed.",
+    "Completed matched single-GPU comparison is in hunyuan-instruct-ep-cold-validation.json; EP is 4.4% slower end to end."
+  ],
+  "raw_results": "release-artifacts/benchmark-results/hunyuan-instruct-ep-cold",
+  "node_seconds": {
+    "HunyuanImage3VAELoader": 0.623248326,
+    "HunyuanImage3Resolutions": 0.00012856300000000002,
+    "HunyuanImage3PromptRewriting": 0.00014944199999999998,
+    "HunyuanImage3ModelLoader": 22.908521385,
+    "HunyuanImage3TextEncode": 727.677317836,
+    "PreviewAny": 7.1114e-05,
+    "HunyuanImage3EmptyLatent": 0.000217149,
+    "HunyuanImage3Spectrum": 0.0005284069999999999,
+    "KSampler": 590.7516870300001,
+    "VAEDecode": 2.99099336,
+    "SaveImage": 0.12749940599999998
+  }
+}

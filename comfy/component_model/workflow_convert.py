@@ -124,6 +124,9 @@ _PRIMITIVE_VALUE_NODE_TYPES: Final[frozenset[str]] = frozenset({
 
 
 def _is_widget_type(type_spec, opts=None) -> bool:
+    # The camera preview extension declares a non-serializing UI widget.
+    if opts and opts.get("widgetType") == "CAMERA_ANGLE_VIEW":
+        return False
     if isinstance(type_spec, list):
         return True
     if not isinstance(type_spec, str):
@@ -1701,7 +1704,7 @@ def _convert_ui_to_api_impl(workflow, preserve_unknown_nodes, node_mappings):
             api_inputs = _map_widgets_dict(input_types, widgets_values)
             use_class_type = class_type
         else:
-            api_inputs = {}
+            api_inputs, _wv_consumed = _map_widgets(input_types, [], node=node)
             use_class_type = class_type
 
         if dto.sg_node_exec_id and not is_unknown:

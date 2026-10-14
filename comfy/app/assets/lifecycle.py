@@ -21,6 +21,7 @@ from .services.hash_mode_state import enqueue_transition_work
 from .services.hash_mode_state import record_transition_intent
 from ..database.db import can_create_session, create_session
 from ...cli_args import args
+from .services.asset_management import reclaim_preview
 
 _excluded_scan_roots: set[str] = set()
 _hash_mode_transition: str | None = None
@@ -53,18 +54,19 @@ def wipe_temp_db_rows(session) -> tuple[int, int]:
     # case-different persistent directory destroys user assets.
     under_temp = sql_path_under_prefix(AssetContent.path, temp_root)
 
-    temp_record_ids = list(
-        session.scalars(
-            select(Asset.id)
-            .join(AssetContent, Asset.content_id == AssetContent.id)
-            .where(under_temp)
-        )
-    )
+    temp_records = session.execute(
+        select(Asset.id, Asset.preview_id)
+        .join(AssetContent, Asset.content_id == AssetContent.id)
+        .where(under_temp)
+    ).all()
 
     records_deleted = 0
-    for record_id in temp_record_ids:
+    for record_id, _ in temp_records:
         delete_record(session, record_id)
         records_deleted += 1
+    # Their previews live in previews/, not temp/, so the path predicate never reaches them.
+    for preview_id in {preview_id for _, preview_id in temp_records if preview_id}:
+        reclaim_preview(session, preview_id)
 
     contents_deleted = 0
     for content in session.scalars(select(AssetContent).where(under_temp)).all():

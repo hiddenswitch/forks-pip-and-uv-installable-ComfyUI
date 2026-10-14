@@ -1,0 +1,336 @@
+{
+  "workflow": "hunyuan_image_3_instruct_distil_txt2img",
+  "model_code_commit": "651b5b12e",
+  "summary": {
+    "warm_median_seconds": {
+      "1": 43.92139297499671,
+      "2": 46.91688251300366
+    },
+    "tp2_speedup": 0.9361532698346547
+  },
+  "quality": [
+    {
+      "seed": 42,
+      "identical_pixels": true,
+      "pixel_rmse": 0.0
+    },
+    {
+      "seed": 43,
+      "identical_pixels": true,
+      "pixel_rmse": 0.0
+    },
+    {
+      "seed": 44,
+      "identical_pixels": true,
+      "pixel_rmse": 0.0
+    },
+    {
+      "seed": 45,
+      "identical_pixels": true,
+      "pixel_rmse": 0.0
+    }
+  ],
+  "runs": [
+    {
+      "tp": 1,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 82.25900847901357,
+      "peak_host_pss_bytes": 58779143168,
+      "peak_device_used_bytes": [
+        23874437120
+      ],
+      "start_time_unix_nano": 1791665806688999624,
+      "end_time_unix_nano": 1791665888948430107,
+      "sampler_seconds": 73.042733236,
+      "generator_node_seconds": 73.25316296,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 43.798087554983795,
+      "peak_host_pss_bytes": 54077682688,
+      "peak_device_used_bytes": [
+        23872339968
+      ],
+      "start_time_unix_nano": 1791665888948845349,
+      "end_time_unix_nano": 1791665932747211990,
+      "sampler_seconds": 39.735797374,
+      "generator_node_seconds": 40.034869418,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 43.9534622989886,
+      "peak_host_pss_bytes": 54082029568,
+      "peak_device_used_bytes": [
+        23872339968
+      ],
+      "start_time_unix_nano": 1791665932747573641,
+      "end_time_unix_nano": 1791665976701299968,
+      "sampler_seconds": 40.040289972,
+      "generator_node_seconds": 40.103945518,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 43.92139297499671,
+      "peak_host_pss_bytes": 54082192384,
+      "peak_device_used_bytes": [
+        23872339968
+      ],
+      "start_time_unix_nano": 1791665976701661509,
+      "end_time_unix_nano": 1791666020623319494,
+      "sampler_seconds": 40.033686014,
+      "generator_node_seconds": 40.097401131,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 85.81423409900162,
+      "peak_host_pss_bytes": 90774305792,
+      "peak_device_used_bytes": [
+        23871160320,
+        23907336192
+      ],
+      "start_time_unix_nano": 1791666504061619532,
+      "end_time_unix_nano": 1791666589876179289,
+      "sampler_seconds": 60.155715788,
+      "generator_node_seconds": 60.327639327,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 46.91688251300366,
+      "peak_host_pss_bytes": 79867629568,
+      "peak_device_used_bytes": [
+        23875354624,
+        23819255808
+      ],
+      "start_time_unix_nano": 1791666589876648859,
+      "end_time_unix_nano": 1791666636793871678,
+      "sampler_seconds": 44.118664943999995,
+      "generator_node_seconds": 44.244799435,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 48.78306208099821,
+      "peak_host_pss_bytes": 80703610880,
+      "peak_device_used_bytes": [
+        23875354624,
+        23940890624
+      ],
+      "start_time_unix_nano": 1791666636794345947,
+      "end_time_unix_nano": 1791666685577731902,
+      "sampler_seconds": 45.750826640999996,
+      "generator_node_seconds": 46.107935671999996,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 43.78043928401894,
+      "peak_host_pss_bytes": 80354546688,
+      "peak_device_used_bytes": [
+        23877451776,
+        23817158656
+      ],
+      "start_time_unix_nano": 1791666685578173900,
+      "end_time_unix_nano": 1791666729358941936,
+      "sampler_seconds": 40.737679443,
+      "generator_node_seconds": 40.866443380999996,
+      "sr_node_seconds": null
+    }
+  ],
+  "environment": {
+    "packages": {
+      "comfyui": "0.39.0.1",
+      "torch": "2.14.1",
+      "comfy-kitchen": "0.2.37",
+      "kandinsky6": "1.0.2",
+      "kandinsky6-sr": "0.1.2",
+      "comfyui-hunyuanimage3": "0.1.0"
+    },
+    "topology": "\t\u001b[4mGPU0\tGPU1\tCPU Affinity\tNUMA Affinity\tGPU NUMA ID\u001b[0m\nGPU0\t X \tNV4\t0-31\t0\t\tN/A\nGPU1\tNV4\t X \t0-31\t0\t\tN/A\n\nLegend:\n\n  X    = Self\n  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)\n  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node\n  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)\n  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)\n  PIX  = Connection traversing at most a single PCIe bridge\n  NV#  = Connection traversing a bonded set of # NVLinks\n",
+    "driver": "610.57.04",
+    "model_revisions": [
+      {
+        "repo_id": "PedroMarinhoDev/HunyuanImage-3.0-Instruct-Distil-ComfyUI",
+        "revision": "b57626bc1840b64b47cb8d885a61298b352acf79",
+        "files": [
+          {
+            "path": "clip_vision/hunyuan_image_3_instruct_distil_siglip2_so400m_naflex.safetensors",
+            "size": 898839512
+          },
+          {
+            "path": "hunyuan_image_3_instruct_distil_cot_head.safetensors",
+            "size": 1090527456
+          },
+          {
+            "path": "hunyuan_image_3_instruct_distil_w4a8.safetensors",
+            "size": 46910931103
+          },
+          {
+            "path": "vae/hunyuan_image_3_vae_fp16.safetensors",
+            "size": 2521382348
+          },
+          {
+            "path": "vae/hunyuan_image_3_vae_fp32.safetensors",
+            "size": 5042729700
+          }
+        ]
+      },
+      {
+        "repo_id": "PedroMarinhoDev/HunyuanImage-3.0-Instruct-ComfyUI",
+        "revision": "50543c5af85fc9424f87208618f520fd28f5b882",
+        "files": [
+          {
+            "path": "clip_vision/hunyuan_image_3_instruct_siglip2_so400m_naflex.safetensors",
+            "size": 898839512
+          },
+          {
+            "path": "hunyuan_image_3_instruct_cot_head.safetensors",
+            "size": 1090527456
+          },
+          {
+            "path": "hunyuan_image_3_instruct_w4a8.safetensors",
+            "size": 46839594273
+          },
+          {
+            "path": "vae/hunyuan_image_3_vae_fp16.safetensors",
+            "size": 2521382348
+          },
+          {
+            "path": "vae/hunyuan_image_3_vae_fp32.safetensors",
+            "size": 5042729700
+          }
+        ]
+      },
+      {
+        "repo_id": "PedroMarinhoDev/HunyuanImage-3.0-Base-ComfyUI",
+        "revision": "1f4622ee59acf5682b3ae561e06da66717f73f24",
+        "files": [
+          {
+            "path": "clip_vision/hunyuan_image_3_base_siglip2_so400m_naflex.safetensors",
+            "size": 898839512
+          },
+          {
+            "path": "hunyuan_image_3_base_cot_head.safetensors",
+            "size": 1090527456
+          },
+          {
+            "path": "hunyuan_image_3_base_w4a8.safetensors",
+            "size": 46839594273
+          },
+          {
+            "path": "vae/hunyuan_image_3_vae_fp16.safetensors",
+            "size": 2521382348
+          },
+          {
+            "path": "vae/hunyuan_image_3_vae_fp32.safetensors",
+            "size": 5042729700
+          }
+        ]
+      },
+      {
+        "repo_id": "kandinskylab/Kandinsky-6.0-Pro-distill-5s-Diffusers",
+        "revision": "1018d5828716e8bea3de99609f45c924de9c5564",
+        "files": [
+          {
+            "path": "audio_vae/config.json",
+            "size": 826
+          },
+          {
+            "path": "audio_vae/diffusion_pytorch_model.safetensors",
+            "size": 1711158920
+          },
+          {
+            "path": "transformer/diffusion_pytorch_model.safetensors",
+            "size": 60344993576
+          },
+          {
+            "path": "vae/config.json",
+            "size": 718
+          },
+          {
+            "path": "vae/diffusion_pytorch_model.safetensors",
+            "size": 985943868
+          },
+          {
+            "path": "vocoder/diffusion_pytorch_model.safetensors",
+            "size": 488692656
+          }
+        ]
+      },
+      {
+        "repo_id": "kandinskylab/Kandinsky-6.0-Pro-5s-Diffusers",
+        "revision": "295ca976810e318fb45c870ba4fc72c9a37fd548",
+        "files": [
+          {
+            "path": "audio_vae/config.json",
+            "size": 827
+          },
+          {
+            "path": "audio_vae/diffusion_pytorch_model.safetensors",
+            "size": 1711158920
+          },
+          {
+            "path": "transformer/diffusion_pytorch_model.safetensors",
+            "size": 69734820096
+          },
+          {
+            "path": "vae/config.json",
+            "size": 718
+          },
+          {
+            "path": "vae/diffusion_pytorch_model.safetensors",
+            "size": 985943868
+          },
+          {
+            "path": "vocoder/diffusion_pytorch_model.safetensors",
+            "size": 488692656
+          }
+        ]
+      },
+      {
+        "repo_id": "kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers",
+        "revision": "a14152d22f296dee41eb1822511b3aacc2696327",
+        "files": [
+          {
+            "path": "latent_upscaler/diffusion_pytorch_model.safetensors",
+            "size": 7308101968
+          },
+          {
+            "path": "transformer/diffusion_pytorch_model.safetensors",
+            "size": 3187645192
+          },
+          {
+            "path": "vae/diffusion_pytorch_model.safetensors",
+            "size": 6955556660
+          }
+        ]
+      }
+    ],
+    "sampling_interval_seconds": 0.2
+  },
+  "baseline_provenance": {
+    "tp1_model_code_commit": "1c4e2f313",
+    "tp2_model_code_commit": "651b5b12e",
+    "baseline_reused_from": "release-artifacts/benchmark-results/hunyuan-distil-txt-deferred-moe",
+    "note": "Expert partition affects TP2 only. TP1 workflow, environment, and all seeds are verified by the driver before reuse."
+  }
+}

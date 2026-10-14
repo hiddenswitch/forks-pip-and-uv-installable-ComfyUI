@@ -1,0 +1,48 @@
+{
+  "workflow": "release-artifacts/workflows/api/smoke/kandinsky-sr-temporal.json",
+  "input_frames": 9,
+  "input_size": [
+    512,
+    512
+  ],
+  "output_frames": 9,
+  "status": "Temporal SR passed",
+  "tp": "single-device fallback",
+  "results": [
+    {
+      "phase": "initial",
+      "seconds": 57.16446266899584,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        11875150848,
+        [
+          8912109568,
+          703004672
+        ]
+      ]
+    }
+  ],
+  "output_metadata": {
+    "programs": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 1024,
+        "height": 1024,
+        "avg_frame_rate": "24/1",
+        "duration": "0.375000",
+        "nb_frames": "9"
+      }
+    ]
+  },
+  "output_sha256": "7e94d514d4a9d5b2d1322404168768b4dc7c6fca0f7755790a72d95d9834e66f",
+  "note": "Low-level CUDA allocation warnings occurred during decoding, but the job completed and saved all nine frames at 1024x1024. The original full-resolution 1080p SR sample remains limited by 24 GiB VRAM."
+}

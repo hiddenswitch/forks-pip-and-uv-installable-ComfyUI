@@ -1,0 +1,33 @@
+{
+  "workflow": "release-artifacts/workflows/api/smoke/hunyuan-rewrite-complete.json",
+  "runtime_commit": "395dd8633",
+  "tp_size": 2,
+  "max_new_tokens": 2048,
+  "generated_tokens": 307,
+  "generation_seconds": 689,
+  "closing_recaption_tag": true,
+  "rewritten_prompt": "A red fox is curled up and sleeping in a field of grass. The fox's body forms a gentle curve, with its head resting on its front paws, which are tucked beneath its chin. Its fur is a dense coat of vibrant reddish-orange on its back, haunches, and the top of its head. The fur on its chest, throat, and the lower part of its face is a contrasting bright white. The tips of its large, pointed ears are black, and the fur on the back of the ears is a mix of orange and grey. Its eyes are peacefully closed, indicated by thin dark lines. A small, black, wet-looking nose is visible at the end of its snout, from which fine, dark whiskers extend. The fox's long, bushy tail, primarily orange with some darker, almost greyish tones towards the end, is wrapped around its body, completing the circular form. The animal lies in a patch of earth surrounded by blades of grass. Some blades are fresh and green, while others are dry and yellow-brown. The foreground is heavily blurred, presenting a wash of golden-yellow and green shapes that lead the eye to the subject. Similarly, the background is completely out of focus, rendered as a smooth, creamy bokeh of warm, golden, and muted green tones, suggesting a field illuminated by low-angle sunlight. The lighting gently highlights the texture of the fox's fur, particularly along its back and the top of its head. telephoto bokeh.",
+  "results": [
+    {
+      "phase": "initial",
+      "seconds": 727.3753435420222,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        82191790080,
+        [
+          16916217856,
+          21730492416
+        ]
+      ]
+    }
+  ],
+  "memory_note": "Memory sampled after execution, not peak."
+}

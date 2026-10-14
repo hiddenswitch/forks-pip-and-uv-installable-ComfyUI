@@ -34,6 +34,7 @@ from comfy.app.assets.seeder import asset_seeder
 from comfy.app.assets.services.schemas import RegisteredAsset
 from comfy.app.assets.services.schemas import UploadAssetView
 from comfy.app.database.models import Base
+from comfy.app.assets.seeder import ScanPhase
 
 
 class _ArgsStub:
@@ -170,6 +171,32 @@ def test_queue_output_scan_does_not_duplicate_declared_output(
     )
 
 
+@pytest.mark.parametrize("hashing", [False, True])
+def test_queue_output_scan_queues_a_full_output_walk_with_the_hashing_setting(
+    monkeypatch: pytest.MonkeyPatch, hashing: bool
+) -> None:
+    enqueue = Mock(return_value=True)
+    monkeypatch.setattr(asset_seeder, "enqueue_scan", enqueue)
+    monkeypatch.setattr(asset_seeder, "is_disabled", lambda: False)
+
+    args = _ArgsStub()
+    args.enable_asset_hashing = hashing
+
+    AssetsEnabled(args).queue_output_scan()
+
+    enqueue.assert_called_once_with(roots=("output",), phase=ScanPhase.FULL, compute_hashes=hashing)
+
+
+def test_queue_output_scan_does_nothing_while_the_seeder_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    enqueue = Mock(return_value=True)
+    monkeypatch.setattr(asset_seeder, "enqueue_scan", enqueue)
+    monkeypatch.setattr(asset_seeder, "is_disabled", lambda: True)
+
+    AssetsEnabled(_ArgsStub()).queue_output_scan()
+
+    enqueue.assert_not_called()
+
+
 def test_executed_and_cached_outputs_share_unhashed_content(
     enabled_manager: AssetsEnabled,
     asset_roots: tuple[Path, Path, Path],
@@ -194,6 +221,7 @@ def test_executed_and_cached_outputs_share_unhashed_content(
         "content_id",
         "job_id",
         "name",
+        "preview_id",
     }
     with mock_create_session() as session:
         asset = session.get(Asset, executed.id)

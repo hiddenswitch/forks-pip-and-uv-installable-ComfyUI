@@ -1,0 +1,629 @@
+{
+  "id": "1fd137fa-91ed-496b-8f5b-72ec68bd8ce4",
+  "revision": 0,
+  "last_node_id": 9,
+  "last_link_id": 11,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadVideo",
+      "pos": [
+        40,
+        160
+      ],
+      "size": [
+        320,
+        300
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadVideo",
+        "cnr_id": "comfy-core"
+      },
+      "title": "Load Input Video",
+      "widgets_values": [
+        "lq.mp4"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "GetVideoComponents",
+      "pos": [
+        420,
+        160
+      ],
+      "size": [
+        260,
+        130
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            3
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            4
+          ],
+          "slot_index": 2
+        },
+        {
+          "name": "bit_depth",
+          "type": "COMBO",
+          "links": [],
+          "slot_index": 3
+        },
+        {
+          "name": "color_space",
+          "type": "COMBO",
+          "links": [],
+          "slot_index": 4
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GetVideoComponents",
+        "cnr_id": "comfy-core"
+      },
+      "title": "Extract Frames, Audio and FPS",
+      "widgets_values": []
+    },
+    {
+      "id": 3,
+      "type": "UNETLoader",
+      "pos": [
+        40,
+        610
+      ],
+      "size": [
+        520,
+        90
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            5
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "cnr_id": "comfy-core",
+        "models": [
+          {
+            "name": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+            "url": "https://huggingface.co/kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/resolve/main/transformer/diffusion_pytorch_model.safetensors",
+            "directory": "diffusion_models"
+          }
+        ],
+        "kandinsky6_required_files": [
+          {
+            "name": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/transformer/config.json",
+            "url": "https://huggingface.co/kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/resolve/main/transformer/config.json",
+            "directory": "diffusion_models"
+          },
+          {
+            "name": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/model_index.json",
+            "url": "https://huggingface.co/kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/resolve/main/model_index.json",
+            "directory": "diffusion_models"
+          },
+          {
+            "name": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/scheduler/scheduler_config.json",
+            "url": "https://huggingface.co/kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/resolve/main/scheduler/scheduler_config.json",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "title": "Load Kandinsky6 SR DiT",
+      "widgets_values": [
+        "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "Kandinsky6VSRUpscale",
+      "pos": [
+        820,
+        200
+      ],
+      "size": [
+        360,
+        340
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "sr_model",
+          "type": "MODEL",
+          "link": 5
+        },
+        {
+          "name": "sr_vae",
+          "type": "K6_SR_VAE",
+          "link": 6
+        },
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "name": "frame_rate",
+          "type": "FLOAT",
+          "link": 4,
+          "widget": {
+            "name": "frame_rate"
+          }
+        },
+        {
+          "name": "latent_upscaler",
+          "type": "K6_LATENT_UPSCALER",
+          "link": 7
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            8
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "frame_rate",
+          "type": "FLOAT",
+          "links": [
+            9
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            10
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "Kandinsky6VSRUpscale",
+        "cnr_id": "kandinsky6-sr"
+      },
+      "widgets_values": [
+        42,
+        "fixed",
+        5,
+        1,
+        "2x",
+        0.2,
+        24,
+        "none",
+        false
+      ],
+      "title": "Kandinsky6 SR Upscale"
+    },
+    {
+      "id": 5,
+      "type": "CreateVideo",
+      "pos": [
+        1280,
+        200
+      ],
+      "size": [
+        300,
+        160
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 8
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 10
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "link": 9,
+          "widget": {
+            "name": "fps"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            11
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo",
+        "cnr_id": "comfy-core"
+      },
+      "title": "Rebuild Video",
+      "widgets_values": [
+        24,
+        "auto",
+        "sRGB"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "SaveVideo",
+      "pos": [
+        1640,
+        200
+      ],
+      "size": [
+        400,
+        360
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 11
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": [],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SaveVideo",
+        "cnr_id": "comfy-core"
+      },
+      "title": "Save Upscaled Video",
+      "widgets_values": [
+        "video/K6_VSR",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 7,
+      "type": "Kandinsky6SRVAELoader",
+      "pos": [
+        40,
+        760
+      ],
+      "size": [
+        520,
+        90
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "sr_vae",
+          "type": "K6_SR_VAE",
+          "links": [
+            6
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "Kandinsky6SRVAELoader",
+        "cnr_id": "kandinsky6-sr",
+        "models": [
+          {
+            "name": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/vae/diffusion_pytorch_model.safetensors",
+            "url": "https://huggingface.co/kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/resolve/main/vae/diffusion_pytorch_model.safetensors",
+            "directory": "diffusion_models"
+          }
+        ],
+        "kandinsky6_required_files": [
+          {
+            "name": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/vae/config.json",
+            "url": "https://huggingface.co/kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/resolve/main/vae/config.json",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "title": "Load Kandinsky6 SR VAE",
+      "widgets_values": [
+        "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/vae/diffusion_pytorch_model.safetensors"
+      ]
+    },
+    {
+      "id": 8,
+      "type": "Kandinsky6LatentUpscalerLoader",
+      "pos": [
+        40,
+        910
+      ],
+      "size": [
+        520,
+        90
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "latent_upscaler",
+          "type": "K6_LATENT_UPSCALER",
+          "links": [
+            7
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "Kandinsky6LatentUpscalerLoader",
+        "cnr_id": "kandinsky6-sr",
+        "models": [
+          {
+            "name": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/latent_upscaler/diffusion_pytorch_model.safetensors",
+            "url": "https://huggingface.co/kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/resolve/main/latent_upscaler/diffusion_pytorch_model.safetensors",
+            "directory": "diffusion_models"
+          }
+        ],
+        "kandinsky6_required_files": [
+          {
+            "name": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/latent_upscaler/config.json",
+            "url": "https://huggingface.co/kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/resolve/main/latent_upscaler/config.json",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "title": "Load Latent Upscaler (x2 / x4)",
+      "widgets_values": [
+        "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/latent_upscaler/diffusion_pytorch_model.safetensors",
+        "2x"
+      ]
+    },
+    {
+      "id": 9,
+      "type": "MarkdownNote",
+      "pos": [
+        40,
+        1130
+      ],
+      "size": [
+        720,
+        300
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote",
+        "cnr_id": "comfy-core",
+        "kandinsky6_download_package": "kandinsky6-sr"
+      },
+      "title": "Models",
+      "widgets_values": [
+        "Install **Kandinsky6 SR** (`kandinsky6-sr`) through Manager and restart ComfyUI.\n\nClick **Download models** below (or use the **Kandinsky 6** menu). All SR weights and JSON configs are placed in the correct model folders; existing files are reused.\n\nChoose an input video and run. Select `2x` in the upscaler loader for 2x/2.25x; select `4x` for 4x. NABLA is off by default (`use_nabla=false`); enable it to use sparse attention with first-run kernel compilation.\n\nFor gated/private HF weights, run `hf auth login` on the ComfyUI server first."
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "VIDEO"
+    ],
+    [
+      2,
+      2,
+      0,
+      4,
+      2,
+      "IMAGE"
+    ],
+    [
+      3,
+      2,
+      1,
+      4,
+      5,
+      "AUDIO"
+    ],
+    [
+      4,
+      2,
+      2,
+      4,
+      3,
+      "FLOAT"
+    ],
+    [
+      5,
+      3,
+      0,
+      4,
+      0,
+      "MODEL"
+    ],
+    [
+      6,
+      7,
+      0,
+      4,
+      1,
+      "K6_SR_VAE"
+    ],
+    [
+      7,
+      8,
+      0,
+      4,
+      4,
+      "K6_LATENT_UPSCALER"
+    ],
+    [
+      8,
+      4,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      4,
+      1,
+      5,
+      2,
+      "FLOAT"
+    ],
+    [
+      10,
+      4,
+      2,
+      5,
+      1,
+      "AUDIO"
+    ],
+    [
+      11,
+      5,
+      0,
+      6,
+      0,
+      "VIDEO"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1 · Input Video",
+      "bounding": [
+        20,
+        90,
+        680,
+        420
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "2 · Kandinsky6 SR Models",
+      "bounding": [
+        20,
+        540,
+        690,
+        480
+      ],
+      "color": "#596780",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "3 · Video Super Resolution",
+      "bounding": [
+        790,
+        130,
+        420,
+        440
+      ],
+      "color": "#a96736",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "4 · Output Video",
+      "bounding": [
+        1250,
+        130,
+        830,
+        450
+      ],
+      "color": "#3f7d66",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "name": "Kandinsky 6.0 Video Super Resolution",
+    "description": "Upscale an existing video with Kandinsky 6.0 VSR, including frame-rate and audio handling."
+  },
+  "version": 0.4
+}

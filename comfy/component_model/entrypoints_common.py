@@ -17,6 +17,8 @@ def configure_application_paths(args: Configuration, folder_names: Optional[Fold
         folder_names.application_paths.output_directory = construct_path(args.output_directory)
     if args.input_directory:
         folder_names.application_paths.input_directory = construct_path(args.input_directory)
+    if args.previews_directory:
+        folder_names.application_paths.previews_directory = construct_path(args.previews_directory)
     if args.temp_directory:
         folder_names.application_paths.temp_directory = construct_path(args.temp_directory)
     if args.extra_model_paths_config:

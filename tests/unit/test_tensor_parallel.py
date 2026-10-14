@@ -6,7 +6,7 @@ import torch
 from torch._subclasses.fake_tensor import FakeTensorMode
 
 import comfy.ops as comfy_ops
-from comfy import memory_management, model_management
+from comfy import interruption, memory_management, model_management
 from comfy.ldm.minimax.model import Attention, MLP
 from comfy.ldm.modules.attention import AttentionTensorContainer
 from comfy.model_base import BaseModel, MiniMaxH3
@@ -355,6 +355,39 @@ def test_model_parallel_root_failure_aborts_device_group(monkeypatch):
     assert executor._device_group_active is False
 
 
+def test_model_parallel_cancel_finishes_collectives_and_allows_retry(monkeypatch):
+    events = []
+    monkeypatch.setattr("comfy.tensor_parallel.distributed._broadcast_tensors", lambda operations, tensors: tensors)
+    monkeypatch.setattr("comfy.tensor_parallel.distributed.dist.distributed_c10d._abort_process_group", lambda group: events.append("abort"))
+
+    class Root:
+        def forward(self, cancel):
+            if cancel:
+                interruption.interrupt_current_processing()
+            interruption.throw_exception_if_processing_interrupted()
+            events.append("forward")
+            return 7
+
+    class Coordinator(RecordingCoordinator):
+        def receive_object(self, rank):
+            events.append("peer_done")
+            return {"kind": "done"}
+
+    executor = TorchDistributedTensorParallelExecutor(
+        Root(), SimpleNamespace(process_group="nccl"), Coordinator(), (), (),
+        (torch.device("cpu"), torch.device("cpu")), (0, 0),
+    )
+    try:
+        with pytest.raises(interruption.InterruptProcessingException):
+            executor.execute(True)
+        assert sorted(events) == ["forward", "peer_done"]
+        assert executor._device_group_active
+        assert executor.execute(False) == 7
+    finally:
+        interruption.interrupt_current_processing(False)
+        executor.close()
+
+
 def test_model_parallel_transport_keeps_only_diffusion_model_wrappers():
     compile_wrapper = lambda executor, *args, **kwargs: executor(*args, **kwargs)
     extension_wrapper = object()
@@ -480,7 +513,8 @@ def test_dynamic_rank_load_flushes_stale_allocator_reservations(monkeypatch):
     emptied = []
     monkeypatch.setattr(model_management, "free_memory", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(model_management, "get_free_memory", lambda _device: 10_000)
-    monkeypatch.setattr(memory_management, "aimdo_allocator", object())
+    # Restore absence as well as value: this attribute is a module property.
+    monkeypatch.setitem(memory_management.__dict__, "aimdo_enabled", True)
     monkeypatch.setattr(
         model_management,
         "_soft_empty_cache",

@@ -27,6 +27,7 @@ from sqlalchemy import create_engine
 from sqlalchemy import event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.engine import URL, make_url
 
 from sqlalchemy.exc import OperationalError
 from ..assets.database import models as _asset_models  # noqa: F401 -- register asset tables
@@ -70,9 +71,9 @@ def get_alembic_config():
     with resources.as_file(resources.files("comfy") / "alembic.ini") as config_path:
         config = Config(str(config_path))
 
-    # Use module path format for script_location (works with importlib)
+    config.file_config.set("DEFAULT", "here", os.path.dirname(config_path).replace("%", "%%"))
     config.set_main_option("script_location", "comfy:alembic_db")
-    config.set_main_option("sqlalchemy.url", db_url)
+    config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
     return config
 
@@ -85,7 +86,9 @@ def get_database_url() -> str:
     from ...cmd import folder_paths
 
     db_path = os.path.join(folder_paths.get_user_directory(), "comfyui.db")
-    return f"sqlite:///{db_path}"
+    # Built by SQLAlchemy so its own parser reads the path back intact: 2.1+ decodes %xx, and every version
+    # stops the path at ? (which only 2.1+ quotes).
+    return URL.create("sqlite", database=db_path).render_as_string()
 
 
 def get_legacy_default_db_path() -> str:
@@ -97,7 +100,7 @@ def get_legacy_default_db_path() -> str:
 def get_db_path():
     url = get_database_url()
     if url.startswith("sqlite:///"):
-        return url.split("///", 1)[1]
+        return make_url(url).database
     else:
         raise ValueError(f"Unsupported database URL '{url}'.")
 
@@ -108,7 +111,7 @@ def copy_legacy_default_db(db_path: str) -> None:
         return
 
     legacy_db_path = get_legacy_default_db_path()
-    if os.path.abspath(legacy_db_path) == os.path.abspath(db_path):
+    if legacy_db_path is None or os.path.abspath(legacy_db_path) == os.path.abspath(db_path):
         return
     if os.path.exists(db_path) or not os.path.exists(legacy_db_path):
         return
@@ -225,7 +228,6 @@ def init_db():
     config = current_execution_context().configuration
     db_url = get_database_url()
     explicit = getattr(config, "_database_url_explicit", False)
-    logger.debug(f"Database URL: {db_url} (explicit={explicit})")
 
     if _is_memory_db(db_url):
         _init_memory_db(db_url)
@@ -292,7 +294,7 @@ def _find_best_source_db(db_dir, db_basename, db_ext, script, exclude_path):
         if db_file == exclude_path or not os.path.isfile(db_file):
             continue
         try:
-            eng = create_engine(f"sqlite:///{db_file}")
+            eng = create_engine(URL.create("sqlite", database=db_file))
             with eng.connect() as conn:
                 ctx = MigrationContext.configure(conn)
                 rev = ctx.get_current_revision()
@@ -320,7 +322,7 @@ def _init_file_db(db_url, use_chain_hash: bool = True):
     If the file lock cannot be acquired, falls back to an in-memory database
     so multiple instances can coexist without crashing.
     """
-    original_path = db_url.split("///", 1)[1]
+    original_path = make_url(db_url).database
     prepare_file_db_path(original_path)
     config = get_alembic_config()
     script = ScriptDirectory.from_config(config)
@@ -331,7 +333,7 @@ def _init_file_db(db_url, use_chain_hash: bool = True):
         db_dir = os.path.dirname(original_path)
         base, ext = os.path.splitext(os.path.basename(original_path))
         db_path = os.path.join(db_dir, f"{base}-{chain_hash}{ext}")
-        db_url = f"sqlite:///{db_path}"
+        db_url = URL.create("sqlite", database=db_path).render_as_string()
         source_spec = (db_dir, base, ext)
     else:
         db_path = original_path
@@ -376,7 +378,7 @@ def _migrate_and_bind(db_url, db_path, config, script, target_rev, source_spec):
             _backup_database(source, db_path)
             db_exists = True
 
-    config.set_main_option("sqlalchemy.url", db_url)
+    config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
     engine = create_engine(db_url)
     write_engine = create_engine(db_url)
@@ -432,7 +434,7 @@ def _migrate_and_bind(db_url, db_path, config, script, target_rev, source_spec):
             command.upgrade(config, target_rev)
             logger.info(f"Database upgraded from {current_rev} to {target_rev}")
         except Exception as e:
-            logger.exception("Error upgrading database: ")
+            logging.debug("Error upgrading database", exc_info=True)
             if backup_path:
                 # Restore the database from backup if upgrade fails
                 try:

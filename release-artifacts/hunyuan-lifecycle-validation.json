@@ -1,0 +1,121 @@
+{
+  "runtime_commit": "6b6ef874ef8b7412e35bd27ecf2f7af47074a9b0",
+  "workflow": "release-artifacts/workflows/api/smoke/hunyuan-spectrum-rewrite.json",
+  "tp_size": 2,
+  "devices": "2 x RTX A5000 24 GiB, NVLink",
+  "vram_headroom_gib": 2,
+  "phases": [
+    {
+      "phase": "initial",
+      "seconds": 687.6735610990145,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        79309186048,
+        [
+          7881687040,
+          21701132288
+        ]
+      ]
+    },
+    {
+      "phase": "cancel",
+      "seconds": 16.218388384993887,
+      "status": {
+        "status_str": "error",
+        "completed": false,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_interrupted"
+        ]
+      },
+      "memory": [
+        77879293952,
+        [
+          15699869696,
+          21705326592
+        ]
+      ]
+    },
+    {
+      "phase": "recovery",
+      "seconds": 33.26367205299903,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        77884122112,
+        [
+          7848132608,
+          21717909504
+        ]
+      ]
+    },
+    {
+      "phase": "reload",
+      "seconds": 605.7852428590122,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        81672894464,
+        [
+          7848067072,
+          21711618048
+        ]
+      ]
+    }
+  ],
+  "spectrum_summaries": [
+    "[Spectrum] 8 steps, 5 ran, 3 skipped, 1.60x, peak forecast memory 128 MiB",
+    "[Spectrum] 8 steps, 5 ran, 3 skipped, 1.60x, peak forecast memory 128 MiB",
+    "[Spectrum] 8 steps, 4 ran, 4 skipped, 2.00x, peak forecast memory 128 MiB"
+  ],
+  "rewrite_limit": 256,
+  "rewrite_limitation": "Generation hit the token limit before closing recaption; complete rewrite is tested separately.",
+  "reload": "POST /free with unload_models and free_memory; Spectrum window changed from 2 to 3.",
+  "memory_note": "Memory sampled after each phase, not peak memory.",
+  "outputs": [
+    {
+      "phase": "initial",
+      "file": "release-artifacts/benchmark-results/hunyuan-lifecycle/hunyuan_image_3_instruct_distil_00001_.png",
+      "sha256": "c3e5bf6c2d29385531f10d6e151441ed93e318e760ac0ef2e715442844206273",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "phase": "recovery",
+      "file": "release-artifacts/benchmark-results/hunyuan-lifecycle/hunyuan_image_3_instruct_distil_00002_.png",
+      "sha256": "68b07976a53d1f30cf1ba6eb0419c0fa273502532bbeb09ee1845b19258f046b",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "phase": "reload",
+      "file": "release-artifacts/benchmark-results/hunyuan-lifecycle/hunyuan_image_3_instruct_distil_00003_.png",
+      "sha256": "00c5caddbbb80bbb574c2623fdf610f2588a66bf384e8e29f8774c9c86f83a4b",
+      "width": 1024,
+      "height": 1024
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "source_commit": "84a79a0a3372e91b3f4d567d7a58eccebb7e0060",
+  "wheel": "release-artifacts/wheels/expert-only/comfyui-0.39.0.1-py3-none-any.whl",
+  "wheel_sha256": "65ae4c92166e41899af600b0ef8ec57c75ca44b7844f2458c22e6254eb89be87",
+  "note": "Unpublished candidate. Packaged integration files match the expert-only CLI implementation.",
+  "verified_files": [
+    {
+      "path": "comfy/tensor_parallel/hunyuan_image3.py",
+      "sha256": "3f7f84730942f6216ecb10c56aa3eb1b09cb5c9d5347725af4a8954c4a3d5361"
+    },
+    {
+      "path": "comfy/tensor_parallel/kandinsky6.py",
+      "sha256": "eeac6bbb35665c77fd903077bb7ff499bb74391f3ca517f2c9dcb38d6bfe31db"
+    },
+    {
+      "path": "comfy/tensor_parallel/custom_node_state.py",
+      "sha256": "ea94c45e28227402f96f60c83ae32a51a92e94938700ba02155d93af5fe9d281"
+    },
+    {
+      "path": "comfy/interruption.py",
+      "sha256": "0619ba570a11b5b2674d5f663d83c31b43ec07a276251ba4b1f4fa99b1d3a065"
+    },
+    {
+      "path": "comfy/nodes/vanilla_node_importing.py",
+      "sha256": "1959ab0c507154f9cc1185c3b30c5a020e531db31c9f9b76f97ab9798564302b"
+    },
+    {
+      "path": "comfy/custom_node_facade/server.py",
+      "sha256": "dea198403b64a9674f9a2b82d429a7d22034e4a0522f105ffd697bcf6636a8da"
+    },
+    {
+      "path": "comfy/custom_node_facade/registry.py",
+      "sha256": "f8a663a00b13cb65a4dcc0e8e41d5a4e2b75b9a604ed0657a3608c4acadfc40e"
+    },
+    {
+      "path": "comfy/custom_nodes/pip_facade_registry_snapshot.sqlite.xz",
+      "sha256": "10c23fdf89fe64a839d453e5d0be2498a533ae4cbb585d3c17dc2dc8fa815b6b"
+    },
+    {
+      "path": "comfy/tensor_parallel/distributed.py",
+      "sha256": "570ef96b649f6a788f367d332a0fd526ba609a221880157a01299b0b03e4269a"
+    },
+    {
+      "path": "comfy/tensor_parallel/operations.py",
+      "sha256": "6d853d835b3b1aa6cf2a2fddb4ad89b9ec3954fc402960e545b7fdecdf24ffaf"
+    },
+    {
+      "path": "comfy/tensor_parallel/runtime.py",
+      "sha256": "50e4c7ad7391a003b16a17701b55d0ca75e79adbb09d21b38b18d289c19d1148"
+    },
+    {
+      "path": "comfy/cli_args.py",
+      "sha256": "86253fc5625a7a55a161bb384ec8e24b153ab57ec44f9bd7fbac4482960373c2"
+    },
+    {
+      "path": "comfy/cli_args_types.py",
+      "sha256": "8f10721a0dff1dff96fdb856fcf65ec064ebb0a8a84dea903c207fc06789a539"
+    },
+    {
+      "path": "comfy/cmd/cli.py",
+      "sha256": "475aa6bbe52a3004e2cc73ad23f8374ec85be4192a7f1807641559994570f0b5"
+    },
+    {
+      "path": "comfy/component_model/configuration.py",
+      "sha256": "db8750e53e5726eb6c720823e25baffbdd6cb18773366191f3875a4bf005489e"
+    }
+  ]
+}

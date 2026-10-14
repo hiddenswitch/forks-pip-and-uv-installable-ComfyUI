@@ -1,0 +1,167 @@
+{
+  "status": "All three full cold generations completed and visually reviewed",
+  "source": {
+    "commit": "77bd38ffb6dd7887384d4a48adb0ede8d3801f15",
+    "wheel": "release-artifacts/wheels/hunyuan-prefix/comfyui-0.39.0.1-py3-none-any.whl",
+    "sha256": "ac8f9fa137644ad09b2eb8493502b6d7fde95d297cd25432f22f1f7973c66580",
+    "source_matches_wheel": {
+      "comfy/ops.py": true,
+      "comfy/tensor_parallel/distributed.py": true,
+      "comfy/tensor_parallel/hunyuan_image3.py": true,
+      "comfy/tensor_parallel/hunyuan_image3_runtime.py": true
+    }
+  },
+  "hardware": "2 x NVIDIA RTX A5000 24 GiB, SM86, NVLink; single GPU uses device 1",
+  "workflow": "release-artifacts/workflows/api/hunyuan-instruct-complete-rewrite-txt2img.json",
+  "conditions": {
+    "checkpoint": "HunyuanImage3 Instruct W4A8 (4-bit weights, INT8 activations)",
+    "attention": "Comfy Kitchen INT8 (--use-ck-attention)",
+    "resolution": [
+      1024,
+      1024
+    ],
+    "seed": 42,
+    "steps": 50,
+    "cfg": 2.5,
+    "sampler": "Euler/simple",
+    "spectrum": false,
+    "vram_headroom_gib": 2,
+    "rewrite_max_tokens": 2048,
+    "warm_probes": false,
+    "replicates": 1,
+    "cache_policy": "Fresh server per configuration; OS file cache not flushed"
+  },
+  "results": [
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 498.7538959759986,
+      "peak_host_pss_bytes": 90555376640,
+      "peak_device_used_bytes": [
+        21728919552,
+        22498050048
+      ],
+      "start_time_unix_nano": 1791773435206457912,
+      "end_time_unix_nano": 1791773933960693619,
+      "sampler_seconds": 317.121331754,
+      "generator_node_seconds": 327.4082807,
+      "sr_node_seconds": null,
+      "text_encode_node_seconds": 146.468416339,
+      "model_loader_seconds": 20.492091384,
+      "autoregressive_generated_tokens": 273,
+      "autoregressive_decode_seconds_rounded": 126
+    },
+    {
+      "tp": 1,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 568.8747424969915,
+      "peak_host_pss_bytes": 84410016768,
+      "peak_device_used_bytes": [
+        21716467712
+      ],
+      "start_time_unix_nano": 1791774011537316249,
+      "end_time_unix_nano": 1791774580412342380,
+      "sampler_seconds": 317.66455621,
+      "generator_node_seconds": 328.93687064600005,
+      "sr_node_seconds": null,
+      "text_encode_node_seconds": 230.380234402,
+      "model_loader_seconds": 2.468400614,
+      "autoregressive_generated_tokens": 273,
+      "autoregressive_decode_seconds_rounded": 204
+    }
+  ],
+  "quality": [
+    {
+      "seed": 42,
+      "output": "9:0",
+      "tp1": "release-artifacts/benchmark-results/hunyuan-prefix-tp-ck-cold/tp1/hunyuan_image_3_instruct_00001_.png",
+      "tp2": "release-artifacts/benchmark-results/hunyuan-prefix-tp-ck-cold/tp2/hunyuan_image_3_instruct_00001_.png",
+      "identical": false,
+      "rmse": 3.3097640920973377,
+      "max_absolute_error": 139.0
+    }
+  ],
+  "visual_review": {
+    "tp1": "Pass: orange/red fox sleeping curled in grass, golden-hour illumination and bokeh",
+    "tp2": "Pass: orange/red fox sleeping curled in grass, golden-hour illumination and bokeh",
+    "ep_only": "Pass: red fox asleep curled in grass, golden light and bokeh"
+  },
+  "rewrites_identical": true,
+  "interpretation": {
+    "tp2_overall_speedup": 1.140592077749639,
+    "tp2_decode_speedup": 1.619047619047619,
+    "tp2_diffusion_speedup": 1.0046687577440985,
+    "diffusion_includes_prefix_preparation": true,
+    "limitations": [
+      "One cold process per configuration; no confidence interval",
+      "Small floating-point changes cause non-identical pixels",
+      "Phase timings overlap: decode is contained within text encode, sampler within KSampler",
+      "W4A8 was tested, not an INT8-weight checkpoint",
+      "No kernel-level profiling or continuous-batching scheduler implemented"
+    ],
+    "ep_only_overall_speedup": 1.0350571915161941
+  },
+  "failures_excluded_from_performance": [
+    "hunyuan-batched-ep-ck-cold: zero-headroom diffusion OOM; no image",
+    "hunyuan-resident-tp-ck-cold: batched CPU prompt IDs caused CUDA mismatch; fixed; no image"
+  ],
+  "tests": {
+    "peer_failure": "Real two-GPU NCCL test passed, including root failure latency <10 seconds",
+    "benchmark_metrics": "3 timing/credential regression tests passed",
+    "allocator_isolation": "test_tensor_parallel.py + test_weight_cast.py passed after module-property mock cleanup fix"
+  },
+  "raw_directory": "release-artifacts/benchmark-results/hunyuan-prefix-tp-ck-cold",
+  "rewrite_sha256": {
+    "tp1": "831377ccbd410908768703e23073602036db8766f161651c4b3038d216b59136",
+    "tp2": "831377ccbd410908768703e23073602036db8766f161651c4b3038d216b59136",
+    "ep_only": "831377ccbd410908768703e23073602036db8766f161651c4b3038d216b59136"
+  },
+  "diffusion_model_calls_tp2": 50,
+  "ci": {
+    "commit": "6ee9add9c4c4ee5793f70dccc26dda83a1247182",
+    "status": "running",
+    "python": 38198847008,
+    "backends": 38198848791,
+    "cuda": 38198870136,
+    "rocm": 38198872460,
+    "previous_failure": "77bd38ffb CPU and XPU: one module-property test mock leaked into a later Windows lazy-weight test; fixed at 6ee9add9c",
+    "macos": "success"
+  },
+  "ep_only_results": [
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 549.607062450028,
+      "peak_host_pss_bytes": 98357879808,
+      "peak_device_used_bytes": [
+        21719875584,
+        21898264576
+      ],
+      "start_time_unix_nano": 1791774638792297569,
+      "end_time_unix_nano": 1791775188399698437,
+      "autoregressive_generated_tokens": 273,
+      "autoregressive_decode_seconds_rounded": 126,
+      "sampler_seconds": 368.29737814,
+      "generator_node_seconds": 380.655391247,
+      "text_encode_node_seconds": 146.592742659,
+      "model_loader_seconds": 17.818621594,
+      "sr_node_seconds": null
+    }
+  ],
+  "ep_only_raw_directory": "release-artifacts/benchmark-results/hunyuan-prefix-ep-ck-cold",
+  "ep_only_quality": {
+    "baseline": "release-artifacts/benchmark-results/hunyuan-prefix-tp-ck-cold/tp1/hunyuan_image_3_instruct_00001_.png",
+    "ep_only": "release-artifacts/benchmark-results/hunyuan-prefix-ep-ck-cold/tp2/hunyuan_image_3_instruct_00001_.png",
+    "identical": false,
+    "rmse": 3.3097640920973377,
+    "max_absolute_error": 139.0
+  },
+  "cli_help_verified": [
+    "--hunyuan-expert-parallel-only",
+    "--no-hunyuan-expert-parallel-only",
+    "--use-ck-attention"
+  ]
+}

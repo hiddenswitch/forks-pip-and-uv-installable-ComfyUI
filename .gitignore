@@ -190,3 +190,4 @@ filtered-openapi.yaml
 uv.lock
 .comfy_environment
 .scratch/
+/previews/

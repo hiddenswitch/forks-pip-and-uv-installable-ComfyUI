@@ -1,0 +1,180 @@
+{
+  "status": "Complete cold TP1/TP2 fixed-caption and TP2 full rewrite/image generations passed",
+  "source": {
+    "base_commit": "7f868cf7a9cb138cf4068dfe78b44898a1f72a8b",
+    "wheel": "release-artifacts/wheels/hunyuan-mapped-shards/comfyui-0.39.0.1-py3-none-any.whl",
+    "wheel_sha256": "678701314c085c0362003b68ea95cf8d33eaa8fb7346adaf2efa2647f11feb69",
+    "source_matches_wheel": {
+      "comfy/utils.py": true,
+      "comfy/pipeline_parallel/checkpoint.py": true,
+      "comfy/tensor_parallel/hunyuan_image3_runtime.py": true
+    },
+    "runtime_commit": "9197debf168d2834c5efcb3145a7e591eda920a8"
+  },
+  "fix": "Preserve bounded memory-mapped safetensors shards and TensorFileSlice streaming metadata instead of cloning each TP shard into anonymous CPU RAM. Copy noncontiguous selections; respect disabled mmap.",
+  "conditions": {
+    "hardware": "Two NVIDIA RTX A5000 24 GiB, NVLink; single GPU uses device 1",
+    "checkpoint": "Instruct W4A8",
+    "attention": "Comfy Kitchen native INT8",
+    "seed": 42,
+    "resolution": [
+      1024,
+      1024
+    ],
+    "steps": 50,
+    "cfg": 2.5,
+    "sampler": "Euler/simple",
+    "spectrum": false,
+    "extra_vram_headroom_gib": 2,
+    "replicates": 1,
+    "cold_process": true,
+    "warm_probes": false,
+    "os_cache_flushed": false
+  },
+  "fixed_caption_workflow": "release-artifacts/workflows/api/hunyuan-instruct-fixed-rewrite-txt2img.json",
+  "fixed_caption_results": [
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 235.5991352070123,
+      "peak_host_pss_bytes": 61967628288,
+      "peak_device_used_bytes": [
+        21717712896,
+        22659530752
+      ],
+      "start_time_unix_nano": 1791776886195198501,
+      "end_time_unix_nano": 1791777121794760312,
+      "autoregressive_generated_tokens": null,
+      "autoregressive_decode_seconds_rounded": null,
+      "sampler_seconds": 201.000981207,
+      "generator_node_seconds": 222.757985724,
+      "text_encode_node_seconds": 0.004957785,
+      "model_loader_seconds": 8.28080978,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 357.3127422929974,
+      "peak_host_pss_bytes": 58950436864,
+      "peak_device_used_bytes": [
+        21726953472
+      ],
+      "start_time_unix_nano": 1791777189152914127,
+      "end_time_unix_nano": 1791777546465992996,
+      "autoregressive_generated_tokens": null,
+      "autoregressive_decode_seconds_rounded": null,
+      "sampler_seconds": 316.98926835500004,
+      "generator_node_seconds": 349.175529331,
+      "text_encode_node_seconds": 0.004649377999999999,
+      "model_loader_seconds": 1.5198226019999999,
+      "sr_node_seconds": null
+    }
+  ],
+  "profiling": {
+    "raw_summary": "release-artifacts/benchmark-results/hunyuan-diffusion-profile/profile-summary.json",
+    "observations": [
+      "Native INT8 attention kernel time approximately halves per rank (0.67 s to 0.33 s)",
+      "NCCL duration is dominated by unequal rank arrival, not the overlapping transfer interval",
+      "Before fix, selected profiled step transfers approximately 38.5 GB HtoD on one GPU; 16.7 GB and 13.1 GB on TP2 ranks"
+    ],
+    "limitations": [
+      "Profiler overhead affects timing; profiling runs are excluded from clean benchmark comparisons",
+      "The first TP2 profiling run stopped after exporting traces and produced no image"
+    ]
+  },
+  "rejected_experiment": {
+    "change": "Declare Hunyuan transformer layers as DynamicVRAM allocation units",
+    "result": "CUDA illegal access before the sampling loop; reverted completely; no image",
+    "log": "release-artifacts/benchmark-results/hunyuan-layer-residency-profile/tp2/server.log"
+  },
+  "validation": {
+    "cpu_regressions_passed": 94,
+    "ruff": "passed",
+    "pylint_errors": "none",
+    "tp2_visual": "Pass: red fox asleep curled in grass, golden-hour light and bokeh",
+    "tp1_visual": "Pass: red fox asleep curled in grass, golden-hour light and bokeh",
+    "full_rewrite_visual": "Pass: red fox asleep curled in grass, golden-hour light and bokeh"
+  },
+  "ci": {
+    "commit": "9197debf168d2834c5efcb3145a7e591eda920a8",
+    "status": "running",
+    "python": 38201589285,
+    "cuda": 38201589311,
+    "rocm": 38201589735,
+    "backends": 38201589331
+  },
+  "fixed_caption_quality": [
+    {
+      "seed": 42,
+      "output": "9:0",
+      "tp1": "release-artifacts/benchmark-results/hunyuan-mapped-shards-cold/tp1/hunyuan_image_3_instruct_00001_.png",
+      "tp2": "release-artifacts/benchmark-results/hunyuan-mapped-shards-cold/tp2/hunyuan_image_3_instruct_00001_.png",
+      "identical": false,
+      "rmse": 0.8617297654011307,
+      "max_absolute_error": 39.0
+    }
+  ],
+  "fixed_caption_speedup": {
+    "denoising": 1.5770533380060967,
+    "diffusion_including_preparation": 1.567510714357208,
+    "complete_image_job": 1.51661313178862
+  },
+  "full_rewrite_results": [
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 394.8741994139855,
+      "peak_host_pss_bytes": 74979317760,
+      "peak_device_used_bytes": [
+        21749432320,
+        22732931072
+      ],
+      "start_time_unix_nano": 1791777565955052612,
+      "end_time_unix_nano": 1791777960829633036,
+      "autoregressive_generated_tokens": 273,
+      "autoregressive_decode_seconds_rounded": 159,
+      "sampler_seconds": 197.00510078599999,
+      "generator_node_seconds": 200.67977306,
+      "text_encode_node_seconds": 181.352118533,
+      "model_loader_seconds": 7.735620466,
+      "sr_node_seconds": null
+    }
+  ],
+  "prior_full_rewrite_tp2": {
+    "tp": 2,
+    "seed": 42,
+    "cold": true,
+    "job_wall_seconds": 498.7538959759986,
+    "peak_host_pss_bytes": 90555376640,
+    "peak_device_used_bytes": [
+      21728919552,
+      22498050048
+    ],
+    "start_time_unix_nano": 1791773435206457912,
+    "end_time_unix_nano": 1791773933960693619,
+    "sampler_seconds": 317.121331754,
+    "generator_node_seconds": 327.4082807,
+    "sr_node_seconds": null,
+    "text_encode_node_seconds": 146.468416339,
+    "model_loader_seconds": 20.492091384,
+    "autoregressive_generated_tokens": 273,
+    "autoregressive_decode_seconds_rounded": 126
+  },
+  "full_rewrite_matches_previous": true,
+  "full_rewrite_sha256": "831377ccbd410908768703e23073602036db8766f161651c4b3038d216b59136",
+  "full_rewrite_image_comparison": {
+    "identical": true,
+    "rmse": 0.0,
+    "max_absolute_error": 0.0
+  },
+  "tradeoff": "Cold decode increased from 126 to 159 seconds (rounded); the full image job still improved. No claim of autoregressive acceleration from this loader change.",
+  "full_rewrite_speedup": {
+    "job": 1.263070356878662,
+    "diffusion_including_preparation": 1.6314961677882216,
+    "denoising": 1.609711273915076
+  }
+}

@@ -1,0 +1,198 @@
+{
+  "21": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": "Two scarlet macaws with brilliant red, yellow and blue feathers perch on a mossy branch in a lush tropical rainforest. One spreads its wings wide and flaps them, then both turn their heads and gently preen each other. Bright sunlight streams through the dense green canopy, lighting up the saturated plumage and the glistening wet leaves, while vivid orange and magenta tropical flowers bloom around the branch. Vibrant colors, sharp detail, cinematic nature documentary shot with shallow depth of field. <AUDCAP>loud macaw squawks, rustling feathers and leaves, lively rainforest ambience with distant birdsong and insects<ENDAUDCAP>",
+      "previewMode": false
+    },
+    "_meta": {
+      "title": "Expanded prompt \u00b7 Preview as Text"
+    }
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "Kandinsky-6.0-Pro-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "UNETLoader"
+    }
+  },
+  "2": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "qwen_2.5_vl_7b.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "kandinsky5",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "DualCLIPLoader"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "hunyuan_video_vae_bf16.safetensors"
+    },
+    "_meta": {
+      "title": "VAELoader"
+    }
+  },
+  "4": {
+    "class_type": "Kandinsky6AudioVAELoader",
+    "inputs": {
+      "tod_vae": "v1-44.pth",
+      "bigvgan_dir": "bigvgan_vocoder",
+      "mode": "44k",
+      "scaling_factor": 0.5302
+    },
+    "_meta": {
+      "title": "Kandinsky6AudioVAELoader"
+    }
+  },
+  "5": {
+    "class_type": "Kandinsky6TextEncode",
+    "inputs": {
+      "video_caption": "Two scarlet macaws with brilliant red, yellow and blue feathers perch on a mossy branch in a lush tropical rainforest. One spreads its wings wide and flaps them, then both turn their heads and gently preen each other. Bright sunlight streams through the dense green canopy, lighting up the saturated plumage and the glistening wet leaves, while vivid orange and magenta tropical flowers bloom around the branch. Vibrant colors, sharp detail, cinematic nature documentary shot with shallow depth of field.",
+      "audio_caption": "loud macaw squawks, rustling feathers and leaves, lively rainforest ambience with distant birdsong and insects",
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode expanded video and audio prompt"
+    }
+  },
+  "6": {
+    "class_type": "Kandinsky6TextEncode",
+    "inputs": {
+      "video_caption": "Static, 2D cartoon, cartoon, 2d animation, paintings, images, worst quality, low quality, ugly, deformed, walking backwards",
+      "audio_caption": "",
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Negative video and audio prompt"
+    }
+  },
+  "7": {
+    "class_type": "Kandinsky6EmptyLatent",
+    "inputs": {
+      "width": 864,
+      "height": 480,
+      "length": 121,
+      "fps": 24,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "Kandinsky6EmptyLatent"
+    }
+  },
+  "8": {
+    "class_type": "Kandinsky6Sampler",
+    "inputs": {
+      "seed": 14712000391866124523,
+      "steps": 50,
+      "cfg": 5,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "7",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Kandinsky6Sampler"
+    }
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEDecode"
+    }
+  },
+  "10": {
+    "class_type": "Kandinsky6AudioVAEDecode",
+    "inputs": {
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "joint_latent": [
+        "8",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Kandinsky6AudioVAEDecode"
+    }
+  },
+  "11": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "fps": [
+        "7",
+        1
+      ],
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "codec": "none",
+      "images": [
+        "9",
+        0
+      ],
+      "audio": [
+        "10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "CreateVideo"
+    }
+  },
+  "12": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "filename_prefix": "kandinsky6/K6",
+      "format": "mp4",
+      "format.codec": "h264",
+      "format.codec.encoding": "auto",
+      "codec": "auto",
+      "video": [
+        "11",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SaveVideo"
+    }
+  }
+}

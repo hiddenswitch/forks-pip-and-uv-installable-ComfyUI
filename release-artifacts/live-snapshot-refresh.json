@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "created_at": "2026-10-10T20:42:06.315836+00:00",
+    "format": "appmana-comfyui-pip-facade-registry-snapshot",
+    "only_known_nodes": "0",
+    "project_count": "8269",
+    "registry_base_url": "https://api.comfy.org",
+    "schema_version": "1",
+    "version_count": "29030"
+  },
+  "release_projects": {
+    "comfyui-hunyuanimage3": "0.1.0",
+    "kandinsky6": "1.0.2",
+    "kandinsky6-sr": "0.1.2"
+  },
+  "starting_snapshot": {
+    "created_at": "2026-10-10T20:31:00.927235+00:00",
+    "project_count": 8268,
+    "version_count": 29029
+  },
+  "method": "Incremental refresh of an existing production snapshot, using candidate updater code; production snapshot was read only."
+}

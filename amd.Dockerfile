@@ -16,7 +16,7 @@ ENV TZ="Etc/UTC" \
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libsndfile1 libxcb1 \
-    libcairo2 zip unzip ca-certificates git \
+    libcairo2 zip unzip ca-certificates git build-essential \
     && uv venv /opt/venv --python python3.12 \
     && touch /overrides.txt \
     && rm -rf /var/lib/apt/lists/*

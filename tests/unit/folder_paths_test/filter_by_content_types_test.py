@@ -79,3 +79,15 @@ def test_handles_no_files():
 
     files = []
     assert filter_files_content_types(files, ["image", "audio", "video"]) == []
+
+
+
+def test_exr_is_listed_as_an_image_once_registered():
+    # LoadImage decodes EXR through PyAV, so registering .exr makes it selectable.
+    from comfy.mime_types import init_mime_types
+    from comfy.cmd.folder_paths import filter_files_content_types
+    from comfy.component_model.folder_path_types import extension_mimetypes_cache
+
+    init_mime_types()
+    with patch("comfy.component_model.folder_path_types.extension_mimetypes_cache", extension_mimetypes_cache.copy()):
+        assert filter_files_content_types(["a.exr", "b.png"], ["image"]) == ["a.exr", "b.png"]

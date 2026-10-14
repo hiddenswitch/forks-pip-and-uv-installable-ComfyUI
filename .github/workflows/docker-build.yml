@@ -1,6 +1,7 @@
 name: Build, Validate, and Publish CUDA Images
 
 on:
+  workflow_dispatch:
   push:
     branches: [develop, master]
     tags: ["v*"]
@@ -128,7 +129,7 @@ jobs:
 
   promote:
     needs: [build-candidates, validate-candidates]
-    if: startsWith(github.ref, 'refs/heads/')
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment: Testing
     permissions:

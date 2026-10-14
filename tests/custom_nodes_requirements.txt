@@ -20,3 +20,8 @@ comfyui-frame-interpolation
 comfyui-crystools
 comfyui-detail-daemon
 comfyui-prompt-combinator
+
+# Kandinsky 6 generation and SR, plus the pinned upstream HunyuanImage3 facade.
+kandinsky6==1.0.2
+kandinsky6-sr==0.1.2
+comfyui-hunyuanimage3==0.1.0

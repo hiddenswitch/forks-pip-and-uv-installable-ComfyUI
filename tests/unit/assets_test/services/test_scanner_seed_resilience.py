@@ -1,3 +1,4 @@
+from datetime import datetime
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
@@ -203,6 +204,7 @@ def test_seed_propagates_unrelated_integrity_error(
         job_id: str | None,
         loader_path: str | None,
         tags: list[str],
+        created_at: datetime,
     ) -> Asset:
         raise unrelated_error
 
@@ -232,6 +234,7 @@ def test_seed_raises_memory_error_instead_of_attempting_later_specs(
         job_id: str | None,
         loader_path: str | None,
         tags: list[str],
+        created_at: datetime,
     ) -> Asset:
         attempted.append(name)
         raise MemoryError("out of memory")
@@ -266,6 +269,7 @@ def test_seed_attempts_remaining_specs_before_propagating_integrity_error(
         job_id: str | None,
         loader_path: str | None,
         tags: list[str],
+        created_at: datetime,
     ) -> Asset:
         attempted.append(name)
         if name == "broken.bin":
@@ -278,6 +282,7 @@ def test_seed_attempts_remaining_specs_before_propagating_integrity_error(
             job_id=job_id,
             loader_path=loader_path,
             tags=tags,
+            created_at=created_at,
         )
 
     monkeypatch.setattr("comfy.app.assets.scanner.create_record", _create_record_or_raise)
@@ -315,6 +320,7 @@ def test_insert_commits_successful_specs_before_propagating_batch_fault(
         job_id: str | None,
         loader_path: str | None,
         tags: list[str],
+        created_at: datetime,
     ) -> Asset:
         if name == "broken.bin":
             raise RuntimeError("forced record creation failure")
@@ -326,6 +332,7 @@ def test_insert_commits_successful_specs_before_propagating_batch_fault(
             job_id=job_id,
             loader_path=loader_path,
             tags=tags,
+            created_at=created_at,
         )
 
     monkeypatch.setattr("comfy.app.assets.scanner.create_session", _create_session)
