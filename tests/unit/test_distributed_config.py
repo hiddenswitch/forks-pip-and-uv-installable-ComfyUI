@@ -10,6 +10,7 @@ from comfy.distributed.config import (
     DistributedConfiguration,
 )
 from comfy.distributed.device import CudaAcceleratorDeviceProvider
+from comfy.distributed.runtime import CudaDistributedRuntimeBootstrap
 from comfy.distributed.executors import ContextVarProcessPoolExecutor
 from comfy.distributed.process_group import (
     TorchDistributedCudaIndependentProcessGroupFactory,
@@ -40,6 +41,16 @@ def _child_attention_backend():
 
 async def _progress_generator():
     yield None
+
+
+@pytest.mark.parametrize("rank", [0, 1])
+def test_external_tensor_parallel_fails_before_running_a_workflow(rank):
+    configuration = DistributedConfiguration(
+        rank=rank, world_size=2, tensor_parallel_size=2,
+        executor_backend="external_launcher", externally_launched=True,
+    )
+    with pytest.raises(NotImplementedError, match="single host"):
+        CudaDistributedRuntimeBootstrap().initialize(configuration)
 
 
 def test_torchrun_environment_is_the_canonical_process_identity():

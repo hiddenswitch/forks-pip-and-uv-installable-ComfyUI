@@ -27,6 +27,11 @@ class CudaDistributedRuntimeBootstrap(AbstractBaseDistributedRuntimeBootstrap):
         torch.cuda.set_device(configuration.local_rank)
 
     def initialize(self, configuration: DistributedConfiguration):
+        if configuration.externally_launched and configuration.tensor_parallel_size > 1:
+            raise NotImplementedError(
+                "External-launcher tensor parallelism is not implemented; "
+                "use the internal multiprocessing executor on a single host"
+            )
         if (
             not configuration.externally_launched
             or configuration.pipeline_parallel_size == 1
