@@ -42,6 +42,7 @@ uv pip install --index-url https://stable.repo.amd.com/rocm/whl-next/ \
   amd-torch-device-gfx1102==2.14.0+rocm10.1.0 \
   amd-torchvision-device-gfx1102==0.29.0a0+rocm10.1.0
 uv pip install --extra-index-url https://nodes.appmana.com/simple/ comfyui
+source .venv/bin/activate
 comfyui serve --guess-settings --fp32-vae
 ```
 
@@ -62,6 +63,10 @@ source .venv/bin/activate
 python -c "import torch; assert torch.xpu.is_available(); print(torch.xpu.get_device_name(0))"
 comfyui serve --guess-settings
 ```
+
+On Arc A380, set `TRITON_INTEL_DEVICE_ARCH=dg2` before starting ComfyUI when
+using `torch.compile`. The Triton version in this stack recognizes DG2 G10 but
+does not automatically select the architecture for the A380's G11 device.
 
 ## Windows
 
