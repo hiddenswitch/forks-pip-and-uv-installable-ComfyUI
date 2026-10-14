@@ -125,6 +125,42 @@ def test_hunyuan_image3_two_stage_forward_matches_unpartitioned(hunyuan, model_t
     assert torch.equal(actual, expected)
 
 
+def test_hunyuan_image3_stage_layers_run_through_comfy_prefetch_queue(hunyuan, monkeypatch):
+    # The node's LayerLookahead faults every module that has a `_v` attribute, and DynamicVRAM
+    # leaves `_v` None on modules that are resident: on the chain the first step failed in
+    # vbar_fault with "cannot unpack non-iterable NoneType". ComfyUI's own prefetch queue skips them.
+    from comfy import model_prefetch
+
+    upstream = hunyuan("hunyuan_image_3.model")
+    operations = hunyuan("hunyuan_image_3.ops").QuantlessMoEOps
+    params = _tiny_params(hunyuan, "instruct")
+    stage = upstream.HunyuanImage3(params, dtype=torch.float32, device="cpu", operations=operations,
+                                   pipeline_stage=PipelineStageConfig(1, 2, 1, 2))
+    hunyuan("tests.op_module_init").init_op_modules(stage, torch.float32)
+    events = []
+
+    def make_prefetch_queue(queue, device, transformer_options):
+        events.append(("queue", tuple(queue), transformer_options["prefetch_dynamic_vbars"]))
+        return ["queue"]
+
+    def prefetch_queue_pop(queue, device, module, *args, **kwargs):
+        events.append(("pop", module))
+
+    def lookahead(*args, **kwargs):
+        raise AssertionError("the node's LayerLookahead faults resident modules")
+
+    monkeypatch.setattr(model_prefetch, "make_prefetch_queue", make_prefetch_queue)
+    monkeypatch.setattr(model_prefetch, "prefetch_queue_pop", prefetch_queue_pop)
+    monkeypatch.setattr(upstream, "LayerLookahead", lookahead)
+    hidden = torch.randn(1, 4, params.hidden_size)
+    freqs = upstream.build_rope_freqs(4, params.attention_head_dim, [], params.rope_theta)
+
+    stage._run_pipeline_layers(hidden, freqs, torch.zeros(1, 1, 4, 4), True)
+
+    layer = stage.model.layers[1]
+    assert events == [("queue", (layer,), True), ("pop", layer), ("pop", None)]
+
+
 def _full_size_descriptors(hunyuan):
     upstream = hunyuan("hunyuan_image_3.model")
     operations = hunyuan("hunyuan_image_3.ops").QuantlessMoEOps
@@ -293,6 +329,12 @@ def test_hunyuan_image3_stage_loads_only_its_keys_from_the_checkpoint(hunyuan, t
     patcher = stage_loader.load_stage(plan, plan.stages[1], torch.device("cpu"))
 
     assert loaded == [plan.stages[1].owned_keys]
+    # a bf16 bank goes through ComfyUI's cast like any weight, so DynamicVRAM serves a resident
+    # bank from VRAM; the node's own bank copied the whole bank from host memory on every forward
+    from comfy import ops
+
+    bank = patcher.model.diffusion_model.model.layers[1].mlp.experts_gate_up_proj
+    assert isinstance(bank, ops.MixedPrecisionOp)
     stage_state = patcher.model.diffusion_model.state_dict()
     assert set(stage_state) == plan.stages[1].owned_keys
     for key, value in stage_state.items():

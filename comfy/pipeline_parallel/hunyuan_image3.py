@@ -6,9 +6,8 @@ node's classes when ComfyUI imports it, and routes the node's loader through `lo
 whenever this process spans more than one pipeline device, exactly as `load_diffusion_model` does
 for the built-in families.
 
-A stage is the node's own module, constructed on the meta device and then materialized only where
-the stage spec assigns it keys, so a rank never allocates another stage's 4.6 GiB decoder layers.
-The first stage builds each step's sequence (token embeddings, patch embedding, timestep and
+A stage is the node's own module with the submodules other stages own dropped before any weight
+is loaded, so a rank never holds another stage's 4.6 GiB decoder layers. The first stage builds each step's sequence (token embeddings, patch embedding, timestep and
 guidance embedders, conditioning images) and with it the attention mask and rotary table, which
 travel with the hidden states: rebuilding them costs a stage more than the transfer does. The last
 stage applies `final_layer` to the image rows.
@@ -25,7 +24,7 @@ import sys
 
 import torch
 
-from .. import model_management, ops, utils
+from .. import model_management, model_prefetch, ops, utils
 from ..model_patcher import get_model_patcher_class
 
 from .checkpoint import SafetensorsCheckpointReader
@@ -54,8 +53,8 @@ def _upstream(package: str, name: str):
     return importlib.import_module(f"{package}.{name}")
 
 
-def _prune(module: torch.nn.Module, prefix: str, stage: PipelineStageConfig, device) -> torch.nn.Module:
-    """`module` with every submodule another stage owns replaced, the rest materialized on `device`.
+def _prune(module: torch.nn.Module, prefix: str, stage: PipelineStageConfig) -> torch.nn.Module:
+    """`module` with every submodule another stage owns replaced.
 
     Ownership is decided by module name, the way the stage spec decides it for a key: a decoder
     layer by its index, anything else by its prefix. A module's parameters cannot decide it, since
@@ -68,9 +67,9 @@ def _prune(module: torch.nn.Module, prefix: str, stage: PipelineStageConfig, dev
         spec.block_index(f"{prefix}{name}.") is not None for name, _ in module.named_modules() if name
     )
     if spec.block_index(prefix) is not None or not holds_layers:
-        return module.to_empty(device=device) if spec.owns_key(prefix, plan, stage.count) else PipelineMissingLayer()
+        return module if spec.owns_key(prefix, plan, stage.count) else PipelineMissingLayer()
     for name, child in list(module.named_children()):
-        replacement = _prune(child, f"{prefix}{name}.", stage, device)
+        replacement = _prune(child, f"{prefix}{name}.", stage)
         if replacement is not child:
             module._modules[name] = replacement
     if next(module.parameters(recurse=False), None) is not None or next(module.buffers(recurse=False), None) is not None:
@@ -85,26 +84,33 @@ def _stage_init(original):
             original(self, config, dtype=dtype, device=device, operations=operations)
             self.pipeline_stage = None
             return
-        original(self, config, dtype=dtype, device="meta", operations=operations)
+        # Built whole, then pruned. ComfyUI's ops create Linear and expert-bank weights only when a
+        # state dict arrives, so the whole module costs its norms, embeddings and convolutions
+        # (about 1.6 GiB, never written) until the other stages' modules are dropped. It cannot be
+        # built on the meta device instead: mixed-precision ops keep the construction device for
+        # the weights they create at load.
+        original(self, config, dtype=dtype, device=device, operations=operations)
         self.pipeline_stage = pipeline_stage
-        _prune(self, "", pipeline_stage, device)
+        _prune(self, "", pipeline_stage)
 
     return __init__
 
 
 def _run_pipeline_layers(self, hidden_states, freqs, attention_mask, prefetch):
-    """This stage's decoder layers, exactly as the node's `HunyuanImage3Model.forward` runs them."""
-    source = sys.modules[type(self).__module__]
+    """This stage's decoder layers, computed as the node's `HunyuanImage3Model.forward` computes them.
+
+    Weights are faulted ahead through ComfyUI's prefetch queue, as the built-in families' block
+    loops do, rather than the node's LayerLookahead: that faults every module carrying a `_v`
+    attribute, and DynamicVRAM leaves `_v` None on a module it keeps resident.
+    """
     stage = self.pipeline_stage
+    device = hidden_states.device
     layers = [self.model.layers[index] for index in range(stage.start_layer, stage.end_layer)]
-    lookahead = source.LayerLookahead(layers, hidden_states.device, prefetch)
-    try:
-        for index, layer in enumerate(layers):
-            lookahead.before(index)
-            hidden_states = layer(hidden_states, freqs, attention_mask, None)
-            lookahead.after(index)
-    finally:
-        lookahead.abort()
+    queue = model_prefetch.make_prefetch_queue(layers, device, {"prefetch_dynamic_vbars": prefetch})
+    for layer in layers:
+        model_prefetch.prefetch_queue_pop(queue, device, layer, malloc_scope="block")
+        hidden_states = layer(hidden_states, freqs, attention_mask, None)
+    model_prefetch.prefetch_queue_pop(queue, device, None, malloc_scope="block")
     return hidden_states
 
 
@@ -255,8 +261,12 @@ class HunyuanImage3PipelineStageLoader(AbstractBasePipelineStageLoader):
 
     def _operations(self, device):
         if self.quant_config is None:
-            # a non-quantized checkpoint gets the plain ops plus the node's expert bank
-            return self.upstream_ops.QuantlessMoEOps
+            # ComfyUI's mixed-precision ops hold an unquantized bank as a plain compute-dtype
+            # [E, out, in] weight and cast it like any other, so DynamicVRAM serves a resident
+            # bank from VRAM. The node's QuantlessMoEOps bank copies itself from host memory on
+            # every forward, which a stage that fits on its card never needs. With no quantized
+            # layer there are no formats to disable.
+            return ops.mixed_precision_ops({}, self.dtype)
         return ops.pick_operations(self.dtype, self.dtype, load_device=device,
                                    model_config=self.upstream_loader._OpsConfig(self.quant_config))
 
