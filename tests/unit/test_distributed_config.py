@@ -43,7 +43,8 @@ async def _progress_generator():
     yield None
 
 
-def test_comfy_kitchen_attention_follows_execution_configuration(monkeypatch):
+@pytest.mark.parametrize("pytorch_enabled", [False, True])
+def test_comfy_kitchen_attention_follows_execution_configuration(monkeypatch, pytorch_enabled):
     from comfy.ldm.modules import attention
 
     # Keep the imported entry point across configuration changes, as workers do.
@@ -51,12 +52,15 @@ def test_comfy_kitchen_attention_follows_execution_configuration(monkeypatch):
     monkeypatch.setattr(attention, "COMFY_KITCHEN_INT8_ATTENTION_IS_AVAILABLE", True)
     monkeypatch.setattr(attention, "attention_comfy_kitchen_int8", lambda: "int8")
     monkeypatch.setattr(attention, "attention_pytorch", lambda: "sdpa")
+    monkeypatch.setattr(attention, "attention_sub_quad", lambda: "sub_quad")
     monkeypatch.setattr(attention.model_management, "xformers_enabled", lambda: False)
-    with context_configuration(Configuration(use_pytorch_cross_attention=True)):
-        assert dispatch() == "sdpa"
+    monkeypatch.setattr(attention.model_management, "ENABLE_PYTORCH_ATTENTION", pytorch_enabled)
+    baseline = "sdpa" if pytorch_enabled else "sub_quad"
+    with context_configuration(Configuration()):
+        assert dispatch() == baseline
         with context_configuration(Configuration(use_ck_attention=True)):
             assert dispatch() == "int8"
-        assert dispatch() == "sdpa"
+        assert dispatch() == baseline
 
 
 def test_unavailable_comfy_kitchen_attention_fails_when_requested(monkeypatch):
