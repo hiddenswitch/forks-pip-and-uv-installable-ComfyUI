@@ -484,6 +484,46 @@ async def test_int8_fast_is_served_as_injected_facade_project(monkeypatch):
     )
 
 
+async def test_nynxz_iris_is_served_beside_registry_comfyui_iris(monkeypatch):
+    from comfy.custom_node_facade import registry as registry_module
+    from comfy.custom_node_facade.registry import FacadeRegistry
+
+    async def empty_manager_registry(_session):
+        return []
+
+    async def cnr_nodes(_self):
+        return [
+            {
+                "id": "comfyui-iris",
+                "name": "Iris",
+                "repository": "https://github.com/envy-ai/ComfyUI-Iris",
+                "status": "NodeStatusActive",
+                "latest_version": {"version": "0.1.0", "status": "NodeVersionStatusActive"},
+            },
+        ]
+
+    monkeypatch.setattr(
+        registry_module, "_load_manager_registry", empty_manager_registry
+    )
+    monkeypatch.setattr(FacadeRegistry, "_fetch_cnr_nodes", cnr_nodes)
+
+    registry = FacadeRegistry(session=None)  # type: ignore[arg-type]
+    project = await registry.get_project("comfyui-iris-nynxz")
+
+    assert project is not None
+    assert project.repo_url == "https://github.com/Nynxz/ComfyUI-Iris"
+    versions = await registry.list_versions(project)
+    assert [version.version for version in versions] == ["0.1.0"]
+    assert versions[0].download_url == (
+        "https://api.github.com/repos/Nynxz/ComfyUI-Iris/zipball/"
+        "fd8eff4a5fc52efa72cdd9677ebe5bf86f7ff21c"
+    )
+
+    registry_owner = await registry.get_project("comfyui-iris")
+    assert registry_owner is not None
+    assert registry_owner.repo_url == "https://github.com/envy-ai/ComfyUI-Iris"
+
+
 def test_github_archive_url_uses_zipball_for_default_branch():
     from comfy.custom_node_facade.registry import FacadeRegistry
 

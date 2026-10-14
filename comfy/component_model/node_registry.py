@@ -57,6 +57,13 @@ CUSTOM_NODE_REGISTRY: list[CustomNodeSpec] = [
         ],
     ),
     CustomNodeSpec(
+        node_id="comfyui-iris-nynxz",
+        repo_url="https://github.com/Nynxz/ComfyUI-Iris",
+        display_name="ComfyUI-Iris (Nynxz)",
+        git_ref="fd8eff4a5fc52efa72cdd9677ebe5bf86f7ff21c",
+        inject_version="0.1.0",
+    ),
+    CustomNodeSpec(
         node_id="ComfyUI-Prompt-Combinator",
         repo_url="https://github.com/lquesada/ComfyUI-Prompt-Combinator",
         display_name="ComfyUI-Prompt-Combinator",
