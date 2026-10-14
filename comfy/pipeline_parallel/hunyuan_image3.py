@@ -27,6 +27,7 @@ import torch
 from .. import model_management, model_prefetch, ops, utils
 from ..model_patcher import get_model_patcher_class
 
+from ..tensor_parallel.hunyuan_image3_runtime import prepare_batched_inputs
 from .checkpoint import SafetensorsCheckpointReader
 from .loader import AbstractBasePipelineStageLoader, load_pipeline_model, resolve_pipeline_devices
 from .patcher import get_pipeline_model_patcher_class
@@ -83,6 +84,7 @@ def _stage_init(original):
         if pipeline_stage is None:
             original(self, config, dtype=dtype, device=device, operations=operations)
             self.pipeline_stage = None
+            self.supports_prefix_cache = True
             return
         # Built whole, then pruned. ComfyUI's ops create Linear and expert-bank weights only when a
         # state dict arrives, so the whole module costs its norms, embeddings and convolutions
@@ -91,6 +93,7 @@ def _stage_init(original):
         # the weights they create at load.
         original(self, config, dtype=dtype, device=device, operations=operations)
         self.pipeline_stage = pipeline_stage
+        self.supports_prefix_cache = False
         _prune(self, "", pipeline_stage)
 
     return __init__
@@ -118,7 +121,6 @@ def _first_stage_forward(self, x, timestep, transformer_options=None, guidance=N
                          cond_latent=None, cond_vit=None, cond_vit_grid=None):
     """The node's `HunyuanImage3.forward` up to this stage's last layer."""
     source = sys.modules[type(self).__module__]
-    pipeline = importlib.import_module(source.__package__ + ".pipeline")
     if not self.pipeline_stage.is_first:
         raise RuntimeError("Only the first HunyuanImage3 pipeline stage accepts model inputs")
     transformer_options = transformer_options or {}
@@ -127,35 +129,20 @@ def _first_stage_forward(self, x, timestep, transformer_options=None, guidance=N
     if ids is None:
         raise ValueError("HunyuanImage3 requires token ids; the conditioning must carry them")
 
-    latents = x[:, :, 0] if x.dim() == 5 else x
-    cond_latent = source._as_list(cond_latent)
-    step = source._sequence_from_ids(ids.flatten(), latents, self.config, cond_latent=cond_latent,
-                                     cond_patch_grid=cond_vit_grid)
-    seq_len = step["ids"].shape[0]
-    device, dtype = x.device, x.dtype
-
-    sample_sigmas = transformer_options.get("sample_sigmas")
-    sigmas = transformer_options.get("sigmas")
-    if sample_sigmas is None or sigmas is None:
-        raise ValueError("HunyuanImage3 needs the sampler's schedule (sample_sigmas) to resolve timestep_r")
-    index = torch.where(sigmas.flatten()[0] == sample_sigmas)[0]
-    timestep_r = (sample_sigmas[index[0] + 1] * pipeline.NUM_TRAIN_TIMESTEPS).reshape(1).to(device=device, dtype=torch.float32)
-
-    timestep = timestep.flatten()[:1]
-    mask = pipeline.build_attention_mask(step, seq_len, dtype, device)
-    freqs = source.build_rope_freqs(seq_len, self.config.attention_head_dim, step["rope_image_info"],
-                                    self.config.rope_theta, device=device)
-    embeds = pipeline.build_input_embeddings(self, step, latents.to(dtype), timestep, guidance, timestep_r,
-                                             cond_latent=cond_latent, cond_vit=cond_vit)
+    if not isinstance(ids, (tuple, list)):
+        ids = (ids,) * x.shape[0]
+    ids = tuple(prompt.to(x.device) for prompt in ids)
+    steps, embeds, freqs, mask, _ = prepare_batched_inputs(
+        self, x, timestep, transformer_options, guidance, ids, source._as_list(cond_latent),
+        source._as_list(cond_vit), cond_vit_grid)
     prefetch = bool(transformer_options.get("prefetch_dynamic_vbars", False))
     hidden_states = self._run_pipeline_layers(embeds, freqs, mask, prefetch)
     return PipelineIntermediateTensors(
         {"hidden_states": hidden_states, "freqs": freqs, "attention_mask": mask, "timestep": timestep},
         {
-            "image_start": step["image_slice"].start,
-            "image_stop": step["image_slice"].stop,
-            "token_height": int(step["token_height"]),
-            "token_width": int(step["token_width"]),
+            "image_slices": [(step["image_slice"].start, step["image_slice"].stop) for step in steps],
+            "token_height": int(steps[0]["token_height"]),
+            "token_width": int(steps[0]["token_width"]),
             "latent_dims": x.dim(),
             "prefetch_dynamic_vbars": prefetch,
         },
@@ -189,8 +176,9 @@ def forward_pipeline_stage(self, intermediate: PipelineIntermediateTensors):
         tensors = dict(tensors)
         tensors["hidden_states"] = hidden_states
         return PipelineIntermediateTensors(tensors, metadata)
-    image_hidden = hidden_states[0, metadata["image_start"]:metadata["image_stop"]]
-    pred = self.final_layer(image_hidden.unsqueeze(0), self.time_embed_2(tensors["timestep"]),
+    image_hidden = torch.stack([hidden_states[index, start:stop]
+                                for index, (start, stop) in enumerate(metadata["image_slices"])])
+    pred = self.final_layer(image_hidden, self.time_embed_2(tensors["timestep"]),
                             metadata["token_height"], metadata["token_width"])
     return pred.unsqueeze(2) if metadata["latent_dims"] == 5 else pred
 

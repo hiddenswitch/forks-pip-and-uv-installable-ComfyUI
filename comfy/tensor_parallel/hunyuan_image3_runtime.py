@@ -121,26 +121,8 @@ def attention_forward(self, hidden_states, freqs, attention_mask=None, kv_cache=
     return self.o_proj(out.transpose(1, 2).reshape(batch, length, -1))
 
 
-def batched_forward(original, self, x, timestep, context=None, transformer_options=None,
-                    guidance=None, ids=None, cond_latent=None, cond_vit=None, cond_vit_grid=None,
-                    hy3_prefix=None, **kwargs):
-    options = transformer_options or {}
-    if ids is None:
-        return original(self, x, timestep, context=context, transformer_options=options, guidance=guidance,
-                        cond_latent=cond_latent, cond_vit=cond_vit, cond_vit_grid=cond_vit_grid, **kwargs)
-    if not isinstance(ids, (list, tuple)):
-        ids = (ids,) * x.shape[0]
-    ids = tuple(prompt.to(device=x.device) for prompt in ids)
-    # Spectrum owns a separate forecast for each CFG lane.
-    if options.get("hy3_spectrum") is not None:
-        lanes = options.get("cond_or_uncond", [0])
-        return torch.cat([
-            original(self, x[index:index + 1], timestep[index:index + 1], context=context,
-                     transformer_options=dict(options, cond_or_uncond=[lanes[index * len(lanes) // len(ids)]]),
-                     guidance=guidance, ids=prompt, cond_latent=cond_latent, cond_vit=cond_vit,
-                     cond_vit_grid=cond_vit_grid, **kwargs)
-            for index, prompt in enumerate(ids)
-        ])
+def prepare_batched_inputs(self, x, timestep, options, guidance, ids, cond_latent=None,
+                           cond_vit=None, cond_vit_grid=None, hy3_prefix=None):
     source = sys.modules[type(self).__module__]
     pipeline = sys.modules[source.__package__ + ".pipeline"]
     latents = x[:, :, 0] if x.dim() == 5 else x
@@ -194,13 +176,39 @@ def batched_forward(original, self, x, timestep, context=None, transformer_optio
         heads = self.model.layers[0].self_attn.num_key_value_heads
         start = parallel.rank * heads if parallel is not None and heads != packed.shape[3] else 0
         cache = [PrefixCache(layer[0, :, start:start + heads], layer[1, :, start:start + heads]) for layer in packed]
-    hidden = self.model(torch.cat(embeddings), torch.cat(frequencies), torch.cat(masks), kv_cache=cache, transformer_options=options)
+    return steps, torch.cat(embeddings), torch.cat(frequencies), torch.cat(masks), cache
+
+
+def batched_forward(original, self, x, timestep, context=None, transformer_options=None,
+                    guidance=None, ids=None, cond_latent=None, cond_vit=None, cond_vit_grid=None,
+                    hy3_prefix=None, **kwargs):
+    options = transformer_options or {}
+    if ids is None:
+        return original(self, x, timestep, context=context, transformer_options=options, guidance=guidance,
+                        cond_latent=cond_latent, cond_vit=cond_vit, cond_vit_grid=cond_vit_grid, **kwargs)
+    if not isinstance(ids, (list, tuple)):
+        ids = (ids,) * x.shape[0]
+    ids = tuple(prompt.to(device=x.device) for prompt in ids)
+    # Spectrum owns a separate forecast for each CFG lane.
+    if options.get("hy3_spectrum") is not None:
+        lanes = options.get("cond_or_uncond", [0])
+        return torch.cat([
+            original(self, x[index:index + 1], timestep[index:index + 1], context=context,
+                     transformer_options=dict(options, cond_or_uncond=[lanes[index * len(lanes) // len(ids)]]),
+                     guidance=guidance, ids=prompt, cond_latent=cond_latent, cond_vit=cond_vit,
+                     cond_vit_grid=cond_vit_grid, **kwargs)
+            for index, prompt in enumerate(ids)
+        ])
+    steps, embeddings, frequencies, masks, cache = prepare_batched_inputs(
+        self, x, timestep, options, guidance, ids, cond_latent, cond_vit, cond_vit_grid, hy3_prefix)
+    hidden = self.model(embeddings, frequencies, masks, kv_cache=cache, transformer_options=options)
     image_hidden = torch.stack([hidden[index, step["image_slice"]] for index, step in enumerate(steps)])
     pred = self.final_layer(image_hidden, self.time_embed_2(timestep), steps[0]["token_height"], steps[0]["token_width"])
     return pred.unsqueeze(2) if x.dim() == 5 else pred
 
 
 def install(model, base):
+    model.HunyuanImage3.supports_prefix_cache = True
     initialize = model.HunyuanImage3Attention.__init__
 
     @wraps(initialize)
@@ -228,7 +236,7 @@ def install(model, base):
             result["ids"] = PromptCondition((kwargs["ids"],))
             options = self.current_patcher.model_options if self.current_patcher is not None else {}
             spectrum = options.get("transformer_options", {}).get("hy3_spectrum")
-            if (not self.diffusion_model.config.cfg_distilled and spectrum is None
+            if (self.diffusion_model.supports_prefix_cache and not self.diffusion_model.config.cfg_distilled and spectrum is None
                     and kwargs.get("hooks") is None and kwargs.get("noise") is not None
                     and kwargs.get("cond_latent") is None):
                 prefix = self.execute_diffusion_model("prepare_condition", kwargs["ids"], kwargs["noise"],

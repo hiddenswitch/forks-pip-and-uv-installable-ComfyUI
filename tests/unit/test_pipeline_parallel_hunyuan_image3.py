@@ -79,7 +79,8 @@ def _tiny_params(hunyuan, model_type):
 
 
 @pytest.mark.parametrize("model_type", ["instruct", "instruct_distil"])
-def test_hunyuan_image3_two_stage_forward_matches_unpartitioned(hunyuan, model_type):
+@pytest.mark.parametrize("batch_size", [1, 2])
+def test_hunyuan_image3_two_stage_forward_matches_unpartitioned(hunyuan, model_type, batch_size):
     upstream = hunyuan("hunyuan_image_3.model")
     operations = hunyuan("hunyuan_image_3.ops").QuantlessMoEOps
     initialize = hunyuan("tests.op_module_init").init_op_modules
@@ -113,8 +114,10 @@ def test_hunyuan_image3_two_stage_forward_matches_unpartitioned(hunyuan, model_t
         FakePipelineTransport(FakeDeviceRuntime()),
     )
     ids = torch.tensor([1, 2, 3, 4, 5, 6, 7, 63, 63, 63, 63, 8])
-    x = torch.randn(1, params.vae_latent_channels, 1, 2, 2)
-    timestep = torch.tensor([900.0])
+    if batch_size == 2:
+        ids = (ids, ids[3:])
+    x = torch.randn(batch_size, params.vae_latent_channels, 1, 2, 2)
+    timestep = torch.full((batch_size,), 900.0)
     guidance = torch.tensor([2500.0]) if params.cfg_distilled else None
     options = {"sample_sigmas": torch.tensor([1.0, 0.9, 0.0]), "sigmas": torch.tensor([0.9])}
 
@@ -339,3 +342,23 @@ def test_hunyuan_image3_stage_loads_only_its_keys_from_the_checkpoint(hunyuan, t
     assert set(stage_state) == plan.stages[1].owned_keys
     for key, value in stage_state.items():
         assert torch.equal(value, state[key])
+
+
+def test_pipeline_conditioning_does_not_run_the_full_model_prefix(hunyuan):
+    from types import SimpleNamespace
+    from comfy import ops
+
+    upstream = hunyuan("hunyuan_image_3.model")
+    params = _tiny_params(hunyuan, "instruct")
+    stage = upstream.HunyuanImage3(params, dtype=torch.float32, device="cpu",
+                                  operations=ops.mixed_precision_ops(compute_dtype=torch.float32),
+                                  pipeline_stage=PipelineStageConfig(0, 2, 0, 1))
+
+    def execute_diffusion_model(*args, **kwargs):
+        raise AssertionError("prefix preparation traverses layers owned by other stages")
+
+    model = SimpleNamespace(diffusion_model=stage, current_patcher=None,
+                            execute_diffusion_model=execute_diffusion_model)
+    result = hunyuan("hunyuan_image_3.model_base").HunyuanImage3Model.extra_conds(
+        model, ids=torch.tensor([1, 2, 63]), noise=torch.zeros(1, params.vae_latent_channels, 1, 2, 2))
+    assert "hy3_prefix" not in result
