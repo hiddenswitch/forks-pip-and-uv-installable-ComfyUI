@@ -1,0 +1,31 @@
+{
+  "observations": [
+    {
+      "checked_at": "2026-10-10T21:50:19.296730+00:00",
+      "status": 200,
+      "cache_control": "no-store",
+      "body": {
+        "ok": true,
+        "live": true,
+        "ready": true,
+        "snapshot_created_at": "2026-10-10T21:45:29.362530+00:00",
+        "snapshot_age_seconds": 289.953418,
+        "snapshot_error": null
+      }
+    },
+    {
+      "checked_at": "2026-10-10T22:39:21.705124+00:00",
+      "status": 200,
+      "cache_control": "no-store",
+      "body": {
+        "ok": true,
+        "live": true,
+        "ready": true,
+        "snapshot_created_at": "2026-10-10T22:30:31.040756+00:00",
+        "snapshot_age_seconds": 530.654654,
+        "snapshot_error": null
+      }
+    }
+  ],
+  "snapshot_advanced": true
+}

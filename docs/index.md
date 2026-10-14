@@ -22,7 +22,6 @@
 ## Development
 - [Testing](testing.md)
 - [Linting](linting.md)
-- [Merging upstream](merging.md)
 - [Troubleshooting](troubleshooting.md)
 
 ## Community & Support

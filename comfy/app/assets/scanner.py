@@ -76,6 +76,7 @@ from sqlalchemy.orm import Session
 import sqlalchemy as sa
 
 logger = logging.getLogger(__name__)
+from .helpers import mtime_ns_to_utc
 
 __all__ = [
     "clear_pending_verifications",
@@ -199,7 +200,8 @@ def get_owned_prefixes() -> list[str]:
     """Every directory an asset may live in; references outside these are marked missing."""
     scan_roots: tuple[RootType, ...] = ("models", "input", "output")
     prefixes = [p for root in scan_roots for p in get_scan_prefixes_for_root(root)]
-    return prefixes + get_temp_prefixes()
+    # Owned but never scanned: previews are only ever registered by Core or an upload.
+    return prefixes + get_temp_prefixes() + [os.path.abspath(folder_paths.get_previews_directory())]
 
 
 def get_temp_prefixes() -> list[str]:
@@ -793,6 +795,8 @@ def seed_asset_specs(
                     job_id=spec["job_id"],
                     loader_path=spec["fname"],
                     tags=spec["tags"],
+                    # Sorts files already on disk by when they were made, not by walk order.
+                    created_at=mtime_ns_to_utc(get_mtime_ns(stat_result), stat_result.st_ctime_ns),
                 )
                 created += 1
         except IntegrityError as error:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+from contextlib import contextmanager
 import gc
 import logging
 import multiprocessing.connection
@@ -14,13 +15,14 @@ import torch.distributed as dist
 
 from ..distributed.config import DistributedConfiguration, resolve_distributed_configuration
 from ..distributed.device import accelerator_device_provider
-from ..distributed.executors import ContextVarProcessPoolExecutor
+from ..distributed.executors import ContextVarExecutor, ContextVarProcessPoolExecutor
 from ..distributed.process_group import (
     create_independent_process_groups,
     destroy_independent_process_groups,
 )
 from ..distributed.tracing import distributed_command_span, inject_trace_context
 from ..model_management_types import ModelManageableStub
+from ..interruption import defer_interruption
 from ..pipeline_parallel.types import (
     TensorDescriptor,
     pack_pipeline_value,
@@ -34,7 +36,18 @@ def _free_tcp_init_method() -> str:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
-    return f"tcp://127.0.0.1:{port}"
+        return f"tcp://127.0.0.1:{port}"
+
+
+def _abort_device_group(process_group):
+    try:
+        abort = getattr(dist.distributed_c10d, "_abort_process_group", None)
+        if abort is not None:
+            abort(process_group)
+        else:
+            process_group.abort()
+    except Exception:
+        logging.exception("Could not abort failed tensor-parallel device group")
 
 
 def _without_execution_caches(value):
@@ -93,6 +106,7 @@ class TorchDistributedModelParallelExecutor:
         self.process_groups = process_groups
         self._closed = False
         self._device_group_active = True
+        self._responses = ContextVarExecutor(max_workers=max(1, len(self.devices) - 1))
 
     def configure_torch_compile(self, compile_kwargs, root_patcher=None):
         root_patcher = root_patcher or self.root_patcher
@@ -120,6 +134,28 @@ class TorchDistributedModelParallelExecutor:
     def execute(self, *args, **kwargs):
         return self.execute_method("forward", *args, **kwargs)
 
+    @contextmanager
+    def model_context(self, method):
+        """Keep call-local model state on each rank until this scope exits."""
+        original = self.root_model
+        with getattr(original, method)() as model:
+            self.coordinator.broadcast_command({"kind": "model_context", "method": method})
+            try:
+                responses = [self.coordinator.receive_object(rank) for rank in range(1, len(self.devices))]
+                errors = [response["traceback"] for response in responses if response["kind"] == "error"]
+                if errors:
+                    raise RuntimeError("Model-parallel context failed:\n" + "\n".join(errors))
+                self.root_model = model
+                yield
+            finally:
+                self.root_model = original
+                self.coordinator.broadcast_command({"kind": "end_model_context"})
+                responses = [self.coordinator.receive_object(rank) for rank in range(1, len(self.devices))]
+                errors = [response["traceback"] for response in responses if response["kind"] == "error"]
+                if errors:
+                    raise RuntimeError("Model-parallel context cleanup failed:\n" + "\n".join(errors))
+
+    @defer_interruption()
     def execute_method(self, method, *args, **kwargs):
         tensors = {}
         structure = pack_pipeline_value(
@@ -139,6 +175,8 @@ class TorchDistributedModelParallelExecutor:
         })
         tensors = _broadcast_tensors(self.operations, tensors=tensors)
         args, kwargs = unpack_pipeline_value(structure, tensors)
+        responses = [self._responses.submit(self._receive_execution_result, rank)
+                     for rank in range(1, len(self.devices))]
         try:
             output = getattr(self.root_model, method)(*args, **kwargs)
         except BaseException:
@@ -147,29 +185,25 @@ class TorchDistributedModelParallelExecutor:
             # Abort the NCCL group so that peer leaves that collective and can
             # return to the control loop instead of hanging the workflow.
             self._abort_device_group()
+            concurrent.futures.wait(responses)
             raise
-        for rank in range(1, len(self.devices)):
-            response = self.coordinator.receive_object(rank)
-            if response["kind"] == "error":
-                raise RuntimeError(f"Tensor-parallel rank {rank} failed:\n{response['traceback']}")
+        for response in responses:
+            response.result()
         return output
+
+    def _receive_execution_result(self, rank):
+        response = self.coordinator.receive_object(rank)
+        if response["kind"] == "error":
+            # Watch the control channel while the root computes: its next CUDA
+            # synchronization may otherwise wait forever for this failed peer.
+            self._abort_device_group()
+            raise RuntimeError(f"Tensor-parallel rank {rank} failed:\n{response['traceback']}")
 
     def _abort_device_group(self):
         if not self._device_group_active:
             return
         self._device_group_active = False
-        try:
-            abort_process_group = getattr(
-                dist.distributed_c10d,
-                "_abort_process_group",
-                None,
-            )
-            if abort_process_group is not None:
-                abort_process_group(self.operations.process_group)
-            else:
-                self.operations.process_group.abort()
-        except Exception:
-            pass
+        _abort_device_group(self.operations.process_group)
 
     def remote_rank_command(self, rank, command):
         self.coordinator.broadcast_command({"kind": "rank_model", "rank": rank, "command": command})
@@ -192,6 +226,7 @@ class TorchDistributedModelParallelExecutor:
         if self._closed:
             return
         self._closed = True
+        self._responses.shutdown(wait=False, cancel_futures=True)
         try:
             self.coordinator.broadcast_command({"kind": "close"})
         except Exception:
@@ -378,8 +413,9 @@ def _send_worker_error(coordinator, rank):
     coordinator.send_object({"kind": "error", "traceback": error}, 0)
 
 
-def _run_worker(operations, coordinator, patcher, span_name):
-    execution_model = patcher.model.diffusion_model
+def _run_worker(operations, coordinator, patcher, span_name, execution_model=None):
+    if execution_model is None:
+        execution_model = patcher.model.diffusion_model
     while True:
         command = coordinator.broadcast_command()
         with distributed_command_span(
@@ -392,7 +428,32 @@ def _run_worker(operations, coordinator, patcher, span_name):
             },
         ):
                 if command["kind"] == "close":
-                    return
+                    return True
+                if command["kind"] == "end_model_context":
+                    return False
+                if command["kind"] == "model_context":
+                    started = False
+                    try:
+                        with getattr(execution_model, command["method"])() as model:
+                            started = True
+                            coordinator.send_object({"kind": "done"}, 0)
+                            closed = _run_worker(operations, coordinator, patcher, span_name, model)
+                        if closed:
+                            return True
+                        coordinator.send_object({"kind": "done"}, 0)
+                    except Exception:
+                        _send_worker_error(coordinator, operations.rank)
+                        if not started:
+                            # Rank zero closes every rank's scope if any entry
+                            # failed. Acknowledge that close without exiting the
+                            # worker or leaving a response for its next request.
+                            ending = coordinator.broadcast_command()
+                            if ending["kind"] == "close":
+                                return True
+                            if ending["kind"] != "end_model_context":
+                                raise RuntimeError("Expected model-context cleanup after entry failure")
+                            coordinator.send_object({"kind": "done"}, 0)
+                    continue
                 if command["kind"] == "rank_model":
                     if command["rank"] != operations.rank:
                         continue
@@ -465,7 +526,14 @@ def _run_worker(operations, coordinator, patcher, span_name):
                     getattr(execution_model, command["method"])(*args, **kwargs)
                     coordinator.send_object({"kind": "done"}, 0)
                 except Exception:
+                    # The root may already be inside the next device collective.
+                    # Sending an error on the control group alone cannot wake it.
+                    _abort_device_group(operations.process_group)
                     _send_worker_error(coordinator, operations.rank)
+                finally:
+                    # Do not keep the last invocation's inputs or custom-node
+                    # cache tensors alive while waiting for another command.
+                    tensors = args = kwargs = None
 
 
 def worker_main(host, port, authkey, parallel_kind="tensor"):
@@ -536,6 +604,9 @@ def worker_main(host, port, authkey, parallel_kind="tensor"):
 
 
 def launch_model_parallel(load_spec, devices, load_root, parallel_kind):
+    # Cached models and their executors form cycles. Reap discarded workers
+    # before allocating another checkpoint's rank-local weights.
+    gc.collect()
     size = len(devices)
     device_provider = accelerator_device_provider(devices[0].type)
     device_identities = tuple(device_provider.identify(device) for device in devices)

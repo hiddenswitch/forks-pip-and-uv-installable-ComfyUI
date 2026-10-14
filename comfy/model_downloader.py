@@ -948,6 +948,7 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/Ming-Image", "diffusion_models/ming_image_0.1_design_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Qwen-Image-2.1", "diffusion_models/qwen_image_2.1_bf16.safetensors"),
     HuggingFile("Comfy-Org/Qwen-Image-2.1", "diffusion_models/qwen_image_2.1_int8_convrot.safetensors"),
+    HuggingFile("Comfy-Org/Qwen-Image-2.1", "diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/marigold-v2-0", "diffusion_models/qwen_image_edit_2509_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-Music-3", "diffusion_models/minimax_music3_dit_fp16.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-Music-3", "diffusion_models/minimax_music3_dit_fp32.safetensors"),

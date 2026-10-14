@@ -1568,9 +1568,16 @@ fetch failure.
 
 - https://huggingface.co/Tongyi-MAI/Z-Image-Turbo — prefers long detailed prompts; negative prompts unused (few-step distilled, no CFG); 512-token limit; recommends LLM-based prompt expansion
 
-**Hunyuan Image 3.0 (Tencent)**
+**Kandinsky 6.0 Video (Kandinsky Lab)**
+
+- Read `docs/prompting_guides/kandinsky6_prompting.md`: official [text-to-video](https://github.com/kandinskylab/kandinsky-6/blob/main/comfyui/kandinsky6/beautifier_prompts/t2av_system.txt) and [image-to-video](https://github.com/kandinskylab/kandinsky-6/blob/main/comfyui/kandinsky6/beautifier_prompts/i2av_system.txt) expansion instructions. Preserve dialogue in `<S>…<E>` and end with `<AUDCAP>…<ENDAUDCAP>` for audio. Image-to-video uses the supplied image as its first-frame ground truth.
+
+**Hunyuan Image 3.0 / Instruct (Tencent)**
 
 - https://github.com/Tencent-Hunyuan/HunyuanImage-3.0/blob/main/Hunyuan-Image3.md — subject + environment + style + composition + lighting framework, DeepSeek-based enhancement system prompts, 8 worked examples
+
+- https://docs.qq.com/doc/DUVVadmhCdG9qRXBU — the actual Prompt Handbook linked by Tencent; separate from the GitHub guide snapshot above.
+- https://huggingface.co/tencent/HunyuanImage-3.0-Instruct and https://github.com/Tencent-Hunyuan/HunyuanImage-3.0/blob/main/hunyuan_image_3/system_prompt.py — Instruct examples and native system prompts. Read `docs/prompting_guides/hunyuan_image3_instruct_prompting.md` for direct-generation versus rewrite modes and ordered reference-image roles. Do not confuse base-model external DeepSeek enhancement with Instruct's own rewriting.
 
 **Hunyuan Video 1.5 (Tencent)**
 

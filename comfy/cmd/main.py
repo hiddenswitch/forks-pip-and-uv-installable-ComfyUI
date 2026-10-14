@@ -28,6 +28,8 @@ from ..execution_context import current_execution_context
 from ..nodes.package import import_all_nodes_in_workspace
 from ..nodes_context import get_nodes
 from ..app.assets.manager import AssetManager, default_asset_manager
+from ..app.assets.event_log import error_kind
+from ..app.database.db import get_database_url, get_db_path, init_db
 
 logger = logging.getLogger(__name__)
 _shutdown_event = threading.Event()
@@ -270,10 +272,73 @@ def start_comfyui(asyncio_loop: asyncio.AbstractEventLoop = None):
 
 
 def setup_database(asset_manager: AssetManager | None = None):
-    from ..app.database.db import dependencies_available, init_db
-    if dependencies_available():
+    asset_manager = asset_manager if asset_manager is not None else default_asset_manager()
+    if not asset_manager.enabled:
+        asset_manager.startup()
+        return
+    try:
         init_db()
-        (asset_manager if asset_manager is not None else default_asset_manager()).startup()
+        asset_manager.startup()
+    except Exception as error:
+        failure, message = database_failure_message(error, get_database_url())
+        if failure != "unsupported_url":
+            logger.debug("Asset database startup failed", exc_info=True)
+        stop_startup(failure, message)
+
+
+WITHOUT_ASSETS = "Or start ComfyUI without the assets system: --disable-assets"
+
+
+def stop_startup(kind, message):
+    """Exit after a line a launcher can match, then the message for the user."""
+    logging.error(f"ASSETS_STARTUP_FAILED: {kind}\n{message}")
+    sys.exit(1)
+
+
+def database_failure_message(error, db_url):
+    """The kind of failure that stopped the asset database from opening, and how to fix it."""
+    if not (db_url.startswith("sqlite:///") or db_url == "sqlite://"):
+        return "unsupported_url", ("--database-url must start with sqlite:///, like sqlite:///path/to/comfyui.db, "
+                                   f"or be left out to use the default database.\n{WITHOUT_ASSETS}")
+    location = get_db_path() if db_url.startswith("sqlite:///") else db_url
+    kind = error_kind(error)
+    detail = getattr(error, "orig", None) or error
+    if "Could not acquire lock on database" in str(error):
+        failure = "in_use"
+        what = f"Another ComfyUI is already using this database: '{location}'."
+        fix = "Close the other ComfyUI and start this one again."
+    elif kind in ("database_locked", "file_locked"):
+        failure = "locked"
+        what = f"The asset database '{location}' is locked by another program ({detail})."
+        fix = "Close any program that has it open, such as another ComfyUI or a database viewer, and start again."
+    elif "Can't locate revision" in str(error):
+        failure = "newer_revision"
+        what = f"The asset database '{location}' was last used by a newer version of ComfyUI ({detail})."
+        fix = "Update ComfyUI, or move that file aside and start again to create a new database."
+    elif isinstance(error, (FileExistsError, NotADirectoryError)):
+        failure = "path_blocked"
+        what = f"A file is in the way of the folder for the asset database '{location}' ({detail})."
+        fix = "Move that file, or choose another folder."
+    elif kind in ("read_only", "unable_to_open") or isinstance(error, OSError):
+        failure = "not_writable"
+        what = f"ComfyUI can't create, open or write the asset database '{location}' ({detail})."
+        fix = ("Make sure its folder is a writable directory, the database path is a writable file (or doesn't exist yet), "
+               "and no other program has it open.")
+    elif kind == "database_corrupt":
+        failure = "corrupt"
+        what = f"The asset database '{location}' is corrupt ({detail})."
+        fix = ("Move that file aside, or delete it, and start again: ComfyUI creates a new database "
+               "and rebuilds the asset catalog by rescanning your files.")
+    else:
+        failure = "other"
+        what = f"Could not open or upgrade the asset database '{location}': {detail}"
+        fix = ("If the database is damaged, move that file aside and start again: ComfyUI creates a new "
+               "database and rebuilds the asset catalog by rescanning your files. Run with --verbose DEBUG for the full error.")
+    lines = [what, fix]
+    if failure in ("in_use", "locked") and current_execution_context().configuration.database_url is None:
+        lines.append("Or give this ComfyUI its own database: --database-url sqlite:///path/to/another.db")
+    return failure, "\n".join(lines + [WITHOUT_ASSETS])
+
 
 
 async def _start_comfyui(from_script_dir: Optional[Path] = None, configuration: Optional[Configuration] = None):
@@ -294,6 +359,8 @@ async def __start_comfyui(from_script_dir: Optional[Path] = None):
     :param from_script_dir: when set to a path, assumes that you are running ComfyUI's legacy main.py entrypoint at the root of the git repository located at the path
     """
     args = current_execution_context().configuration
+    if args.enable_asset_hashing and (args.disable_assets or not (args.enable_assets or args.windows_standalone_build)):
+        logger.warning("--enable-asset-hashing is ignored because the assets system is off. Start ComfyUI with --enable-assets, and without --disable-assets, to use it.")
     if not from_script_dir:
         os_getcwd = os.getcwd()
     else:
@@ -344,9 +411,6 @@ async def __start_comfyui(from_script_dir: Optional[Path] = None):
         import_all_nodes_in_workspace(raise_on_failure=False)
         folder_paths.create_directories()
         exit(0)
-    elif args.quick_test_for_ci:
-        import_all_nodes_in_workspace(raise_on_failure=True)
-        exit(0)
 
     if args.windows_standalone_build:
         try:
@@ -367,6 +431,8 @@ async def __start_comfyui(from_script_dir: Optional[Path] = None):
 
     # at this stage, it's safe to import nodes
     hook_breaker_ac10a0.save_functions()
+    if args.quick_test_for_ci:
+        import_all_nodes_in_workspace(raise_on_failure=True)
     nodes_to_import = get_nodes()
     logger.debug(f"Imported {len(nodes_to_import)} nodes")
     server.nodes = nodes_to_import
@@ -394,6 +460,8 @@ async def __start_comfyui(from_script_dir: Optional[Path] = None):
     cuda_malloc_warning()
     vram_performance_warnings()
     setup_database(server.asset_manager)
+    if args.quick_test_for_ci:
+        return
 
     # in a distributed setting, the default prompt worker will not be able to send execution events via the websocket
     _prompt_worker_executor = None

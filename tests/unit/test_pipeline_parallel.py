@@ -1,4 +1,5 @@
 import json
+import ctypes
 import struct
 import types
 import uuid
@@ -470,6 +471,65 @@ def test_safetensors_reader_does_not_load_unselected_tensor(tmp_path, monkeypatc
     assert state_dict["large.weight"].device.type == "meta"
     assert state_dict["layer.comfy_quant"].device.type == "cpu"
     assert reader.metadata == {"model": "test"}
+
+
+@pytest.mark.parametrize("selection,mapped", [
+    ((slice(1, 3), slice(None)), True),
+    ((slice(1, 2), slice(2, 5)), True),
+    ((slice(None), slice(1, 3)), False),
+    ((slice(None, None, 2), slice(None)), False),
+    ((slice(2, 2), slice(None)), False),
+])
+def test_checkpoint_shards_keep_bounded_file_backing(tmp_path, monkeypatch, selection, mapped):
+    from safetensors.torch import save_file
+    import comfy_aimdo.model_mmap
+
+    class Mapping:
+        # Exercise the loader's bounded storage on CPU-only CI too.
+        def __init__(self, path):
+            with open(path, "rb") as source:
+                self.buffer = ctypes.create_string_buffer(source.read())
+
+        def get(self):
+            return ctypes.addressof(self.buffer)
+
+        def get_file_handle(self):
+            return self
+
+    monkeypatch.setattr(comfy_aimdo.model_mmap, "ModelMMAP", Mapping)
+    monkeypatch.setitem(memory_management.__dict__, "aimdo_enabled", True)
+    weights = torch.arange(24, dtype=torch.float32).reshape(4, 6)
+    path = tmp_path / "shards.safetensors"
+    save_file({"weight": weights, "unselected": torch.ones(3)}, path)
+    actual = SafetensorsCheckpointReader(path).load_slices({"weight": selection})
+    assert set(actual) == {"weight"}
+    tensor = actual["weight"]
+    torch.testing.assert_close(tensor, weights[selection])
+    assert tensor.storage_offset() == 0
+    assert tensor.untyped_storage().nbytes() == tensor.nbytes
+    info = getattr(tensor.untyped_storage(), "_comfy_tensor_file_slice", None)
+    assert (info is not None) == mapped
+    if mapped:
+        assert info.size == tensor.nbytes
+        with path.open("rb") as source:
+            source.seek(info.offset)
+            stored = torch.frombuffer(bytearray(source.read(info.size)), dtype=tensor.dtype)
+        torch.testing.assert_close(stored.reshape(tensor.shape), tensor)
+
+
+def test_checkpoint_shards_respect_disabled_mmap(tmp_path, monkeypatch):
+    from safetensors.torch import save_file
+    from comfy import utils
+
+    monkeypatch.setitem(memory_management.__dict__, "aimdo_enabled", True)
+    monkeypatch.setattr(utils, "DISABLE_MMAP", True)
+    path = tmp_path / "shards.safetensors"
+    save_file({"weight": torch.ones(4, 6)}, path)
+    reader = SafetensorsCheckpointReader(path)
+    value = reader.load_slices({"weight": (slice(2), slice(None))})["weight"]
+    assert not hasattr(value.untyped_storage(), "_comfy_tensor_file_slice")
+    with pytest.raises(KeyError, match="missing"):
+        reader.load_slices({"missing": None})
 
 
 def test_checkpoint_reader_loads_through_a_hugging_face_cache_symlink(tmp_path):

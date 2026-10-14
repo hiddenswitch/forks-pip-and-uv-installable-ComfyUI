@@ -438,8 +438,7 @@ def cast_modules_with_vbar(
             # forward apply the dtype cast. Materializing the target dtype here
             # routes the tensor through cast_to_gathered(target_geometries=...),
             # a raw fp8->bf16 cast that drops the per-tensor weight scale, so the
-            # streamed result silently diverges from the resident path (see
-            # docs/merging.md, "Dynamic VRAM streaming of quantized weights").
+            # streamed result silently diverges from the resident path.
             return model_management.tensor_materialization_geometry(tensor)
         return model_management.tensor_materialization_geometry(tensor, dtype=target_dtype)
 
@@ -2335,10 +2334,16 @@ def mixed_precision_ops(quant_config={}, compute_dtype=torch.bfloat16, full_prec
                     return self._expert_qt_from(self.weight, i)
                 return self.weight[i]
 
+            def bank_cacheable(self, input):
+                """Use the resident bank when it fits the current VRAM watermark."""
+                if self.weight.device == input.device:
+                    return True
+                return self._v is not None and not model_management.is_device_cpu(input.device) and not vbar_above_watermark(self)
+
             def _cast_bank(self, input):
                 # A quantized bank stays quantized: the layouts dequantize one [out, in] matrix at a time, per expert.
                 if isinstance(self.weight, QuantizedTensor):
-                    return CastBiasWeightContext(self, input=None, dtype=self.weight.dtype, device=input.device, bias_dtype=input.dtype, offloadable=True)
+                    return CastBiasWeightContext(self, input=None, dtype=self.weight.dtype, device=input.device, bias_dtype=input.dtype, offloadable=True, want_requant=True)
                 return CastBiasWeightContext(self, input, offloadable=True)
 
             def _dequantize_bank(self, weight, dtype):
@@ -2385,7 +2390,7 @@ def mixed_precision_ops(quant_config={}, compute_dtype=torch.bfloat16, full_prec
                 if isinstance(weight, QuantizedTensor):
                     qw = self._expert_qt_from(weight, i)
                 else:
-                    qw = cast_to_input(weight[i], input, copy=False)
+                    qw = cast_to_input(weight.reshape(self.num_experts, self.out_features, self.in_features)[i], input, copy=False)
                 b = cast_to_input(bias[i], input, copy=False) if bias is not None else None
 
                 if isinstance(qw, QuantizedTensor):

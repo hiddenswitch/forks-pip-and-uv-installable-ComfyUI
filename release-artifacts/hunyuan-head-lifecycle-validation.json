@@ -1,0 +1,83 @@
+{
+  "status": "Initial rewrite, cancellation and recovery passed; unload/reload timed out under severe host memory pressure",
+  "source": {
+    "commit": "114789c3364bcc235f01c31dbc3e211db3257b8a",
+    "strategy": "whole-expert partitioning plus dense-output-row and attention-head TP",
+    "files": {
+      "comfy/tensor_parallel/hunyuan_image3.py": "141b97725f488b9c7e47c74f690007f73b32ad323104df69a0a196f62a527606",
+      "comfy/tensor_parallel/distributed.py": "c7c54e9a63a677751edfd5c554b413b8a6d25cdcbf3ff369b960711674d60d31",
+      "comfy/tensor_parallel/operations.py": "6d853d835b3b1aa6cf2a2fddb4ad89b9ec3954fc402960e545b7fdecdf24ffaf"
+    }
+  },
+  "results": [
+    {
+      "phase": "initial",
+      "seconds": 68.71990897500655,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        78763838464,
+        [
+          16825516032,
+          21699035136
+        ]
+      ]
+    },
+    {
+      "phase": "cancel",
+      "seconds": 19.82872314398992,
+      "status": {
+        "status_str": "error",
+        "completed": false,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_interrupted"
+        ]
+      },
+      "memory": [
+        79286873088,
+        [
+          18067030016,
+          21699035136
+        ]
+      ]
+    },
+    {
+      "phase": "recovery",
+      "seconds": 43.056308850005735,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        78563264512,
+        [
+          18067030016,
+          21699035136
+        ]
+      ]
+    }
+  ],
+  "failed_phase": "reload",
+  "failure": "HTTP history request timed out while replacement model loaded. Two distributed process groups remained alive in the server log; reference-retention diagnosis is pending. NCCL store errors appeared during forced server shutdown.",
+  "raw_results": "release-artifacts/benchmark-results/hunyuan-head-sharded-lifecycle",
+  "limits": [
+    "No successful reload is claimed for this run.",
+    "The bounded 16-token probes do not validate full recaption completion.",
+    "Memory samples are after execution, not peak."
+  ],
+  "resolution": "Launch-boundary garbage collection reaps unreachable model/executor cycles before allocating a replacement. Real initial/cancel/recovery/reload now pass; see hunyuan-head-reload-fix-validation.json."
+}

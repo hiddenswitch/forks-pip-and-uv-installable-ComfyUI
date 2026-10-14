@@ -45,6 +45,8 @@ servers:
 - url: /
   description: Default ComfyUI server (typically http://127.0.0.1:8188)
 tags:
+- name: workflow
+  description: Workflow loading and execution management
 - name: prompt
   description: Workflow submission and prompt info
 - name: queue
@@ -90,6 +92,23 @@ tags:
 - name: runtime-only
   description: Operations served exclusively by the cloud runtime with no local equivalent
 paths:
+  /api/default_workflow:
+    get:
+      description: Returns the workflow the frontend loads when no other workflow is
+        open.
+      operationId: getDefaultWorkflow
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+          description: Default workflow JSON
+      security: []
+      summary: Get the default workflow
+      tags:
+      - workflow
   /ws:
     get:
       operationId: connectWebSocket

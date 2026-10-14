@@ -213,6 +213,9 @@ def init_default_paths(folder_names_and_paths: FolderNames, configuration: Optio
     if configuration.temp_directory is not None:
         folder_names_and_paths.application_paths.temp_directory = Path(configuration.temp_directory)
 
+    if configuration.previews_directory is not None:
+        folder_names_and_paths.application_paths.previews_directory = Path(configuration.previews_directory)
+
     if configuration.user_directory is not None:
         folder_names_and_paths.application_paths.user_directory = Path(configuration.user_directory)
 
@@ -267,6 +270,14 @@ def set_input_directory(input_dir: str | Path):
 
 def get_output_directory() -> str:
     return str(_resolve_path_with_compatibility(_folder_names_and_paths().application_paths.output_directory))
+
+
+def set_previews_directory(previews_dir: str | Path):
+    _folder_names_and_paths().application_paths.previews_directory = construct_path(previews_dir)
+
+
+def get_previews_directory() -> str:
+    return str(_resolve_path_with_compatibility(_folder_names_and_paths().application_paths.previews_directory))
 
 
 def get_temp_directory() -> str:
@@ -677,6 +688,8 @@ __all__ = [
     "set_temp_directory",
     "set_input_directory",
     "get_output_directory",
+    "get_previews_directory",
+    "set_previews_directory",
     "get_temp_directory",
     "get_input_directory",
     "get_user_directory",

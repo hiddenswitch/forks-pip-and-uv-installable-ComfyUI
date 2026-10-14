@@ -228,8 +228,7 @@ def _preserve_mixed_precision_storage(diffusion_model, to_load):
     precision are left alone, so an fp8 layer still upcasts to bf16 when fp8
     storage is off, and uniform checkpoints are unaffected. The Windows lazy
     loader already preserves the stored dtype; this brings the stock
-    ``torch.nn.Linear`` (Linux) load path to parity. See docs/merging.md,
-    "Dynamic VRAM and mixed precision".
+    ``torch.nn.Linear`` (Linux) load path to parity.
     """
     quantized_cls = getattr(ops, "QuantizedTensor", ())
     modules = None

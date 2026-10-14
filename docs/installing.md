@@ -101,8 +101,7 @@ devices and can eject inactive model dependencies when memory is needed. Use
 compatibility escape hatch and is not required for ordinary constrained runs.
 
 On NVIDIA Ampere and newer, `--fast cublas_ops` and SageAttention may improve
-sampling. Measure sampler spans after a warm-up run; end-to-end startup includes
-model and custom-node loading and is not a valid iteration-speed comparison.
+sampling.
 
 See [configuration](configuration.md), [distributed inference](distributed.md),
-and [troubleshooting](troubleshooting.md) for the current operational details.
+and [troubleshooting](troubleshooting.md) for configuration and usage details.

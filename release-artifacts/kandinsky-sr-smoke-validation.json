@@ -1,0 +1,44 @@
+{
+  "workflow": "release-artifacts/workflows/api/smoke/kandinsky-sr.json",
+  "input_frames": 5,
+  "output_frames": 1,
+  "status": "Single-frame path passed; aligned nine-frame temporal check also passed",
+  "reason": "Upstream SR floors input length to 1 + 8k frames. See kandinsky-sr-temporal-validation.json for the nine-frame check.",
+  "tp": "single-device fallback",
+  "results": [
+    {
+      "phase": "initial",
+      "seconds": 39.30507081799442,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        11542056960,
+        [
+          7796293632,
+          703004672
+        ]
+      ]
+    }
+  ],
+  "output_metadata": {
+    "programs": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 1024,
+        "height": 1024,
+        "avg_frame_rate": "24/1",
+        "duration": "0.041667",
+        "nb_frames": "1"
+      }
+    ]
+  },
+  "output_sha256": "f9750e62cbd3762746882603c304eac9ff73dd116ed76c2af1a280c508bc4e4b"
+}

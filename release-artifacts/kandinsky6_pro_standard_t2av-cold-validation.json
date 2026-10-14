@@ -1,0 +1,82 @@
+{
+  "status": "Both cold workflows completed",
+  "source": {
+    "commit": "07918fe41f6b9dea5d1180aaab8acffddd959202"
+  },
+  "baseline": null,
+  "summary": {
+    "cold_seconds": {
+      "1": 7172.735788976017,
+      "2": 7817.27457213102
+    },
+    "cold_tp2_speedup": 0.9175494250319904,
+    "warm_median_seconds": {},
+    "tp2_speedup": null
+  },
+  "results": [
+    {
+      "tp": 1,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 7172.735788976017,
+      "peak_host_pss_bytes": 63154131968,
+      "peak_device_used_bytes": [
+        23620681728
+      ],
+      "start_time_unix_nano": 1791737423473340305,
+      "end_time_unix_nano": 1791744596209462378,
+      "sampler_seconds": 7112.367545612,
+      "generator_node_seconds": 7113.640762436,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 7817.27457213102,
+      "peak_host_pss_bytes": 101252520960,
+      "peak_device_used_bytes": [
+        22834053120,
+        21782921216
+      ],
+      "start_time_unix_nano": 1791744614884374324,
+      "end_time_unix_nano": 1791752432159322335,
+      "sampler_seconds": 7722.320041401,
+      "generator_node_seconds": 7724.210635023,
+      "sr_node_seconds": null
+    }
+  ],
+  "quality": [
+    {
+      "seed": 42,
+      "output": "12:0",
+      "tp1": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_standard_t2av-cold/tp1/kandinsky6/K6_00001_.mp4",
+      "tp2": "/home/administrator/Documents/appmana/.release-kandinsky/release-artifacts/benchmark-results/kandinsky6_pro_standard_t2av-cold/tp2/kandinsky6/K6_00001_.mp4",
+      "video": {
+        "codec_type": "video",
+        "width": 864,
+        "height": 480,
+        "avg_frame_rate": "24/1",
+        "duration": "5.041667",
+        "nb_frames": "121"
+      },
+      "decoded_video_ssim": 0.936029,
+      "audio": {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "channels": 1,
+        "avg_frame_rate": "0/0",
+        "duration": "5.041678",
+        "nb_frames": "219",
+        "identical": false,
+        "rmse": 0.011936291434533836,
+        "max_absolute_error": 0.3024776391685009
+      }
+    }
+  ],
+  "raw_results": "release-artifacts/benchmark-results/kandinsky6_pro_standard_t2av-cold",
+  "limits": [
+    "One cold job per configuration; OS cache not flushed. No warm repeats.",
+    "Generation-only workflow omits original SR postprocessing."
+  ]
+}

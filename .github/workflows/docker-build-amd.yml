@@ -1,6 +1,7 @@
 name: Build and Validate ROCm Image
 
 on:
+  workflow_dispatch:
   push:
     branches: [develop, master]
     tags: ["v*"]

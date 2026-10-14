@@ -2,21 +2,12 @@
 
 This document describes the custom linting rules used in ComfyUI and how to resolve common linting issues.
 
-## Running the Linter
+## Linter configuration
 
 This project uses **two linters that run sequentially**:
 
 1. **ruff** — handles every standard Python lint rule (F-codes, E-codes, W-codes, B-codes from flake8-bugbear, T-codes from flake8-print, S307/S102 from flake8-bandit). This is the bulk of what used to be pylint's coverage. Configuration lives under `[tool.ruff]` in `pyproject.toml`.
 2. **pylint** — runs *only* custom checkers in `tests/*_checker.py`: import ordering, package-init coverage, root node placement, SD clip config forwarding, and merge hygiene rules for version sync, Transformers imports, model inference coverage, packaged blueprints, CUDA allocator defaults, and workflow conversion caches. The default pylint profile is disabled via `disable = ["all"]` so pylint does no built-in inference — it's a pure plugin host. This is much faster than full pylint.
-
-Always run **both**, in this order:
-
-```bash
-ruff check comfy/ comfy_extras/ comfy_api/ comfy_api_nodes/ comfy_compatibility/ comfy_execution/
-pylint -j 0 comfy/ comfy_extras/ comfy_api/ comfy_api_nodes/
-```
-
-**Never pipe either tool through `head`, `tail`, or `grep`.** CI evaluates exit codes, which are non-zero whenever any error/warning fires even if pylint's score still rounds to 10.00/10. Filtering hides those failures locally and lets a broken commit ship. Run them raw and read the full output. If the volume is unmanageable, fix what's flagged first.
 
 ## Pragma Comments — `# noqa` vs `# pylint: disable=`
 

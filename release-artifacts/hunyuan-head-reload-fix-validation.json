@@ -1,0 +1,101 @@
+{
+  "exit_code": 0,
+  "source": {
+    "base_commit": "04f0d203aa4aa631ffee2e363084c097a17aef31",
+    "diff": "diff --git a/comfy/tensor_parallel/distributed.py b/comfy/tensor_parallel/distributed.py\nindex 13fd71bd3..a0947d93a 100644\n--- a/comfy/tensor_parallel/distributed.py\n+++ b/comfy/tensor_parallel/distributed.py\n@@ -590,6 +590,9 @@ def worker_main(host, port, authkey, parallel_kind=\"tensor\"):\n \n \n def launch_model_parallel(load_spec, devices, load_root, parallel_kind):\n+    # Cached models and their executors form cycles. Reap discarded workers\n+    # before allocating another checkpoint's rank-local weights.\n+    gc.collect()\n     size = len(devices)\n     device_provider = accelerator_device_provider(devices[0].type)\n     device_identities = tuple(device_provider.identify(device) for device in devices)\n",
+    "distributed_sha256": "570ef96b649f6a788f367d332a0fd526ba609a221880157a01299b0b03e4269a"
+  },
+  "peak_aggregate_host_pss_bytes": 96669595648,
+  "maximum_processes_with_rss_over_1GiB": 2,
+  "sampling_interval_seconds": 0.5,
+  "results": [
+    {
+      "phase": "initial",
+      "seconds": 71.49648695002543,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        79885896704,
+        [
+          17442013184,
+          21701132288
+        ]
+      ]
+    },
+    {
+      "phase": "cancel",
+      "seconds": 17.16175497599761,
+      "status": {
+        "status_str": "error",
+        "completed": false,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_interrupted"
+        ]
+      },
+      "memory": [
+        79504204800,
+        [
+          17757044736,
+          21701132288
+        ]
+      ]
+    },
+    {
+      "phase": "recovery",
+      "seconds": 42.51827202399727,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        80187978752,
+        [
+          18059034624,
+          21701132288
+        ]
+      ]
+    },
+    {
+      "phase": "reload",
+      "seconds": 74.1245527699939,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        80212509696,
+        [
+          16919691264,
+          21703229440
+        ]
+      ]
+    }
+  ],
+  "status": "Initial rewrite, cancellation, recovery and unload/reload passed after launch-boundary collection",
+  "previous_failure": "hunyuan-head-lifecycle-validation.json",
+  "raw_results": "release-artifacts/benchmark-results/hunyuan-head-reload-collected",
+  "limitations": [
+    "Three successful 16-token bounded probes, with interruption during a separate long-budget invocation.",
+    "Memory/process counts were sampled every 0.5 seconds and can miss shorter peaks.",
+    "Complete recaptioning is validated separately."
+  ]
+}

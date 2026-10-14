@@ -1,0 +1,373 @@
+{
+  "28": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": "A cinematic close-up of a young adult woman in soft daylight. She looks into the camera and clearly says <S>Look there!<E>, her lips moving naturally with the words. After finishing the line, she smoothly turns her head to look toward the window beside her. Her hair moves naturally with the turn. She finishes with a warm smile, looking out of the window. Clearly visible, relaxed movement. Static camera, continuous shot. <AUDCAP>A clear, natural female voice. Quiet indoor ambience, no music.<ENDAUDCAP>",
+      "previewMode": false
+    },
+    "_meta": {
+      "title": "Expanded prompt \u00b7 Preview as Text"
+    }
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "Kandinsky-6.0-Pro-distill-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "UNETLoader"
+    }
+  },
+  "2": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "qwen_2.5_vl_7b.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "kandinsky5",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "DualCLIPLoader"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "hunyuan_video_vae_bf16.safetensors"
+    },
+    "_meta": {
+      "title": "VAELoader"
+    }
+  },
+  "4": {
+    "class_type": "Kandinsky6AudioVAELoader",
+    "inputs": {
+      "tod_vae": "v1-44.pth",
+      "bigvgan_dir": "bigvgan_vocoder",
+      "mode": "44k",
+      "scaling_factor": 0.417
+    },
+    "_meta": {
+      "title": "Kandinsky6AudioVAELoader"
+    }
+  },
+  "5": {
+    "class_type": "Kandinsky6TextEncode",
+    "inputs": {
+      "video_caption": "A cinematic close-up of a young adult woman in soft daylight. She looks into the camera and clearly says <S>Look there!<E>, her lips moving naturally with the words. After finishing the line, she smoothly turns her head to look toward the window beside her. Her hair moves naturally with the turn. She finishes with a warm smile, looking out of the window. Clearly visible, relaxed movement. Static camera, continuous shot.",
+      "audio_caption": "A clear, natural female voice. Quiet indoor ambience, no music.",
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Encode expanded video and audio prompt"
+    }
+  },
+  "6": {
+    "class_type": "Kandinsky6TextEncode",
+    "inputs": {
+      "video_caption": "Static, 2D cartoon, cartoon, 2d animation, paintings, images, worst quality, low quality, ugly, deformed, walking backwards",
+      "audio_caption": "",
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Negative video and audio prompt"
+    }
+  },
+  "7": {
+    "class_type": "Kandinsky6EmptyLatent",
+    "inputs": {
+      "width": [
+        "22",
+        0
+      ],
+      "height": [
+        "23",
+        0
+      ],
+      "length": 121,
+      "fps": 24,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "Kandinsky6EmptyLatent"
+    }
+  },
+  "8": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "kandinsky6_i2va_portrait.png"
+    },
+    "_meta": {
+      "title": "LoadImage"
+    }
+  },
+  "9": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "upscale_method": "bilinear",
+      "width": [
+        "22",
+        0
+      ],
+      "height": [
+        "23",
+        0
+      ],
+      "crop": "center",
+      "image": [
+        "8",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "ImageScale"
+    }
+  },
+  "10": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "9",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEEncode"
+    }
+  },
+  "11": {
+    "class_type": "Kandinsky6ImageToVideoAudio",
+    "inputs": {
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "empty_latent": [
+        "7",
+        0
+      ],
+      "reference_latent": [
+        "10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Kandinsky6ImageToVideoAudio"
+    }
+  },
+  "12": {
+    "class_type": "Kandinsky6Sampler",
+    "inputs": {
+      "seed": 915250728846155060,
+      "steps": 10,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "11",
+        0
+      ],
+      "negative": [
+        "11",
+        1
+      ],
+      "latent_image": [
+        "11",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "Kandinsky6Sampler"
+    }
+  },
+  "13": {
+    "class_type": "Kandinsky6RemoveReferenceLatent",
+    "inputs": {
+      "joint_latent": [
+        "12",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Kandinsky6RemoveReferenceLatent"
+    }
+  },
+  "14": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "13",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEDecode"
+    }
+  },
+  "15": {
+    "class_type": "Kandinsky6AudioVAEDecode",
+    "inputs": {
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "joint_latent": [
+        "13",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Kandinsky6AudioVAEDecode"
+    }
+  },
+  "16": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "UNETLoader"
+    }
+  },
+  "20": {
+    "class_type": "Kandinsky6SRVAELoader",
+    "inputs": {
+      "kvae_checkpoint": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/vae/diffusion_pytorch_model.safetensors"
+    },
+    "_meta": {
+      "title": "Kandinsky6SRVAELoader"
+    }
+  },
+  "21": {
+    "class_type": "Kandinsky6LatentUpscalerLoader",
+    "inputs": {
+      "latent_upscaler_checkpoint": "Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/latent_upscaler/diffusion_pytorch_model.safetensors",
+      "target_scale": "2x"
+    },
+    "_meta": {
+      "title": "Kandinsky6LatentUpscalerLoader"
+    }
+  },
+  "17": {
+    "class_type": "Kandinsky6VSRUpscale",
+    "inputs": {
+      "seed": 42,
+      "steps": 5,
+      "tiles_batch_size": 1,
+      "scale": "2.25x",
+      "overlap": 0.2,
+      "frame_rate": [
+        "7",
+        1
+      ],
+      "target_resolution": "none",
+      "use_nabla": false,
+      "sr_model": [
+        "16",
+        0
+      ],
+      "sr_vae": [
+        "20",
+        0
+      ],
+      "images": [
+        "14",
+        0
+      ],
+      "latent_upscaler": [
+        "21",
+        0
+      ],
+      "audio": [
+        "15",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Kandinsky6 SR Upscale"
+    }
+  },
+  "18": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "fps": [
+        "17",
+        1
+      ],
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "codec": "none",
+      "images": [
+        "17",
+        0
+      ],
+      "audio": [
+        "17",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "CreateVideo"
+    }
+  },
+  "19": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "filename_prefix": "kandinsky6/K6_I2VA",
+      "format": "mp4",
+      "format.codec": "h264",
+      "format.codec.encoding": "auto",
+      "codec": "auto",
+      "video": [
+        "18",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SaveVideo"
+    }
+  },
+  "22": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 864
+    },
+    "_meta": {
+      "title": "Video width"
+    }
+  },
+  "23": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 480
+    },
+    "_meta": {
+      "title": "Video height"
+    }
+  }
+}

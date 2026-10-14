@@ -380,7 +380,7 @@ def test_real_main_rejects_unknown_pack_without_manager(tmp_path: Path, process_
         "import sys\n"
         "from comfy.app import governance\n"
         "governance.initialize = lambda configuration=None: governance.set_custom_node_policy('allowlist', frozenset(), {})\n"
-        f"sys.argv = ['comfyui', '--base-directory', {str(tmp_path)!r}, '--cpu', '--disable-api-nodes', '--quick-test-for-ci']\n"
+        f"sys.argv = ['comfyui', '--base-directory', {str(tmp_path)!r}, '--cpu', '--disable-assets', '--disable-api-nodes', '--quick-test-for-ci']\n"
         "from comfy.cmd.main import entrypoint\n"
         "entrypoint()\n"
     )

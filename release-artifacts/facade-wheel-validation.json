@@ -1,0 +1,26 @@
+[
+  {
+    "package": "kandinsky6",
+    "version": "1.0.1",
+    "bytes": 2445508,
+    "sha256": "e62f1026284c8ccddeee86e5f98a64be3538e1504004e3521e417554cd6d05eb",
+    "members": 86,
+    "installed_python_sources_match": true
+  },
+  {
+    "package": "kandinsky6-sr",
+    "version": "0.1.2",
+    "bytes": 561197,
+    "sha256": "f68318f019da695ee43e8c9ea4b8b940e6eeae946b8b7e4ec2cb029619b8151a",
+    "members": 100,
+    "installed_python_sources_match": true
+  },
+  {
+    "package": "comfyui-hunyuanimage3",
+    "version": "0.1.0",
+    "bytes": 27780543,
+    "sha256": "182b2c2c0bd906fc2b3aa2e8d21bdc3a37a30e83f908ddc7b14312b8a0b15905",
+    "members": 68,
+    "installed_python_sources_match": true
+  }
+]

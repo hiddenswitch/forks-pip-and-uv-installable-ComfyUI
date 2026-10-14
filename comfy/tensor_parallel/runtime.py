@@ -20,6 +20,10 @@ class AbstractBaseTensorParallelOperations(ABC):
     def sum(self, tensor: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
+    def gather(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Concatenate equal rank-local outputs along their feature dimension."""
+        raise NotImplementedError
+
 class TorchDistributedTensorParallelOperations(AbstractBaseTensorParallelOperations):
     """Tensor collectives backed by an injected torch.distributed group."""
 
@@ -45,3 +49,11 @@ class TorchDistributedTensorParallelOperations(AbstractBaseTensorParallelOperati
         completion = dist.all_reduce(tensor, group=self.process_group, async_op=True)
         completion.block_current_stream()
         return tensor
+
+    def gather(self, tensor: torch.Tensor) -> torch.Tensor:
+        import torch.distributed as dist
+
+        parts = [torch.empty_like(tensor) for _ in range(self.world_size)]
+        completion = dist.all_gather(parts, tensor.contiguous(), group=self.process_group, async_op=True)
+        completion.block_current_stream()
+        return torch.cat(parts, dim=-1)

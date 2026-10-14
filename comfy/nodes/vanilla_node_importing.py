@@ -275,9 +275,29 @@ def _apply_post_import_patches(module_name: str) -> None:
     _patch_segformer_model_resolution(module_name)
     _install_deferred_controlnet_patches(module_name)
     if module_name.lower() == "comfyui-hunyuanimage3":
-        from ..pipeline_parallel.hunyuan_image3 import install
+        from ..pipeline_parallel.hunyuan_image3 import install as install_pipeline_parallel
+        from ..tensor_parallel.hunyuan_image3 import install as install_tensor_parallel
 
-        install(sys.modules[module_name])
+        # tensor parallelism first: the pipeline stages wrap the node as it leaves
+        install_tensor_parallel(sys.modules[module_name])
+        install_pipeline_parallel(sys.modules[module_name])
+    if module_name.lower() == "kandinsky-6-sr":
+        from ..model_downloader import get_filename_list_with_downloadable
+
+        nodes = sys.modules[module_name + ".kandinsky6_vsr.nodes"]
+
+        def local_model_files():
+            # SR discovers component types from adjacent config files. Remote
+            # catalog entries must not trigger downloads during this scan.
+            names = set()
+            for folder in (nodes.SR_MODEL_FOLDER, "diffusion_models"):
+                try:
+                    names.update(get_filename_list_with_downloadable(folder, known_files=[]))
+                except (KeyError, OSError):
+                    continue
+            return sorted(names)
+
+        nodes._model_files = local_model_files
 
 
 def _patch_essentials_pixeloe(module_name: str) -> None:

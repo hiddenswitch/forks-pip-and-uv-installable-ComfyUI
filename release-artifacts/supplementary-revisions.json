@@ -1,0 +1,93 @@
+[
+  {
+    "repo_id": "Comfy-Org/HunyuanVideo_repackaged",
+    "revision": "533a43813f01517d9e624f9e824a85bb94094120",
+    "path": "split_files/vae/hunyuan_video_vae_bf16.safetensors",
+    "destination": "vae/hunyuan_video_vae_bf16.safetensors",
+    "size": 492984198
+  },
+  {
+    "repo_id": "Comfy-Org/HunyuanVideo_repackaged",
+    "revision": "533a43813f01517d9e624f9e824a85bb94094120",
+    "path": "split_files/text_encoders/clip_l.safetensors",
+    "destination": "text_encoders/clip_l.safetensors",
+    "size": 246144152
+  },
+  {
+    "repo_id": "hkchengrex/MMAudio",
+    "revision": "eb13a1a98fdbec91753775c57b074ccdfc60587c",
+    "path": "ext_weights/v1-44.pth",
+    "destination": "audio_vae/v1-44.pth",
+    "size": 1221942998
+  },
+  {
+    "repo_id": "nvidia/bigvgan_v2_44khz_128band_512x",
+    "revision": "95a9d1dcb12906c03edd938d77b9333d6ded7dfb",
+    "path": "bigvgan_generator.pt",
+    "destination": "audio_vae/bigvgan_vocoder/bigvgan_generator.pt",
+    "size": 489041291
+  },
+  {
+    "repo_id": "nvidia/bigvgan_v2_44khz_128band_512x",
+    "revision": "95a9d1dcb12906c03edd938d77b9333d6ded7dfb",
+    "path": "config.json",
+    "destination": "audio_vae/bigvgan_vocoder/config.json",
+    "size": 1403
+  },
+  {
+    "repo_id": "Comfy-Org/Qwen-Image_ComfyUI",
+    "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+    "path": "split_files/text_encoders/qwen_2.5_vl_7b.safetensors",
+    "destination": "text_encoders/qwen_2.5_vl_7b.safetensors",
+    "size": 16584415576
+  },
+  {
+    "repo_id": "kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers",
+    "revision": "a14152d22f296dee41eb1822511b3aacc2696327",
+    "path": "transformer/diffusion_pytorch_model.safetensors",
+    "destination": "diffusion_models/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/transformer/diffusion_pytorch_model.safetensors",
+    "size": 3187645192
+  },
+  {
+    "repo_id": "kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers",
+    "revision": "a14152d22f296dee41eb1822511b3aacc2696327",
+    "path": "vae/diffusion_pytorch_model.safetensors",
+    "destination": "diffusion_models/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/vae/diffusion_pytorch_model.safetensors",
+    "size": 6955556660
+  },
+  {
+    "repo_id": "kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers",
+    "revision": "a14152d22f296dee41eb1822511b3aacc2696327",
+    "path": "latent_upscaler/diffusion_pytorch_model.safetensors",
+    "destination": "diffusion_models/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/latent_upscaler/diffusion_pytorch_model.safetensors",
+    "size": 7308101968
+  },
+  {
+    "repo_id": "kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers",
+    "revision": "a14152d22f296dee41eb1822511b3aacc2696327",
+    "path": "vae/config.json",
+    "destination": "diffusion_models/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/vae/config.json",
+    "size": 569
+  },
+  {
+    "repo_id": "kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers",
+    "revision": "a14152d22f296dee41eb1822511b3aacc2696327",
+    "path": "latent_upscaler/config.json",
+    "destination": "diffusion_models/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/latent_upscaler/config.json",
+    "size": 2258
+  },
+  {
+    "repo_id": "kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers",
+    "revision": "a14152d22f296dee41eb1822511b3aacc2696327",
+    "path": "transformer/config.json",
+    "destination": "diffusion_models/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/transformer/config.json",
+    "size": 1214
+  },
+  {
+    "repo_id": "kandinskylab/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers",
+    "revision": "a14152d22f296dee41eb1822511b3aacc2696327",
+    "path": "model_index.json",
+    "destination": "diffusion_models/Kandinsky-6.0-VSR-distilled2steps-5s-Diffusers/model_index.json",
+    "size": 359
+  }
+]

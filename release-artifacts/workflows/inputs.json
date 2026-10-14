@@ -1,0 +1,32 @@
+{
+  "image": "kandinsky6_i2va_portrait.png",
+  "source": "kandinsky6==1.0.1/example_inputs/kandinsky6_i2va_portrait.png",
+  "sha256": "ae9f3b9d68527594efd30088bf42747b4c27a9501631422f6b678ba26ea96a09",
+  "hunyuan_editing_input": "Uses the same portrait because the upstream Hunyuan workflows do not bundle hunyuan_image_3_conditioning.png.",
+  "sr_smoke_video": {
+    "file": "kandinsky6_sr_smoke.mp4",
+    "sha256": "f035ea4e0bbfc678cd6d8870f305f759aa187bddb33e68a1b4f563d2c1423cd7",
+    "source": "kandinsky6_i2va_portrait.png",
+    "frames": 5,
+    "fps": 24,
+    "size": [
+      512,
+      512
+    ],
+    "preparation": "ffmpeg looped portrait, scale to fill 512x512, center crop, libx264 yuv420p",
+    "purpose": "SR functional check within A5000 VRAM; not a full-sample benchmark"
+  },
+  "sr_temporal_smoke_video": {
+    "file": "kandinsky6_sr_temporal_smoke.mp4",
+    "sha256": "a1dd3a96b69c3757172ae510a2b5351e6e12e03c81910311b572206eccce42c3",
+    "source": "kandinsky6_i2va_portrait.png",
+    "frames": 9,
+    "fps": 24,
+    "size": [
+      512,
+      512
+    ],
+    "preparation": "ffmpeg looped portrait, scale to fill 512x512, center crop, libx264 yuv420p",
+    "purpose": "SR functional check within A5000 VRAM; not a full-sample benchmark"
+  }
+}

@@ -8,8 +8,9 @@ import struct
 from typing import Collection, Mapping
 
 import torch
+from safetensors import safe_open
 
-from .. import utils
+from .. import memory_management, utils
 
 from .types import TensorDescriptor
 
@@ -132,4 +133,24 @@ class SafetensorsCheckpointReader(AbstractBaseCheckpointReader):
         result = {}
         for shard_path, shard_keys in by_shard.items():
             result.update(utils.load_torch_file(str(shard_path), include_keys=frozenset(shard_keys)))
+        return result
+
+    def load_slices(self, slices: Mapping[str, tuple[slice, ...] | None]) -> dict[str, torch.Tensor]:
+        """Read owned checkpoint slices without retaining the full backing tensors."""
+        unknown = set(slices).difference(self._tensors)
+        if unknown:
+            raise KeyError(f"Checkpoint does not contain pipeline keys: {sorted(unknown)[:5]}")
+        by_shard: dict[Path, dict[str, tuple[slice, ...] | None]] = {}
+        for key, selection in slices.items():
+            by_shard.setdefault(self._shards[key], {})[key] = selection
+        result = {}
+        for shard_path, shard_slices in by_shard.items():
+            if memory_management.aimdo_enabled and not utils.DISABLE_MMAP:
+                result.update(utils.load_safetensors(str(shard_path), include_keys=shard_slices,
+                                                     tensor_slices=shard_slices)[0])
+                continue
+            with safe_open(shard_path, framework="pt", device="cpu") as checkpoint:
+                for key, selection in shard_slices.items():
+                    tensor = checkpoint.get_tensor(key) if selection is None else checkpoint.get_slice(key)[selection]
+                    result[key] = tensor.clone()
         return result

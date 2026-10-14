@@ -70,14 +70,11 @@ For `torchrun` or another launcher, canonical `RANK`, `WORLD_SIZE`,
 alongside common MPI/PMI/Slurm aliases. Do not configure normal application
 behavior by inventing additional environment variables.
 
-## Tracing and benchmarking
+## Tracing
 
-ComfyUI emits OpenTelemetry spans for workflow execution and sampling. Set the
-configured OTLP/JSONL exporter destination through the CLI configuration and
-compare the sampler span after one warm-up run. The sampler span excludes
-custom-node import and checkpoint-load time, which makes TP comparisons
-meaningful. See [distributed inference](distributed.md#collected-tp-benchmark)
-for the collected reference table.
+ComfyUI emits OpenTelemetry spans for workflow execution and sampling. The
+OTLP/JSONL exporter destination is configured through the CLI. Sampler spans
+exclude custom-node import and checkpoint-load time.
 
 ## Embedded applications
 

@@ -1,0 +1,174 @@
+{
+  "status": "TP2 complete; final matched TP1 comparison recorded in kandinsky-pro-distil-benchmark.json",
+  "workflow": "release-artifacts/workflows/api/generation/kandinsky6_pro_distilled_t2av.json",
+  "source": {
+    "commit": "9e3a0e3ae76132b549e6af6dd31e77beee656fdb",
+    "comfy_tree": "ee04054cc64e6e5b4403c3961eeb452e4d04c789",
+    "note": "Same runtime for both phases; extra DynamicVRAM headroom is 2 GiB on both."
+  },
+  "settings": {
+    "width": 864,
+    "height": 480,
+    "frames": 121,
+    "fps": 24,
+    "steps": 10,
+    "cfg": 1,
+    "vram_headroom_gib": 2,
+    "magcache": false
+  },
+  "warm_job_median_seconds": 480.2519217830268,
+  "warm_generator_node_median_seconds": 453.776409626,
+  "results": [
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 573.3771616689919,
+      "peak_host_pss_bytes": 101219197952,
+      "peak_device_used_bytes": [
+        23076864000,
+        21730492416
+      ],
+      "start_time_unix_nano": 1791671435405089664,
+      "end_time_unix_nano": 1791672008782690632,
+      "sampler_seconds": null,
+      "generator_node_seconds": 478.734302416,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 480.6708250429947,
+      "peak_host_pss_bytes": 84956059648,
+      "peak_device_used_bytes": [
+        22817931264,
+        22665822208
+      ],
+      "start_time_unix_nano": 1791672008783226542,
+      "end_time_unix_nano": 1791672489454454173,
+      "sampler_seconds": null,
+      "generator_node_seconds": 454.403586146,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 479.2548433660122,
+      "peak_host_pss_bytes": 84905810944,
+      "peak_device_used_bytes": [
+        22817931264,
+        21751463936
+      ],
+      "start_time_unix_nano": 1791672489454900645,
+      "end_time_unix_nano": 1791672968710133836,
+      "sampler_seconds": null,
+      "generator_node_seconds": 452.711232553,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 480.2519217830268,
+      "peak_host_pss_bytes": 84807636992,
+      "peak_device_used_bytes": [
+        22782279680,
+        22565158912
+      ],
+      "start_time_unix_nano": 1791672968710677081,
+      "end_time_unix_nano": 1791673448962961508,
+      "sampler_seconds": null,
+      "generator_node_seconds": 453.776409626,
+      "sr_node_seconds": null
+    }
+  ],
+  "outputs": [
+    {
+      "seed": 42,
+      "file": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp2/kandinsky6/K6_00001_.mp4",
+      "sha256": "8505a6e5f3f129641c31d42617148fcd748e4894273a7a6694c140ec37dfcd77",
+      "streams": [
+        {
+          "codec_type": "video",
+          "width": 864,
+          "height": 480,
+          "avg_frame_rate": "24/1",
+          "duration": "5.041667",
+          "nb_frames": "121"
+        },
+        {
+          "codec_type": "audio",
+          "avg_frame_rate": "0/0",
+          "duration": "5.041678",
+          "nb_frames": "219"
+        }
+      ]
+    },
+    {
+      "seed": 43,
+      "file": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp2/kandinsky6/K6_00002_.mp4",
+      "sha256": "ea2067c9d085adbfba4ac06f9580e523b92f1dcf06b6e80d78330fad1754a7c1",
+      "streams": [
+        {
+          "codec_type": "video",
+          "width": 864,
+          "height": 480,
+          "avg_frame_rate": "24/1",
+          "duration": "5.041667",
+          "nb_frames": "121"
+        },
+        {
+          "codec_type": "audio",
+          "avg_frame_rate": "0/0",
+          "duration": "5.041678",
+          "nb_frames": "219"
+        }
+      ]
+    },
+    {
+      "seed": 44,
+      "file": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp2/kandinsky6/K6_00003_.mp4",
+      "sha256": "dbc2402bca0fcd776205ba499fdb71910e45b6bcb43ff3fe60dab126b271c784",
+      "streams": [
+        {
+          "codec_type": "video",
+          "width": 864,
+          "height": 480,
+          "avg_frame_rate": "24/1",
+          "duration": "5.041667",
+          "nb_frames": "121"
+        },
+        {
+          "codec_type": "audio",
+          "avg_frame_rate": "0/0",
+          "duration": "5.041678",
+          "nb_frames": "219"
+        }
+      ]
+    },
+    {
+      "seed": 45,
+      "file": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp2/kandinsky6/K6_00004_.mp4",
+      "sha256": "fb6d128be5eb5ec2522cadb319ef12c734f644ee82bffb5922225eb2a5902f27",
+      "streams": [
+        {
+          "codec_type": "video",
+          "width": 864,
+          "height": 480,
+          "avg_frame_rate": "24/1",
+          "duration": "5.041667",
+          "nb_frames": "121"
+        },
+        {
+          "codec_type": "audio",
+          "avg_frame_rate": "0/0",
+          "duration": "5.041678",
+          "nb_frames": "219"
+        }
+      ]
+    }
+  ],
+  "note": "Low-level CUDA allocation warnings appeared during decode, but every job completed with its expected video/audio output. No sampler peer OOM recurred."
+}

@@ -1,0 +1,294 @@
+{
+  "status": "All eight jobs completed; TP2 warm speedup 1.524x",
+  "workflow": "release-artifacts/workflows/api/generation/kandinsky6_pro_distilled_t2av.json",
+  "source": {
+    "commit": "9e3a0e3ae76132b549e6af6dd31e77beee656fdb",
+    "comfy_tree": "ee04054cc64e6e5b4403c3961eeb452e4d04c789",
+    "note": "Same runtime for both phases; extra DynamicVRAM headroom is 2 GiB on both."
+  },
+  "settings": {
+    "width": 864,
+    "height": 480,
+    "frames": 121,
+    "fps": 24,
+    "steps": 10,
+    "cfg": 1,
+    "vram_headroom_gib": 2,
+    "magcache": false
+  },
+  "hardware": {
+    "gpus": "2 x NVIDIA RTX A5000 24 GiB",
+    "link": "NVLink NV4",
+    "tp1_gpu": 1,
+    "tp2_gpus": [
+      0,
+      1
+    ],
+    "driver": "610.57.04",
+    "note": "GPU0 also serves the desktop; TP1 uses display-free GPU1."
+  },
+  "packages": {
+    "comfyui": "0.39.0.1",
+    "torch": "2.14.1",
+    "comfy-kitchen": "0.2.37",
+    "kandinsky6": "1.0.2",
+    "kandinsky6-sr": "0.1.2",
+    "comfyui-hunyuanimage3": "0.1.0"
+  },
+  "summary": {
+    "warm_median_seconds": {
+      "1": 731.8200300890021,
+      "2": 480.2519217830268
+    },
+    "tp2_speedup": 1.52382530271192
+  },
+  "cold_speedup": 1.4336843357994429,
+  "warm_latency_reduction_percent": 34.37567953358427,
+  "warm_generator_node_median_seconds": {
+    "1": 704.5391791779999,
+    "2": 453.776409626
+  },
+  "peak_host_pss_gib": {
+    "1": 51.681044578552246,
+    "2": 94.26772403717041
+  },
+  "results": [
+    {
+      "tp": 2,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 573.3771616689919,
+      "peak_host_pss_bytes": 101219197952,
+      "peak_device_used_bytes": [
+        23076864000,
+        21730492416
+      ],
+      "start_time_unix_nano": 1791671435405089664,
+      "end_time_unix_nano": 1791672008782690632,
+      "sampler_seconds": null,
+      "generator_node_seconds": 478.734302416,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 480.6708250429947,
+      "peak_host_pss_bytes": 84956059648,
+      "peak_device_used_bytes": [
+        22817931264,
+        22665822208
+      ],
+      "start_time_unix_nano": 1791672008783226542,
+      "end_time_unix_nano": 1791672489454454173,
+      "sampler_seconds": null,
+      "generator_node_seconds": 454.403586146,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 479.2548433660122,
+      "peak_host_pss_bytes": 84905810944,
+      "peak_device_used_bytes": [
+        22817931264,
+        21751463936
+      ],
+      "start_time_unix_nano": 1791672489454900645,
+      "end_time_unix_nano": 1791672968710133836,
+      "sampler_seconds": null,
+      "generator_node_seconds": 452.711232553,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 2,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 480.2519217830268,
+      "peak_host_pss_bytes": 84807636992,
+      "peak_device_used_bytes": [
+        22782279680,
+        22565158912
+      ],
+      "start_time_unix_nano": 1791672968710677081,
+      "end_time_unix_nano": 1791673448962961508,
+      "sampler_seconds": null,
+      "generator_node_seconds": 453.776409626,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 42,
+      "cold": true,
+      "job_wall_seconds": 822.0418551899784,
+      "peak_host_pss_bytes": 52941206528,
+      "peak_device_used_bytes": [
+        23822008320
+      ],
+      "start_time_unix_nano": 1791673484243896660,
+      "end_time_unix_nano": 1791674306286021859,
+      "sampler_seconds": null,
+      "generator_node_seconds": 769.403036567,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 43,
+      "cold": false,
+      "job_wall_seconds": 731.8200300890021,
+      "peak_host_pss_bytes": 55484779520,
+      "peak_device_used_bytes": [
+        23587127296
+      ],
+      "start_time_unix_nano": 1791674306286473661,
+      "end_time_unix_nano": 1791675038106871944,
+      "sampler_seconds": null,
+      "generator_node_seconds": 704.5391791779999,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 44,
+      "cold": false,
+      "job_wall_seconds": 731.0502160190081,
+      "peak_host_pss_bytes": 55488736256,
+      "peak_device_used_bytes": [
+        23587127296
+      ],
+      "start_time_unix_nano": 1791675038107363461,
+      "end_time_unix_nano": 1791675769157881230,
+      "sampler_seconds": null,
+      "generator_node_seconds": 703.707815718,
+      "sr_node_seconds": null
+    },
+    {
+      "tp": 1,
+      "seed": 45,
+      "cold": false,
+      "job_wall_seconds": 731.8937379479758,
+      "peak_host_pss_bytes": 55492099072,
+      "peak_device_used_bytes": [
+        23587127296
+      ],
+      "start_time_unix_nano": 1791675769158284580,
+      "end_time_unix_nano": 1791676501052378760,
+      "sampler_seconds": null,
+      "generator_node_seconds": 704.560167544,
+      "sr_node_seconds": null
+    }
+  ],
+  "output_comparisons": [
+    {
+      "seed": 42,
+      "output": "12:0",
+      "tp1": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp1/kandinsky6/K6_00001_.mp4",
+      "tp2": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp2/kandinsky6/K6_00001_.mp4",
+      "video": {
+        "codec_type": "video",
+        "width": 864,
+        "height": 480,
+        "avg_frame_rate": "24/1",
+        "duration": "5.041667",
+        "nb_frames": "121"
+      },
+      "decoded_video_ssim": 0.891057,
+      "audio": {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "channels": 1,
+        "avg_frame_rate": "0/0",
+        "duration": "5.041678",
+        "nb_frames": "219",
+        "identical": false,
+        "rmse": 0.007492693266584119,
+        "max_absolute_error": 0.10005500912666321
+      }
+    },
+    {
+      "seed": 43,
+      "output": "12:0",
+      "tp1": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp1/kandinsky6/K6_00002_.mp4",
+      "tp2": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp2/kandinsky6/K6_00002_.mp4",
+      "video": {
+        "codec_type": "video",
+        "width": 864,
+        "height": 480,
+        "avg_frame_rate": "24/1",
+        "duration": "5.041667",
+        "nb_frames": "121"
+      },
+      "decoded_video_ssim": 0.952736,
+      "audio": {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "channels": 1,
+        "avg_frame_rate": "0/0",
+        "duration": "5.041678",
+        "nb_frames": "219",
+        "identical": false,
+        "rmse": 0.007164520953943183,
+        "max_absolute_error": 0.18439793586730957
+      }
+    },
+    {
+      "seed": 44,
+      "output": "12:0",
+      "tp1": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp1/kandinsky6/K6_00003_.mp4",
+      "tp2": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp2/kandinsky6/K6_00003_.mp4",
+      "video": {
+        "codec_type": "video",
+        "width": 864,
+        "height": 480,
+        "avg_frame_rate": "24/1",
+        "duration": "5.041667",
+        "nb_frames": "121"
+      },
+      "decoded_video_ssim": 0.958178,
+      "audio": {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "channels": 1,
+        "avg_frame_rate": "0/0",
+        "duration": "5.041678",
+        "nb_frames": "219",
+        "identical": false,
+        "rmse": 0.01003811536714001,
+        "max_absolute_error": 0.23645504424348474
+      }
+    },
+    {
+      "seed": 45,
+      "output": "12:0",
+      "tp1": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp1/kandinsky6/K6_00004_.mp4",
+      "tp2": "release-artifacts/benchmark-results/kandinsky-pro-distilled-t2av-headroom/tp2/kandinsky6/K6_00004_.mp4",
+      "video": {
+        "codec_type": "video",
+        "width": 864,
+        "height": 480,
+        "avg_frame_rate": "24/1",
+        "duration": "5.041667",
+        "nb_frames": "121"
+      },
+      "decoded_video_ssim": 0.969303,
+      "audio": {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "channels": 1,
+        "avg_frame_rate": "0/0",
+        "duration": "5.041678",
+        "nb_frames": "219",
+        "identical": false,
+        "rmse": 0.011454092070496039,
+        "max_absolute_error": 0.1682564653456211
+      }
+    }
+  ],
+  "visual_review": "Seed 42 frames 0, 60 and 120 inspected side by side. Both show coherent macaws in foliage; poses and motion differ. This is a limited visual check, not a perceptual equivalence claim.",
+  "limitations": [
+    "Video and audio are not numerically identical: decoded-video SSIM 0.891057\u20130.969303 and audio RMSE 0.007165\u20130.011454.",
+    "SR is excluded from this Pro benchmark; the original full-resolution SR bundle exhausted 24 GiB VRAM.",
+    "Low-level allocation warnings occurred during TP2 decode, but all outputs completed.",
+    "TP2 used more aggregate host memory; no memory reduction is claimed."
+  ]
+}

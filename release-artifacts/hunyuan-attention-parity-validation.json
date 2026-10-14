@@ -1,0 +1,81 @@
+{
+  "status": "All 1542 forwards passed real W4A8 CUDA/NCCL attention parity tolerance",
+  "checkpoint": "HunyuanImage-3.0-Instruct-Distil W4A8; immutable revision in model-revisions.json",
+  "source_commit": "6343997b8139f98dd16097be10b1dba7ccaff13e",
+  "dtype": "bfloat16",
+  "rtol": 0.01,
+  "atol": 0.01,
+  "results": [
+    [
+      {
+        "layer": 0,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.015625,
+        "rmse": 8.088420329832805e-05,
+        "relative_rmse": 0.00019157241300617693,
+        "nonidentical_forwards": 1,
+        "rank": 0
+      },
+      {
+        "layer": 15,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.015625,
+        "rmse": 0.00013974361755898448,
+        "relative_rmse": 0.00022394335523821674,
+        "nonidentical_forwards": 1,
+        "rank": 0
+      },
+      {
+        "layer": 31,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.0078125,
+        "rmse": 9.521822051719044e-05,
+        "relative_rmse": 0.00021069675203602573,
+        "nonidentical_forwards": 1,
+        "rank": 0
+      }
+    ],
+    [
+      {
+        "layer": 0,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.015625,
+        "rmse": 8.088420329832805e-05,
+        "relative_rmse": 0.00019157241300617693,
+        "nonidentical_forwards": 1,
+        "rank": 1
+      },
+      {
+        "layer": 15,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.015625,
+        "rmse": 0.00013974361755898448,
+        "relative_rmse": 0.00022394335523821674,
+        "nonidentical_forwards": 1,
+        "rank": 1
+      },
+      {
+        "layer": 31,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.0078125,
+        "rmse": 9.521822051719044e-05,
+        "relative_rmse": 0.00021069675203602573,
+        "nonidentical_forwards": 1,
+        "rank": 1
+      }
+    ]
+  ],
+  "executed_runner_sha256": "b2a74bfadec6369c5afcfc86c8affd23dce75e84aa3b0e779e79361d865f7b54",
+  "reproduction_script": "scripts/validate_hunyuan_attention_tp.py",
+  "limitations": [
+    "Representative attention layers 0, 15 and 31, each with a 32-token unmasked prefill and 256 incremental steps; this is not a full-transformer logit comparison.",
+    "Both ranks compare against unsharded attention using identical fixed random inputs and real checkpoint weights.",
+    "Floating-point differences are small but can change subsequent greedy token selection. Full rewrite text is not bit-identical to the earlier adapter."
+  ]
+}

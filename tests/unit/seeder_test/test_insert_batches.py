@@ -7,13 +7,14 @@ import time
 from types import SimpleNamespace
 
 import pytest
+from PIL import Image
 
 from comfy.cmd import folder_paths
 from comfy.app.assets import mode
 from comfy.app.assets import scanner as scanner_module
 from comfy.app.assets import seeder as seeder_module
 from comfy.app.assets.seeder import ScanPhase, State, _AssetSeeder, _ScanState
-from comfy.app.assets.services import ingest
+from comfy.app.assets.services import ingest, path_utils
 
 
 @pytest.fixture
@@ -103,8 +104,16 @@ def test_output_registration_gets_in_while_the_scan_inserts(hashing_off, file_db
         (library / f"f{i}.png").write_bytes(b"x" * (i + 1))
     output = tmp_path / "output"
     output.mkdir()
+    # Invalid image bytes trigger Ultralytics' lazy HEIF installation in the
+    # Windows custom-node environment, outside the database contention we test.
+    output_paths = [output / f"out{i}.png" for i in range(3)]
+    for path in output_paths:
+        Image.new("RGB", (1, 1)).save(path)
     monkeypatch.setattr(folder_paths, "get_input_directory", lambda: str(library))
     monkeypatch.setattr(folder_paths, "get_output_directory", lambda: str(output))
+    # Only input/output files participate; custom-node folder discovery is not
+    # part of the SQLite contention measurement.
+    monkeypatch.setattr(path_utils, "get_comfy_models_folders", lambda: [])
     old = time.time() - 3600
     for path in library.iterdir():
         os.utime(path, (old, old))
@@ -128,9 +137,7 @@ def test_output_registration_gets_in_while_the_scan_inserts(hashing_off, file_db
     try:
         assert scanning.wait(30)
         waits = []
-        for i in range(3):
-            path = output / f"out{i}.png"
-            path.write_bytes(b"output")
+        for path in output_paths:
             started = time.perf_counter()
             registered = ingest.register_executed_output(str(path), job_id="job")
             waits.append(time.perf_counter() - started)

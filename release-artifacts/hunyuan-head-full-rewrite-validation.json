@@ -1,0 +1,114 @@
+{
+  "status": "Complete rewrite passed; text differs from the earlier adapter",
+  "source": {
+    "commit": "6343997b8139f98dd16097be10b1dba7ccaff13e",
+    "files": {
+      "comfy/tensor_parallel/hunyuan_image3.py": "141b97725f488b9c7e47c74f690007f73b32ad323104df69a0a196f62a527606",
+      "comfy/tensor_parallel/distributed.py": "570ef96b649f6a788f367d332a0fd526ba609a221880157a01299b0b03e4269a",
+      "comfy/tensor_parallel/operations.py": "6d853d835b3b1aa6cf2a2fddb4ad89b9ec3954fc402960e545b7fdecdf24ffaf"
+    }
+  },
+  "output_identical_to_local_kv_reference": false,
+  "cuda_attention_parity": [
+    [
+      {
+        "layer": 0,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.015625,
+        "rmse": 8.088420329832805e-05,
+        "relative_rmse": 0.00019157241300617693,
+        "nonidentical_forwards": 1,
+        "rank": 0
+      },
+      {
+        "layer": 15,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.015625,
+        "rmse": 0.00013974361755898448,
+        "relative_rmse": 0.00022394335523821674,
+        "nonidentical_forwards": 1,
+        "rank": 0
+      },
+      {
+        "layer": 31,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.0078125,
+        "rmse": 9.521822051719044e-05,
+        "relative_rmse": 0.00021069675203602573,
+        "nonidentical_forwards": 1,
+        "rank": 0
+      }
+    ],
+    [
+      {
+        "layer": 0,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.015625,
+        "rmse": 8.088420329832805e-05,
+        "relative_rmse": 0.00019157241300617693,
+        "nonidentical_forwards": 1,
+        "rank": 1
+      },
+      {
+        "layer": 15,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.015625,
+        "rmse": 0.00013974361755898448,
+        "relative_rmse": 0.00022394335523821674,
+        "nonidentical_forwards": 1,
+        "rank": 1
+      },
+      {
+        "layer": 31,
+        "prefix_tokens": 32,
+        "incremental_tokens": 256,
+        "max_absolute_error": 0.0078125,
+        "rmse": 9.521822051719044e-05,
+        "relative_rmse": 0.00021069675203602573,
+        "nonidentical_forwards": 1,
+        "rank": 1
+      }
+    ]
+  ],
+  "generation": [
+    [
+      "286",
+      "312"
+    ]
+  ],
+  "results": [
+    {
+      "phase": "initial",
+      "seconds": 345.7087847919902,
+      "status": {
+        "status_str": "success",
+        "completed": true,
+        "messages": [
+          "execution_start",
+          "execution_cached",
+          "execution_success"
+        ]
+      },
+      "memory": [
+        80294947840,
+        [
+          16515989504,
+          21701132288
+        ]
+      ]
+    }
+  ],
+  "limits": "One complete 286-token rewrite, versus 307 tokens in the earlier adapter reference; wall times are not a matched-token speed comparison. Short 64-token prefixes match TP1, but full greedy output is not bit-identical. Real W4A8 attention parity passed rtol=0.01/atol=0.01 on two GPUs. Memory is sampled after execution, not peak.",
+  "raw_results": "release-artifacts/benchmark-results/hunyuan-head-sharded-full-rewrite",
+  "closing_recaption_tag": true,
+  "generated_tokens": 286,
+  "reference_generated_tokens": 307,
+  "numerical_validation": "hunyuan-attention-parity-validation.json",
+  "reference_text_sha256": "a275df41d905b80ead29e5b356a89a4c56db9f5fe4d44597de815f42b34824a2",
+  "text_sha256": "6057b046784f2251e0d39b7586f51c6978ad0bd37887029d369dbcb4aba8d9ce"
+}
