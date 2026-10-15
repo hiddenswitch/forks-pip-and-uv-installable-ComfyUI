@@ -29,7 +29,7 @@ From this prompt Ideogram will try to draw the height, the red coat, the walking
 A few habits follow from this:
 
 * **Write in sentences.** Tag lists like `man, forest, fire, dramatic, painting` can work, but full sentences tell the model how things relate: who holds what, what sits behind what.
-* **Describe what can be seen.** "A sunset over the ocean with orange and pink light on the water" gives the model more to draw than "a beautiful scene." [Prompt Structure](/prompting/prompt-structure.md) covers this in depth.
+* **Describe what can be seen.** "A sunset over the ocean with orange and pink light on the water" gives the model more to draw than "a beautiful scene." [Prompt Structure](https://docs.ideogram.ai/prompting/prompt-structure.md) covers this in depth.
 * **Put the main idea first.** Words near the start of the prompt tend to carry more weight.
 * **Say what you want, not what you don't.** "An empty street" works better than "a street with no people."
 
@@ -39,15 +39,15 @@ You can write in any language. English gives the most reliable results, most of 
 
 ## Plain language or JSON
 
-Ideogram 4.5 and 4.0 accept either a plain-language prompt or a structured JSON prompt. Plain language is the place to start, and it is all Ideogram 3.0 accepts. JSON lets you set exact layout, text placement and hex colors when a sentence can't pin them down. See [JSON Prompting](/prompting/json-prompting.md).
+Ideogram 4.5 and 4.0 accept either a plain-language prompt or a structured JSON prompt. Plain language is the place to start, and it is all Ideogram 3.0 accepts. JSON lets you set exact layout, text placement and hex colors when a sentence can't pin them down. See [JSON Prompting](https://docs.ideogram.ai/prompting/json-prompting.md).
 
 ## Magic Prompt
 
-Magic Prompt rewrites and expands a short prompt before Ideogram generates the image. On Ideogram 4.5 and 4.0 it turns your plain text into a structured JSON prompt, so you get much of the control of JSON without writing it. Turn it off when you want Ideogram to keep your exact wording. On every Ideogram model it's an on/off toggle. See the [Magic Prompt setting](/create/image-settings.md#magic-prompt) for where to find it.
+Magic Prompt rewrites and expands a short prompt before Ideogram generates the image. On Ideogram 4.5 and 4.0 it turns your plain text into a structured JSON prompt, so you get much of the control of JSON without writing it. Turn it off when you want Ideogram to keep your exact wording. On every Ideogram model it's an on/off toggle. See the [Magic Prompt setting](https://docs.ideogram.ai/create/image-settings.md#magic-prompt) for where to find it.
 
 ## Start here
 
-1. Pick a model: Ideogram 4.5, 4.0 or 3.0. See [available models](/create/models.md).
+1. Pick a model: Ideogram 4.5, 4.0 or 3.0. See [available models](https://docs.ideogram.ai/create/models.md).
 2. Write one sentence that says what kind of image it is and what it shows, such as `A watercolor painting of a fox curled up in snow under a pine tree.`
 3. Put any text you want in the image in quotation marks, near the start.
 4. Generate, look at the results, then add detail only where the image missed.
@@ -55,12 +55,12 @@ Magic Prompt rewrites and expands a short prompt before Ideogram generates the i
 
 ## Next pages
 
-1. [Prompt Structure](/prompting/prompt-structure.md)
-2. [Text in Images](/prompting/text-in-images.md)
-3. [JSON Prompting](/prompting/json-prompting.md)
-4. [Refine and Iterate](/prompting/refine-and-iterate.md)
-5. [Fix Common Problems](/prompting/fix-common-problems.md)
-6. [Vocabulary Reference](/prompting/vocabulary.md)
+1. [Prompt Structure](https://docs.ideogram.ai/prompting/prompt-structure.md)
+2. [Text in Images](https://docs.ideogram.ai/prompting/text-in-images.md)
+3. [JSON Prompting](https://docs.ideogram.ai/prompting/json-prompting.md)
+4. [Refine and Iterate](https://docs.ideogram.ai/prompting/refine-and-iterate.md)
+5. [Fix Common Problems](https://docs.ideogram.ai/prompting/fix-common-problems.md)
+6. [Vocabulary Reference](https://docs.ideogram.ai/prompting/vocabulary.md)
 
 
 <!-- SOURCE: https://docs.ideogram.ai/prompting/prompt-structure.md -->
@@ -79,14 +79,14 @@ Each part below shows two running examples: a perfume product photo and a waterc
 
 ### 1. Image summary
 
-One sentence that describes the whole image, as if someone glanced at it for two seconds. Name the kind of image (photo, logo, painting), the main subject and the tone. If you write only one sentence, make it this one. It is also the best input for [Magic Prompt](/create/image-settings.md#magic-prompt) to expand.
+One sentence that describes the whole image, as if someone glanced at it for two seconds. Name the kind of image (photo, logo, painting), the main subject and the tone. If you write only one sentence, make it this one. It is also the best input for [Magic Prompt](https://docs.ideogram.ai/create/image-settings.md#magic-prompt) to expand.
 
 * `A product photo of a men's perfume bottle named "Nightlife for men" in a sleek studio setup.`
 * `A whimsical watercolor painting of a little girl playing with her bunny in a flower-filled field.`
 
 ### 2. Main subject details
 
-What the subject looks like: color, shape, material, texture. Put any text you want in the image here, in quotation marks. [Text in Images](/prompting/text-in-images.md) covers this in full.
+What the subject looks like: color, shape, material, texture. Put any text you want in the image here, in quotation marks. [Text in Images](https://docs.ideogram.ai/prompting/text-in-images.md) covers this in full.
 
 * `The bottle is tall and rectangular with dark glass, a matte black cap, and silver lettering. The text "Nightlife for men" appears on the label in bold, modern font.`
 * `The girl has short brown hair, a yellow dress, and rosy cheeks. She holds a fluffy white bunny in her arms, and both are smiling.`
@@ -193,7 +193,7 @@ Fix the subject and style in plain terms, then let one phrase open up the mood o
 
 > A portrait of a young woman in a red cloak, standing still. The forest behind her blurs into colors like wet paint on glass.
 
-Once a prompt is close, see [Refine and Iterate](/prompting/refine-and-iterate.md) for how to adjust it.
+Once a prompt is close, see [Refine and Iterate](https://docs.ideogram.ai/prompting/refine-and-iterate.md) for how to adjust it.
 
 
 <!-- SOURCE: https://docs.ideogram.ai/prompting/text-in-images.md -->
@@ -234,7 +234,7 @@ You can't pick a font by name. Ideogram doesn't load real fonts; it learned what
 
 <table data-card-size="large" data-view="cards"><thead><tr><th></th><th></th><th></th></tr></thead><tbody><tr><td><img src="https://1799634369-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FzjhNby3LLsIikYuvxAJP%2Fuploads%2Fgit-blob-b8bc5c04b873f180e065faeb23152bef0849d20c%2Ftext-type-bold.png?alt=media" alt="The word Welcome in a heavy bold sans-serif typeface, forest green on cream" data-size="original"></td><td><em>The word "Welcome" written in <mark style="color:green;">bold sans-serif</mark> typeface, in deep forest green on a warm cream background.</em></td><td></td></tr><tr><td><img src="https://1799634369-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FzjhNby3LLsIikYuvxAJP%2Fuploads%2Fgit-blob-f85dbe002cac0729ffb626bbc15a204d005850d3%2Ftext-type-thin.png?alt=media" alt="The word Welcome in an ultra thin sans-serif typeface, forest green on cream" data-size="original"></td><td><em>The word "Welcome" written in <mark style="color:green;">ultra thin sans-serif</mark> typeface, in deep forest green on a warm cream background.</em></td><td></td></tr><tr><td><img src="https://1799634369-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FzjhNby3LLsIikYuvxAJP%2Fuploads%2Fgit-blob-505688e5d7933716464244976bbd9e6e93b64293%2Ftext-type-serif.png?alt=media" alt="The word Welcome in a classic serif typeface, forest green on cream" data-size="original"></td><td><em>The word "Welcome" written in <mark style="color:green;">serif</mark> typeface, in deep forest green on a warm cream background.</em></td><td></td></tr><tr><td><img src="https://1799634369-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FzjhNby3LLsIikYuvxAJP%2Fuploads%2Fgit-blob-78e88c535134bd515a3bebe0a1ece3aa821f6c47%2Ftext-type-bauhaus.png?alt=media" alt="The word Welcome in thin rounded Bauhaus-style letters, forest green on cream" data-size="original"></td><td><em>The word "Welcome" written in <mark style="color:green;">thin rounded bauhaus style</mark> typeface, in deep forest green on a warm cream background.</em></td><td></td></tr><tr><td><img src="https://1799634369-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FzjhNby3LLsIikYuvxAJP%2Fuploads%2Fgit-blob-29a25677f724f9e3c8d6d0808902735e9333a267%2Ftext-type-script.png?alt=media" alt="The word Welcome in a thin formal script with flourishes, forest green on cream" data-size="original"></td><td><em>The word "Welcome" written in <mark style="color:green;">thin and refined formal script</mark> typeface <mark style="color:green;">with flourishes</mark>, in deep forest green on a warm cream background.</em></td><td></td></tr><tr><td><img src="https://1799634369-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FzjhNby3LLsIikYuvxAJP%2Fuploads%2Fgit-blob-8607fd58e54cc3e3b94b1058ef3984c2c99234d1%2Ftext-type-hippie.png?alt=media" alt="The word Welcome in a bulbous 1960s hippie-style typeface, forest green on cream" data-size="original"></td><td><em>The word "Welcome" written in <mark style="color:green;">an elongated and artistic 1960's hippie-style</mark> typeface, in deep forest green on a warm cream background.</em></td><td></td></tr></tbody></table>
 
-If you leave the style out, the model picks one that suits the scene. [Magic Prompt](/create/image-settings.md#magic-prompt) will also add a fitting style when it expands your prompt.
+If you leave the style out, the model picks one that suits the scene. [Magic Prompt](https://docs.ideogram.ai/create/image-settings.md#magic-prompt) will also add a fitting style when it expands your prompt.
 
 ## More than one block of text
 
@@ -242,7 +242,7 @@ Give each block its own words, style and place. Describe them in reading order, 
 
 > A vintage jazz poster. At the top, the headline "BLUE NOTE SESSIONS" in large gold serif capitals. Below the trumpeter, "Live jazz every Saturday night" in off-white italic serif. At the bottom, "THE VELVET ROOM" in small gold sans-serif capitals.
 
-Plain text gets you close, but the layout can shift from one run to the next. When each line must land in an exact spot, use a JSON prompt. On Ideogram 4.5 and 4.0, each text element gets its own `text`, `desc` (how it looks), `color_palette` and `bbox`. See [JSON Prompting](/prompting/json-prompting.md) for the format and a full poster example.
+Plain text gets you close, but the layout can shift from one run to the next. When each line must land in an exact spot, use a JSON prompt. On Ideogram 4.5 and 4.0, each text element gets its own `text`, `desc` (how it looks), `color_palette` and `bbox`. See [JSON Prompting](https://docs.ideogram.ai/prompting/json-prompting.md) for the format and a full poster example.
 
 ## Limits
 
@@ -255,11 +255,11 @@ An image can still come back with a doubled letter or a missing word. Try these 
 
 1. Generate again. Each run gives the text another chance.
 2. Swap long or unusual words for shorter ones.
-3. Fix just the text in [Studio](/edit/studio.md), so the rest of the image stays the same. Download the image, upload it in Studio, then use **AI edit** ("change the sign to read Open Daily") or **Select area**: paint over the wrong word and say what it should read. Select area needs a paid plan.
+3. Fix just the text in [Studio](https://docs.ideogram.ai/edit/studio.md), so the rest of the image stays the same. Download the image, upload it in Studio, then use **AI edit** ("change the sign to read Open Daily") or **Select area**: paint over the wrong word and say what it should read. Select area needs a paid plan.
 
-It's often easier to keep an image whose text is right and fix the scene around it than the other way round. For more on editing a result, see [Refine and Iterate](/prompting/refine-and-iterate.md).
+It's often easier to keep an image whose text is right and fix the scene around it than the other way round. For more on editing a result, see [Refine and Iterate](https://docs.ideogram.ai/prompting/refine-and-iterate.md).
 
-Once you have an image you like, **Layerize text** in Studio turns its text into editable layers you can retype, move or restyle. See [Text and Layers](/edit/text-and-layers.md#layerize-text).
+Once you have an image you like, **Layerize text** in Studio turns its text into editable layers you can retype, move or restyle. See [Text and Layers](https://docs.ideogram.ai/edit/text-and-layers.md#layerize-text).
 
 
 <!-- SOURCE: https://docs.ideogram.ai/prompting/json-prompting.md -->
@@ -292,7 +292,7 @@ Plain language works well for most images. JSON adds control that plain language
 
 ## How Magic Prompt and JSON work together
 
-You don't have to write JSON by hand. On Ideogram 4.5 and 4.0, [Magic Prompt](/create/image-settings.md#magic-prompt) turns a plain-text prompt into a structured JSON prompt before generating:
+You don't have to write JSON by hand. On Ideogram 4.5 and 4.0, [Magic Prompt](https://docs.ideogram.ai/create/image-settings.md#magic-prompt) turns a plain-text prompt into a structured JSON prompt before generating:
 
 * **Magic Prompt on:** it rewrites and expands your idea, adding detail, style and layout, then builds the JSON.
 * **Magic Prompt off:** it keeps your wording and only converts it into the structured format.
@@ -455,7 +455,7 @@ Settings: Ideogram 4.0, Magic Prompt off, aspect ratio 1:2.
 
 <figure><img src="https://1799634369-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FzjhNby3LLsIikYuvxAJP%2Fuploads%2FKYqvYPmYcmwUkZYfQaed%2Fimage.png?alt=media&amp;token=f636b92e-5b5e-401d-945b-4732b7fe8b2f" alt="Vintage jazz poster of a spotlit trumpeter reading Blue Note Sessions, Live jazz every Saturday night, The Velvet Room, Sat August 9" width="375"><figcaption></figcaption></figure>
 
-For tips on wording the text itself, see [Text in Images](/prompting/text-in-images.md).
+For tips on wording the text itself, see [Text in Images](https://docs.ideogram.ai/prompting/text-in-images.md).
 
 
 <!-- SOURCE: https://docs.ideogram.ai/prompting/refine-and-iterate.md -->
@@ -470,7 +470,7 @@ Your first image is a draft. Small, deliberate changes to the prompt, or a quick
 
 ## Change one thing at a time
 
-Change a single word or phrase per round, so you can see what each change did. Fix the [seed](/create/image-settings.md#seed) and turn Magic Prompt off while you do this: with the same seed and settings, the only thing that moves is your wording.
+Change a single word or phrase per round, so you can see what each change did. Fix the [seed](https://docs.ideogram.ai/create/image-settings.md#seed) and turn Magic Prompt off while you do this: with the same seed and settings, the only thing that moves is your wording.
 
 > **Start:** "A black cat sitting on a windowsill during a storm"
 >
@@ -528,17 +528,17 @@ Rewording isn't always the fastest fix. Once you have an image you mostly like, 
 
 | Goal                                              | What to do                                                                                   |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| See what one word changes                         | Fix the [seed](/create/image-settings.md#seed), change one word, generate again              |
+| See what one word changes                         | Fix the [seed](https://docs.ideogram.ai/create/image-settings.md#seed), change one word, generate again              |
 | Get more options from a prompt that works         | Generate again, or select **Recreate** on a result to restore its settings                   |
-| Keep the look, try a variation                    | **Remix** it in the [Remix app](/edit/remix.md) with a tweaked prompt                        |
-| Change one thing in a finished image              | **AI edit** in [Studio](/edit/studio.md), describing the change in words                     |
+| Keep the look, try a variation                    | **Remix** it in the [Remix app](https://docs.ideogram.ai/edit/remix.md) with a tweaked prompt                        |
+| Change one thing in a finished image              | **AI edit** in [Studio](https://docs.ideogram.ai/edit/studio.md), describing the change in words                     |
 | Fix a small area (a hand, a face, a word of text) | **Select area** in Studio (paid plans), then describe what should be there                   |
 | Show more of the scene or change the shape        | **Reframe** in Studio, or **Extend** (paid plans)                                            |
-| Turn a short idea into a full prompt              | Write a few words and let [Magic Prompt](/create/image-settings.md#magic-prompt) expand them |
+| Turn a short idea into a full prompt              | Write a few words and let [Magic Prompt](https://docs.ideogram.ai/create/image-settings.md#magic-prompt) expand them |
 | Keep your exact wording                           | Turn Magic Prompt off                                                                        |
-| Control the layout exactly                        | Write a [JSON prompt](/prompting/json-prompting.md)                                          |
+| Control the layout exactly                        | Write a [JSON prompt](https://docs.ideogram.ai/prompting/json-prompting.md)                                          |
 
-If something keeps going wrong, check [Fix Common Problems](/prompting/fix-common-problems.md).
+If something keeps going wrong, check [Fix Common Problems](https://docs.ideogram.ai/prompting/fix-common-problems.md).
 
 
 <!-- SOURCE: https://docs.ideogram.ai/prompting/fix-common-problems.md -->
@@ -561,9 +561,9 @@ Each problem below lists the usual cause and the fix. If you're exploring rather
 >
 > **Instead of** "a robot with no eyes", **write** "a robot with a smooth, featureless face"
 
-Then check the rest of the prompt for anything that hints at the unwanted item. If Magic Prompt added it, turn [Magic Prompt](/create/image-settings.md#magic-prompt) off; it can also help in the other direction, since its rewrite often turns a negative into a positive.
+Then check the rest of the prompt for anything that hints at the unwanted item. If Magic Prompt added it, turn [Magic Prompt](https://docs.ideogram.ai/create/image-settings.md#magic-prompt) off; it can also help in the other direction, since its rewrite often turns a negative into a positive.
 
-On Ideogram 4.5 and 4.0, rephrasing is the only option. On Ideogram 3.0 you can also list what to avoid in the [Negative prompt](/create/image-settings.md#negative-prompt) setting.
+On Ideogram 4.5 and 4.0, rephrasing is the only option. On Ideogram 3.0 you can also list what to avoid in the [Negative prompt](https://docs.ideogram.ai/create/image-settings.md#negative-prompt) setting.
 
 ## Extra objects, people or text appear
 
@@ -575,7 +575,7 @@ On Ideogram 4.5 and 4.0, rephrasing is the only option. On Ideogram 3.0 you can 
 
 **Why:** The text isn't marked clearly, there's too much of it, or the scene around it is busy. Non-Latin scripts, such as Arabic or Chinese, render less reliably than English.
 
-**Fix:** Put the exact words in quotes, mention them early, and keep them short. Fix a wrong letter afterward with **Select area** in [Studio](/edit/studio.md) (paid plans), or add long copy as a [text layer](/edit/text-and-layers.md) in Studio. Keep non-Latin text to a word or two. See [Text in Images](/prompting/text-in-images.md).
+**Fix:** Put the exact words in quotes, mention them early, and keep them short. Fix a wrong letter afterward with **Select area** in [Studio](https://docs.ideogram.ai/edit/studio.md) (paid plans), or add long copy as a [text layer](https://docs.ideogram.ai/edit/text-and-layers.md) in Studio. Keep non-Latin text to a word or two. See [Text in Images](https://docs.ideogram.ai/prompting/text-in-images.md).
 
 ## Faces, hands or limbs look distorted
 
@@ -585,7 +585,7 @@ On Ideogram 4.5 and 4.0, rephrasing is the only option. On Ideogram 3.0 you can 
 
 ## The subject is cropped, or too far away
 
-**Why:** Ideogram fills the whole frame, so the [aspect ratio](/create/image-settings.md#aspect-ratio-and-size) shapes the framing. "A woman walking on a busy city street sidewalk" may show her head to toe at 1:2 and from the waist up at 2:1.
+**Why:** Ideogram fills the whole frame, so the [aspect ratio](https://docs.ideogram.ai/create/image-settings.md#aspect-ratio-and-size) shapes the framing. "A woman walking on a busy city street sidewalk" may show her head to toe at 1:2 and from the waist up at 2:1.
 
 **Fix:**
 
@@ -593,13 +593,13 @@ On Ideogram 4.5 and 4.0, rephrasing is the only option. On Ideogram 3.0 you can 
 * For a full figure, describe what's near the feet (shoes, the sidewalk). For a close-up, describe the face and upper body only.
 * Make the setting the main subject for a wider shot; make the person the main subject for a tighter one.
 * Pick an aspect ratio that suits the subject, or use **Reframe** or **Extend** (paid) in Studio on an image you already have.
-* For exact placement on 4.5 or 4.0, use a [JSON prompt](/prompting/json-prompting.md).
+* For exact placement on 4.5 or 4.0, use a [JSON prompt](https://docs.ideogram.ai/prompting/json-prompting.md).
 
 ## Ideogram ignores part of your prompt
 
 **Why:** The detail comes late in a long prompt, gets little weight, or conflicts with something else.
 
-**Fix:** Move it earlier, describe it in more detail, or mention it more than once. See [Emphasize what matters](/prompting/refine-and-iterate.md#emphasize-what-matters).
+**Fix:** Move it earlier, describe it in more detail, or mention it more than once. See [Emphasize what matters](https://docs.ideogram.ai/prompting/refine-and-iterate.md#emphasize-what-matters).
 
 ## The prompt contradicts itself
 
@@ -619,7 +619,7 @@ On Ideogram 4.5 and 4.0, rephrasing is the only option. On Ideogram 3.0 you can 
 >
 > **Instead of** "a beautiful dress", **try** "a red satin evening gown with intricate lace details"
 
-On 4.5 and 4.0, set style and color in the prompt; you can give exact hex colors in a [JSON prompt](/prompting/json-prompting.md). On Ideogram 3.0 you can also use style presets, style reference images and color palettes.
+On 4.5 and 4.0, set style and color in the prompt; you can give exact hex colors in a [JSON prompt](https://docs.ideogram.ai/prompting/json-prompting.md). On Ideogram 3.0 you can also use style presets, style reference images and color palettes.
 
 ## The emotion or idea doesn't come through
 
@@ -635,11 +635,11 @@ On 4.5 and 4.0, set style and color in the prompt; you can give exact hex colors
 
 **Why:** Some words aren't tied to a clear look, or other words nearby pull against them.
 
-**Fix:** Try a more visual synonym, or change the related words together. See [Try other words](/prompting/refine-and-iterate.md#try-other-words).
+**Fix:** Try a more visual synonym, or change the related words together. See [Try other words](https://docs.ideogram.ai/prompting/refine-and-iterate.md#try-other-words).
 
 ***
 
-If you're still stuck, strip the prompt back to its core and rebuild it one detail at a time, as in [Build up in steps](/prompting/refine-and-iterate.md#build-up-in-steps).
+If you're still stuck, strip the prompt back to its core and rebuild it one detail at a time, as in [Build up in steps](https://docs.ideogram.ai/prompting/refine-and-iterate.md#build-up-in-steps).
 
 
 <!-- SOURCE: https://docs.ideogram.ai/prompting/vocabulary.md -->
@@ -652,13 +652,13 @@ Words that help you describe camera angles, people and colors precisely
 
 Ideogram draws what you name. A precise word ("worm's-eye view", "cranberry red", "toddler") gets you closer than a general one ("from below", "red", "young child"). These lists collect words that work well in prompts:
 
-* [Angle of View and Perspective](/prompting/vocabulary/angle-of-view-and-perspective.md): camera positions and how a subject faces the viewer.
-* [Describing Age and Life Stage](/prompting/vocabulary/describing-age-and-life-stage.md): life-stage terms and modifiers, which work better than numeric ages.
-* [Describing Body Type](/prompting/vocabulary/describing-body-type.md): neutral words for build and shape.
-* [Describing Skin Tones](/prompting/vocabulary/describing-skin-tones.md): depth, undertone and finish.
-* [Memory Colors for Naming Color Nuances](/prompting/vocabulary/memory-colors-for-naming-color-nuances.md): everyday color names, grouped by base color.
+* [Angle of View and Perspective](https://docs.ideogram.ai/prompting/vocabulary/angle-of-view-and-perspective.md): camera positions and how a subject faces the viewer.
+* [Describing Age and Life Stage](https://docs.ideogram.ai/prompting/vocabulary/describing-age-and-life-stage.md): life-stage terms and modifiers, which work better than numeric ages.
+* [Describing Body Type](https://docs.ideogram.ai/prompting/vocabulary/describing-body-type.md): neutral words for build and shape.
+* [Describing Skin Tones](https://docs.ideogram.ai/prompting/vocabulary/describing-skin-tones.md): depth, undertone and finish.
+* [Memory Colors for Naming Color Nuances](https://docs.ideogram.ai/prompting/vocabulary/memory-colors-for-naming-color-nuances.md): everyday color names, grouped by base color.
 
-To steer colors with hex codes, use a [JSON prompt](/prompting/json-prompting.md) on 4.5 or 4.0, or a Custom [Color palette](/create/image-settings.md#color-palette) on 3.0.
+To steer colors with hex codes, use a [JSON prompt](https://docs.ideogram.ai/prompting/json-prompting.md) on 4.5 or 4.0, or a Custom [Color palette](https://docs.ideogram.ai/create/image-settings.md#color-palette) on 3.0.
 
 
 <!-- SOURCE: https://docs.ideogram.ai/prompting/vocabulary/angle-of-view-and-perspective.md -->
@@ -845,7 +845,7 @@ Body shape matters as much as age or clothing when you prompt for a person. Pick
 ## Tips
 
 * **Combine with pose and clothing.** "A plus-size woman in a fitted green dress, standing confidently" gives the model the body, the fit and the attitude.
-* **Describe the frame you want shown.** Body details below the waist pull the framing out to a full-length shot. See [Describe only what should show](/prompting/refine-and-iterate.md#describe-only-what-should-show).
+* **Describe the frame you want shown.** Body details below the waist pull the framing out to a full-length shot. See [Describe only what should show](https://docs.ideogram.ai/prompting/refine-and-iterate.md#describe-only-what-should-show).
 * **Keep it specific, not judgmental.** Words like "toned", "broad" or "soft" describe a shape. Loaded words tend to give exaggerated or caricatured results.
 
 ## Examples
@@ -909,7 +909,7 @@ Name the tone directly rather than relying on a nationality or ethnicity to impl
 
 # Memory Colors for Naming Color Nuances
 
-When describing colors in a prompt, using specific, visually grounded references is much more effective than generic terms like “red” or “green.” Since Ideogram doesn’t understand numerical color codes (like RGB or hex) unless you use [JSON prompting](/prompting/json-prompting.md) on Ideogram 4.5 or 4.0, or a Custom [Color palette](/create/image-settings.md#color-palette) on 3.0, using familiar, real-world references — often called *memory colors* — helps convey a more accurate color nuance. These references evoke a mental image based on shared visual experience, such as “cherry red” or “sky blue.”
+When describing colors in a prompt, using specific, visually grounded references is much more effective than generic terms like “red” or “green.” Since Ideogram doesn’t understand numerical color codes (like RGB or hex) unless you use [JSON prompting](https://docs.ideogram.ai/prompting/json-prompting.md) on Ideogram 4.5 or 4.0, or a Custom [Color palette](https://docs.ideogram.ai/create/image-settings.md#color-palette) on 3.0, using familiar, real-world references — often called *memory colors* — helps convey a more accurate color nuance. These references evoke a mental image based on shared visual experience, such as “cherry red” or “sky blue.”
 
 The list below groups memory-based color terms by base color. Each one can help you fine-tune your prompt and get closer to the exact hue you’re aiming for.
 

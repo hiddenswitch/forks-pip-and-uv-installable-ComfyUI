@@ -30,6 +30,8 @@ jobs:
       options: --shm-size=8g
     env:
       ONEAPI_DEVICE_SELECTOR: level_zero:0
+      # Triton recognizes DG2 G10 but misses the A380's G11 architecture id.
+      TRITON_INTEL_DEVICE_ARCH: dg2
       SYCL_CACHE_PERSISTENT: "1"
       SYCL_CACHE_DIR: /opt/comfyui-ci-cache/sycl
       PYTORCH_JIT: "0"
@@ -76,7 +78,7 @@ jobs:
     environment: Testing
     name: Windows RTX 3090 CUDA 12.8 PyTorch 2.10
     runs-on: [self-hosted, windows-cuda-3090-24gb]
-    timeout-minutes: 90
+    timeout-minutes: 120
     container:
       image: harbor.appmana.com/appmana-shared/buildervscuda:windows-1.0.1-ltsc2022
     defaults:

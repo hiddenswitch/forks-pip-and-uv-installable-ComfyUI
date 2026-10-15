@@ -76,18 +76,18 @@ The model supports image-to-video, multi-keyframe conditioning, keyframe-based a
 ### Image-to-video examples
 | | | |
 |:---:|:---:|:---:|
-| ![example1](./docs/_static/ltx-video_i2v_example_00001.gif) | ![example2](./docs/_static/ltx-video_i2v_example_00002.gif) | ![example3](./docs/_static/ltx-video_i2v_example_00003.gif) |
-| ![example4](./docs/_static/ltx-video_i2v_example_00004.gif) | ![example5](./docs/_static/ltx-video_i2v_example_00005.gif) |  ![example6](./docs/_static/ltx-video_i2v_example_00006.gif) |
-| ![example7](./docs/_static/ltx-video_i2v_example_00007.gif) |  ![example8](./docs/_static/ltx-video_i2v_example_00008.gif) | ![example9](./docs/_static/ltx-video_i2v_example_00009.gif) |
+| ![example1](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_i2v_example_00001.gif) | ![example2](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_i2v_example_00002.gif) | ![example3](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_i2v_example_00003.gif) |
+| ![example4](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_i2v_example_00004.gif) | ![example5](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_i2v_example_00005.gif) |  ![example6](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_i2v_example_00006.gif) |
+| ![example7](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_i2v_example_00007.gif) |  ![example8](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_i2v_example_00008.gif) | ![example9](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_i2v_example_00009.gif) |
 
 ### Controlled video examples
 | | | |
 |:---:|:---:|:---:|
-| ![control0](./docs/_static/ltx-video_ic_2v_example_00000.gif) | ![control1](./docs/_static/ltx-video_ic_2v_example_00001.gif) | ![control2](./docs/_static/ltx-video_ic_2v_example_00002.gif) |
+| ![control0](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_ic_2v_example_00000.gif) | ![control1](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_ic_2v_example_00001.gif) | ![control2](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_ic_2v_example_00002.gif) |
 
 | | |
 |:---:|:---:|
-| ![control3](./docs/_static/ltx-video_ic_2v_example_00003.gif) | ![control4](./docs/_static/ltx-video_ic_2v_example_00004.gif) |
+| ![control3](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_ic_2v_example_00003.gif) | ![control4](https://raw.githubusercontent.com/Lightricks/LTX-Video/main/docs/_static/ltx-video_ic_2v_example_00004.gif) |
 
 # News
 
@@ -240,7 +240,7 @@ python -m pip install -e .\[inference\]
 
 📝 **Note:** For best results, we recommend using our [ComfyUI](#comfyui-integration) workflow. We're working on updating the inference.py script to match the high quality and output fidelity of ComfyUI.
 
-To use our model, please follow the inference code in [inference.py](./inference.py):
+To use our model, please follow the inference code in [inference.py](https://github.com/Lightricks/LTX-Video/blob/main/inference.py):
 
 #### For image-to-video generation:
 

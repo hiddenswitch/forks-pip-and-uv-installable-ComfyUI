@@ -27,7 +27,7 @@
       "batch_size": 1,
       "force_projection": true,
       "apply_mask": true,
-      "refine_steps": 1
+      "refine_steps": 2
     }
   },
   "4": {

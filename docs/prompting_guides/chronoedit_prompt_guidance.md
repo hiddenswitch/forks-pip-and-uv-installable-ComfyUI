@@ -14,7 +14,7 @@ Fetched: 2026-06-03
 ---
 
 ### 🪶 Use the Provided Prompt Rewriter
-ChronoEdit’s training data is captioned using a **VLM-based dense captioning pipeline** ([`scripts/data_captioning.py`](scripts/data_captioning.py)).  
+ChronoEdit’s training data is captioned using a **VLM-based dense captioning pipeline** ([`scripts/data_captioning.py`](https://github.com/nv-tlabs/ChronoEdit/blob/main/scripts/data_captioning.py)).
 To achieve the best results, the provided prompt rewriter would rewrite your input prompt by a LLM and ensure your inference prompt follows a similar **length and structure** to the training-time distribution — typically concise, descriptive, and naturally formatted. 
 Example usage:
 ```bash

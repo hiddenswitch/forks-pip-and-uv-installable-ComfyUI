@@ -116,7 +116,7 @@ python run_inference.py \
   --magic-prompt-key "$MAGIC_PROMPT_API_KEY"
 ```
 
-See the README's [CLI](../README.md#cli) section for the rest of the flags.
+See the README's [CLI](https://github.com/ideogram-oss/ideogram4/blob/990fe1c/README.md#cli) section for the rest of the flags.
 
 Our magic-prompt system prompts are **open source** (they ship in
 `src/ideogram4/magic_prompt_system_prompts/`), so you're also welcome to
@@ -136,7 +136,7 @@ construct the caption with any system prompt and LLM of your choosing.
 
 The schema below describes the exact structure the model was trained on, and matching it minimizes 
 train/eval mismatch so the model generates closer to its full quality. Treat the "required" / "must" language
-in the rest of this section as the format the [`CaptionVerifier`](../src/ideogram4/caption_verifier.py)
+in the rest of this section as the format the [`CaptionVerifier`](https://github.com/ideogram-oss/ideogram4/blob/990fe1c/src/ideogram4/caption_verifier.py)
 checks against, not as a hard pipeline constraint.
 
 The full caption schema has three top-level fields:
@@ -220,7 +220,7 @@ Field descriptions:
 
 **Key ordering matters.** The model was trained on JSON with a consistent key
 order, so maintaining it improves generation quality. The pipeline runs
-[`CaptionVerifier`](../src/ideogram4/caption_verifier.py) on every prompt and emits
+[`CaptionVerifier`](https://github.com/ideogram-oss/ideogram4/blob/990fe1c/src/ideogram4/caption_verifier.py) on every prompt and emits
 warnings for unknown keys, missing required keys, or out-of-order keys.
 
 **Hex color format.** Colors in `color_palette` must be uppercase

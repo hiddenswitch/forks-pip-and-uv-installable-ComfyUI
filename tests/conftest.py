@@ -20,6 +20,8 @@ import fsspec
 
 from tests.unit._subprocess_helpers import _DrainingProcess
 
+pytest_plugins = ["tests.inference_benchmark"]
+
 faulthandler.enable()
 
 os.environ['OTEL_METRICS_EXPORTER'] = 'none'

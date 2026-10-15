@@ -7,6 +7,8 @@ from importlib.metadata import distribution
 from pathlib import Path
 from types import SimpleNamespace
 
+import comfy_aimdo.control
+import comfy_aimdo.model_mmap
 import pytest
 import torch
 from safetensors.torch import save_file
@@ -269,6 +271,10 @@ def test_installed_hunyuan_transformer_matches_replicated_model(size, tokens, kv
 @pytest.mark.parametrize("size", [2, 4])
 @pytest.mark.parametrize("lazy", [False, True])
 def test_installed_kandinsky_asymmetric_attention_matches_full_model(size, lazy, tmp_path, monkeypatch):
+    if lazy:
+        if not comfy_aimdo.control.init():
+            pytest.skip("Native Aimdo library unavailable")
+        importlib.reload(comfy_aimdo.model_mmap)
     entry = next(ep for ep in distribution("kandinsky6").entry_points if ep.group == "comfyui.custom_nodes").load()
     root = Path(entry.COMFYUI_VANILLA_NODE_PATH) / "kandinsky-6"
     prepare_vanilla_environment()

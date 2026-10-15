@@ -135,7 +135,7 @@
   "37:3": {
     "inputs": {
       "scheduler": "normal",
-      "steps": 1,
+      "steps": 2,
       "denoise": 1,
       "model": [
         "41",

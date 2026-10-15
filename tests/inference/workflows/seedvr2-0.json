@@ -52,7 +52,7 @@
   "8": {
     "inputs": {
       "seed": 0,
-      "steps": 1,
+      "steps": 2,
       "cfg": 1.0,
       "sampler_name": "euler",
       "scheduler": "simple",

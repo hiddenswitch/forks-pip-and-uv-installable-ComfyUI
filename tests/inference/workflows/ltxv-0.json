@@ -108,7 +108,7 @@
   },
   "71": {
     "inputs": {
-      "steps": 1,
+      "steps": 2,
       "max_shift": 2.05,
       "base_shift": 0.95,
       "stretch": true,

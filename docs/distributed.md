@@ -43,11 +43,12 @@ pipeline-parallel sizes this machine supports.
 | Model family | TP | PP | Ulysses/Ring |
 |---|:---:|:---:|:---:|
 | Flux2 Dev | ✅ | ✅ | ✅ |
-| HunyuanImage 3.0 (`comfyui-hunyuanimage3` node) | — | ✅ | — |
 | Ideogram 4 | ✅ | — | — |
 | Krea 2 | ✅ | — | — |
 | MiniMax H3 | ✅ | ✅ | ✅ |
 | Qwen Image / Layered | — | ✅ | ✅ |
+| Kandinsky 6 Pro (pip custom node) | ✅ | — | — |
+| HunyuanImage3 (`comfyui-hunyuanimage3` node) | ✅, with EP | ✅ | — |
 
 TP currently uses safetensors checkpoints and CUDA/NCCL. PP supports the
 listed block layouts and uses DynamicVRAM-aware partitioning. Sequence
@@ -68,13 +69,75 @@ comfyui --cuda-device 0,1 --ulysses-degree 2
 comfyui --cuda-device 0,1 --ring-degree 2
 ```
 
-For an externally launched process group, use canonical launcher values
+External launch currently supports PP only. TP uses the internal multiprocessing
+executor with GPUs on one host; a multi-node TP JobSet is not supported.
+
+For an externally launched PP process group, use canonical launcher values
 `RANK`, `WORLD_SIZE`, `LOCAL_RANK`, `LOCAL_WORLD_SIZE`, `MASTER_ADDR`, and
 `MASTER_PORT` (for example with `torchrun`). Common PMI, Open MPI, MVAPICH,
 and Slurm aliases are also accepted. Model-parallel choices still come from
 `Configuration`/CLI; launcher variables identify the process.
 
+## Recorded performance
+
+These historical measurements use two NVLink-connected NVIDIA RTX A5000
+24 GiB GPUs; the baseline uses one of those GPUs. They are sampler averages
+or complete workflow timings as labeled, **not second-step timings**. GPU 0
+also served desktop graphics. Results describe the recorded checkpoint and
+workload, not a guarantee for every model variant or memory setting.
+
+| Model / workload | GPU configuration | Mode | Attention | Measurement | One GPU | Two GPUs | Speedup |
+|---|---|---|---|---|---|---:|---:|---:|
+| Krea 2 Turbo, INT8 ConvRot, 1024², 8 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 1.170 | 0.876 | 1.34× |
+| Ideogram 4, INT8 ConvRot conditional + unconditional, 1024², 20 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 2.754 | 1.823 | 1.51× |
+| Flux2 Dev, full INT8 ConvRot, 1024², 20 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 4.018 | 1.662 | 2.42× |
+| MiniMax H3, pruned INT8 ConvRot, 864×480×124, 20 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 9.497 | 6.272 | 1.51× |
+| HunyuanImage3 Instruct W4A8, fixed caption, 1024², 50 steps | 2 × RTX A5000 24 GiB, NVLink | EP + TP=2 | Comfy Kitchen INT8 | Complete sampler seconds | 316.99 | 201.00 | 1.58× |
+| Kandinsky 6 Pro distilled T2AV, 864×480×121, 10 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | Not recorded in summary | Cold workflow seconds | 822.04 | 573.38 | 1.43× |
+| Kandinsky 6 Pro distilled I2AV | 2 × RTX A5000 24 GiB, NVLink | TP=2 | Not recorded in summary | Cold workflow seconds | 846.17 | 570.27 | 1.48× |
+| Kandinsky 6 Pro standard T2AV, generation without SR | 2 × RTX A5000 24 GiB, NVLink | TP=2 | Not recorded in summary | Cold workflow seconds | 7172.74 | 7817.27 | 0.92× |
+| Kandinsky 6 Pro standard I2AV, generation without SR | 2 × RTX A5000 24 GiB, NVLink | TP=2 | Not recorded in summary | Cold workflow seconds | 7391.41 | 8344.53 | 0.89× |
+
+The first four rows were retained in [the earlier benchmark table](https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/blob/94c047692aec7ebbdd2dca5b11309f3061f1031f/docs/distributed.md).
+The complete-run evidence is in
+[Hunyuan diffusion validation](../release-artifacts/hunyuan-diffusion-tp-fix-validation.json),
+[Kandinsky distilled T2AV](../release-artifacts/kandinsky-pro-distil-benchmark.json),
+[distilled I2AV](../release-artifacts/kandinsky6_pro_distilled_i2av-final-benchmark.json),
+[standard T2AV](../release-artifacts/kandinsky6_pro_standard_t2av-cold-validation.json),
+and [standard I2AV](../release-artifacts/kandinsky6_pro_standard_i2av-cold-validation.json).
+The complete-run rows each compare one cold process per configuration; the OS
+file cache was not flushed. Hunyuan and distilled Kandinsky reserve 2 GiB of
+extra VRAM headroom. Hunyuan W4A8 means 4-bit weights and 8-bit activations.
+Standard Kandinsky Pro was slower with TP=2 in these samples.
+
+The following PP measurements use the same 1024² HunyuanImage3 Instruct W4A8
+fixed-caption workflow reduced to two Euler steps, CFG 2.5, seed 1234. They time
+the **second completed step**, with the attention backend observed at runtime.
+
+| Model | GPU configuration | Mode / transport | Checkpoint storage | Attention | Step 2 (s) | it/s |
+|---|---|---|---|---|---:|---:|
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | Node-local disk | PyTorch SDPA | 4.937 | 0.203 |
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | SeaweedFS network mount | PyTorch SDPA | 18.323 | 0.055 |
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | Node-local disk | Comfy Kitchen INT8 (`--use-ck-attention`) | 4.687 | 0.213 |
+
+[Recorded PP evidence](../release-artifacts/hunyuan-pp2-usb4-validation.json)
+includes revisions and runtime details. Each row is one fresh process; the OS
+file cache was not flushed. The runs use different neighboring host pairs and
+have no matching single-GPU baseline, so they do not establish a PP speedup.
+Two-step output validates execution, not image quality. Separate 50-step
+fresh-process PP=2 runs with SDPA and native INT8 attention completed. Both saved
+images visually matched the fox, grass, golden light, and bokeh in the supplied
+caption; this is one seed per backend, not a general quality comparison.
+
 ## Memory and limitations
+
+Pipeline stages execute sequentially for each sample. Partitioning can reduce
+offloading enough to improve latency, but it does not by itself make both GPUs
+compute different layers of that sample simultaneously.
+
+Hunyuan PP currently supports diffusion with supplied captions; its autoregressive
+prompt rewriting and Spectrum acceleration are not supported by the pipeline
+stages. TP supports the separate autoregressive path.
 
 Pipeline boundaries are selected from checkpoint geometry and then refined
 using measured DynamicVRAM geometry on every participating device. Text

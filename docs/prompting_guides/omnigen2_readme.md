@@ -7,7 +7,7 @@ Fetched: 2026-06-03
 ---
 
 <p align="center">
-  <img src="assets/brand.png" width="65%">
+  <img src="https://raw.githubusercontent.com/VectorSpaceLab/OmniGen2/main/assets/brand.png" width="65%">
 </p>
 
 <p align="center">
@@ -40,7 +40,7 @@ Fetched: 2026-06-03
 - 2025-07-05: Training datasets [X2I2](https://huggingface.co/datasets/OmniGen2/X2I2) are available.
 - 2025-07-03: OmniGen2 now supports [TeaCache](https://github.com/ali-vilab/TeaCache) and [TaylorSeer](https://github.com/Shenyi-Z/TaylorSeer) for faster inference, see [Usage Tips](#-usage-tips) for details. Thanks @legitnull for great [TeaCache-PR](https://github.com/VectorSpaceLab/OmniGen2/pull/52) and [TaylorSeer-PR](https://github.com/VectorSpaceLab/OmniGen2/pull/76).
 - 2025-07-01: OmniGen2 is supported by [ComfyUI official](https://comfyanonymous.github.io/ComfyUI_examples/omnigen), thanks !!
-- 2025-06-30: Training code is available, see [fine-tuning](docs/FINETUNE.md) for details.
+- 2025-06-30: Training code is available, see [fine-tuning](https://github.com/VectorSpaceLab/OmniGen2/blob/main/docs/FINETUNE.md) for details.
 - 2025-06-28: We release [OmniContext](https://huggingface.co/datasets/OmniGen2/OmniContext) benchmark. The evaluation codes are in [omnicontext](https://github.com/VectorSpaceLab/OmniGen2/tree/main/omnicontext).
 - 2025-06-24: [Technical Report](https://arxiv.org/abs/2506.18871) is available.
 - 2025-06-23: We’ve updated our code and HF model—OmniGen2 now runs *without* `flash-attn`. Users can still install it for optimal performance.
@@ -61,19 +61,19 @@ Fetched: 2026-06-03
 
 Some good cases of OmniGen2:
 <p align="center">
-  <img src="assets/teaser.jpg" width="95%">
+  <img src="https://raw.githubusercontent.com/VectorSpaceLab/OmniGen2/main/assets/teaser.jpg" width="95%">
   <br>
   <em>Demonstrations.</em>
 </p>
 
 <p align="center">
-  <img src="assets/examples_edit.png" width="95%">
+  <img src="https://raw.githubusercontent.com/VectorSpaceLab/OmniGen2/main/assets/examples_edit.png" width="95%">
   <br>
   <em> Good demonstrations of OmniGen2's image editing capabilities.</em>
 </p>
 
 <p align="center">
-  <img src="assets/examples_subject.png" width="95%">
+  <img src="https://raw.githubusercontent.com/VectorSpaceLab/OmniGen2/main/assets/examples_subject.png" width="95%">
   <br>
   <em> Good demonstrations of OmniGen2's in-context generation capabilities.</em>
 </p>
@@ -162,7 +162,7 @@ bash example_in_context_generation.sh
 
 * **Web Application**: You can also try the self-hosted OmniGen2 web application by visiting [this link](https://genai.baai.ac.cn/) or scanning the QR code below:
 <p align="center">
-  <img src="assets/qr-code.PNG" width="30%">
+  <img src="https://raw.githubusercontent.com/VectorSpaceLab/OmniGen2/main/assets/qr-code.PNG" width="30%">
   <br>
   <em> OmniGen2 web.</em>
 </p>
@@ -230,7 +230,7 @@ When the generated image does not align well with the input image, you can try t
 For example: "Edit the first image: add the man from the second image. The man is talking with a woman in the kitchen". The descition for your target image should be as detailed as possible.
 
 ## 🎨 Fine-tune
-See [fine-tuning](docs/FINETUNE.md) for details.
+See [fine-tuning](https://github.com/VectorSpaceLab/OmniGen2/blob/main/docs/FINETUNE.md) for details.
 
 ## ❌ Limitations and Suggestions
 The current model sometimes does not follow instructions. You can increase the "Number of images per prompt" to generate multiple images at once, so you can choose the result you are satisfied with, or try different prompts. In our own experience, being as detailed as possible tends to work better.
@@ -249,7 +249,7 @@ OmniGen2 natively requires an **NVIDIA RTX 3090** or an equivalent GPU with appr
 
 The following table details the inference performance of OmniGen2 on an **A800 GPU**:
 <p align="center">
-  <img src="assets/efficiency.png" width="95%">
+  <img src="https://raw.githubusercontent.com/VectorSpaceLab/OmniGen2/main/assets/efficiency.png" width="95%">
   <br>
   <em>Inference Efficiency of OmniGen2.</em>
 </p>

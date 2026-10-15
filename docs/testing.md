@@ -71,7 +71,7 @@ def _discover_workflows():
 async def client():
     config = default_configuration()
     config.disable_all_custom_nodes = True
-    config.novram = True
+    config.guess_settings = True
     config.fast = {PerformanceFeature.CublasOps}
     with ProcessPoolExecutor(max_workers=1) as executor:
         async with Comfy(configuration=config, executor=executor) as c:
@@ -103,7 +103,7 @@ async def test_generates_valid_image(client: Comfy):
     outputs = await client.queue_prompt(prompt)
 
     save_node_id = next(
-        key for key, value in prompt.items() if value.get("class_type") == "SaveImage"
+        key for key, value in prompt.items() if value.class_type == "SaveImage"
     )
     image_path = outputs[save_node_id]["images"][0]["abs_path"]
 
@@ -134,14 +134,14 @@ async def test_image_matches_snapshot(client: Comfy, image_diff):
 
     # Pin the seed for deterministic output
     sampler_node_id = next(
-        key for key, value in prompt.items() if value.get("class_type") == "KSampler"
+        key for key, value in prompt.items() if value.class_type == "KSampler"
     )
-    prompt[sampler_node_id]["inputs"]["seed"] = 42
+    prompt[sampler_node_id].inputs["seed"] = 42
 
     outputs = await client.queue_prompt(prompt)
 
     save_node_id = next(
-        key for key, value in prompt.items() if value.get("class_type") == "SaveImage"
+        key for key, value in prompt.items() if value.class_type == "SaveImage"
     )
     image_path = outputs[save_node_id]["images"][0]["abs_path"]
     result = Image.open(image_path)
@@ -262,8 +262,7 @@ def _generate_config_params():
         {"use_sage_attention": True},
     ]
     vram_options = [
-        {"novram": True},
-        {"normalvram": True},
+        {"guess_settings": True},
     ]
     fast_options = [
         {"fast": {PerformanceFeature.CublasOps}},
@@ -331,142 +330,13 @@ async def test_workflow(name: str, workflow_file, client: Comfy):
         assert len(outputs) > 0
 ```
 
-### Pre-populating Models
+### Test environments
 
-Models are downloaded on demand during test runs, but you can pre-populate the Hugging Face cache to avoid downloads in CI:
-
-```shell
-huggingface-cli download my-org/my-model my-model-fp8.safetensors
-huggingface-cli download my-org/my-lora lora.safetensors
-```
-
-Files are stored in `~/.cache/huggingface/` and symlinked into the models directory at runtime. For gated repos, authenticate first:
-
-```shell
-huggingface-cli login --token $HF_TOKEN
-```
-
-### GitHub Actions Workflow
-
-Inference tests require a GPU. There are three options for running GPU-equipped GitHub Actions:
-
-1. **[GitHub-hosted GPU runners](https://docs.github.com/en/actions/concepts/runners/larger-runners)** (Team/Enterprise plan, $0.07/min): Go to Settings > Actions > Runners > New GitHub-hosted runner, select the "NVIDIA GPU-Optimized Image" under the Partner tab, then choose a GPU-powered size (T4 with 16 GB VRAM). Assign it a label.
-2. **Self-hosted runners**: Install the [GitHub Actions runner agent](https://github.com/actions/runner) on a machine with an NVIDIA GPU. The machine stays online and picks up jobs from your repository. Use labels like `[self-hosted, gpu]` in `runs-on`.
-3. **[RunsOn](https://runs-on.com/runners/gpu/)** (any GitHub plan, ~$0.009/min for T4 on AWS spot): Deploy their CloudFormation stack to your AWS account, then use their label format in `runs-on`. Supports the full range of NVIDIA GPUs (T4, A10G, L4, L40S, A100, H100). No GitHub plan restriction.
-
-#### Memory Constraints on CI Runners
-
-GPU CI runners are typically memory-constrained compared to workstation hardware:
-
-- **T4 runners have 16 GB VRAM** — `config.novram = True` is required. Without it, large models (FLUX, SD3, video models) will OOM immediately. The `novram` flag aggressively offloads weights to CPU between operations.
-- **Runners with less than 32 GB RAM** (GitHub's T4 runner has 28 GB) — `config.disable_pinned_memory = True` is required. Pinned (page-locked) memory cannot be swapped, so on RAM-constrained runners the remaining unpinned memory thrashes to disk and performance collapses or the process is killed.
-- **Enable swap** as a safety net. Even with `novram` and `disable_pinned_memory`, some models temporarily spike RAM usage during loading. A swap file prevents OOM kills at the cost of brief slowdowns.
-
-Set these in your client fixture:
-
-```python
-@pytest.fixture(scope="function")
-async def client():
-    config = default_configuration()
-    config.novram = True
-    config.disable_pinned_memory = True
-    config.disable_all_custom_nodes = True
-    with ProcessPoolExecutor(max_workers=1) as executor:
-        async with Comfy(configuration=config, executor=executor) as c:
-            yield c
-```
-
-Create `.github/workflows/test.yaml`:
-
-```yaml
-name: Inference Tests
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.repository }}-test-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  test:
-    # Option 1: GitHub-hosted GPU runner (Team/Enterprise plan).
-    # Use the label you assigned when creating the runner in org settings.
-    runs-on: my-gpu-runner
-
-    # Option 2: Self-hosted runner with a GPU label.
-    # Install the runner agent on a machine with an NVIDIA GPU:
-    #   mkdir actions-runner && cd actions-runner
-    #   curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/download/v2.331.0/actions-runner-linux-x64-2.331.0.tar.gz
-    #   tar xzf actions-runner-linux-x64.tar.gz
-    #   ./config.sh --url https://github.com/YOUR_ORG/YOUR_REPO --token YOUR_TOKEN --labels gpu
-    #   ./run.sh  # or install as a systemd service with ./svc.sh install
-    # runs-on: [self-hosted, gpu]
-
-    # Option 3: RunsOn (runs-on.com) — on-demand AWS GPU runners, any GitHub plan.
-    # Deploy their CloudFormation stack to your AWS account, then:
-    # runs-on: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu22-gpu-x64"
-
-    steps:
-      - uses: actions/checkout@v4
-
-      # Prevent OOM kills during model loading spikes.
-      # GitHub's T4 runner has 28 GB RAM which is tight for large models.
-      - name: Enable swap
-        run: |
-          sudo fallocate -l 16G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      # Cache ~/.cache between runs: huggingface models, uv packages, etc.
-      # For self-hosted runners, this directory persists naturally.
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache
-          key: cache-${{ hashFiles('pyproject.toml', 'tests/conftest.py') }}
-          restore-keys: cache-
-
-      - name: Install dependencies
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv pip install --torch-backend=auto -e ".[ci]"
-
-      - name: Run tests
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: pytest tests/ -x -vv
-```
-
-Key points:
-
-- **Swap**: The 16 GB swap file acts as a safety net for RAM spikes during model loading. Without it, the kernel OOM-kills the process. This is a one-time cost at the start of the job.
-- **Cache**: `actions/cache` persists all of `~/.cache` between runs — this covers Hugging Face models, `uv` package downloads, and other cached data. The key is derived from `pyproject.toml` (dependency changes invalidate the `uv` cache) and `conftest.py` (model registration changes invalidate the HF cache). For self-hosted runners, `~/.cache` persists naturally across jobs.
-- **`HF_TOKEN`**: Required for gated models (FLUX, SD3, etc.). Add it as a repository secret under Settings > Secrets and variables > Actions.
-- **`cancel-in-progress`**: Kills running jobs when a new commit is pushed, avoiding wasted GPU time.
-- **`paths-ignore`**: Skips expensive GPU tests for documentation-only changes.
-
-### Running Tests Locally
-
-```shell
-uv pip install --torch-backend=auto -e ".[ci]"
-pytest tests/ -x -vv
-
-# Run a specific workflow
-pytest tests/ -k "my-workflow-a" -vv
-```
-
----
+The checked-in CI workflows and platform locks define the supported runtime
+matrix. [Compatibility](compatibility.md) identifies the hardware targets.
+DynamicVRAM and the shared pinned-memory budget account for host and container
+limits; low-memory flags are explicit overrides, not requirements for every
+GPU with 16 GiB of VRAM. Gated models require credentials and accepted terms.
 
 ## Mocking folder_paths in Tests
 
@@ -489,6 +359,21 @@ Key rules:
 - For other mock targets, use the full module path: `patch("comfy.cmd.folder_paths.xxx")`, `patch("comfy.app.xxx")`
 
 ---
+
+## Inference benchmark results
+
+Inference fixtures use at least two sampling steps. The native workflow and
+custom-node example suites print a final table with synchronized second-iteration
+wall time, iterations per second, GPU/device, PyTorch version, requested TP/PP,
+and observed attention backend. The first iteration is excluded from this
+measurement. `--inference-benchmark-json=PATH` also saves the rows as JSON.
+
+Measurements cover the native k-diffusion and UniPC iteration loops. An attention
+backend is reported only when its instrumented entry point is called; custom or
+remote-rank implementations can appear as `not observed`. A missing measurement
+is not a zero-duration result. These short execution checks do not establish
+image quality, and comparisons require the same weights, workflow, hardware,
+attention configuration, and competing GPU load.
 
 ## Workflow test coverage
 

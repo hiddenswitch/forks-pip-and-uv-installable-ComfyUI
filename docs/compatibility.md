@@ -4,15 +4,15 @@ ComfyUI supports Python 3.10–3.14. The project’s dependency metadata is the
 source of truth for installation; this page records configurations that are
 actively exercised in CI or on AppMana hardware.
 
-## Tested backends
+## CI backend targets
 
 | Backend | Tested stack | Hardware target | Notes |
 |---|---|---|---|
-| NVIDIA CUDA | CUDA 12.8–13.1, PyTorch 2.7–2.10 | RTX 3060, RTX 3090, RTX A5000 | SageAttention, INT8 ConvRot, TP, PP, and xDiT vary by model |
-| AMD ROCm | TheRock ROCm 10.0, PyTorch 2.13 | RX 7600 (gfx1102) | Generic `device-all` image; no architecture override required |
-| Intel XPU | PyTorch 2.11 XPU | Arc A380 | Uses the XPU allocator path, not CUDA allocator settings |
-| Apple MPS | Current PyTorch MPS wheels | macOS Apple Silicon | Feature availability follows upstream MPS support |
-| CPU | Project Python dependencies | Any supported platform | Useful for tests and fallback execution, not performance inference |
+| NVIDIA CUDA | CUDA 12.8 / PyTorch 2.10 (Windows); CUDA 13.3 / PyTorch 2.13 (Linux) | RTX 3060, RTX 3090, RTX A5000 | SageAttention, INT8 ConvRot, TP, PP, and xDiT vary by model |
+| AMD ROCm | TheRock ROCm 10.1.0, PyTorch 2.14.0 | RX 7600 (gfx1102) | Generic `device-all` image; no architecture override required |
+| Intel XPU | Python 3.14.7, PyTorch 2.14.1 XPU | Arc A380 | Uses the XPU allocator path, not CUDA allocator settings |
+| Apple MPS | macOS 14, Python 3.12, PyTorch 2.13 | macOS Apple Silicon | Feature availability follows upstream MPS support |
+| CPU | Arch Python 3.14, PyTorch 2.14 CPU | Any supported platform | Useful for tests and fallback execution, not performance inference |
 
 The AMD image uses AMD’s separated host/device packages from the stable
 [TheRock wheel index](https://stable.repo.amd.com/rocm/whl-next/). The image

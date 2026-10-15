@@ -20,7 +20,7 @@ Fetched: 2026-06-03
 
 <div class="doc-nav">
 
-<a href="/help/en" class="doc-center"><em></em> Document Center</a>
+<a href="https://www.alibabacloud.com/help/en" class="doc-center"><em></em> Document Center</a>
 
 </div>
 
@@ -72,19 +72,19 @@ Search
 
 <div class="col-md-12 hidden-sm hidden-xs">
 
-- <a href="/help/en" class="active" title="Document Center">Document
+- <a href="https://www.alibabacloud.com/help/en" class="active" title="Document Center">Document
   Center</a>
-- <a href="/help/en/model-studio/" class="active"
+- <a href="https://www.alibabacloud.com/help/en/model-studio/" class="active"
   title="Alibaba Cloud Model Studio">Alibaba Cloud Model Studio</a>
-- <a href="/help/en/model-studio/model-user-guide/" class="active"
+- <a href="https://www.alibabacloud.com/help/en/model-studio/model-user-guide/" class="active"
   title="User Guide (Models)">User Guide (Models)</a>
-- <a href="/help/en/model-studio/model-inference/" class="active"
+- <a href="https://www.alibabacloud.com/help/en/model-studio/model-inference/" class="active"
   title="Inference">Inference</a>
-- <a href="/help/en/model-studio/image-editing-and-generation/"
+- <a href="https://www.alibabacloud.com/help/en/model-studio/image-editing-and-generation/"
   class="active" title="Image generation">Image generation</a>
-- <a href="/help/en/model-studio/image-edit-guide/" class="active"
+- <a href="https://www.alibabacloud.com/help/en/model-studio/image-edit-guide/" class="active"
   title="Image editing">Image editing</a>
-- <a href="/help/en/model-studio/qwen-image-edit-guide" class="active"
+- <a href="https://www.alibabacloud.com/help/en/model-studio/qwen-image-edit-guide" class="active"
   title="Image editing - Qwen">Image editing - Qwen</a>
 
 </div>
@@ -118,7 +118,7 @@ Studio:Qwen-Image-Edit</span>
 
 <div id="header-faq" class="clearfix">
 
-<a href="/help/en" class="doc-center"><em></em> Document Center</a>
+<a href="https://www.alibabacloud.com/help/en" class="doc-center"><em></em> Document Center</a>
 
 <div class="download-links">
 
@@ -182,14 +182,14 @@ edited images from three input images and a prompt.
 source="reuse_library" docid="4712131" is-conref="true">
 
 Before making a call,
-<a href="/help/en/model-studio/get-api-key" id="772f04a6e87ne"
+<a href="https://www.alibabacloud.com/help/en/model-studio/get-api-key" id="772f04a6e87ne"
 class="xref">get an API key</a> and <a
-href="/help/en/model-studio/configure-api-key-through-environment-variables"
+href="https://www.alibabacloud.com/help/en/model-studio/configure-api-key-through-environment-variables"
 id="fece23da404bv" class="xref">export the API key as an environment
 variable</a>.
 
 To call the API using the SDK,
-<a href="/help/en/model-studio/install-sdk" id="7437001534qbr"
+<a href="https://www.alibabacloud.com/help/en/model-studio/install-sdk" id="7437001534qbr"
 class="xref">install the DashScope SDK</a>. The SDK is available for
 Python and Java.
 
@@ -659,7 +659,7 @@ public class ImageDownloader {
   </div>
 
 For the models supported in each region, see
-<span props="intl"><a href="/help/en/model-studio/models#809eb92b1fyko" id="b2527a74ecejv"
+<span props="intl"><a href="https://www.alibabacloud.com/help/en/model-studio/models#809eb92b1fyko" id="b2527a74ecejv"
 class="xref">Model list</a></span>.
 
 </div>
@@ -820,9 +820,9 @@ the following format: `data:{mime_type};base64,{base64_data}`.
   </div>
 
 For complete code examples, see
-<a href="/help/en/model-studio/qwen-image-edit-api#a3ad9a3b6d9if"
+<a href="https://www.alibabacloud.com/help/en/model-studio/qwen-image-edit-api#a3ad9a3b6d9if"
 id="98543900ee1dx" class="xref">Python SDK call</a> and
-<a href="/help/en/model-studio/qwen-image-edit-api#589b80853e6rn"
+<a href="https://www.alibabacloud.com/help/en/model-studio/qwen-image-edit-api#589b80853e6rn"
 id="5fe76d2ca41ne" class="xref">Call using the Java SDK</a>.
 
 </div>
@@ -902,7 +902,7 @@ models:
   </div>
 
 For a complete list of parameters, see
-<a href="/help/en/model-studio/qwen-image-edit-api" id="0d6b2d2723e82"
+<a href="https://www.alibabacloud.com/help/en/model-studio/qwen-image-edit-api" id="0d6b2d2723e82"
 class="xref">Qwen-Image-Edit API reference</a>.
 
 </div>
@@ -1684,10 +1684,10 @@ vivid.</p></td>
 ## **Billing and rate limiting**
 
 See
-<span props="intl"><a href="/help/en/model-studio/models#809eb92b1fyko" id="9d0089a0ca797"
+<span props="intl"><a href="https://www.alibabacloud.com/help/en/model-studio/models#809eb92b1fyko" id="9d0089a0ca797"
 class="xref">Model list and pricing</a></span> for the free quota,
 pricing, and
-<span props="intl"><a href="/help/en/model-studio/rate-limit#11371335d3feh"
+<span props="intl"><a href="https://www.alibabacloud.com/help/en/model-studio/rate-limit#11371335d3feh"
 id="35a47c36a3dnv" class="xref">rate limits</a></span>.
 
 **Billing details:**
@@ -1702,7 +1702,7 @@ id="35a47c36a3dnv" class="xref">rate limits</a></span>.
 - <div id="dc3f36554en0e">
 
   Enable 'Free quota only' to avoid charges after the quota is depleted.
-  See <a href="/help/en/model-studio/new-free-quota" id="a1fe6e3b935b3"
+  See <a href="https://www.alibabacloud.com/help/en/model-studio/new-free-quota" id="a1fe6e3b935b3"
   class="xref">Free quota for new users</a>.
 
   </div>
@@ -1714,7 +1714,7 @@ id="35a47c36a3dnv" class="xref">rate limits</a></span>.
 ## **API reference**
 
 See
-<a href="/help/en/model-studio/qwen-image-edit-api" id="bda7da790aaa9"
+<a href="https://www.alibabacloud.com/help/en/model-studio/qwen-image-edit-api" id="bda7da790aaa9"
 class="xref">Qwen-Image Edit</a> for API parameters.
 
 </div>
@@ -1725,7 +1725,7 @@ is-conref="true">
 ## **Error codes**
 
 If the model call fails and returns an error message, see
-<a href="/help/en/model-studio/error-code" id="d62f02c305acr"
+<a href="https://www.alibabacloud.com/help/en/model-studio/error-code" id="d62f02c305acr"
 class="xref">Error messages</a> for resolution.
 
 </div>
@@ -1758,7 +1758,7 @@ href="https://bailian.console.alibabacloud.com/?tab=model#/model-telemetry"
 id="5f9c1332949gi"><strong>Monitoring</strong> (China (Beijing))</a></span>
 page to view metrics such as invocation count and success rate. For more
 information, see
-<a href="/help/en/model-studio/bill-query-and-cost-management"
+<a href="https://www.alibabacloud.com/help/en/model-studio/bill-query-and-cost-management"
 id="6fa2c5a755h21" class="xref">Bill query and cost management</a>.
 
 </div>
@@ -1782,7 +1782,7 @@ obtain the latest OSS domain name list.
 
 </div>
 
-See the <a href="/help/en/model-studio/image-faq" id="28cc6c191fy8o"
+See the <a href="https://www.alibabacloud.com/help/en/model-studio/image-faq" id="28cc6c191fy8o"
 class="xref">Image generation FAQ</a>.
 
 </div>

@@ -241,4 +241,4 @@ Core Formula: Prompt = Scene Setting + Sequential Action Decomposition + Key Det
 ---
 We invite you to continue following the Hunyuan Video Team.
 We eagerly anticipate seeing your more bold and innovative creations, and we warmly welcome you to share your user experience and feedback with us. More creative cases, feature tips, and outstanding works will be continuously updated. We look forward to expanding the boundaries of expression and jointly exploring the infinite potential of AI video creation with you!
-Join our <a href="./assets/wechat.png" target="_blank">WeChat</a> and <a href="https://discord.gg/ehjWMqF5wY">Discord</a>!
+Join our <a href="https://raw.githubusercontent.com/Tencent-Hunyuan/HunyuanVideo-1.5/main/assets/wechat.png" target="_blank">WeChat</a> and <a href="https://discord.gg/ehjWMqF5wY">Discord</a>!

@@ -15,7 +15,7 @@ tags:
   - comfyui
 ---
 
-<img src="montage.jpg">
+<img src="https://huggingface.co/circlestone-labs/Anima/resolve/main/montage.jpg">
 
 Anima is a 2 billion parameter text-to-image model created via a collaboration between CircleStone Labs and Comfy Org. It is focused mainly on anime concepts, characters, and styles, but is also capable of generating a wide variety of other non-photorealistic content. The model is designed for making illustrations and artistic images, and will not work well at realism.
 
@@ -31,7 +31,7 @@ It is trained on several million anime images and about 800k non-anime artistic 
 
 # Installing and running
 Workflow:
-<img src="example.png" width="200">
+<img src="https://huggingface.co/circlestone-labs/Anima/resolve/main/example.png" width="200">
 The model is natively supported in ComfyUI. The above image contains a workflow; you can open it in ComfyUI or drag-and-drop to get the workflow. The model files go in their respective folders inside your model directory:
 - anima-base-v1.0.safetensors goes in ComfyUI/models/diffusion_models
 - qwen_3_06b_base.safetensors goes in ComfyUI/models/text_encoders

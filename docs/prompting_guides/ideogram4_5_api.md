@@ -18,7 +18,7 @@ The Ideogram API brings Ideogram's image and video models into your product. Eve
 
 ## Ideogram 4.5: the most precise edit model
 
-Tell Ideogram 4.5 what to change and it leaves everything else alone. With [Precise Edit](/api-reference/images/precise-edit/ideogram-4-5), pixels the edit doesn't touch are copied exactly from your image, and the result comes back at your image's own width and height.
+Tell Ideogram 4.5 what to change and it leaves everything else alone. With [Precise Edit](https://developer.ideogram.ai/api-reference/images/precise-edit/ideogram-4-5), pixels the edit doesn't touch are copied exactly from your image, and the result comes back at your image's own width and height.
 
 #### Targeted edits
 
@@ -34,41 +34,41 @@ Add up to four `reference_images` to steer the edit with a product, a material, 
 
 *Original, then "Change the product's colour and finish to slate-blue knit", then two edits later with a gum sole and a pale lilac backdrop. The shoes keep their exact shape and position throughout.*
 
-![](/_fern-files/ideogram.docs.buildwithfern.com/3ab860bf2397ba02f3539f9f20b1ea5b8f25463195ba4bda1ce80836d0f610ac/assets/v2/precise-edit-shoes-original.webp)
+![](https://developer.ideogram.ai/_fern-files/ideogram.docs.buildwithfern.com/3ab860bf2397ba02f3539f9f20b1ea5b8f25463195ba4bda1ce80836d0f610ac/assets/v2/precise-edit-shoes-original.webp)
 
-![](/_fern-files/ideogram.docs.buildwithfern.com/c1881492a1074bc19ae5f5d9ce2fbeb6b3140ef9d3beb304540f1a16551f750b/assets/v2/precise-edit-shoes-recolor.webp)
+![](https://developer.ideogram.ai/_fern-files/ideogram.docs.buildwithfern.com/c1881492a1074bc19ae5f5d9ce2fbeb6b3140ef9d3beb304540f1a16551f750b/assets/v2/precise-edit-shoes-recolor.webp)
 
-![](/_fern-files/ideogram.docs.buildwithfern.com/cd1cd4f72cbf471cb9a808670ce3692760b0ae24332d15e4899ff371d06cd1a0/assets/v2/precise-edit-shoes-backdrop.webp)
+![](https://developer.ideogram.ai/_fern-files/ideogram.docs.buildwithfern.com/cd1cd4f72cbf471cb9a808670ce3692760b0ae24332d15e4899ff371d06cd1a0/assets/v2/precise-edit-shoes-backdrop.webp)
 
 ## What you can build
 
-#### [Generate](/api-reference/images/generate/ideogram-4-5)
+#### [Generate](https://developer.ideogram.ai/api-reference/images/generate/ideogram-4-5)
 
 Create images from a prompt with Ideogram 4.5 and 4.0, known for prompt fidelity and crisp typography, or with GPT Image and Nano Banana.
 
-#### [Remix and inpaint](/api-reference/images/remix/ideogram-4)
+#### [Remix and inpaint](https://developer.ideogram.ai/api-reference/images/remix/ideogram-4)
 
 Transform an existing image with a prompt, or repaint just the masked region.
 
-#### [Upscale](/api-reference/images/upscale/auto)
+#### [Upscale](https://developer.ideogram.ai/api-reference/images/upscale/auto)
 
 Enlarge images with Topaz and Nano Banana Pro, or let Ideogram pick the model.
 
-#### [Backgrounds](/api-reference/images/remove-background/ideogram-1)
+#### [Backgrounds](https://developer.ideogram.ai/api-reference/images/remove-background/ideogram-1)
 
 Remove a background for a transparent cutout, or replace it with a generated scene.
 
-#### [Video](/api-reference/video/generate/seedance-2-5-text-to-video)
+#### [Video](https://developer.ideogram.ai/api-reference/video/generate/seedance-2-5-text-to-video)
 
 Generate video from text, a first frame, or reference images with Seedance, MiniMax H3, and Kling.
 
-#### [Tools](/api-reference/tools/ad-resizer)
+#### [Tools](https://developer.ideogram.ai/api-reference/tools/ad-resizer)
 
 Ready-made workflows for ads and commerce: resize, localize, recolour, and swap materials.
 
 ## Quickstart
 
-Create an API key by following the [Setup guide](/ideogram-api/api-setup). Then generate an image with Ideogram 4.5 and make a precise edit to it. Image endpoints return results directly; image URLs expire, so download anything you want to keep.
+Create an API key by following the [Setup guide](https://developer.ideogram.ai/ideogram-api/api-setup). Then generate an image with Ideogram 4.5 and make a precise edit to it. Image endpoints return results directly; image URLs expire, so download anything you want to keep.
 
 #### Python
 
@@ -149,7 +149,7 @@ curl -X POST https://api.ideogram.ai/v2/image/precise-edit/ideogram-4-5 \
 
 ### Long-running requests
 
-Video and tool endpoints always run asynchronously, and any image endpoint does too when you set `async` or supply a `webhook_url`. They return a `generation_id` straight away: poll [`GET /v2/generations/{generation_id}`](/api-reference/generations/get-generation) until `status` is `completed` or `failed`, or receive the result at your [webhook](/ideogram-api/webhooks).
+Video and tool endpoints always run asynchronously, and any image endpoint does too when you set `async` or supply a `webhook_url`. They return a `generation_id` straight away: poll [`GET /v2/generations/{generation_id}`](https://developer.ideogram.ai/api-reference/generations/get-generation) until `status` is `completed` or `failed`, or receive the result at your [webhook](https://developer.ideogram.ai/ideogram-api/webhooks).
 
 ```python
 import time
@@ -350,7 +350,9 @@ One generated output image.
 }
 ```
 
-**SDK Code**
+**Upstream SDK placeholders**
+
+These autogenerated snippets contain missing values and are not runnable examples. For complete requests, see the [API quickstart](ideogram4_5_api.md#quickstart).
 
 ```python
 import requests

@@ -71,36 +71,13 @@ from ..common_dit import rms_norm
 
 ## Common Issues and Fixes
 
-### Optional Dependencies (E0401: import-error)
+### Optional dependencies
 
-For optional dependencies like `torchaudio` that may not be installed, use local imports with a pylint disable comment:
-
-**Bad:**
-```python
-import torchaudio  # Top-level import causes E0401
-
-def process_audio(waveform):
-    return torchaudio.functional.resample(waveform, 44100, 16000)
-```
-
-**Good:**
-```python
-def process_audio(waveform):
-    import torchaudio  # pylint: disable=import-error
-    return torchaudio.functional.resample(waveform, 44100, 16000)
-```
-
-If the code path should fail gracefully when the dependency is missing, follow the local import with a targeted `ImportError` handler and raise the repo’s domain-specific exception or skip path instead of crashing at import time.
-
-**Good:**
-```python
-def load_audio_backend():
-    try:
-        import torchaudio  # pylint: disable=import-error
-    except ImportError as exc:
-        raise TorchAudioNotFoundError("torchaudio is required for this node") from exc
-    return torchaudio
-```
+Keep imports at module scope unless delayed import is needed for an optional
+backend or to avoid a cycle. Catch specific import failures only when the
+caller has a defined fallback. The custom-only pylint profile does not run
+built-in `import-error` checks; adding a suppression does not install a missing
+dependency or make its runtime API compatible.
 
 ### W8002: Root-Level `comfy_extras/nodes_*.py` File
 
@@ -120,66 +97,9 @@ comfy_extras/nodes/nodes_math.py
 comfy_extras/nodes/nodes_sdpose.py
 ```
 
-### Dynamic Attribute Access (E1101: no-member)
+### Interface contracts
 
-When accessing attributes that are dynamically defined (e.g., in subclasses), use a pylint disable comment:
-
-```python
-class StringConvertibleEnum(Enum):
-    @classmethod
-    def str_to_enum(cls, value):
-        if value is None:
-            if hasattr(cls, "NONE"):
-                return cls.NONE  # pylint: disable=no-member
-```
-
-### Variables Defined in Control Flow
-
-Ensure variables are defined before use, even if the linter can't follow the control flow:
-
-**Bad:**
-```python
-if condition:
-    x, y, z = compute_values()
-else:
-    # x, y, z not defined here but used later
-    pass
-
-# Linter warns x, y, z may be undefined
-result = process(x, y, z)
-```
-
-**Good:**
-```python
-x, y, z = None, None, None  # Initialize to satisfy linter
-if condition:
-    x, y, z = compute_values()
-else:
-    x, y, z = default_values()
-
-result = process(x, y, z)
-```
-
-### Break/Continue Outside Loop (E0103)
-
-Ensure `break` and `continue` statements are properly indented inside their loops:
-
-**Bad:**
-```python
-with open(file) as f:
-    for line in f:
-        process(line)
-
-    if some_condition:
-        break  # Error: break outside loop
-```
-
-**Good:**
-```python
-with open(file) as f:
-    for line in f:
-        process(line)
-
-        if some_condition:
-            break  # Correctly inside the for loop
-```
+Read declared attributes directly when their owning interface guarantees them.
+Do not add `hasattr` checks or initialize unused values solely to silence a
+linter. Keep control-flow branches complete and preserve the caller's contract.
+Repository engineering requirements are in [AGENTS.md](../AGENTS.md).

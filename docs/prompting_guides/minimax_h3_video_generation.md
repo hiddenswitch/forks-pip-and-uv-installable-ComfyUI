@@ -31,7 +31,7 @@ MiniMax H3 is an open, general-purpose multimodal video model. It understands te
 | Model name        | `MiniMax-H3`                                                                                                         |
 | Output resolution | 768P / 2K                                                                                                            |
 | Output duration   | 4–15 seconds, integer values only                                                                                    |
-| Aspect ratio      | Common ratios supported, or adaptive; [see the API reference](/docs/api-reference/video-generation-v2-create) for details |
+| Aspect ratio      | Common ratios supported, or adaptive; [see the API reference](https://platform.minimax.io/docs/api-reference/video-generation-v2-create) for details |
 
 ### Input Requirements
 
@@ -232,44 +232,44 @@ Example output:
 
 ## Create H3-Context-IR Task
 
-To obtain a more complete prompt before generating a video, [create an H3-Context-IR task](/docs/api-reference/video-generation-v2-h3-context-ir). H3-Context-IR deeply interprets multimodal context across text, images, audio, and video, reasons about the relationships among those inputs, and produces a structured representation with richer semantic detail while preserving the user's original intent as much as possible. This endpoint only returns an enhanced prompt and does not create a video.
+To obtain a more complete prompt before generating a video, [create an H3-Context-IR task](https://platform.minimax.io/docs/api-reference/video-generation-v2-h3-context-ir). H3-Context-IR deeply interprets multimodal context across text, images, audio, and video, reasons about the relationships among those inputs, and produces a structured representation with richer semantic detail while preserving the user's original intent as much as possible. This endpoint only returns an enhanced prompt and does not create a video.
 
-H3-Context-IR runs asynchronously. After creating the task, use [Query Task](/docs/api-reference/video-generation-v2-query) or [List Tasks](/docs/api-reference/video-generation-v2-list); retrieve the enhanced prompt from `content.prompt` when the task succeeds and identify the task by `task_type=h3_context_ir`.
+H3-Context-IR runs asynchronously. After creating the task, use [Query Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-query) or [List Tasks](https://platform.minimax.io/docs/api-reference/video-generation-v2-list); retrieve the enhanced prompt from `content.prompt` when the task succeeds and identify the task by `task_type=h3_context_ir`.
 
 ## Video Regeneration
 
-If you have a video that meets the MiniMax-H3 768P output specifications, use [Create Video Regeneration Task](/docs/api-reference/video-generation-v2-regeneration) to produce a 2K video. The request must reproduce all `content` used to generate the 768P video and add exactly one source-video item with `type=video_url` and `role=base_video`.
+If you have a video that meets the MiniMax-H3 768P output specifications, use [Create Video Regeneration Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-regeneration) to produce a 2K video. The request must reproduce all `content` used to generate the 768P video and add exactly one source-video item with `type=video_url` and `role=base_video`.
 
-Regeneration tasks share [Query Task](/docs/api-reference/video-generation-v2-query), [List Tasks](/docs/api-reference/video-generation-v2-list), and [Cancel or Delete Task](/docs/api-reference/video-generation-v2-delete) with other H3 tasks. Identify them by `task_type=regeneration`.
+Regeneration tasks share [Query Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-query), [List Tasks](https://platform.minimax.io/docs/api-reference/video-generation-v2-list), and [Cancel or Delete Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-delete) with other H3 tasks. Identify them by `task_type=regeneration`.
 
 ## Recommended Reading
 
 <Columns cols={2}>
-  <Card title="Create Video Generation Task" icon="book-open" href="/docs/api-reference/video-generation-v2-create" arrow="true" cta="Click here">
+  <Card title="Create Video Generation Task" icon="book-open" href="https://platform.minimax.io/docs/api-reference/video-generation-v2-create" arrow="true" cta="Click here">
     Use this API to create a MiniMax-H3 video generation task from multimodal content input.
   </Card>
 
-  <Card title="Create H3-Context-IR Task" icon="book-open" href="/docs/api-reference/video-generation-v2-h3-context-ir" arrow="true" cta="Click here">
+  <Card title="Create H3-Context-IR Task" icon="book-open" href="https://platform.minimax.io/docs/api-reference/video-generation-v2-h3-context-ir" arrow="true" cta="Click here">
     Deeply interpret multimodal video-generation context and produce a structured, enhanced prompt.
   </Card>
 
-  <Card title="Create Video Regeneration Task" icon="book-open" href="/docs/api-reference/video-generation-v2-regeneration" arrow="true" cta="Click here">
+  <Card title="Create Video Regeneration Task" icon="book-open" href="https://platform.minimax.io/docs/api-reference/video-generation-v2-regeneration" arrow="true" cta="Click here">
     Regenerate a source video that meets the MiniMax-H3 768P output specifications and produce a 2K video.
   </Card>
 
-  <Card title="Query Task" icon="book-open" href="/docs/api-reference/video-generation-v2-query" arrow="true" cta="Click here">
+  <Card title="Query Task" icon="book-open" href="https://platform.minimax.io/docs/api-reference/video-generation-v2-query" arrow="true" cta="Click here">
     Use this API to query task status by task\_id and retrieve the video download URL.
   </Card>
 
-  <Card title="List Tasks" icon="book-open" href="/docs/api-reference/video-generation-v2-list" arrow="true" cta="Click here">
+  <Card title="List Tasks" icon="book-open" href="https://platform.minimax.io/docs/api-reference/video-generation-v2-list" arrow="true" cta="Click here">
     List tasks from the last 7 days and distinguish task types with task\_type.
   </Card>
 
-  <Card title="Cancel or Delete Task" icon="book-open" href="/docs/api-reference/video-generation-v2-delete" arrow="true" cta="Click here">
+  <Card title="Cancel or Delete Task" icon="book-open" href="https://platform.minimax.io/docs/api-reference/video-generation-v2-delete" arrow="true" cta="Click here">
     Cancel a queued task or delete a succeeded or failed task record.
   </Card>
 
-  <Card title="Pricing" icon="book-open" href="/docs/guides/pricing-paygo#video" arrow="true" cta="Click here">
+  <Card title="Pricing" icon="book-open" href="https://platform.minimax.io/docs/guides/pricing-paygo#video" arrow="true" cta="Click here">
     Detailed information on model pricing and API packages.
   </Card>
 </Columns>

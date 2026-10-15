@@ -11,7 +11,7 @@ from comfy.client.embedded_comfy_client import Comfy
 
 async with Comfy() as client:
     outputs = await client.queue_prompt(prompt)
-    save_image_node_id = next(key for key in prompt if prompt[key].class_type == "SaveImage")
+    save_image_node_id = next(key for key in prompt if prompt[key]["class_type"] == "SaveImage")
     print(outputs[save_image_node_id]["images"][0]["abs_path"])
 ```
 
@@ -63,7 +63,7 @@ See [script_examples/remote_api_example.py](examples/script_examples/remote_api_
 
 ##### REST API
 
-First, install this package using the [Installation Instructions](#installing). Then, run `comfyui`.
+First, install this package using the [Installation Instructions](installing.md). Then, run `comfyui`.
 
 Visit the ComfyUI interface and design your workflow. Export it using either **Save** (UI format) or **Save (API Format)** — both are accepted.
 
@@ -154,4 +154,4 @@ routes and this fork's additional REST APIs.
 
 ### RabbitMQ / AMQP Support
 
-Submit jobs directly to a distributed work queue. This package supports AMQP message queues like RabbitMQ. You can submit workflows to the queue, including from the web using RabbitMQ's STOMP support, and receive realtime progress updates from multiple workers. Continue to the next section for more details.
+Submit jobs directly to a distributed work queue. This package supports AMQP message queues like RabbitMQ. You can submit workflows to the queue, including from the web using RabbitMQ's STOMP support, and receive realtime progress updates from multiple workers. See [distributed inference](distributed.md#distributed-prompt-queue) for the queue architecture.

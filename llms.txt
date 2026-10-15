@@ -68,7 +68,7 @@ ordinary workflow with `torchrun` can place one stage/rank on each local or
 remote host and uses canonical `RANK`, `WORLD_SIZE`,
 `LOCAL_RANK`, `LOCAL_WORLD_SIZE`, `MASTER_ADDR`, and `MASTER_PORT`; use
 `--pipeline-parallel-size` only to override the inferred stage count. Krea 2,
-Ideogram 4, Flux2 Dev, and MiniMax H3 support transparent Megatron-style TP with
+Ideogram 4, Flux2 Dev, MiniMax H3, Kandinsky 6 Pro, and HunyuanImage3 support TP with
 `--tensor-parallel-size 2` and an ordered two-device list. TP is injected by
 decorating the checkpoint's normal Comfy operations provider: QKV/gate-up use
 section-aware column-parallel linears, output/down use row-parallel linears, and
@@ -76,8 +76,9 @@ NCCL reductions compose with quantized operations and per-rank DynamicVRAM. The
 ordinary and pipeline operations providers retain the unsharded module shape,
 and TP and PP use one model-input preparation/transport contract, so adding TP
 to a model does not fork or bypass its pipeline path. There is no TP or PP
-workflow node. This is local model parallelism, not RabbitMQ prompt
-distribution. In a multi-host launch, rank zero collects each rank's local
+workflow node. TP currently requires the internal multiprocessing executor and
+GPUs on one host; external multi-host launch supports PP only. Model parallelism
+is separate from RabbitMQ prompt distribution. In a multi-host launch, rank zero collects each rank's local
 DynamicVRAM budget before partitioning; remote rank devices are never treated
 as locally queryable CUDA indices. See `docs/distributed.md` for the memory
 model and restrictions.

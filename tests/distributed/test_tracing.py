@@ -22,7 +22,7 @@ from comfy.distributed.server_stub import ServerStub
 async def create_test_prompt() -> QueueItem:
     from comfy.cmd.execution import validate_prompt
 
-    prompt = make_mutable(sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1))
+    prompt = make_mutable(sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2))
     item_id = str(uuid.uuid4())
 
     validation_tuple = await validate_prompt(item_id, prompt)

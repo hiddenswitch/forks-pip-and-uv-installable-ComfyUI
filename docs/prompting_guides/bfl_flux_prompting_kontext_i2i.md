@@ -648,11 +648,11 @@ All **FLUX.2** variants support multi-reference image editing, allowing you to c
 />
 
 <CardGroup cols={2}>
-  <Card title="FLUX.2 Editing" icon="wand-magic-sparkles" href="/flux_2/flux2_image_editing">
+  <Card title="FLUX.2 Editing" icon="wand-magic-sparkles" href="https://docs.bfl.ml/flux_2/flux2_image_editing">
     Full editing documentation with API examples, parameters, and multi-reference techniques.
   </Card>
 
-  <Card title="Editing Prompting Guide" icon="pen-to-square" href="/guides/prompting_editing_single_reference">
+  <Card title="Editing Prompting Guide" icon="pen-to-square" href="https://docs.bfl.ml/guides/prompting_editing_single_reference">
     Learn how to write effective prompts for image editing workflows.
   </Card>
 </CardGroup>

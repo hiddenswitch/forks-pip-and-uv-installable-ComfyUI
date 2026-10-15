@@ -26,7 +26,7 @@ from comfy.distributed.server_stub import ServerStub
 async def create_test_prompt() -> QueueItem:
     from comfy.cmd.execution import validate_prompt
 
-    prompt = make_mutable(sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1))
+    prompt = make_mutable(sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2))
     item_id = str(uuid.uuid4())
 
     validation_tuple = await validate_prompt(item_id, prompt)
@@ -105,7 +105,7 @@ async def test_distributed_prompt_queues_same_process():
 @pytest.mark.asyncio
 async def test_frontend_backend_workers(frontend_backend_worker_with_rabbitmq):
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
-        prompt = sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2)
         png_image_bytes = await client.queue_prompt(prompt)
         len_queue_after = await client.len_queue()
     assert len_queue_after == 0
@@ -115,7 +115,7 @@ async def test_frontend_backend_workers(frontend_backend_worker_with_rabbitmq):
 @pytest.mark.asyncio
 async def test_frontend_backend_workers_validation_error_raises(frontend_backend_worker_with_rabbitmq):
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
-        prompt = sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1, sdxl_refiner_checkpoint_name="unknown.safetensors")
+        prompt = sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2, sdxl_refiner_checkpoint_name="unknown.safetensors")
         with pytest.raises(Exception):
             await client.queue_prompt(prompt)
 
@@ -151,7 +151,7 @@ async def test_basic_queue_worker_with_health_check(executor_factory):
 @pytest.mark.asyncio
 async def test_queue_and_forget_prompt_api_integration(frontend_backend_worker_with_rabbitmq):
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
-        prompt = sdxl_workflow_with_refiner("test prompt", inference_steps=1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test prompt", inference_steps=2, refiner_steps=2)
         task_id = await client.queue_and_forget_prompt_api(prompt)
         assert task_id is not None
 
@@ -215,7 +215,7 @@ async def test_api_error_reporting_blocking_request(frontend_backend_worker_with
     """Test error reporting with blocking request (no async preference)"""
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
         # Create an invalid prompt that will cause a validation error
-        prompt = sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2)
         # Make the prompt invalid by referencing a non-existent checkpoint
         prompt["4"]["inputs"]["ckpt_name"] = "nonexistent_checkpoint.safetensors"
 
@@ -242,7 +242,7 @@ async def test_api_error_reporting_async_prefer_header(frontend_backend_worker_w
     """Test error reporting with Prefer: respond-async header"""
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
         # Create a valid prompt structure but with invalid checkpoint
-        prompt = sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2)
         prompt["4"]["inputs"]["ckpt_name"] = "nonexistent.safetensors"
 
         # Post with Prefer: respond-async header
@@ -267,7 +267,7 @@ async def test_api_error_reporting_async_accept_mimetype(frontend_backend_worker
     """Test error reporting with +respond-async in Accept mimetype"""
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
         # Create a prompt with validation error
-        prompt = sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2)
         prompt["4"]["inputs"]["ckpt_name"] = "invalid_model.safetensors"
 
         # Post with +respond-async in Accept header
@@ -291,7 +291,7 @@ async def test_api_get_prompt_status_success(frontend_backend_worker_with_rabbit
     """Test GET /api/v1/prompts/{prompt_id} returns 200 with Outputs on success"""
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
         # Create a valid prompt
-        prompt = sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2)
 
         # Queue async to get prompt_id
         task_id = await client.queue_and_forget_prompt_api(prompt, prefer_header="respond-async")
@@ -346,7 +346,7 @@ async def test_api_async_workflow_both_methods(frontend_backend_worker_with_rabb
     """Test full async workflow: queue with respond-async, then poll for completion"""
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
         # Create a valid prompt
-        prompt = sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2)
 
         # Method 1: Prefer header
         task_id_1 = await client.queue_and_forget_prompt_api(prompt, prefer_header="respond-async")
@@ -376,7 +376,7 @@ async def test_api_validation_error_structure(frontend_backend_worker_with_rabbi
     """Test that validation errors return proper ValidationErrorDict structure"""
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
         # Create an invalid prompt (invalid checkpoint name)
-        prompt = sdxl_workflow_with_refiner("test", "", 1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test", "", 2, refiner_steps=2)
         prompt["4"]["inputs"]["ckpt_name"] = "fake.safetensors"
 
         prompt_json = client.encode_prompt(prompt)
@@ -433,7 +433,7 @@ async def test_api_success_response_contract(frontend_backend_worker_with_rabbit
     """Test that successful execution returns proper response structure"""
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
         # Create a valid prompt
-        prompt = sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2)
 
         # Queue and wait for blocking response
         prompt_json = client.encode_prompt(prompt)
@@ -471,7 +471,7 @@ async def test_api_get_prompt_returns_outputs_directly(frontend_backend_worker_w
     """Test GET /api/v1/prompts/{prompt_id} returns Outputs directly (not wrapped in history entry)"""
     async with AsyncRemoteComfyClient(server_address=frontend_backend_worker_with_rabbitmq) as client:
         # Create and queue a prompt
-        prompt = sdxl_workflow_with_refiner("test", inference_steps=1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test", inference_steps=2, refiner_steps=2)
         task_id = await client.queue_and_forget_prompt_api(prompt)
 
         # Poll until done

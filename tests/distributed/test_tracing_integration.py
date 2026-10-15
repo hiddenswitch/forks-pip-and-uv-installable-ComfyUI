@@ -357,7 +357,7 @@ async def test_tracing_integration(jaeger_container, nginx_proxy):
 
     # Create a unique prompt to identify our trace
     test_id = str(uuid.uuid4())[:8]
-    prompt = sdxl_workflow_with_refiner(f"test_trace_{test_id}", inference_steps=1, refiner_steps=1)
+    prompt = sdxl_workflow_with_refiner(f"test_trace_{test_id}", inference_steps=2, refiner_steps=2)
 
     # Get the tracer for the client
     client_tracer = trace.get_tracer("test_tracing_integration")
@@ -504,7 +504,7 @@ async def test_multiple_requests_different_traces(frontend_backend_worker_with_r
     from comfy.client.aio_client import AsyncRemoteComfyClient
     async with AsyncRemoteComfyClient(server_address=server_address) as client:
         for i in range(3):
-            prompt = sdxl_workflow_with_refiner(f"test_{i}", inference_steps=1, refiner_steps=1)
+            prompt = sdxl_workflow_with_refiner(f"test_{i}", inference_steps=2, refiner_steps=2)
             task_id = await client.queue_and_forget_prompt_api(prompt, prefer_header="respond-async")
             task_ids.append(task_id)
             logger.info(f"Queued task {i}: {task_id}")
@@ -553,7 +553,7 @@ async def test_trace_contains_rabbitmq_operations(frontend_backend_worker_with_r
     # Submit a workflow
     from comfy.client.aio_client import AsyncRemoteComfyClient
     async with AsyncRemoteComfyClient(server_address=server_address) as client:
-        prompt = sdxl_workflow_with_refiner("test_rmq", inference_steps=1, refiner_steps=1)
+        prompt = sdxl_workflow_with_refiner("test_rmq", inference_steps=2, refiner_steps=2)
         task_id = await client.queue_and_forget_prompt_api(prompt)
         status_code, result = await client.poll_prompt_until_done(task_id, max_attempts=120)
         assert status_code == 200
@@ -864,7 +864,7 @@ async def test_full_docker_stack_trace_propagation(
                 from comfy.client.aio_client import AsyncRemoteComfyClient
 
                 test_id = str(uuid.uuid4())[:8]
-                prompt = sdxl_workflow_with_refiner(f"docker_stack_{test_id}", inference_steps=1, refiner_steps=1)
+                prompt = sdxl_workflow_with_refiner(f"docker_stack_{test_id}", inference_steps=2, refiner_steps=2)
 
                 logger.info(f"Submitting workflow with test_id: {test_id}")
 
@@ -1174,7 +1174,7 @@ async def test_aiohttp_and_aio_pika_spans_with_docker_frontend(jaeger_container)
                 from comfy.client.aio_client import AsyncRemoteComfyClient
 
                 test_id = str(uuid.uuid4())[:8]
-                prompt = sdxl_workflow_with_refiner(f"docker_test_{test_id}", inference_steps=1, refiner_steps=1)
+                prompt = sdxl_workflow_with_refiner(f"docker_test_{test_id}", inference_steps=2, refiner_steps=2)
 
                 async with AsyncRemoteComfyClient(server_address=frontend_url) as client:
                     task_id = await client.queue_and_forget_prompt_api(prompt, prefer_header="respond-async")

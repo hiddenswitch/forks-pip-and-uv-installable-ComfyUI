@@ -559,5 +559,5 @@ With **FLUX.1 Kontext** and **FLUX.2**, your prompt isn't limited to text. These
 <PromptDisplay prompt="The butterfly is now made of shiny silver" />
 
 <Tip>
-  Image-based prompting is covered in depth in the [Image Editing with FLUX](/guides/prompting_editing_overview) section of this guide.
+  Image-based prompting is covered in depth in the [Image Editing with FLUX](https://docs.bfl.ml/guides/prompting_editing_overview) section of this guide.
 </Tip>

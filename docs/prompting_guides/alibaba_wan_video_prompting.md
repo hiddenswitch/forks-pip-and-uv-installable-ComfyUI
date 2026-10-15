@@ -20,7 +20,7 @@ Fetched: 2026-06-03
 
 <div class="doc-nav">
 
-<a href="/help/en" class="doc-center"><em></em> Document Center</a>
+<a href="https://www.alibabacloud.com/help/en" class="doc-center"><em></em> Document Center</a>
 
 </div>
 
@@ -72,15 +72,15 @@ Search
 
 <div class="col-md-12 hidden-sm hidden-xs">
 
-- <a href="/help/en" class="active" title="Document Center">Document
+- <a href="https://www.alibabacloud.com/help/en" class="active" title="Document Center">Document
   Center</a>
-- <a href="/help/en/model-studio/" class="active"
+- <a href="https://www.alibabacloud.com/help/en/model-studio/" class="active"
   title="Alibaba Cloud Model Studio">Alibaba Cloud Model Studio</a>
-- <a href="/help/en/model-studio/model-user-guide/" class="active"
+- <a href="https://www.alibabacloud.com/help/en/model-studio/model-user-guide/" class="active"
   title="User Guide (Models)">User Guide (Models)</a>
-- <a href="/help/en/model-studio/use-cases/" class="active"
+- <a href="https://www.alibabacloud.com/help/en/model-studio/use-cases/" class="active"
   title="Best Practices">Best Practices</a>
-- <a href="/help/en/model-studio/text-to-video-prompt" class="active"
+- <a href="https://www.alibabacloud.com/help/en/model-studio/text-to-video-prompt" class="active"
   title="Text-to-video/image-to-video prompt guide">Text-to-video/image-to-video
   prompt guide</a>
 
@@ -115,7 +115,7 @@ Studio:Text-to-video/Image-to-video prompt guide</span>
 
 <div id="header-faq" class="clearfix">
 
-<a href="/help/en" class="doc-center"><em></em> Document Center</a>
+<a href="https://www.alibabacloud.com/help/en" class="doc-center"><em></em> Document Center</a>
 
 <div class="download-links">
 
@@ -144,14 +144,14 @@ Scenarios:
 
 - <div id="9e2c3c9355fsr">
 
-  <a href="/help/en/model-studio/text-to-video-api-reference"
+  <a href="https://www.alibabacloud.com/help/en/model-studio/text-to-video-api-reference"
   id="251ad0cd4ed5y" class="xref">Text-to-video API reference</a>
 
   </div>
 
 - <div id="9e02a99147biw">
 
-  <a href="/help/en/model-studio/image-to-video-api-reference/"
+  <a href="https://www.alibabacloud.com/help/en/model-studio/image-to-video-api-reference/"
   id="3b116bff35g0t" class="xref">Image-to-video (first frame) API
   reference</a>
 
@@ -160,7 +160,7 @@ Scenarios:
 - <div id="19ae219c339nk">
 
   <a
-  href="/help/en/model-studio/image-to-video-by-first-and-last-frame-api-reference"
+  href="https://www.alibabacloud.com/help/en/model-studio/image-to-video-by-first-and-last-frame-api-reference"
   id="f3dbd12dbfh95" class="xref">Image-to-video (first and last frames)
   API reference</a>
 
@@ -168,7 +168,7 @@ Scenarios:
 
 - <div id="35c7ef79c5eku">
 
-  <a href="/help/en/model-studio/wan-video-to-video-api-reference"
+  <a href="https://www.alibabacloud.com/help/en/model-studio/wan-video-to-video-api-reference"
   id="d6d398b1138i6" class="xref">Reference-to-video API reference</a>
 
   </div>
@@ -487,7 +487,7 @@ qwen-plus to generate prompts.
 tag="expandable-content">
 
 > For more code examples, see
-> <a href="/help/en/model-studio/text-generation" id="98a319c8bfik5"
+> <a href="https://www.alibabacloud.com/help/en/model-studio/text-generation" id="98a319c8bfik5"
 > class="xref">Text generation overview</a>.
 
 **Input example**
