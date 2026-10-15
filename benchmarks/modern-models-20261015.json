@@ -1,5 +1,5 @@
 {
-  "source_commit": "14391b9f03a2c6b89728e0273f302fd0e5fd4772",
+  "source_commit": "002a1a6f2407ab9461d25b16d3b8a9789f6d1d80",
   "hardware": "2 x NVIDIA RTX A5000 24 GB, NVLink NV4",
   "baseline_gpu": 1,
   "tp2_gpus": [
@@ -79,6 +79,163 @@
           "hardware": "cuda:0 NVIDIA RTX A5000 : native",
           "torch": "2.13.0+cu130",
           "attention": "PyTorch SDPA, SageAttention",
+          "configured_attention": "SageAttention",
+          "tp": 2,
+          "pp": 1
+        }
+      ],
+      "tp_sharding_confirmed": true
+    },
+    {
+      "model": "h3",
+      "requested_tp": 1,
+      "status": "success",
+      "tp": 1,
+      "wall_seconds": 154.31448012392502,
+      "outputs": {
+        "92": {
+          "images": [
+            {
+              "filename": "MiniMax_H3_00001_.mp4",
+              "subfolder": "video",
+              "type": "output",
+              "metadata": {
+                "kind": "video",
+                "width": 1312,
+                "height": 736,
+                "duration": 5.166666666666667,
+                "fps": 24.0,
+                "frame_count": 124
+              }
+            }
+          ],
+          "animated": [
+            true
+          ]
+        }
+      },
+      "measurements": [
+        {
+          "node_id": "140:125",
+          "second_step_seconds": 29.35458091099281,
+          "iterations_per_second": 0.03406623324080626,
+          "hardware": "cuda:0 NVIDIA RTX A5000 : native",
+          "torch": "2.13.0+cu130",
+          "attention": "SageAttention",
+          "configured_attention": "SageAttention",
+          "tp": 1,
+          "pp": 1
+        }
+      ],
+      "tp_sharding_confirmed": true
+    },
+    {
+      "model": "flux2-dev",
+      "requested_tp": 1,
+      "status": "success",
+      "tp": 1,
+      "wall_seconds": 48.94932181399781,
+      "outputs": {
+        "9": {
+          "images": [
+            {
+              "abs_path": "/home/administrator/Documents/appmana/benchmark-results/modern-models-20261015/flux2-dev/tp1/ComfyUI_00001_.png",
+              "filename": "ComfyUI_00001_.png",
+              "subfolder": "",
+              "type": "output",
+              "metadata": {
+                "kind": "image",
+                "width": 1024,
+                "height": 1024
+              }
+            }
+          ]
+        }
+      },
+      "measurements": [
+        {
+          "node_id": "13",
+          "second_step_seconds": 6.127819475019351,
+          "iterations_per_second": 0.16319018601585716,
+          "hardware": "cuda:0 NVIDIA RTX A5000 : native",
+          "torch": "2.13.0+cu130",
+          "attention": "SageAttention",
+          "configured_attention": "SageAttention",
+          "tp": 1,
+          "pp": 1
+        }
+      ],
+      "tp_sharding_confirmed": true
+    },
+    {
+      "model": "ideogram4",
+      "requested_tp": 1,
+      "status": "success",
+      "tp": 1,
+      "wall_seconds": 37.12789248803165,
+      "outputs": {
+        "25": {
+          "images": [
+            {
+              "abs_path": "/home/administrator/Documents/appmana/benchmark-results/modern-models-20261015/ideogram4/tp1/ideogram4_00001_.png",
+              "filename": "ideogram4_00001_.png",
+              "subfolder": "",
+              "type": "output",
+              "metadata": {
+                "kind": "image",
+                "width": 1024,
+                "height": 1024
+              }
+            }
+          ]
+        }
+      },
+      "measurements": [
+        {
+          "node_id": "98:12",
+          "second_step_seconds": 5.308112480095588,
+          "iterations_per_second": 0.18839088352965574,
+          "hardware": "cuda:0 NVIDIA RTX A5000 : native",
+          "torch": "2.13.0+cu130",
+          "attention": "SageAttention",
+          "configured_attention": "SageAttention",
+          "tp": 1,
+          "pp": 1
+        }
+      ],
+      "tp_sharding_confirmed": true
+    },
+    {
+      "model": "ideogram4",
+      "requested_tp": 2,
+      "status": "success",
+      "tp": 2,
+      "wall_seconds": 271.2918376560556,
+      "outputs": {
+        "25": {
+          "images": [
+            {
+              "abs_path": "/home/administrator/Documents/appmana/benchmark-results/modern-models-20261015/ideogram4/tp2/ideogram4_00001_.png",
+              "filename": "ideogram4_00001_.png",
+              "subfolder": "",
+              "type": "output",
+              "metadata": {
+                "kind": "image",
+                "width": 1024,
+                "height": 1024
+              }
+            }
+          ]
+        }
+      },
+      "measurements": [
+        {
+          "node_id": "98:12",
+          "second_step_seconds": 3.1626978339627385,
+          "iterations_per_second": 0.3161857542195356,
+          "hardware": "cuda:0 NVIDIA RTX A5000 : native",
+          "torch": "2.13.0+cu130",
+          "attention": "SageAttention",
           "configured_attention": "SageAttention",
           "tp": 2,
           "pp": 1
@@ -1822,5 +1979,172 @@
         }
       }
     }
+  },
+  "status": "paused",
+  "queue": [
+    {
+      "model": "krea2",
+      "tp": 2,
+      "status": "success",
+      "started": 1792101135.3884165,
+      "pid": 2595513,
+      "returncode": 0,
+      "ended": 1792101197.1918898
+    },
+    {
+      "model": "qwen21-rgba",
+      "tp": 1,
+      "status": "success",
+      "started": 1792101197.1921155,
+      "pid": 2622365,
+      "returncode": 0,
+      "ended": 1792101227.926626
+    },
+    {
+      "model": "qwen21-rgba",
+      "tp": 2,
+      "status": "success",
+      "started": 1792101227.9345193,
+      "pid": 2634917,
+      "returncode": 0,
+      "ended": 1792101257.1105874
+    },
+    {
+      "model": "ideogram4",
+      "tp": 1,
+      "status": "success",
+      "started": 1792101257.1109178,
+      "pid": 2643231,
+      "returncode": 0,
+      "ended": 1792101297.754957
+    },
+    {
+      "model": "ideogram4",
+      "tp": 2,
+      "status": "success",
+      "started": 1792101297.7552397,
+      "pid": 2648173,
+      "returncode": 0,
+      "ended": 1792101573.4527493
+    },
+    {
+      "model": "flux2-dev",
+      "tp": 1,
+      "status": "success",
+      "started": 1792101573.4535818,
+      "pid": 2668315,
+      "returncode": 0,
+      "ended": 1792101626.9878623
+    },
+    {
+      "model": "flux2-dev",
+      "tp": 2,
+      "status": "timeout",
+      "started": 1792101626.988192,
+      "pid": 2675914,
+      "ended": 1792105240.4582088
+    },
+    {
+      "model": "h3",
+      "tp": 1,
+      "status": "success",
+      "started": 1792105240.5298283,
+      "pid": 2701563,
+      "returncode": 0,
+      "ended": 1792105418.6248994
+    },
+    {
+      "model": "h3",
+      "tp": 2,
+      "status": "paused",
+      "started": 1792105418.6254547,
+      "pid": 2728150,
+      "paused_at": 1792106004.9485602
+    }
+  ],
+  "pause": {
+    "paused_at": 1792106004.9487941,
+    "reason": "User requested pause",
+    "queue": [
+      {
+        "model": "krea2",
+        "tp": 2,
+        "status": "success",
+        "started": 1792101135.3884165,
+        "pid": 2595513,
+        "returncode": 0,
+        "ended": 1792101197.1918898
+      },
+      {
+        "model": "qwen21-rgba",
+        "tp": 1,
+        "status": "success",
+        "started": 1792101197.1921155,
+        "pid": 2622365,
+        "returncode": 0,
+        "ended": 1792101227.926626
+      },
+      {
+        "model": "qwen21-rgba",
+        "tp": 2,
+        "status": "success",
+        "started": 1792101227.9345193,
+        "pid": 2634917,
+        "returncode": 0,
+        "ended": 1792101257.1105874
+      },
+      {
+        "model": "ideogram4",
+        "tp": 1,
+        "status": "success",
+        "started": 1792101257.1109178,
+        "pid": 2643231,
+        "returncode": 0,
+        "ended": 1792101297.754957
+      },
+      {
+        "model": "ideogram4",
+        "tp": 2,
+        "status": "success",
+        "started": 1792101297.7552397,
+        "pid": 2648173,
+        "returncode": 0,
+        "ended": 1792101573.4527493
+      },
+      {
+        "model": "flux2-dev",
+        "tp": 1,
+        "status": "success",
+        "started": 1792101573.4535818,
+        "pid": 2668315,
+        "returncode": 0,
+        "ended": 1792101626.9878623
+      },
+      {
+        "model": "flux2-dev",
+        "tp": 2,
+        "status": "timeout",
+        "started": 1792101626.988192,
+        "pid": 2675914,
+        "ended": 1792105240.4582088
+      },
+      {
+        "model": "h3",
+        "tp": 1,
+        "status": "success",
+        "started": 1792105240.5298283,
+        "pid": 2701563,
+        "returncode": 0,
+        "ended": 1792105418.6248994
+      },
+      {
+        "model": "h3",
+        "tp": 2,
+        "status": "paused",
+        "started": 1792105418.6254547,
+        "pid": 2728150,
+        "paused_at": 1792106004.9485602
+      }
+    ]
   }
 }

@@ -22,7 +22,7 @@ See [multi-GPU support](docs/distributed.md) for supported configurations.
 ### Local sampling benchmarks
 
 <!-- modern-model-benchmarks:start -->
-Benchmarks are running on **2 × NVIDIA RTX A5000 (24 GB), connected by NVLink**,
+Benchmarks were paused on request. Completed runs used **2 × NVIDIA RTX A5000 (24 GB), connected by NVLink**,
 with PyTorch 2.13.0 / CUDA 13.0. TP=1 uses GPU 1; TP=2 uses both GPUs.
 The table measures the synchronized second sampling step of a three-step run,
 excluding model loading, text encoding, and VAE decoding. INT8 ConvRot and
@@ -33,13 +33,13 @@ this fork with itself at TP=1, not a separate upstream installation.
 | Model | Output | Weights | TP=1 step 2 | TP=2 step 2 | Speedup | Observed attention / status |
 |---|---|---|---:|---:|---:|---|
 | Krea2 Turbo | 1024×1024 | INT8 ConvRot | 1.058 s (0.945 it/s) | 0.738 s (1.355 it/s) | 1.43× | SDPA, SageAttention |
-| MiniMax H3 | 1280×704, 124 frames / 24 fps | INT8 ConvRot | Pending | Pending | — | Queued |
-| HunyuanImage3 Instruct | 1024×1024 | W4A8 | Pending | Pending | — | Queued |
-| Flux2 Dev | 1024×1024 | INT8 ConvRot | Pending | Pending | — | Queued |
-| Flux2 Klein 4B | 1024×1024 | INT8 ConvRot | Pending | Pending | — | Queued |
-| Ideogram4 | 1024×1024 | INT8 ConvRot, conditional + unconditional | Pending | Pending | — | Queued |
+| MiniMax H3 | 1280×704, 124 frames / 24 fps | INT8 ConvRot | 29.355 s (0.034 it/s) | Interrupted | — | SageAttention |
+| HunyuanImage3 Instruct | 1024×1024 | W4A8 | Not run | Not run | — | Paused before execution |
+| Flux2 Dev | 1024×1024 | INT8 ConvRot | 6.128 s (0.163 it/s) | Load timed out | — | SageAttention |
+| Flux2 Klein 4B | 1024×1024 | INT8 ConvRot | Not run | Not run | — | Paused before execution |
+| Ideogram4 | 1024×1024 | INT8 ConvRot, conditional + unconditional | 5.308 s (0.188 it/s) | 3.163 s (0.316 it/s) | 1.68× | SageAttention |
 | Qwen Image 2.1 RGBA | 1024×1024 | INT8 ConvRot | 1.067 s (0.937 it/s) | Unsupported | — | SageAttention; TP sharding not confirmed; No TP implementation |
-| Z-Image Turbo | 1024×1024 | INT8 ConvRot | Pending | Unsupported | — | No TP implementation |
+| Z-Image Turbo | 1024×1024 | INT8 ConvRot | Not run | Unsupported | — | No TP implementation |
 | Flux3 Image Klein distilled | 1024×1024 | INT8 ConvRot | Blocked | Unsupported | — | Official weights require Hugging Face access; upstream support merged |
 | Iris-3B (assumed) | 1024×1024 | Unverified | Not started | Unsupported | — | No Iris integration in the merged ComfyUI tree; checkpoint confirmation pending |
 
