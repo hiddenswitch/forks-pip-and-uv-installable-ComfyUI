@@ -1097,6 +1097,8 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     ),
     HuggingFile("black-forest-labs/FLUX.2-klein-base-4B", "flux-2-klein-base-4b.safetensors"),
     HuggingFile("Comfy-Org/flux2-klein", "split_files/diffusion_models/flux-2-klein-4b.safetensors"),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "diffusion_models/flux3_image_klein_int8_convrot.safetensors", revision="849a7a417c54120ac12f249da656b84ec05fd7eb", size=5807427339),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "diffusion_models/flux3_image_klein_sd_int8_convrot.safetensors", revision="849a7a417c54120ac12f249da656b84ec05fd7eb", size=5827874779),
     HuggingFile("black-forest-labs/FLUX.2-klein-4b-fp8", "flux-2-klein-4b-fp8.safetensors"),
     HuggingFile("black-forest-labs/FLUX.2-klein-9b-fp8", "flux-2-klein-9b-fp8.safetensors"),
     HuggingFile("black-forest-labs/FLUX.2-klein-9b-kv-fp8", "flux-2-klein-9b-kv-fp8.safetensors"),
@@ -1336,6 +1338,7 @@ KNOWN_CLIP_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/ace_step_1.5_ComfyUI_files", "split_files/text_encoders/qwen_1.7b_ace15.safetensors"),
     HuggingFile("Comfy-Org/ace_step_1.5_ComfyUI_files", "split_files/text_encoders/qwen_4b_ace15.safetensors"),
     HuggingFile("Comfy-Org/flux2-klein-9B", "split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors"),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "text_encoders/qwen3vl_4b_int8_convrot.safetensors", revision="849a7a417c54120ac12f249da656b84ec05fd7eb", size=4858559240),
     HuggingFile("Comfy-Org/vae-text-encorder-for-flux-klein-9b", "split_files/text_encoders/qwen_3_8b.safetensors"),
     # Anima (circlestone-labs) -- text encoder + VAE shared with the 2B anima diffusion models
     HuggingFile("circlestone-labs/Anima", "split_files/text_encoders/qwen_3_06b_base.safetensors"),
