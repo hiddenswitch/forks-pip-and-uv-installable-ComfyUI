@@ -33,6 +33,9 @@ if model_management.xformers_enabled():
 sageattn = torch.nn.functional.scaled_dot_product_attention
 SAGE_ATTENTION_IS_AVAILABLE = False
 SAGE_ATTENTION_SUPPORTS_MASK = False
+# SageAttention's sm80 kernel loads a 64-key tile without zero-filling the rows past kv_len, so with fewer
+# keys than that the masked rows of V are stale shared memory, and 0 * NaN poisons the output.
+SAGE_ATTENTION_MIN_KV_LEN = 64
 try:
     from .sage_attention_dispatcher import sageattn
 
@@ -774,7 +777,8 @@ def attention_comfy_kitchen_sol(q, k, v, heads, mask=None, attn_precision=None, 
 @wrap_attn
 def attention_sage(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False, skip_output_reshape=False, **kwargs):
     return_lse = kwargs.pop("return_lse", False)
-    if kwargs.get("low_precision_attention", True) is False or (mask is not None and not SAGE_ATTENTION_SUPPORTS_MASK):
+    kv_len = k.shape[-2] if skip_reshape else k.shape[1]
+    if kwargs.get("low_precision_attention", True) is False or (mask is not None and not SAGE_ATTENTION_SUPPORTS_MASK) or kv_len < SAGE_ATTENTION_MIN_KV_LEN:
         return attention_pytorch(q, k, v, heads, mask=mask, skip_reshape=skip_reshape, skip_output_reshape=skip_output_reshape, return_lse=return_lse, **kwargs)
 
     exception_fallback = False
