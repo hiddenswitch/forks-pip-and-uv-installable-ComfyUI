@@ -41,7 +41,7 @@ this fork with itself at TP=1, not a separate upstream installation.
 | Qwen Image 2.1 RGBA | 1024×1024 | INT8 ConvRot | 1.067 s (0.937 it/s) | Unsupported | — | SageAttention; TP sharding not confirmed; No TP implementation |
 | Z-Image Turbo | 1024×1024 | INT8 ConvRot | Not run | Unsupported | — | No TP implementation |
 | Flux3 Image Klein distilled | 1024×1024 | INT8 ConvRot | Blocked | Unsupported | — | Official weights require Hugging Face access; upstream support merged |
-| Iris-3B (assumed) | 1024×1024 | Unverified | Not started | Unsupported | — | No Iris integration in the merged ComfyUI tree; checkpoint confirmation pending |
+| Iris-3B (assumed) | 1024×1024 | Unverified | Not run | Unverified | — | Available through the `comfyui-iris-nynxz` facade; not benchmarked |
 
 [Machine-readable measurements and workflow settings](benchmarks/modern-models-20261015.json).
 <!-- modern-model-benchmarks:end -->
