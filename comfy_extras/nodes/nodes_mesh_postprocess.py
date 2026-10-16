@@ -6,7 +6,7 @@ from comfy_api.latest import ComfyExtension, IO, Types
 import copy
 import comfy.utils
 import comfy.model_management
-from comfy.cmd.server import PromptServer
+from comfy.execution_context import current_execution_context
 from ..mesh3d.postprocess.qem_decimate import QEMConfig, qem_decimate_simplify, qem_cluster_decimate, _compute_vertex_normals
 from ..mesh3d.postprocess.remesh import remesh_narrow_band_dc, _point_tri_closest
 from .nodes_save_3d import get_mesh_batch_item, pack_variable_mesh_batch
@@ -2364,7 +2364,7 @@ class DecimateMesh(IO.ComfyNode):
 
         # Display the face reduction on the node
         if cls.hidden.unique_id:
-            PromptServer.instance.send_progress_text(
+            current_execution_context().server.send_progress_text(
                 _fmt_face_change(counts["in"], counts["out"]), cls.hidden.unique_id)
 
         return result
@@ -2480,7 +2480,7 @@ class RemeshMesh(IO.ComfyNode):
 
         # Display the face change on the node
         if cls.hidden.unique_id:
-            PromptServer.instance.send_progress_text(
+            current_execution_context().server.send_progress_text(
                 _fmt_face_change(counts["in"], counts["out"]), cls.hidden.unique_id)
 
         return result
@@ -2790,7 +2790,7 @@ class UnwrapMesh(IO.ComfyNode):
             out_mesh.texture = mesh.texture
 
         if cls.hidden.unique_id:
-            PromptServer.instance.send_progress_text(
+            current_execution_context().server.send_progress_text(
                 f"UV: {_fmt_count(out_v[0].shape[0])} verts / {_fmt_count(out_f[0].shape[0])} faces"
                 f" · atlas ~{resolution}px",
                 cls.hidden.unique_id)

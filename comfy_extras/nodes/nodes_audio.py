@@ -16,7 +16,7 @@ from comfy_api.latest import ComfyExtension
 from comfy_api.latest import IO
 from comfy_api.latest import UI
 from typing_extensions import override
-from comfy.cmd.server import PromptServer
+from comfy.execution_context import current_execution_context
 
 class EmptyLatentAudio(IO.ComfyNode):
     @classmethod
@@ -175,7 +175,7 @@ class GetAudioLatentSize(IO.ComfyNode):
             audio_channels = 1
 
         if cls.hidden.unique_id:
-            PromptServer.instance.send_progress_text(f"length: {length}, audio channels: {audio_channels}\n batch size: {batch_size}", cls.hidden.unique_id)
+            current_execution_context().server.send_progress_text(f"length: {length}, audio channels: {audio_channels}\n batch size: {batch_size}", cls.hidden.unique_id)
 
         return IO.NodeOutput(length, audio_channels, batch_size)
 

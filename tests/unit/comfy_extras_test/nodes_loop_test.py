@@ -41,8 +41,8 @@ def test_iteration_cache_policy_is_stable_or_unique():
 def test_loop_progress_reports_on_start_node(monkeypatch):
     updates = []
     monkeypatch.setattr(
-        "comfy_extras.nodes.nodes_loop.PromptServer",
-        SimpleNamespace(instance=SimpleNamespace(send_progress_text=lambda *args: updates.append(args))),
+        "comfy_extras.nodes.nodes_loop.current_execution_context",
+        lambda: SimpleNamespace(server=SimpleNamespace(send_progress_text=lambda *args: updates.append(args))),
     )
 
     assert LoopProgress.execute(["start"], [2], [4]).result == (2,)
