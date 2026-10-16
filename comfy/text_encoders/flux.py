@@ -293,8 +293,10 @@ class Flux3Qwen3VL(qwen3vl.Qwen3VL):
         return super().forward(input_ids, attention_mask=attention_mask, **kwargs)
 
 class Flux3Qwen3VLModel(sd1_clip.SDClipModel):
-    def __init__(self, device="cpu", dtype=None, model_options={}):
-        super().__init__(device=device, layer=[4, 8, 12, 16, 20, 24, 28, 32], layer_idx=None, textmodel_json_config={}, dtype=dtype, special_tokens={"pad": 151643}, layer_norm_hidden_state=False, model_class=Flux3Qwen3VL, enable_attention_masks=True, model_options=model_options)
+    def __init__(self, device="cpu", dtype=None, model_options={}, textmodel_json_config=None):
+        if textmodel_json_config is None:
+            textmodel_json_config = {}
+        super().__init__(device=device, layer=[4, 8, 12, 16, 20, 24, 28, 32], layer_idx=None, textmodel_json_config=textmodel_json_config, dtype=dtype, special_tokens={"pad": 151643}, layer_norm_hidden_state=False, model_class=Flux3Qwen3VL, enable_attention_masks=True, model_options=model_options)
 
 class Flux3TEModel(sd1_clip.SD1ClipModel):
     def __init__(self, device="cpu", dtype=None, model_options={}):
