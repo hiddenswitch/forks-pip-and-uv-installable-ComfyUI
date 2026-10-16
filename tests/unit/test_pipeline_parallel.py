@@ -1164,3 +1164,60 @@ def _test_minimax_attention(self, x, rope_freqs=None, transformer_options=None):
     k = k.view(1, sequence, self.heads, self.head_dim).transpose(1, 2)
     v = v.view(1, sequence, self.heads, self.head_dim).transpose(1, 2)
     return self.out_proj(_test_attention(q, k, v, self.heads).squeeze(0))
+
+
+def _schema(length):
+    from comfy.pipeline_parallel.types import PipelineIntermediateSchema
+    return PipelineIntermediateSchema({
+        "hidden_states": TensorDescriptor((1, length, 8), torch.float32, length * 8 * 4),
+        "attention_mask": TensorDescriptor((1, 1, length, length), torch.float32, length * length * 4),
+    })
+
+
+def test_pipeline_buffer_pool_keeps_only_the_latest_transfer_shape():
+    # Every prompt length is a new shape (a text prefill, each prompt's denoising sequence); kept
+    # forever, each one's prompt-squared mask buffer stayed allocated, and the second
+    # think_recaption prompt on a 24 GB stage ran out of memory in its prefill.
+    from comfy.pipeline_parallel.runtime import DevicePipelineBufferPool
+
+    runtime = FakeDeviceRuntime()
+    pool = DevicePipelineBufferPool(runtime)
+    first = pool.acquire(_schema(64), torch.device("cpu"))
+    assert pool.acquire(_schema(64), torch.device("cpu")) is first
+    assert runtime.allocations == 2
+    pool.acquire(_schema(96), torch.device("cpu"))
+    assert pool.retained_bytes() == 96 * 8 * 4 + 96 * 96 * 4
+
+
+def test_receive_buffers_keep_only_the_latest_transfer_shape():
+    from comfy.pipeline_parallel.runtime import LatestShapeBuffers
+
+    allocations = []
+
+    def allocate(descriptors):
+        allocations.append(tuple(descriptors))
+        return {name: torch.empty(d.shape, dtype=d.dtype) for name, d in descriptors.items()}
+
+    buffers = LatestShapeBuffers()
+    small = _schema(4).tensors
+    first = buffers.get(small, allocate)
+    assert buffers.get(small, allocate) is first and len(allocations) == 1
+    buffers.get(_schema(8).tensors, allocate)
+    assert buffers.retained_bytes() == 8 * 8 * 4 + 8 * 8 * 4
+
+
+def test_a_ranks_receive_buffers_hold_one_shape_across_tensor_sets():
+    # A rank receives one stream from one peer: a prompt's denoising steps (hidden states, mask, freqs,
+    # timestep), then the next prompt's text prefill and decode (no timestep). The denoising buffers,
+    # the largest of all, must not stay allocated under the next prompt's prefill.
+    from comfy.pipeline_parallel.runtime import LatestShapeBuffers
+    from comfy.pipeline_parallel.types import PipelineIntermediateSchema
+
+    def allocate(descriptors):
+        return {name: torch.empty(d.shape, dtype=d.dtype) for name, d in descriptors.items()}
+
+    buffers = LatestShapeBuffers(per_stream=False)
+    denoising = dict(_schema(16).tensors, timestep=TensorDescriptor((1,), torch.float32, 4))
+    buffers.get(denoising, allocate)
+    buffers.get(_schema(4).tensors, allocate)
+    assert buffers.retained_bytes() == 4 * 8 * 4 + 4 * 4 * 4
