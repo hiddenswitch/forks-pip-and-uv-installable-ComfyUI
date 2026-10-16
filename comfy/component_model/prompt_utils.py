@@ -62,6 +62,11 @@ _DENOISE_CLASS_TYPES = frozenset({
 _LATENT_SIZE_CLASS_TYPES = frozenset({
     "EmptyLatentImage",
     "EmptySD3LatentImage",
+    "EmptyFlux2LatentImage",
+    "EmptyHunyuanImageLatent",
+    "EmptyChromaRadianceLatentImage",
+    "EmptyHiDreamO1LatentImage",
+    "EmptyQwenImageLayeredLatentImage",
 })
 
 _CHECKPOINT_CLASS_TYPES = frozenset({

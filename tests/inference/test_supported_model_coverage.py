@@ -99,6 +99,8 @@ SUPPORTED_MODEL_WORKFLOW_COVERAGE = {
     "Boogu": ("boogu-0.json",),
     "MageFlow": ("mage-flow-0.json",),
     "Krea2": ("krea2-0.json",),
+    "MOSSImage": ("moss-image-0.json",),
+    "Flux3": ("flux3-0.json",),
     "Flux2": ("flux2-0.json", "flux2-klein-0.json", "flux2-template-text-to-image-0.json"),
     "Kandinsky5Image": ("qwen-image-edit-0.json",),
     "Kandinsky5": ("qwen-image-0.json",),

@@ -16,8 +16,7 @@ from comfy_api.latest import ComfyExtension
 from comfy_api.latest import IO
 from comfy_api.latest import UI
 from typing_extensions import override
-
-
+from comfy.execution_context import current_execution_context
 
 class EmptyLatentAudio(IO.ComfyNode):
     @classmethod
@@ -141,6 +140,44 @@ class VAEDecodeAudio(IO.ComfyNode):
         return IO.NodeOutput(vae_decode_audio(vae, samples))
 
     decode = execute  # TODO: remove
+
+
+class GetAudioLatentSize(IO.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return IO.Schema(
+            node_id="GetAudioLatentSize",
+            search_aliases=["dimensions", "audio latent info", "audio latent length"],
+            display_name="Get Audio Latent Size",
+            description="Returns the length, audio channel count, and batch size of an audio latent.",
+            category="model/latent",
+            inputs=[
+                IO.Latent.Input("latent", tooltip="The audio or audio/video latent to inspect."),
+            ],
+            outputs=[
+                IO.Int.Output(display_name="length", tooltip="The audio latent length."),
+                IO.Int.Output(display_name="audio_channels", tooltip="The number of audio channels. Latents without an audio channel dimension have one channel."),
+                IO.Int.Output(display_name="batch_size", tooltip="The number of latents in the batch."),
+            ],
+            hidden=[IO.Hidden.unique_id],
+        )
+
+    @classmethod
+    def execute(cls, latent) -> IO.NodeOutput:
+        samples = latent["samples"]
+        if samples.is_nested:
+            samples = samples.unbind()[-1]
+
+        if samples.ndim == 4:
+            batch_size, _, audio_channels, length = samples.shape
+        else:
+            batch_size, _, length = samples.shape
+            audio_channels = 1
+
+        if cls.hidden.unique_id:
+            current_execution_context().server.send_progress_text(f"length: {length}, audio channels: {audio_channels}\n batch size: {batch_size}", cls.hidden.unique_id)
+
+        return IO.NodeOutput(length, audio_channels, batch_size)
 
 
 class VAEDecodeAudioTiled(IO.ComfyNode):
@@ -889,6 +926,7 @@ class AudioExtension(ComfyExtension):
             EmptyLatentAudio,
             VAEEncodeAudio,
             VAEDecodeAudio,
+            GetAudioLatentSize,
             VAEDecodeAudioTiled,
             SaveAudio,
             SaveAudioMP3,

@@ -10,6 +10,42 @@ A vanilla, up-to-date fork of [ComfyUI](https://github.com/comfyanonymous/comfyu
 > Use https://raw.githubusercontent.com/hiddenswitch/pip-and-uv-installable-ComfyUI/refs/heads/master/llms.txt as a guidebook for ComfyUI. Fetch it now and follow it for any ComfyUI task in this session.
 > ```
 
+## Faster inference with multiple GPUs
+
+This fork adds built-in tensor parallelism (TP), pipeline parallelism (PP), and
+HunyuanImage3 expert parallelism beyond upstream ComfyUI. Supported models can
+split a single generation across GPUs, giving faster sampling than the upstream
+single-GPU path when the workload benefits. Speedup depends on the model,
+resolution, available memory, and GPU interconnect; it is not guaranteed.
+See [multi-GPU support](docs/distributed.md) for supported configurations.
+
+### Local sampling benchmarks
+
+<!-- modern-model-benchmarks:start -->
+Benchmarks were paused on request. Completed runs used **2 × NVIDIA RTX A5000 (24 GB), connected by NVLink**,
+with PyTorch 2.13.0 / CUDA 13.0. TP=1 uses GPU 1; TP=2 uses both GPUs.
+The table measures the synchronized second sampling step of a three-step run,
+excluding model loading, text encoding, and VAE decoding. INT8 ConvRot and
+SageAttention are requested where supported; observed backends are recorded.
+These short runs measure speed, not final output quality. TP speedups compare
+this fork with itself at TP=1, not a separate upstream installation.
+
+| Model | Output | Weights | TP=1 step 2 | TP=2 step 2 | Speedup | Observed attention / status |
+|---|---|---|---:|---:|---:|---|
+| Krea2 Turbo | 1024×1024 | INT8 ConvRot | 1.058 s (0.945 it/s) | 0.738 s (1.355 it/s) | 1.43× | SDPA, SageAttention |
+| MiniMax H3 | 1280×704, 124 frames / 24 fps | INT8 ConvRot | 29.355 s (0.034 it/s) | Interrupted | — | SageAttention |
+| HunyuanImage3 Instruct | 1024×1024 | W4A8 | Not run | Not run | — | Paused before execution |
+| Flux2 Dev | 1024×1024 | INT8 ConvRot | 6.128 s (0.163 it/s) | Load timed out | — | SageAttention |
+| Flux2 Klein 4B | 1024×1024 | INT8 ConvRot | Not run | Not run | — | Paused before execution |
+| Ideogram4 | 1024×1024 | INT8 ConvRot, conditional + unconditional | 5.308 s (0.188 it/s) | 3.163 s (0.316 it/s) | 1.68× | SageAttention |
+| Qwen Image 2.1 RGBA | 1024×1024 | INT8 ConvRot | 1.067 s (0.937 it/s) | Unsupported | — | SageAttention; TP sharding not confirmed; No TP implementation |
+| Z-Image Turbo | 1024×1024 | INT8 ConvRot | Not run | Unsupported | — | No TP implementation |
+| Flux3 Image Klein distilled | 1024×1024 | INT8 ConvRot | Blocked | Unsupported | — | Official weights require Hugging Face access; upstream support merged |
+| Iris-3B (assumed) | 1024×1024 | Unverified | Not run | Unverified | — | Available through the `comfyui-iris-nynxz` facade; not benchmarked |
+
+[Machine-readable measurements and workflow settings](benchmarks/modern-models-20261015.json).
+<!-- modern-model-benchmarks:end -->
+
 ## Used By
 
 Used in production by **Scopely**, a game studio, **Livepeer** and **Nunchaku Tech**. Used by innovators at **Ferrero Group**, **Hyundai** and **Nike**.

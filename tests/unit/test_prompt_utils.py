@@ -1284,3 +1284,11 @@ class TestFindChainTail:
         tail = _find_model_chain_tail(wf)
         # The guider (14) is a consumer of tail but not IS tail.
         assert tail != "14"
+
+
+@pytest.mark.parametrize("class_type", ["EmptyFlux2LatentImage", "EmptyHunyuanImageLatent", "EmptyChromaRadianceLatentImage", "EmptyHiDreamO1LatentImage", "EmptyQwenImageLayeredLatentImage"])
+def test_dimension_overrides_reach_model_specific_image_latents(class_type):
+    from comfy.component_model.prompt_utils import replace_batch_size, replace_height, replace_width
+    prompt = {"6": {"class_type": class_type, "inputs": {"width": 256, "height": 256, "batch_size": 1}}}
+    prompt = replace_batch_size(replace_height(replace_width(prompt, 1024), 768), 2)
+    assert prompt["6"]["inputs"] == {"width": 1024, "height": 768, "batch_size": 2}

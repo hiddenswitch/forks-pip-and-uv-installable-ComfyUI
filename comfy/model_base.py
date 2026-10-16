@@ -55,6 +55,7 @@ from .ldm.cosmos.predict2 import MiniTrainDIT
 from .ldm.depth_anything_3.model import DepthAnything3Net
 from .ldm.ernie.model import ErnieImageModel
 from .ldm.flux import model as flux_model
+from .ldm.flux3.model import Flux3 as Flux3Model
 from .ldm.genmo.joint_model.asymm_models_joint import AsymmDiTJoint
 from .ldm.hidream.model import HiDreamImageTransformer2DModel
 from .ldm.hidream_o1.conditioning import build_extra_conds
@@ -81,6 +82,7 @@ from .ldm.modules.diffusionmodules.openaimodel import Timestep
 from .ldm.modules.diffusionmodules.openaimodel import UNetModel
 from .ldm.modules.diffusionmodules.upscaling import ImageConcatWithNoiseAugmentation
 from .ldm.modules.encoders.noise_aug_modules import CLIPEmbeddingNoiseAugmentation
+from .ldm.moss_image.model import MOSSImage as MOSSImageModel
 from .ldm.omnigen.omnigen2 import OmniGen2Transformer2DModel
 from .ldm.pixart.pixartms import PixArtMS
 from .ldm.pixeldit.model import PixDiT_T2I
@@ -1284,6 +1286,39 @@ class Flux2(Flux):
                 cross_attn = torch.nn.functional.pad(cross_attn, (0, 0, target_text_len - cross_attn.shape[1], 0))
             out['c_crossattn'] = conds.CONDRegular(cross_attn)
         return out
+
+
+class Flux3(BaseModel):
+    def __init__(self, model_config, model_type=ModelType.FLUX, device=None):
+        super().__init__(model_config, model_type, device=device, unet_model=Flux3Model)
+        self.memory_usage_factor_conds = ("ref_latents",)
+
+    def extra_conds(self, **kwargs):
+        out = super().extra_conds(**kwargs)
+        cross_attn = kwargs.get("cross_attn", None)
+        ref_latents = kwargs.get("reference_latents", None)
+        if ref_latents is not None:
+            ref_latents = [self.process_latent_in(lat) for lat in ref_latents]
+        # the DiT attends to every text token, so no padding: cond and uncond of different lengths run separately
+        if cross_attn is not None and torch.is_inference_mode_enabled() and kwargs.get("hooks") is None and not self.diffusion_model.flow_map:
+            # the t = 0 early blocks of text and references depend on the conditioning alone: run them once, not every step
+            # (a flow map also modulates them with each step's target time)
+            device, dtype = kwargs["device"], self.get_dtype_inference()
+            refs = [lat.to(device=device, dtype=dtype) for lat in ref_latents] if ref_latents else None
+            txt_states, ref_states = self.diffusion_model.preprocess_conds(cross_attn.to(device=device, dtype=dtype), refs)
+            del out['c_crossattn']
+            out['txt_states'] = conds.CONDRegular(txt_states)
+            if ref_states is not None:
+                out['ref_states'] = conds.CONDRegular(ref_states)
+                out['ref_shapes'] = conds.CONDConstant([tuple(lat.shape[-2:]) for lat in ref_latents])
+            return out
+        if cross_attn is not None:
+            out['c_crossattn'] = conds.CONDRegular(cross_attn)
+        if ref_latents is not None:
+            out['ref_latents'] = conds.CONDList(ref_latents)
+        return out
+
+    extra_conds_shapes = Flux.extra_conds_shapes
 
 
 class Lens(BaseModel):
@@ -2998,6 +3033,18 @@ class Krea2(BaseModel):
         ref_latents = kwargs.get("reference_latents", None)
         if ref_latents is not None:
             out['ref_latents'] = [1, 16, sum(math.prod(lat.size()) for lat in ref_latents) // 16]
+        return out
+
+class MOSSImage(BaseModel):
+    def __init__(self, model_config, model_type=ModelType.FLOW, device=None):
+        super().__init__(model_config, model_type, device=device, unet_model=MOSSImageModel)
+
+    def extra_conds(self, **kwargs):
+        out = super().extra_conds(**kwargs)
+        cross_attn = kwargs.get("cross_attn", None)
+        # rope positions follow the true text length, so no repeat padding: cond and uncond of different lengths run separately
+        if cross_attn is not None:
+            out['c_crossattn'] = conds.CONDRegular(cross_attn)
         return out
 
 class HunyuanImage21(BaseModel):

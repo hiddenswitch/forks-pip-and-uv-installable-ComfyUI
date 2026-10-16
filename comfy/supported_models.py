@@ -37,6 +37,7 @@ from .text_encoders import mage_flow
 from .text_encoders import ming_image
 from .text_encoders import minimax
 from .text_encoders import minimax_music
+from .text_encoders import moss_image
 from .text_encoders import omnigen2
 from .text_encoders import pixart_t5
 from .text_encoders import pixeldit
@@ -903,6 +904,26 @@ class Flux2(Flux):
             return supported_models_base.ClipTarget(flux.Flux2Tokenizer, flux.flux2_te(**detect))
 
         return None
+
+
+class Flux3(Flux2):
+    unet_config = {
+        "image_model": "flux3",
+    }
+
+    sampling_settings = {
+        "shift": 1.93586,  # mu = ln(6.93), the reference timestep shift
+    }
+
+    supported_inference_dtypes = [torch.bfloat16, torch.float32]
+
+    def get_model(self, state_dict, prefix="", device=None):
+        return model_base.Flux3(self, device=device)
+
+    def clip_target(self, state_dict={}):
+        pref = self.text_encoder_key_prefix[0]
+        detect = hunyuan_video.llama_detect(state_dict, "{}qwen3vl_4b.transformer.".format(pref))
+        return supported_models_base.ClipTarget(flux.Flux3Tokenizer, flux.flux3_te(**detect))
 
 
 class Lens(supported_models_base.BASE):
@@ -2046,6 +2067,39 @@ class Omnigen2(supported_models_base.BASE):
         return supported_models_base.ClipTarget(omnigen2.Omnigen2Tokenizer, omnigen2.te(**hunyuan_detect))
 
 
+class MOSSImage(supported_models_base.BASE):
+    unet_config = {
+        "image_model": "moss_image",
+    }
+
+    sampling_settings = {
+        "multiplier": 1.0,
+        "shift": 5.0,
+    }
+
+    memory_usage_factor = 14.6
+
+    unet_extra_config = {}
+    latent_format = latent_formats.Flux2
+
+    supported_inference_dtypes = [torch.bfloat16, torch.float32]
+
+    vae_key_prefix = ["vae."]
+    text_encoder_key_prefix = ["text_encoders."]
+
+    def process_unet_state_dict(self, state_dict):
+        state_dict.pop("rope.bands", None)
+        return state_dict
+
+    def get_model(self, state_dict, prefix="", device=None):
+        out = model_base.MOSSImage(self, device=device)
+        return out
+
+    def clip_target(self, state_dict={}):
+        pref = self.text_encoder_key_prefix[0]
+        hunyuan_detect = hunyuan_video.llama_detect(state_dict, "{}qwen35_9b.transformer.".format(pref))
+        return supported_models_base.ClipTarget(moss_image.MOSSImageTokenizer, moss_image.te(**hunyuan_detect))
+
 class MageFlow(supported_models_base.BASE):
     unet_config = {"image_model": "mage_flow"}
     sampling_settings = {"multiplier": 1.0, "shift": 6.0}
@@ -2793,7 +2847,9 @@ models = [
     JoyImage,
     Ideogram4,
     Krea2,
+    MOSSImage,
     Flux2,
+    Flux3,
     Lens,
     Kandinsky5Image,
     Kandinsky5,

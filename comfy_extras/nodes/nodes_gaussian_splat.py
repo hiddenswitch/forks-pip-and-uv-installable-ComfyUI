@@ -16,7 +16,7 @@ from scipy.sparse.csgraph import connected_components
 import comfy.model_management
 import comfy.utils
 from comfy_api.latest import ComfyExtension, IO, Types
-from comfy.cmd.server import PromptServer
+from comfy.execution_context import current_execution_context
 from .nodes_save_3d import pack_variable_mesh_batch
 
 _C0 = 0.28209479177387814  # SH band-0 constant: DC coefficient -> base RGB
@@ -1091,7 +1091,7 @@ class GetSplatCount(IO.ComfyNode):
     def execute(cls, splat) -> IO.NodeOutput:
         count = sum(_real_len(splat, i) for i in range(splat.positions.shape[0]))
         if cls.hidden.unique_id:  # show the count inline on the node
-            PromptServer.instance.send_progress_text(f"{count:,} splats", cls.hidden.unique_id)
+            current_execution_context().server.send_progress_text(f"{count:,} splats", cls.hidden.unique_id)
         return IO.NodeOutput(splat, count)
 
 

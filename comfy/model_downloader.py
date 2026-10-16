@@ -1097,6 +1097,16 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     ),
     HuggingFile("black-forest-labs/FLUX.2-klein-base-4B", "flux-2-klein-base-4b.safetensors"),
     HuggingFile("Comfy-Org/flux2-klein", "split_files/diffusion_models/flux-2-klein-4b.safetensors"),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "diffusion_models/flux3_image_klein_int8_convrot.safetensors", revision="849a7a417c54120ac12f249da656b84ec05fd7eb", size=5807427339),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "diffusion_models/flux3_image_klein_sd_int8_convrot.safetensors", revision="849a7a417c54120ac12f249da656b84ec05fd7eb", size=5827874779),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "diffusion_models/flux3_image_klein_base_int8_convrot.safetensors", revision="5c9b714851dc072b04a23ef6d2d36421f5ccb3a0", size=5807427339),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "diffusion_models/flux3_image_klein_base_bf16.safetensors", revision="5c9b714851dc072b04a23ef6d2d36421f5ccb3a0", size=11076957072),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "diffusion_models/flux3_image_klein_bf16.safetensors", revision="5c9b714851dc072b04a23ef6d2d36421f5ccb3a0", size=11076957072),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "diffusion_models/flux3_image_klein_sd_bf16.safetensors", revision="5c9b714851dc072b04a23ef6d2d36421f5ccb3a0", size=11097404512),
+    HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_base_bf16.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=10164655808),
+    HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_sft_bf16.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=10164655808),
+    HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_base_int8_convrot_attn.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=5413698958),
+    HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_sft_int8_convrot_attn.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=5413698958),
     HuggingFile("black-forest-labs/FLUX.2-klein-4b-fp8", "flux-2-klein-4b-fp8.safetensors"),
     HuggingFile("black-forest-labs/FLUX.2-klein-9b-fp8", "flux-2-klein-9b-fp8.safetensors"),
     HuggingFile("black-forest-labs/FLUX.2-klein-9b-kv-fp8", "flux-2-klein-9b-kv-fp8.safetensors"),
@@ -1336,6 +1346,9 @@ KNOWN_CLIP_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/ace_step_1.5_ComfyUI_files", "split_files/text_encoders/qwen_1.7b_ace15.safetensors"),
     HuggingFile("Comfy-Org/ace_step_1.5_ComfyUI_files", "split_files/text_encoders/qwen_4b_ace15.safetensors"),
     HuggingFile("Comfy-Org/flux2-klein-9B", "split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors"),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "text_encoders/qwen3vl_4b_int8_convrot.safetensors", revision="849a7a417c54120ac12f249da656b84ec05fd7eb", size=4858559240),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "text_encoders/qwen3.5_9b_flux3_prompt_upsampler_w4a8.safetensors", revision="5c9b714851dc072b04a23ef6d2d36421f5ccb3a0", size=6724090780),
+    HuggingFile("black-forest-labs/flux-3-image-klein-comfy", "text_encoders/qwen3.5_9b_flux3_prompt_upsampler_int8_convrot.safetensors", revision="5c9b714851dc072b04a23ef6d2d36421f5ccb3a0", size=9748113996),
     HuggingFile("Comfy-Org/vae-text-encorder-for-flux-klein-9b", "split_files/text_encoders/qwen_3_8b.safetensors"),
     # Anima (circlestone-labs) -- text encoder + VAE shared with the 2B anima diffusion models
     HuggingFile("circlestone-labs/Anima", "split_files/text_encoders/qwen_3_06b_base.safetensors"),
@@ -1359,6 +1372,9 @@ KNOWN_CLIP_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     # Qwen 3.5 text encoder (Comfy-Org)
     HuggingFile("Comfy-Org/Qwen3.5", "text_encoders/qwen3.5_2b_bf16.safetensors"),
     HuggingFile("Comfy-Org/Qwen3.5", "text_encoders/qwen3.5_4b_bf16.safetensors"),
+    HuggingFile("Comfy-Org/Qwen3.5", "text_encoders/qwen3.5_9b_bf16.safetensors", revision="5d50a2252bf1bcd49e5fee9b5f296986d442682b", size=19306312328),
+    HuggingFile("Comfy-Org/MOSS-Image", "text_encoders/qwen3.5_9b_int8_convrot.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=9748121532),
+    HuggingFile("Comfy-Org/MOSS-Image", "text_encoders/qwen3.5_9b_w4a8_gptq.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=7343591088),
     # Stable Audio 3
     HuggingFile("Comfy-Org/stable-audio-3", "text_encoders/t5gemma_b_b_ul2.safetensors"),
     # t5-base audio text encoder (ComfyUI-Wiki repack)
