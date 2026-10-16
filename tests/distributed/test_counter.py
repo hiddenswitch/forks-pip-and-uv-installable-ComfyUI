@@ -102,7 +102,9 @@ def counter_path_factory(request, tmp_path_factory):
             run_command(f"sleep 1 && sudo mount -t nfs4 -o proto=tcp,port={nfs_port} {ip_address}:/ {mount_point}")
             yield lambda name: str(mount_point / name)
         finally:
-            run_command(f"sudo umount {mount_point}", check=False)
+            # Network servers are containers and may already be gone during
+            # teardown. Detach without waiting on an unreachable server.
+            run_command(f"sudo umount -l -- {mount_point}", check=False)
 
     elif request.param == "samba":
         # 1. Create the host directory.
@@ -139,7 +141,7 @@ def counter_path_factory(request, tmp_path_factory):
             run_command(f"sleep 1 && sudo mount -t cifs -o username=samba,password=secret,vers=3.0,port={samba_port},uid=$(id -u),gid=$(id -g) //{ip_address}/{share_name} {mount_point}", check=True)
             yield lambda name: str(mount_point / name)
         finally:
-            run_command(f"sudo umount {mount_point}", check=False)
+            run_command(f"sudo umount -l -- {mount_point}", check=False)
 
 
 def test_initial_state(counter_path_factory):
