@@ -1,6 +1,6 @@
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder, is_link
-from comfy.cmd.server import PromptServer
+from comfy.execution_context import current_execution_context
 
 
 def _cache_enabled(value):
@@ -229,7 +229,7 @@ class StartLoop(io.ComfyNode):
         execution_list.add_external_block(close_id)
         execution_list.inhibit_nodes(body)
         dynprompt.override_node(close_id, {"class_type": close["class_type"], "inputs": close_inputs})
-        PromptServer.instance.send_progress_text(f"Iteration 0 / {len(values)}", unique_id)
+        current_execution_context().server.send_progress_text(f"Iteration 0 / {len(values)}", unique_id)
         return io.NodeOutput(None, False, not values, None, None, expand=graph)
 
     @classmethod
@@ -301,7 +301,7 @@ class LoopProgress(io.ComfyNode):
 
     @classmethod
     def execute(cls, start_id, position, total, **kwargs):
-        PromptServer.instance.send_progress_text(f"Iteration {position[0]} / {total[0]}", start_id[0])
+        current_execution_context().server.send_progress_text(f"Iteration {position[0]} / {total[0]}", start_id[0])
         return io.NodeOutput(position[0])
 
     @classmethod

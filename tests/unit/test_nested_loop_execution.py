@@ -1,4 +1,5 @@
 import copy
+from types import SimpleNamespace
 
 import pytest
 
@@ -316,8 +317,8 @@ def register_internal_loop_nodes(monkeypatch):
         monkeypatch.setitem(get_nodes().NODE_CLASS_MAPPINGS, name, node)
     monkeypatch.setattr(
         nodes_loop,
-        "PromptServer",
-        type("PromptServer", (), {"instance": Progress()}),
+        "current_execution_context",
+        lambda: SimpleNamespace(server=Progress()),
     )
     execute = PromptExecutor.execute
 

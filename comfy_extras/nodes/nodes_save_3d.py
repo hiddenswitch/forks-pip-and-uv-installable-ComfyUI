@@ -17,7 +17,7 @@ from typing_extensions import override
 from comfy.cmd import folder_paths
 from comfy.cli_args import args
 from comfy_api.latest import ComfyExtension, IO, Types, UI
-from comfy.cmd.server import PromptServer
+from comfy.execution_context import current_execution_context
 
 
 def pack_variable_mesh_batch(vertices, faces, colors=None, uvs=None, texture=None, unlit=False,
@@ -864,7 +864,7 @@ class GetMeshInfo(IO.ComfyNode):
         logging.info("[GetMeshInfo]\n%s", info)
 
         if cls.hidden.unique_id:
-            PromptServer.instance.send_progress_text(info, cls.hidden.unique_id)
+            current_execution_context().server.send_progress_text(info, cls.hidden.unique_id)
         return IO.NodeOutput(mesh, info, ui=UI.PreviewText(info))
 
 

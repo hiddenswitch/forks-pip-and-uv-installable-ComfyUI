@@ -831,7 +831,7 @@ class GetLatentSize(IO.ComfyNode):
             frames = 1
 
         if cls.hidden.unique_id:
-            PromptServer.instance.send_progress_text(f"width: {width}, height: {height}\n frames: {frames}, batch size: {batch_size}", cls.hidden.unique_id)
+            current_execution_context().server.send_progress_text(f"width: {width}, height: {height}\n frames: {frames}, batch size: {batch_size}", cls.hidden.unique_id)
 
         return IO.NodeOutput(width, height, frames, batch_size)
 
