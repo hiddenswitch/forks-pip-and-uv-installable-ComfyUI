@@ -82,6 +82,7 @@ from .ldm.modules.diffusionmodules.openaimodel import Timestep
 from .ldm.modules.diffusionmodules.openaimodel import UNetModel
 from .ldm.modules.diffusionmodules.upscaling import ImageConcatWithNoiseAugmentation
 from .ldm.modules.encoders.noise_aug_modules import CLIPEmbeddingNoiseAugmentation
+from .ldm.moss_image.model import MOSSImage as MOSSImageModel
 from .ldm.omnigen.omnigen2 import OmniGen2Transformer2DModel
 from .ldm.pixart.pixartms import PixArtMS
 from .ldm.pixeldit.model import PixDiT_T2I
@@ -3032,6 +3033,18 @@ class Krea2(BaseModel):
         ref_latents = kwargs.get("reference_latents", None)
         if ref_latents is not None:
             out['ref_latents'] = [1, 16, sum(math.prod(lat.size()) for lat in ref_latents) // 16]
+        return out
+
+class MOSSImage(BaseModel):
+    def __init__(self, model_config, model_type=ModelType.FLOW, device=None):
+        super().__init__(model_config, model_type, device=device, unet_model=MOSSImageModel)
+
+    def extra_conds(self, **kwargs):
+        out = super().extra_conds(**kwargs)
+        cross_attn = kwargs.get("cross_attn", None)
+        # rope positions follow the true text length, so no repeat padding: cond and uncond of different lengths run separately
+        if cross_attn is not None:
+            out['c_crossattn'] = conds.CONDRegular(cross_attn)
         return out
 
 class HunyuanImage21(BaseModel):
