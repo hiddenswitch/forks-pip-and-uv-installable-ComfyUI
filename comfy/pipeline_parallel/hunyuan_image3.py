@@ -160,6 +160,27 @@ TEXT_STEP = "hy3_text"
 TEXT_PREFILL, TEXT_DECODE, TEXT_RELEASE = "prefill", "decode", "release"
 
 
+# K/V room kept for the tokens decoded after the prefill: the node's default rewriting budget
+TEXT_DECODE_RESERVE = 2048
+
+
+def _text_prefill_bytes(self, hidden_states):
+    """What this stage's prefill needs beside its weights: its layers' K/V for the prompt and the decode
+    after it, one layer's activations at the allowance the sampler makes per token, the two expert
+    banks a long prefill makes resident, and ComfyUI's inference minimum."""
+    stage, config = self.pipeline_stage, self.config
+    length, hidden = hidden_states.shape[1], hidden_states.shape[-1]
+    element = hidden_states.element_size()
+    layers = stage.end_layer - stage.start_layer
+    cache = 2 * layers * config.num_key_value_heads * config.attention_head_dim * (length + TEXT_DECODE_RESERVE) * element
+    activations = length * hidden * 24 * element
+    mlp = self.model.layers[stage.start_layer].mlp
+    banks = sum(parameter.numel() * parameter.element_size()
+                for bank in (getattr(mlp, "experts_gate_up_proj", None), getattr(mlp, "experts_down_proj", None))
+                if bank is not None for parameter in bank.parameters())
+    return cache + activations + banks + model_management.minimum_inference_memory()
+
+
 def _run_text_layers(self, hidden_states, freqs, attention_mask, phase):
     """This stage's layers over a text step, each with its own K/V cache: a prefill starts new caches,
     a decode step appends to them, a release drops them and computes nothing."""
@@ -168,6 +189,9 @@ def _run_text_layers(self, hidden_states, freqs, attention_mask, phase):
         self._hy3_text_cache = None
         return hidden_states
     if phase == TEXT_PREFILL:
+        # a stage's DynamicVRAM weights may fill its card (they do after a denoising run); the prefill's
+        # room is made the way the sampler makes a denoising step's
+        model_management.free_memory(_text_prefill_bytes(self, hidden_states), hidden_states.device, for_dynamic=True)
         self._hy3_text_cache = {index: KVCache() for index in range(stage.start_layer, stage.end_layer)}
     elif getattr(self, "_hy3_text_cache", None) is None:
         raise RuntimeError("a HunyuanImage3 text decode step arrived before its prefill")
