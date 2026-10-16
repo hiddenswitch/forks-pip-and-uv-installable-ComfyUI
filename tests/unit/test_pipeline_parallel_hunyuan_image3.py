@@ -475,3 +475,30 @@ def test_hunyuan_image3_denoising_is_unchanged_after_text_generation(hunyuan):
     actual = executor.execute(x, timestep, ids=ids, transformer_options=options)
 
     assert torch.equal(actual, expected)
+
+
+def test_each_stage_makes_room_for_its_text_prefill(hunyuan, monkeypatch):
+    # After a denoising run a stage's DynamicVRAM weights filled its card, and the next prompt's
+    # think_recaption prefill (the conditioning images' ~10k tokens, every expert bank resident) ran out
+    # of memory in a stage's MLP. Each stage now frees room for its prefill before running it, as the
+    # sampler does for a denoising step, and only for the prefill.
+    from comfy import model_management
+
+    rewrite = hunyuan("hunyuan_image_3.rewrite")
+    params, _, first, second, _ = _two_stage_model(hunyuan)
+    sequence, cond_latent, cond_vit = _text_sequence(params, True)
+    requests = []
+    monkeypatch.setattr(model_management, "free_memory",
+                        lambda required, device, **kwargs: requests.append((required, device, kwargs)) or [])
+
+    rewrite.generate_text(first, _RecordingHead(params.hidden_size, params.vocab_size, seed=7), sequence,
+                          stop_tokens=[], max_new_tokens=3, do_sample=False, cond_latent=cond_latent,
+                          cond_vit=cond_vit, device=torch.device("cpu"), dtype=torch.float32)
+
+    assert len(requests) == 2
+    length = sequence["ids"].shape[0]
+    for stage, (required, device, kwargs) in zip((first, second), requests):
+        assert device == torch.device("cpu") and kwargs == {"for_dynamic": True}
+        layers = stage.pipeline_stage.end_layer - stage.pipeline_stage.start_layer
+        cache = 2 * layers * params.num_key_value_heads * params.attention_head_dim * length * 4
+        assert required >= cache + length * params.hidden_size * 4 + model_management.minimum_inference_memory()
