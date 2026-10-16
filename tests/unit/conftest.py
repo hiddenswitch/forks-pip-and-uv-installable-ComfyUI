@@ -8,8 +8,16 @@ fixtures that need the full node set should reuse this snapshot instead
 of calling ``import_all_nodes_in_workspace`` themselves.
 """
 import os
+import sys
 
 import pytest
+
+
+# This subprocess-heavy test has repeatedly destabilized Linux hosts by
+# triggering system-wide Btrfs metadata lock stalls. Keep it disabled on Linux
+# until the test can run without affecting the host filesystem.
+if sys.platform.startswith("linux"):
+    collect_ignore = ["test_custom_node_tensor_parallel.py"]
 
 
 @pytest.fixture(scope="session")

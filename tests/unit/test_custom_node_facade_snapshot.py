@@ -5,12 +5,16 @@ import lzma
 import os
 import sqlite3
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import pytest
 
 from comfy.custom_node_facade.registry import (
     FacadeProject,
     FacadeVersion,
     SnapshotFacadeRegistry,
+    SnapshotUnavailableError,
     is_excluded_facade_project,
     _normalize_pep440_versions,
     _sort_versions,
@@ -46,6 +50,56 @@ def _sample_version() -> FacadeVersion:
         dependencies=("requests>=2",),
         deprecated=False,
     )
+
+
+async def test_snapshot_unavailable_and_expired_generations_recover(tmp_path: Path):
+    output = tmp_path / "registry.sqlite"
+    project = _sample_project()
+
+    def write():
+        write_facade_registry_snapshot(
+            output, projects=[project],
+            versions_by_node_id={project.node_id: [_sample_version()]},
+            base_url="https://registry.example.invalid", only_known_nodes=True,
+            overwrite=True,
+        )
+
+    write()
+    registry = SnapshotFacadeRegistry(snapshot_uri=str(output), max_age_seconds=2100)
+    assert await registry.get_project(project.node_id) == project
+    output.unlink()
+    with pytest.raises(SnapshotUnavailableError):
+        await registry.list_projects()
+    assert not output.exists()
+    assert (await registry.health())["snapshot_error"]
+
+    output.write_bytes(b"invalid snapshot")
+    with pytest.raises(SnapshotUnavailableError):
+        await registry.list_projects()
+    write()
+    with sqlite3.connect(output) as connection:
+        connection.execute("UPDATE metadata SET value = ? WHERE key = 'created_at'", (
+            (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+        ))
+    with pytest.raises(SnapshotUnavailableError, match="expired"):
+        await registry.list_projects()
+    assert (await registry.health())["snapshot_age_seconds"] >= 3600
+    write()
+    assert await registry.get_project(project.node_id) == project
+    assert (await registry.health())["snapshot_error"] is None
+
+
+async def test_snapshot_age_limit_is_optional(tmp_path: Path):
+    output = tmp_path / "registry.sqlite"
+    project = _sample_project()
+    write_facade_registry_snapshot(
+        output, projects=[project], versions_by_node_id={project.node_id: [_sample_version()]},
+        base_url="https://registry.example.invalid", only_known_nodes=True,
+    )
+    with sqlite3.connect(output) as connection:
+        connection.execute("UPDATE metadata SET value = '2000-01-01T00:00:00+00:00' WHERE key = 'created_at'")
+    registry = SnapshotFacadeRegistry(snapshot_uri=str(output))
+    assert await registry.get_project(project.node_id) == project
 
 
 def test_write_facade_registry_snapshot_sqlite(tmp_path: Path):

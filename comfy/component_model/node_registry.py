@@ -28,6 +28,26 @@ DEFAULT_SKIP: frozenset[str] = frozenset({
 
 CUSTOM_NODE_REGISTRY: list[CustomNodeSpec] = [
     CustomNodeSpec(
+        node_id="kandinsky6",
+        repo_url="https://github.com/kandinskylab/kandinsky-6",
+        display_name="Kandinsky 6",
+        expected_node_types=["Kandinsky6Sampler", "Kandinsky6TextEncode", "Kandinsky6AudioVAELoader"],
+    ),
+    CustomNodeSpec(
+        node_id="kandinsky6-sr",
+        repo_url="https://github.com/kandinskylab/kandinsky-6-sr",
+        display_name="Kandinsky 6 SR",
+        expected_node_types=["Kandinsky6SRVAELoader", "Kandinsky6LatentUpscalerLoader", "Kandinsky6VSRUpscale"],
+    ),
+    CustomNodeSpec(
+        node_id="comfyui-hunyuanimage3",
+        repo_url="https://github.com/PedroMarinhoDev/ComfyUI-HunyuanImage3",
+        display_name="ComfyUI-HunyuanImage3",
+        git_ref="84ad3a3e2a54472e69e195269729f774b242d120",
+        inject_version="0.1.0",
+        expected_node_types=["HunyuanImage3ModelLoader", "HunyuanImage3TextEncode", "HunyuanImage3ImageEncode", "HunyuanImage3VAELoader"],
+    ),
+    CustomNodeSpec(
         node_id="ComfyUI-Prompt-Combinator",
         repo_url="https://github.com/lquesada/ComfyUI-Prompt-Combinator",
         display_name="ComfyUI-Prompt-Combinator",
