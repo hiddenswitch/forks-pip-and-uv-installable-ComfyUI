@@ -362,3 +362,116 @@ def test_pipeline_conditioning_does_not_run_the_full_model_prefix(hunyuan):
     result = hunyuan("hunyuan_image_3.model_base").HunyuanImage3Model.extra_conds(
         model, ids=torch.tensor([1, 2, 63]), noise=torch.zeros(1, params.vae_latent_channels, 1, 2, 2))
     assert "hy3_prefix" not in result
+
+
+def _two_stage_model(hunyuan, model_type="instruct", seed=3):
+    upstream = hunyuan("hunyuan_image_3.model")
+    operations = hunyuan("hunyuan_image_3.ops").QuantlessMoEOps
+    initialize = hunyuan("tests.op_module_init").init_op_modules
+    params = _tiny_params(hunyuan, model_type)
+    dtype = torch.float32
+    full = upstream.HunyuanImage3(params, dtype=dtype, device="cpu", operations=operations)
+    initialize(full, dtype, seed=seed)
+    state = full.state_dict()
+    first = upstream.HunyuanImage3(params, dtype=dtype, device="cpu", operations=operations,
+                                   pipeline_stage=PipelineStageConfig(0, 2, 0, 1))
+    second = upstream.HunyuanImage3(params, dtype=dtype, device="cpu", operations=operations,
+                                    pipeline_stage=PipelineStageConfig(1, 2, 1, 2))
+    first.load_state_dict({key: state[key] for key in first.state_dict()}, strict=True)
+    second.load_state_dict({key: state[key] for key in second.state_dict()}, strict=True)
+    plans = (
+        PipelineStagePlan(0, torch.device("cpu"), 0, 1, 1, frozenset()),
+        PipelineStagePlan(1, torch.device("cpu"), 1, 2, 1, frozenset()),
+    )
+    executor = SingleProcessPipelineExecutor(
+        PipelinePartitionPlan("hunyuan_image3", plans),
+        (first, second.forward_pipeline_stage),
+        FakePipelineTransport(FakeDeviceRuntime()),
+    )
+    first._comfy_pipeline_executor = executor
+    return params, full, first, second, executor
+
+
+class _RecordingHead(torch.nn.Module):
+    """A text head (hidden -> logits) that keeps every logits row it produced."""
+
+    def __init__(self, hidden_size, vocab_size, seed):
+        super().__init__()
+        torch.manual_seed(seed)
+        self.linear = torch.nn.Linear(hidden_size, vocab_size)
+        self.logits = []
+
+    def forward(self, hidden):
+        logits = self.linear(hidden)
+        self.logits.append(logits.detach().clone())
+        return logits
+
+
+def _text_sequence(params, with_image):
+    # <bos> text, then (optionally) one conditioning block: <boi> <img_size> <img_ratio> <timestep>,
+    # its 2x2 VAE run, <joint_img_sep>, its 2x2 tower run, <eoi>; then more text and the task tag
+    image = params.image_token_id
+    if not with_image:
+        return {"ids": torch.tensor([1, 2, 3, 4, 5, 6, 7]), "cond_blocks": []}, None, None
+    ids = [1, 2, 3, 10, 11, 12, 13] + [image] * 4 + [14] + [image] * 4 + [15, 4, 5, 6, 16]
+    block = {"vae_slice": slice(7, 11), "vit_slice": slice(12, 16), "joint_slice": slice(7, 16),
+             "timestep_position": 6, "token_height": 2, "token_width": 2, "patch_height": 2, "patch_width": 2}
+    torch.manual_seed(11)
+    cond_latent = [torch.randn(1, params.vae_latent_channels, 2, 2)]
+    cond_vit = [torch.randn(1, 4, params.hidden_size)]
+    return {"ids": torch.tensor(ids), "cond_blocks": [block]}, cond_latent, cond_vit
+
+
+@pytest.mark.parametrize("with_image", [False, True])
+def test_hunyuan_image3_text_generation_over_two_stages_matches_the_unsplit_model(hunyuan, with_image):
+    # The prompt-rewriting stage (think / recaption) decodes autoregressively. Split over stages it
+    # used to run only the driver's own layers (the others are identities there), silently; each
+    # stage now keeps its own layers' KV cache and the hidden state flows stage to stage per token.
+    rewrite = hunyuan("hunyuan_image_3.rewrite")
+    params, full, first, _, _ = _two_stage_model(hunyuan)
+    sequence, cond_latent, cond_vit = _text_sequence(params, with_image)
+    settings = dict(stop_tokens=[], max_new_tokens=6, do_sample=False, cond_latent=cond_latent,
+                    cond_vit=cond_vit, device=torch.device("cpu"), dtype=torch.float32)
+
+    expected_head = _RecordingHead(params.hidden_size, params.vocab_size, seed=7)
+    expected = rewrite.generate_text(full, expected_head, sequence, **settings)
+    actual_head = _RecordingHead(params.hidden_size, params.vocab_size, seed=7)
+    actual = rewrite.generate_text(first, actual_head, sequence, **settings)
+
+    assert actual["tokens"] == expected["tokens"]
+    # the prefill and one feed per generated token
+    assert len(actual_head.logits) == len(expected_head.logits) == 7
+    for got, want in zip(actual_head.logits, expected_head.logits):
+        assert torch.equal(got, want)
+
+
+def test_hunyuan_image3_text_generation_releases_every_stage_cache(hunyuan):
+    rewrite = hunyuan("hunyuan_image_3.rewrite")
+    params, _, first, second, _ = _two_stage_model(hunyuan)
+    sequence, _, _ = _text_sequence(params, False)
+    head = _RecordingHead(params.hidden_size, params.vocab_size, seed=7)
+
+    rewrite.generate_text(first, head, sequence, stop_tokens=[], max_new_tokens=3, do_sample=False,
+                          device=torch.device("cpu"), dtype=torch.float32)
+
+    # the diffusion sampler runs next on the same stages: no prompt-length K/V may stay behind
+    assert getattr(first, "_hy3_text_cache", None) is None
+    assert getattr(second, "_hy3_text_cache", None) is None
+
+
+def test_hunyuan_image3_denoising_is_unchanged_after_text_generation(hunyuan):
+    rewrite = hunyuan("hunyuan_image_3.rewrite")
+    params, full, first, _, executor = _two_stage_model(hunyuan)
+    sequence, _, _ = _text_sequence(params, False)
+    rewrite.generate_text(first, _RecordingHead(params.hidden_size, params.vocab_size, seed=7), sequence,
+                          stop_tokens=[], max_new_tokens=2, do_sample=False, device=torch.device("cpu"),
+                          dtype=torch.float32)
+    ids = torch.tensor([1, 2, 3, 4, 5, 6, 7, 63, 63, 63, 63, 8])
+    x = torch.randn(1, params.vae_latent_channels, 1, 2, 2)
+    timestep = torch.full((1,), 900.0)
+    options = {"sample_sigmas": torch.tensor([1.0, 0.9, 0.0]), "sigmas": torch.tensor([0.9])}
+
+    expected = full(x, timestep, ids=ids, transformer_options=options)
+    actual = executor.execute(x, timestep, ids=ids, transformer_options=options)
+
+    assert torch.equal(actual, expected)

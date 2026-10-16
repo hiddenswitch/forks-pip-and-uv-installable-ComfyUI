@@ -11,6 +11,12 @@ is loaded, so a rank never holds another stage's 4.6 GiB decoder layers. The fir
 guidance embedders, conditioning images) and with it the attention mask and rotary table, which
 travel with the hidden states: rebuilding them costs a stage more than the transfer does. The last
 stage applies `final_layer` to the image rows.
+
+The node's prompt-rewriting stage (think / recaption, `rewrite.generate_text`) decodes text
+autoregressively, and runs the same way: the driver embeds the prompt (conditioning images included)
+or the next token, the hidden state flows stage to stage, each stage keeps the K/V of its own layers
+for the prefill and every decoded token, and the last stage hands back the last position's hidden
+state, which the driver's text head turns into logits. The caches are dropped when the decode ends.
 """
 from __future__ import annotations
 
@@ -27,7 +33,7 @@ import torch
 from .. import model_management, model_prefetch, ops, utils
 from ..model_patcher import get_model_patcher_class
 
-from ..tensor_parallel.hunyuan_image3_runtime import prepare_batched_inputs
+from ..tensor_parallel.hunyuan_image3_runtime import KVCache, prepare_batched_inputs
 from .checkpoint import SafetensorsCheckpointReader
 from .loader import AbstractBasePipelineStageLoader, load_pipeline_model, resolve_pipeline_devices
 from .patcher import get_pipeline_model_patcher_class
@@ -149,10 +155,48 @@ def _first_stage_forward(self, x, timestep, transformer_options=None, guidance=N
     )
 
 
+# A pipelined text step: what each stage does with its layers' K/V cache.
+TEXT_STEP = "hy3_text"
+TEXT_PREFILL, TEXT_DECODE, TEXT_RELEASE = "prefill", "decode", "release"
+
+
+def _run_text_layers(self, hidden_states, freqs, attention_mask, phase):
+    """This stage's layers over a text step, each with its own K/V cache: a prefill starts new caches,
+    a decode step appends to them, a release drops them and computes nothing."""
+    stage = self.pipeline_stage
+    if phase == TEXT_RELEASE:
+        self._hy3_text_cache = None
+        return hidden_states
+    if phase == TEXT_PREFILL:
+        self._hy3_text_cache = {index: KVCache() for index in range(stage.start_layer, stage.end_layer)}
+    elif getattr(self, "_hy3_text_cache", None) is None:
+        raise RuntimeError("a HunyuanImage3 text decode step arrived before its prefill")
+    for index in range(stage.start_layer, stage.end_layer):
+        hidden_states = self.model.layers[index](hidden_states, freqs, attention_mask, self._hy3_text_cache[index])
+    return hidden_states
+
+
+def _text_intermediate(hidden_states, freqs, attention_mask, phase):
+    tensors = {"hidden_states": hidden_states, "freqs": freqs}
+    if attention_mask is not None:
+        tensors["attention_mask"] = attention_mask
+    return PipelineIntermediateTensors(tensors, {TEXT_STEP: phase})
+
+
+def _first_stage_text(self, embeddings, freqs, attention_mask, phase):
+    if not self.pipeline_stage.is_first:
+        raise RuntimeError("Only the first HunyuanImage3 pipeline stage accepts text steps")
+    hidden_states = _run_text_layers(self, embeddings, freqs, attention_mask, phase)
+    return _text_intermediate(hidden_states, freqs, attention_mask, phase)
+
+
 def _stage_forward(original):
     @wraps(original)
     def forward(self, x, timestep, context=None, transformer_options=None, guidance=None, ids=None,
                 cond_latent=None, cond_vit=None, cond_vit_grid=None, **kwargs):
+        if getattr(self, "pipeline_stage", None) is not None and TEXT_STEP in kwargs:
+            # a text step: x is the step's embeddings and timestep its rotary table
+            return _first_stage_text(self, x, timestep, kwargs.get("text_attention_mask"), kwargs[TEXT_STEP])
         if getattr(self, "pipeline_stage", None) is None:
             return original(self, x, timestep, context=context, transformer_options=transformer_options,
                             guidance=guidance, ids=ids, cond_latent=cond_latent, cond_vit=cond_vit,
@@ -169,6 +213,14 @@ def forward_pipeline_stage(self, intermediate: PipelineIntermediateTensors):
     if stage is None or stage.is_first:
         raise RuntimeError("HunyuanImage3 pipeline continuation requires a non-first stage")
     tensors, metadata = intermediate.tensors, intermediate.metadata
+    phase = metadata.get(TEXT_STEP)
+    if phase is not None:
+        hidden_states = _run_text_layers(self, tensors["hidden_states"], tensors["freqs"],
+                                         tensors.get("attention_mask"), phase)
+        if not stage.is_last:
+            return _text_intermediate(hidden_states, tensors["freqs"], tensors.get("attention_mask"), phase)
+        # only the last position predicts the next token
+        return hidden_states[:, -1:].contiguous()
     hidden_states = self._run_pipeline_layers(
         tensors["hidden_states"], tensors["freqs"], tensors["attention_mask"], metadata["prefetch_dynamic_vbars"],
     )
@@ -181,6 +233,60 @@ def forward_pipeline_stage(self, intermediate: PipelineIntermediateTensors):
     pred = self.final_layer(image_hidden, self.time_embed_2(tensors["timestep"]),
                             metadata["token_height"], metadata["token_width"])
     return pred.unsqueeze(2) if metadata["latent_dims"] == 5 else pred
+
+
+class _PipelineTextTransformer:
+    """`model.model` for `rewrite.generate_text` on the driver: the call goes through every stage. The
+    caller's per-layer cache is unused; each stage keeps its own layers' caches."""
+
+    def __init__(self, model, executor):
+        self.wte = model.model.wte
+        self.executor = executor
+        self.hidden_size = model.config.hidden_size
+        self.prefilled = False
+        self.device = None
+
+    def __call__(self, embeddings, freqs, attention_mask, cache):
+        phase = TEXT_DECODE if self.prefilled else TEXT_PREFILL
+        self.prefilled, self.device = True, embeddings.device
+        return self.executor.execute(embeddings, freqs, **{TEXT_STEP: phase, "text_attention_mask": attention_mask})
+
+    def release(self):
+        """Every stage drops its caches; the step carries a one-position placeholder and computes nothing."""
+        placeholder = torch.zeros(1, 1, self.hidden_size, device=self.device)
+        self.executor.execute(placeholder, torch.zeros(1, device=self.device),
+                              **{TEXT_STEP: TEXT_RELEASE, "text_attention_mask": None})
+
+
+class _PipelineTextModel:
+    def __init__(self, model, executor):
+        self._model = model
+        self.model = _PipelineTextTransformer(model, executor)
+
+    def __getattr__(self, name):
+        return getattr(self._model, name)
+
+
+def _wrap_generate_text(rewrite):
+    generate = rewrite.generate_text
+    # the decode loop itself, under any other wrapper (tensor parallelism routes `model.model` its own way)
+    decode = getattr(generate, "__wrapped__", generate)
+
+    @wraps(generate)
+    def generate_text(model, *args, **kwargs):
+        executor = getattr(model, "_comfy_pipeline_executor", None)
+        if getattr(model, "pipeline_stage", None) is None or executor is None:
+            return generate(model, *args, **kwargs)
+        proxy = _PipelineTextModel(model, executor)
+        try:
+            return decode(proxy, *args, **kwargs)
+        finally:
+            if proxy.model.prefilled:
+                proxy.model.release()
+            executor.finish_execution()
+
+    generate_text._comfy_pipeline_parallel = True
+    rewrite.generate_text = generate_text
 
 
 class HunyuanImage3PipelineStageLoader(AbstractBasePipelineStageLoader):
@@ -333,6 +439,8 @@ def load_pipeline(checkpoint_path, extension_path, disable_dynamic=False):
         memory_coordinator=memory_coordinator,
     )
     root.cached_patcher_init = (partial(load_pipeline, disable_dynamic=disable_dynamic), (checkpoint_path, extension_path))
+    # the prompt-rewriting stage is handed the diffusion module alone; it reaches the stages through this
+    root.model.diffusion_model._comfy_pipeline_executor = root.model.pipeline_executor
     return root
 
 
@@ -361,3 +469,7 @@ def install(extension) -> None:
 
     upstream_loader.load_hunyuan_image_3 = load_hunyuan_image_3
     _upstream(package, "nodes").load_hunyuan_image_3 = load_hunyuan_image_3
+
+    rewrite = _upstream(package, "hunyuan_image_3.rewrite")
+    if not getattr(rewrite.generate_text, "_comfy_pipeline_parallel", False):
+        _wrap_generate_text(rewrite)
