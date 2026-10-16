@@ -915,6 +915,7 @@ def _make_scaled_embedding(ops, vocab_size, hidden_size, scale, device, dtype):
 class Llama2_(nn.Module):
     fixed_kv = False
     graph_dynamic_vbar_blocks = False
+    zero_unattended_queries = False
 
     def __init__(self, config, device=None, dtype=None, ops=None):
         super().__init__()
@@ -1016,10 +1017,11 @@ class Llama2_(nn.Module):
             else:
                 mask = causal_mask
 
-        attended = None
+        # only the blocks of encoders that zero unattended queries take this argument
+        layer_kwargs = {}
         if self.zero_unattended_queries and attention_mask is not None and past_len == 0:
             # a causal query has a key to attend to from the first unmasked position on
-            attended = (attention_mask.cumsum(dim=-1) > 0).unsqueeze(-1).to(x.dtype)
+            layer_kwargs["attended"] = (attention_mask.cumsum(dim=-1) > 0).unsqueeze(-1).to(x.dtype)
 
         optimized_attention = optimized_attention_for_device(x.device, mask=mask is not None, small_input=True)
 
@@ -1069,7 +1071,7 @@ class Llama2_(nn.Module):
                     freqs_cis=freqs_cis,
                     optimized_attention=optimized_attention,
                     past_key_value=past_kv,
-                    attended=attended,
+                    **layer_kwargs,
                 )
                 if enable_graph:
                     x.copy_(output)
