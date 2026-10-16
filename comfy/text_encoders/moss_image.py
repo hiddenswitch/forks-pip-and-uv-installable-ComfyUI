@@ -1,8 +1,8 @@
-import comfy.text_encoders.qwen35
-from comfy import sd1_clip
+from . import qwen35
+from .. import sd1_clip
 
 
-class MOSSImageTokenizer(comfy.text_encoders.qwen35.Qwen35ImageTokenizer):
+class MOSSImageTokenizer(qwen35.Qwen35ImageTokenizer):
     def __init__(self, embedding_directory=None, tokenizer_data={}):
         super().__init__(embedding_directory=embedding_directory, tokenizer_data=tokenizer_data, model_type="qwen35_9b")
 
@@ -15,7 +15,7 @@ class MOSSImageTokenizer(comfy.text_encoders.qwen35.Qwen35ImageTokenizer):
 
 class MOSSImageTEModel(sd1_clip.SD1ClipModel):
     def __init__(self, device="cpu", dtype=None, model_options={}):
-        clip_model = lambda **kw: comfy.text_encoders.qwen35.Qwen35ClipModel(**kw, layer="last", layer_idx=None, model_type="qwen35_9b")
+        clip_model = lambda **kw: qwen35.Qwen35ClipModel(**kw, layer="last", layer_idx=None, model_type="qwen35_9b")
         super().__init__(device=device, dtype=dtype, name="qwen35_9b", clip_model=clip_model, model_options=model_options)
 
 

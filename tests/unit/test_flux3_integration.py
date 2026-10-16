@@ -30,3 +30,14 @@ def test_flux3_int8_models_are_discoverable():
     for name in ('flux3_image_klein_int8_convrot.safetensors', 'flux3_image_klein_sd_int8_convrot.safetensors'):
         assert files[name].repo_id == 'black-forest-labs/flux-3-image-klein-comfy'
         assert files[name].revision == '849a7a417c54120ac12f249da656b84ec05fd7eb'
+
+
+def test_flux3_template_models_are_discoverable():
+    from comfy.model_downloader import KNOWN_CLIP_MODELS
+    files = {str(model): model for model in (*KNOWN_UNET_MODELS.data, *KNOWN_CLIP_MODELS.data)}
+    for name in ('flux3_image_klein_base_int8_convrot.safetensors', 'flux3_image_klein_base_bf16.safetensors',
+                 'flux3_image_klein_bf16.safetensors', 'flux3_image_klein_sd_bf16.safetensors',
+                 'qwen3.5_9b_flux3_prompt_upsampler_w4a8.safetensors',
+                 'qwen3.5_9b_flux3_prompt_upsampler_int8_convrot.safetensors'):
+        assert files[name].repo_id == 'black-forest-labs/flux-3-image-klein-comfy'
+        assert files[name].revision == '5c9b714851dc072b04a23ef6d2d36421f5ccb3a0'
