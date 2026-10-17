@@ -114,6 +114,9 @@ def _run_pipeline_layers(self, hidden_states, freqs, attention_mask, prefetch):
     """
     stage = self.pipeline_stage
     device = hidden_states.device
+    # a worker stage's weights were loaded without the sampler's activation estimate, which reaches only
+    # the driver's card; each stage makes the step's room itself (a no-op when it is already free)
+    model_management.free_memory(_denoising_step_bytes(self, hidden_states), device, for_dynamic=True)
     layers = [self.model.layers[index] for index in range(stage.start_layer, stage.end_layer)]
     queue = model_prefetch.make_prefetch_queue(layers, device, {"prefetch_dynamic_vbars": prefetch})
     for layer in layers:
@@ -174,11 +177,23 @@ def _text_prefill_bytes(self, hidden_states):
     layers = stage.end_layer - stage.start_layer
     cache = 2 * layers * config.num_key_value_heads * config.attention_head_dim * (length + TEXT_DECODE_RESERVE) * element
     activations = length * hidden * 24 * element
-    mlp = self.model.layers[stage.start_layer].mlp
-    banks = sum(parameter.numel() * parameter.element_size()
-                for bank in (getattr(mlp, "experts_gate_up_proj", None), getattr(mlp, "experts_down_proj", None))
-                if bank is not None for parameter in bank.parameters())
-    return cache + activations + banks + model_management.minimum_inference_memory()
+    return cache + activations + _bank_bytes(self) + model_management.minimum_inference_memory()
+
+
+def _bank_bytes(self):
+    """One layer's two expert banks: a long sequence routes to every expert and makes both resident."""
+    mlp = self.model.layers[self.pipeline_stage.start_layer].mlp
+    return sum(parameter.numel() * parameter.element_size()
+               for bank in (getattr(mlp, "experts_gate_up_proj", None), getattr(mlp, "experts_down_proj", None))
+               if bank is not None for parameter in bank.parameters())
+
+
+def _denoising_step_bytes(self, hidden_states):
+    """The sampler's own estimate for a step of this sequence (hunyuan_image3_runtime's memory_required:
+    the dense mask and the per-token allowance), the two banks and the inference minimum."""
+    batch, length, hidden = hidden_states.shape
+    activations = batch * (length * length * hidden_states.element_size() + length * hidden * 24)
+    return activations + _bank_bytes(self) + model_management.minimum_inference_memory()
 
 
 def _run_text_layers(self, hidden_states, freqs, attention_mask, phase):
