@@ -526,3 +526,83 @@ def test_each_stage_makes_room_for_its_denoising_step(hunyuan, monkeypatch):
     for required, device, kwargs in requests:
         assert device == torch.device("cpu") and kwargs == {"for_dynamic": True}
         assert required >= 2 * (length * length * 4 + length * params.hidden_size * 24) + model_management.minimum_inference_memory()
+
+
+class _RecordingTransport(FakePipelineTransport):
+    """Records the tensor names of each stage-to-stage transfer."""
+
+    def __init__(self, runtime):
+        super().__init__(runtime)
+        self.sent = []
+
+    def transfer(self, tensors, schema, destination):
+        self.sent.append(tuple(sorted(tensors)))
+        return super().transfer(tensors, schema, destination)
+
+
+def _recording_two_stage(hunyuan):
+    params, full, first, second, _ = _two_stage_model(hunyuan)
+    transport = _RecordingTransport(FakeDeviceRuntime())
+    plans = (
+        PipelineStagePlan(0, torch.device("cpu"), 0, 1, 1, frozenset()),
+        PipelineStagePlan(1, torch.device("cpu"), 1, 2, 1, frozenset()),
+    )
+    executor = SingleProcessPipelineExecutor(PipelinePartitionPlan("hunyuan_image3", plans),
+                                             (first, second.forward_pipeline_stage), transport)
+    first._comfy_pipeline_executor = executor
+    return params, full, first, executor, transport
+
+
+def _denoise(model_or_executor, params, ids, steps, seed):
+    torch.manual_seed(seed)
+    x = torch.randn(len(ids), params.vae_latent_channels, 1, 2, 2)
+    sigmas = torch.tensor([1.0, 0.9, 0.8, 0.0])
+    outputs = []
+    for step in range(steps):
+        options = {"sample_sigmas": sigmas, "sigmas": sigmas[step:step + 1]}
+        timestep = torch.full((len(ids),), float(sigmas[step]) * 1000)
+        run = model_or_executor.execute if hasattr(model_or_executor, "execute") else model_or_executor
+        # the transport's pooled buffer is the executor's output; the next step overwrites it
+        outputs.append(run(x, timestep, ids=ids, transformer_options=options).clone())
+    return outputs
+
+
+def _stage_transfers(transport):
+    # transfers into stage 1; the pipeline output's way back is the other entry per step
+    return [names for names in transport.sent if "hidden_states" in names]
+
+
+def test_a_prompts_mask_and_rotary_table_cross_the_pipeline_once_and_the_output_is_unchanged(hunyuan):
+    # The dense mask is a CFG pair's prompt length squared (1.5 GB at 19k tokens) and was sent stage to
+    # stage on every step; over a switched LAN that is most of a step. Within one prompt it never changes.
+    params, full, _, executor, transport = _recording_two_stage(hunyuan)
+    long = torch.tensor([1, 2, 3, 4, 5, 6, 7, 63, 63, 63, 63, 8])
+    short = torch.tensor([1, 2, 3, 63, 63, 63, 63, 8])
+    for ids, seed in (((long, long), 1), ((short, short), 2), ((long, long), 3)):
+        before = len(_stage_transfers(transport))
+        expected = _denoise(full, params, ids, 3, seed)
+        actual = _denoise(executor, params, ids, 3, seed)
+        for got, want in zip(actual, expected):
+            assert torch.equal(got, want)
+        sent = _stage_transfers(transport)[before:]
+        assert "attention_mask" in sent[0] and "freqs" in sent[0]
+        assert all("attention_mask" not in names and "freqs" not in names for names in sent[1:])
+
+
+def test_a_text_decode_between_denoising_steps_sends_the_mask_again(hunyuan):
+    # a text prefill drops the stages' denoising context to make room; the next step must not reuse it
+    rewrite = hunyuan("hunyuan_image_3.rewrite")
+    params, full, first, executor, transport = _recording_two_stage(hunyuan)
+    ids = (torch.tensor([1, 2, 3, 4, 5, 6, 7, 63, 63, 63, 63, 8]),) * 2
+    _denoise(executor, params, ids, 2, 4)
+    sequence, _, _ = _text_sequence(params, False)
+    rewrite.generate_text(first, _RecordingHead(params.hidden_size, params.vocab_size, seed=7), sequence,
+                          stop_tokens=[], max_new_tokens=2, do_sample=False, device=torch.device("cpu"),
+                          dtype=torch.float32)
+    before = len(_stage_transfers(transport))
+    expected = _denoise(full, params, ids, 2, 5)
+    actual = _denoise(executor, params, ids, 2, 5)
+    for got, want in zip(actual, expected):
+        assert torch.equal(got, want)
+    after_text = [names for names in _stage_transfers(transport)[before:] if "timestep" in names]
+    assert "attention_mask" in after_text[0]

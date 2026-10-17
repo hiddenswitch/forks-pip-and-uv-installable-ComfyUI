@@ -146,16 +146,46 @@ def _first_stage_forward(self, x, timestep, transformer_options=None, guidance=N
         source._as_list(cond_vit), cond_vit_grid)
     prefetch = bool(transformer_options.get("prefetch_dynamic_vbars", False))
     hidden_states = self._run_pipeline_layers(embeds, freqs, mask, prefetch)
+    # The mask and rotary table are functions of the prompt's ids and geometry alone, so the later
+    # stages keep the first step's and only the hidden states travel after it: the mask is the
+    # sequence length squared per CFG lane, most of a step's transfer.
+    context = _StepContext(ids, x, source._as_list(cond_latent), cond_vit_grid)
+    reuse = context.same_as(getattr(self, "_hy3_sent_context", None))
+    self._hy3_sent_context = context
+    tensors = {"hidden_states": hidden_states, "timestep": timestep}
+    if not reuse:
+        tensors.update(freqs=freqs, attention_mask=mask)
     return PipelineIntermediateTensors(
-        {"hidden_states": hidden_states, "freqs": freqs, "attention_mask": mask, "timestep": timestep},
+        tensors,
         {
             "image_slices": [(step["image_slice"].start, step["image_slice"].stop) for step in steps],
             "token_height": int(steps[0]["token_height"]),
             "token_width": int(steps[0]["token_width"]),
             "latent_dims": x.dim(),
             "prefetch_dynamic_vbars": prefetch,
+            STEP_CONTEXT: STEP_CONTEXT_REUSED if reuse else STEP_CONTEXT_NEW,
         },
     )
+
+
+STEP_CONTEXT = "hy3_step_context"
+STEP_CONTEXT_NEW, STEP_CONTEXT_REUSED = "new", "reused"
+
+
+class _StepContext:
+    """What a denoising step's mask and rotary table are built from: the batch's token ids, the latent
+    grid and the conditioning images' grids."""
+
+    def __init__(self, ids, x, cond_latent, cond_vit_grid):
+        self.ids = tuple(ids)
+        self.shapes = (tuple(x.shape), tuple(tuple(latent.shape) for latent in cond_latent))
+        self.grids = tuple(tuple(int(v) for v in torch.as_tensor(grid).flatten())
+                           for grid in (cond_vit_grid or ()))
+
+    def same_as(self, other) -> bool:
+        return (other is not None and self.shapes == other.shapes and self.grids == other.grids
+                and len(self.ids) == len(other.ids)
+                and all(a.shape == b.shape and torch.equal(a, b) for a, b in zip(self.ids, other.ids)))
 
 
 # A pipelined text step: what each stage does with its layers' K/V cache.
@@ -204,6 +234,9 @@ def _run_text_layers(self, hidden_states, freqs, attention_mask, phase):
         self._hy3_text_cache = None
         return hidden_states
     if phase == TEXT_PREFILL:
+        # the denoising context goes first (the driver resends it after the decode): its mask is the
+        # largest tensor a stage holds besides its weights
+        self._hy3_step_context = None
         # a stage's DynamicVRAM weights may fill its card (they do after a denoising run); the prefill's
         # room is made the way the sampler makes a denoising step's
         model_management.free_memory(_text_prefill_bytes(self, hidden_states), hidden_states.device, for_dynamic=True)
@@ -260,8 +293,13 @@ def forward_pipeline_stage(self, intermediate: PipelineIntermediateTensors):
             return _text_intermediate(hidden_states, tensors["freqs"], tensors.get("attention_mask"), phase)
         # only the last position predicts the next token
         return hidden_states[:, -1:].contiguous()
+    if metadata[STEP_CONTEXT] == STEP_CONTEXT_NEW:
+        self._hy3_step_context = (tensors["freqs"], tensors["attention_mask"])
+    elif getattr(self, "_hy3_step_context", None) is None:
+        raise RuntimeError("a HunyuanImage3 denoising step reused a mask this stage does not hold")
+    freqs, attention_mask = self._hy3_step_context
     hidden_states = self._run_pipeline_layers(
-        tensors["hidden_states"], tensors["freqs"], tensors["attention_mask"], metadata["prefetch_dynamic_vbars"],
+        tensors["hidden_states"], freqs, attention_mask, metadata["prefetch_dynamic_vbars"],
     )
     if not stage.is_last:
         tensors = dict(tensors)
@@ -317,6 +355,8 @@ def _wrap_generate_text(rewrite):
         if getattr(model, "pipeline_stage", None) is None or executor is None:
             return generate(model, *args, **kwargs)
         proxy = _PipelineTextModel(model, executor)
+        # the stages drop their denoising mask for the prefill; the next denoising step sends it again
+        model._hy3_sent_context = None
         try:
             return decode(proxy, *args, **kwargs)
         finally:
