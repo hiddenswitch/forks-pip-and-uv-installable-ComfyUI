@@ -344,13 +344,54 @@ class _PipelineTextModel:
         return getattr(self._model, name)
 
 
+# A directory of recorded prompt rewrites (one checkpoint's; the caller keys it so). Unset, every
+# request decodes.
+REWRITE_REPLAY_ENV = "COMFY_HY3_REWRITE_REPLAY"
+
+
+def _replay_path(model, sequence, kwargs):
+    """The record of one rewrite request: everything that determines its tokens hashed, the prompt's
+    ids, the conditioning images' latents and tower outputs, and the decode settings and seed."""
+    import hashlib
+
+    directory = os.environ.get(REWRITE_REPLAY_ENV)
+    if not directory:
+        return None
+    source = sys.modules[type(model).__module__]
+    digest = hashlib.sha256()
+    digest.update(str(getattr(model.config, "model_type", "")).encode())
+    digest.update(sequence["ids"].detach().to("cpu", torch.long).numpy().tobytes())
+    for tensor in source._as_list(kwargs.get("cond_latent")) + source._as_list(kwargs.get("cond_vit")):
+        digest.update(str(tuple(tensor.shape)).encode())
+        digest.update(tensor.detach().to("cpu", torch.float32).numpy().tobytes())
+    settings = {name: kwargs.get(name) for name in ("stop_tokens", "transitions", "max_new_tokens", "temperature",
+                                                    "top_p", "top_k", "repetition_penalty", "do_sample", "seed")}
+    digest.update(json.dumps(settings, sort_keys=True, default=str).encode())
+    return os.path.join(directory, f"{digest.hexdigest()}.json")
+
+
 def _wrap_generate_text(rewrite):
     generate = rewrite.generate_text
     # the decode loop itself, under any other wrapper (tensor parallelism routes `model.model` its own way)
     decode = getattr(generate, "__wrapped__", generate)
 
     @wraps(generate)
-    def generate_text(model, *args, **kwargs):
+    def generate_text(model, head, sequence, **kwargs):
+        replay = _replay_path(model, sequence, kwargs)
+        if replay is not None and os.path.exists(replay):
+            with open(replay) as handle:
+                tokens = json.load(handle)["tokens"]
+            print(f"  rewriting: {len(tokens)} tokens in 0s (replayed {os.path.basename(replay)})", flush=True)
+            return {"tokens": tokens}
+        result = _generate_text(model, head, sequence, **kwargs)
+        if replay is not None:
+            os.makedirs(os.path.dirname(replay), exist_ok=True)
+            with open(replay + ".tmp", "w") as handle:
+                json.dump({"tokens": [int(token) for token in result["tokens"]]}, handle)
+            os.replace(replay + ".tmp", replay)
+        return result
+
+    def _generate_text(model, *args, **kwargs):
         executor = getattr(model, "_comfy_pipeline_executor", None)
         if getattr(model, "pipeline_stage", None) is None or executor is None:
             return generate(model, *args, **kwargs)

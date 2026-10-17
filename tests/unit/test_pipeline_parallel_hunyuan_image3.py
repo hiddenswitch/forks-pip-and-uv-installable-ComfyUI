@@ -606,3 +606,38 @@ def test_a_text_decode_between_denoising_steps_sends_the_mask_again(hunyuan):
         assert torch.equal(got, want)
     after_text = [names for names in _stage_transfers(transport)[before:] if "timestep" in names]
     assert "attention_mask" in after_text[0]
+
+
+def test_a_recorded_rewrite_replays_its_tokens_without_decoding(hunyuan, tmp_path, monkeypatch):
+    # A preempted job loses ~12 min of reasoning per prompt. With a replay directory the decode's tokens
+    # are recorded under a key of everything that determines them (the prompt's ids, the conditioning
+    # images, the sampling settings and seed), and the same request replays them exactly.
+    from comfy.pipeline_parallel import hunyuan_image3 as pipeline_hy3
+
+    rewrite = hunyuan("hunyuan_image_3.rewrite")
+    params, _, first, _, _ = _two_stage_model(hunyuan)
+    sequence, cond_latent, cond_vit = _text_sequence(params, True)
+    settings = dict(stop_tokens=[], max_new_tokens=4, do_sample=True, seed=11, cond_latent=cond_latent,
+                    cond_vit=cond_vit, device=torch.device("cpu"), dtype=torch.float32)
+    monkeypatch.setenv(pipeline_hy3.REWRITE_REPLAY_ENV, str(tmp_path))
+    head = _RecordingHead(params.hidden_size, params.vocab_size, seed=7)
+    recorded = rewrite.generate_text(first, head, sequence, **settings)
+    assert len(list(tmp_path.iterdir())) == 1
+
+    def no_decode(*args, **kwargs):
+        raise AssertionError("a recorded request decoded again")
+
+    monkeypatch.setattr(first, "_comfy_pipeline_executor", None)
+    monkeypatch.setattr(rewrite, "build_input_embeddings", no_decode, raising=False)
+    replayed = rewrite.generate_text(first, _RecordingHead(params.hidden_size, params.vocab_size, seed=7), sequence,
+                                     **settings)
+    assert replayed["tokens"] == recorded["tokens"]
+
+    # another seed, or another conditioning image, is another request
+    other = dict(settings, seed=12)
+    monkeypatch.undo()
+    monkeypatch.setenv(pipeline_hy3.REWRITE_REPLAY_ENV, str(tmp_path))
+    rewrite.generate_text(first, _RecordingHead(params.hidden_size, params.vocab_size, seed=7), sequence, **other)
+    other_image = dict(settings, cond_vit=[cond_vit[0] + 1])
+    rewrite.generate_text(first, _RecordingHead(params.hidden_size, params.vocab_size, seed=7), sequence, **other_image)
+    assert len(list(tmp_path.iterdir())) == 3
