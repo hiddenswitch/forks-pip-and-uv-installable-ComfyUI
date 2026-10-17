@@ -502,3 +502,27 @@ def test_each_stage_makes_room_for_its_text_prefill(hunyuan, monkeypatch):
         layers = stage.pipeline_stage.end_layer - stage.pipeline_stage.start_layer
         cache = 2 * layers * params.num_key_value_heads * params.attention_head_dim * length * 4
         assert required >= cache + length * params.hidden_size * 4 + model_management.minimum_inference_memory()
+
+
+def test_each_stage_makes_room_for_its_denoising_step(hunyuan, monkeypatch):
+    # A worker stage's weights are loaded without the sampler's activation estimate (it reaches only the
+    # driver's card), so a denoising step after a text decode ran out of memory on stage 1 with 8.2 GiB
+    # of activations under ~15 GiB of resident weights. Each stage frees the sampler's own estimate for
+    # the step's sequence before running its layers.
+    from comfy import model_management
+
+    params, _, _, _, executor = _two_stage_model(hunyuan)
+    requests = []
+    monkeypatch.setattr(model_management, "free_memory",
+                        lambda required, device, **kwargs: requests.append((required, device, kwargs)) or [])
+    ids = torch.tensor([1, 2, 3, 4, 5, 6, 7, 63, 63, 63, 63, 8])
+    x = torch.randn(2, params.vae_latent_channels, 1, 2, 2)
+    options = {"sample_sigmas": torch.tensor([1.0, 0.9, 0.0]), "sigmas": torch.tensor([0.9])}
+
+    executor.execute(x, torch.full((2,), 900.0), ids=ids, transformer_options=options)
+
+    assert len(requests) == 2
+    length = ids.shape[0]
+    for required, device, kwargs in requests:
+        assert device == torch.device("cpu") and kwargs == {"for_dynamic": True}
+        assert required >= 2 * (length * length * 4 + length * params.hidden_size * 24) + model_management.minimum_inference_memory()
