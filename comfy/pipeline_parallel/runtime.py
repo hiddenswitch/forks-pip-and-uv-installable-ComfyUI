@@ -148,24 +148,55 @@ class DirectPipelineStageRunner(AbstractBasePipelineStageRunner):
         return stage(*args, **kwargs)
 
 
+class LatestShapeBuffers:
+    """Transfer buffers reused while a stream of transfers keeps its shape, and dropped when it changes.
+
+    A stream is a destination and a set of tensor names (a stage's hidden states, the pipeline's output).
+    Steps of one denoising run or one text decode share a shape and reuse their buffers. Every prompt
+    length is a new shape, though: kept per shape, each prompt's buffers (a prompt-squared attention mask
+    among them) stayed allocated for the life of the process.
+    """
+
+    def __init__(self, per_stream: bool = True):
+        # per_stream=False: one buffer set in all, for a receiver of a single peer's transfers, where
+        # a prompt's denoising buffers would otherwise outlive it under the next prompt's text prefill
+        self.per_stream = per_stream
+        self._streams: dict[tuple, tuple[tuple, dict[str, torch.Tensor]]] = {}
+
+    def get(self, descriptors, allocate, device=None) -> dict[str, torch.Tensor]:
+        stream = (device, tuple(descriptors)) if self.per_stream else None
+        shape = tuple((d.shape, d.dtype) for d in descriptors.values())
+        current = self._streams.get(stream)
+        if current is not None and current[0] == shape:
+            return current[1]
+        # the old shape's buffers go before the new ones are allocated; a caller still holding them keeps them
+        self._streams.pop(stream, None)
+        if not self.per_stream:
+            self._streams.clear()
+        buffers = allocate(descriptors)
+        self._streams[stream] = (shape, buffers)
+        return buffers
+
+    def retained_bytes(self) -> int:
+        return sum(t.numel() * t.element_size() for _, buffers in self._streams.values() for t in buffers.values())
+
+    def clear(self) -> None:
+        self._streams.clear()
+
+
 class DevicePipelineBufferPool(AbstractBasePipelineBufferPool):
     def __init__(self, runtime: AbstractBaseDeviceRuntime):
         self.runtime = runtime
-        self._buffers: dict[tuple, dict[str, torch.Tensor]] = {}
+        self._buffers = LatestShapeBuffers()
 
     def acquire(self, schema: PipelineIntermediateSchema, device: torch.device) -> Mapping[str, torch.Tensor]:
-        key = (
-            device,
-            tuple((name, descriptor.shape, descriptor.dtype) for name, descriptor in schema.tensors.items()),
-        )
-        buffers = self._buffers.get(key)
-        if buffers is None:
-            buffers = {
-                name: self.runtime.allocate(descriptor.shape, descriptor.dtype, device)
-                for name, descriptor in schema.tensors.items()
-            }
-            self._buffers[key] = buffers
-        return buffers
+        return self._buffers.get(schema.tensors, lambda descriptors: {
+            name: self.runtime.allocate(descriptor.shape, descriptor.dtype, device)
+            for name, descriptor in descriptors.items()
+        }, device)
+
+    def retained_bytes(self) -> int:
+        return self._buffers.retained_bytes()
 
     def clear(self) -> None:
         self._buffers.clear()

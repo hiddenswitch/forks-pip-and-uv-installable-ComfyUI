@@ -22,7 +22,7 @@ from ..distributed.process_group import create_device_process_group
 from ..distributed.tracing import distributed_command_span, inject_trace_context
 from ..model_management_types import ModelManageableStub
 
-from .runtime import AbstractBasePipelineExecutor, AbstractBasePipelineOperations
+from .runtime import AbstractBasePipelineExecutor, AbstractBasePipelineOperations, LatestShapeBuffers
 from .types import (
     PipelineIntermediateTensors,
     PipelinePartitionPlan,
@@ -85,7 +85,7 @@ class TorchDistributedProcessGroupCoordinator(AbstractBaseProcessGroupCoordinato
         self.device = device
         self.device_group = device_group
         self.control_group = control_group
-        self._buffers: dict[tuple, dict[str, torch.Tensor]] = {}
+        self._buffers = LatestShapeBuffers(per_stream=False)
         self._communication_stream = torch.cuda.Stream(device=device)
         self._closed = False
 
@@ -132,14 +132,10 @@ class TorchDistributedProcessGroupCoordinator(AbstractBaseProcessGroupCoordinato
         return (_DistributedCompletion(event, work, prepared),)
 
     def receive_tensors(self, descriptors: Mapping[str, TensorDescriptor], source_rank: int) -> tuple[dict[str, torch.Tensor], Sequence[object]]:
-        key = tuple((name, descriptor.shape, descriptor.dtype) for name, descriptor in descriptors.items())
-        buffers = self._buffers.get(key)
-        if buffers is None:
-            buffers = {
-                name: torch.empty(descriptor.shape, dtype=descriptor.dtype, device=self.device)
-                for name, descriptor in descriptors.items()
-            }
-            self._buffers[key] = buffers
+        buffers = self._buffers.get(descriptors, lambda descriptors: {
+            name: torch.empty(descriptor.shape, dtype=descriptor.dtype, device=self.device)
+            for name, descriptor in descriptors.items()
+        })
         with torch.cuda.stream(self._communication_stream):
             operations = [
                 dist.P2POp(dist.irecv, tensor, source_rank, self.device_group)
