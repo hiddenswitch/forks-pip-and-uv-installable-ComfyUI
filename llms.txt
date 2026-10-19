@@ -1589,6 +1589,10 @@ fetch failure.
 - https://github.com/Lightricks/LTX-Video/blob/main/README.md — "Prompt Engineering" section: under 200 words, chronological, literal, cinematographer mental model
 - https://github.com/Lightricks/LTX-2/blob/main/README.md — LTX-2: single-sentence action first, then movements, camera, environment, lighting; <200 words
 
+**PixelDiT (NVIDIA)**
+
+- https://github.com/NVlabs/PixelDiT/tree/main/t2i — read `docs/prompting_guides/nvidia_pixeldit_prompting.md`. There is no separate prompting guide: every prompt is encoded behind Sana's CHI system prompt (ComfyUI prepends it), the model reads 299 prompt tokens after it (longer prompts are cut), and it was trained on dense VLM captions (InternVL2-26B, VILA1.5-13B) chosen by CLIP score. Write literal, concrete descriptions: colours, shapes, sizes, textures and spatial relationships. `image_pixeldit_t2i` samples `er_sde`/`simple` 30 steps at CFG 4 with the template's negative prompt. NSCLv1: non-commercial research and evaluation only.
+
 **ChronoEdit (NVIDIA Toronto AI Lab — video editing)**
 
 - https://github.com/nv-tlabs/ChronoEdit/blob/main/docs/PROMPT_GUIDANCE.md — specificity-over-abstraction, camera vocabulary (Close-Up/Medium/Full/Three-Quarter/OTS), pose-preservation and local-edit structure-preservation directives

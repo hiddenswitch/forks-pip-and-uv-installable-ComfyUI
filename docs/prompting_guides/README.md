@@ -56,6 +56,9 @@ environment-install commands into a ComfyUI environment: use the repository's
 ## NVIDIA Toronto AI Lab
 - [ChronoEdit prompt guidance](chronoedit_prompt_guidance.md) ([source](https://github.com/nv-tlabs/ChronoEdit/blob/main/docs/PROMPT_GUIDANCE.md))
 
+## NVIDIA
+- [PixelDiT prompting](nvidia_pixeldit_prompting.md) ([source](https://github.com/NVlabs/PixelDiT/tree/main/t2i); the CHI system prompt, the 300-row window, the training captions and the sampling recipes)
+
 ## VectorSpaceLab
 - [OmniGen2 README](omnigen2_readme.md) ([source](https://github.com/VectorSpaceLab/OmniGen2))
 
