@@ -100,6 +100,7 @@ SUPPORTED_MODEL_WORKFLOW_COVERAGE = {
     "MageFlow": ("mage-flow-0.json",),
     "Krea2": ("krea2-0.json",),
     "MOSSImage": ("moss-image-0.json",),
+    "Fibo2": ("fibo2-0.json",),
     "Flux3": ("flux3-0.json",),
     "Flux2": ("flux2-0.json", "flux2-klein-0.json", "flux2-template-text-to-image-0.json"),
     "Kandinsky5Image": ("qwen-image-edit-0.json",),
