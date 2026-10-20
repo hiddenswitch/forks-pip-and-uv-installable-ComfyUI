@@ -124,6 +124,29 @@ def test_backpropagates_through_every_parameter(pytorch_attention, monkeypatch):
         assert p.grad is not None and p.grad.abs().sum() > 0, name
 
 
+def test_accumulated_gradients_match_reference_and_full_batch(pytorch_attention, monkeypatch):
+    import comfy.model_management
+    monkeypatch.setattr(comfy.model_management, "in_training", True)
+    ref, ours = _models()
+    ref.train()
+    ours.train()
+    latents, t, text = _inputs(batch=2)
+    ref(latents, t, text, return_dict=False)[0].square().mean().backward()
+    ours(patchify(latents), t, comfy_context(text)).square().mean().backward()
+    full_batch = {name: p.grad.clone() for name, p in ours.named_parameters()}
+    ours.zero_grad(set_to_none=True)
+    for i in range(2):
+        loss = ours(patchify(latents[i:i + 1]), t[i:i + 1], comfy_context(text[i:i + 1])).square().mean()
+        (loss / 2).backward()
+    reference_params = dict(ref.named_parameters())
+    for name, p in ours.named_parameters():
+        assert torch.isfinite(p.grad).all(), name
+        for expected in (full_batch[name], reference_params[name].grad):
+            # Reduction order changes with batch size; measure each parameter's full gradient, including near-zero entries.
+            relative_error = (p.grad - expected).norm() / expected.norm().clamp_min(1e-12)
+            assert relative_error < 1e-4, (name, relative_error.item())
+
+
 def _state(**shapes):
     return {k: torch.empty(*v, device="meta") for k, v in shapes.items()}
 
