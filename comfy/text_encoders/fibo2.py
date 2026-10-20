@@ -8,10 +8,11 @@ through its Perceiver and one bundle in each injection block. ComfyUI carries co
 so the six bundles are concatenated on the feature axis here, (B, text_len, 6 * 7680), and split in the
 model. Fibo-2.0-dev's text_encoder is stock Qwen3-VL-4B-Instruct, tensor for tensor.
 
-A generation prompt that is a JSON object is put in the form Fibo 2.0 was trained with, as the pipeline
-does (_parse_prompt): empty values and the aesthetic_score and preference_score fields dropped, serialized
-compactly. Any other prompt is encoded as it is. The pipeline also shows Qwen3-VL images of a caption's
-text_render texts; that path is not ported, so such a caption is refused rather than encoded without them.
+A prompt is encoded as it is, as the pipeline's encode_prompt encodes it: BriaFibo2Pipeline.__call__ first puts
+the prompt (not the negative prompt) in the form Fibo 2.0 was trained with (_parse_prompt: empty values and the
+aesthetic_score and preference_score fields dropped, serialized compactly), which is generation_prompt here and the
+Fibo2Caption node. The pipeline also shows Qwen3-VL images of a caption's text_render texts; that path is not ported,
+so generation_prompt refuses such a caption rather than the text being encoded without them.
 """
 
 import json
@@ -112,8 +113,8 @@ class Fibo2Tokenizer(qwen3vl.Qwen3VLTokenizer):
         super().__init__(embedding_directory=embedding_directory, tokenizer_data=tokenizer_data, model_type="qwen3vl_4b")
 
     def tokenize_with_weights(self, text, return_word_ids=False, llama_template=None, images=[], thinking=True, **kwargs):
-        if llama_template is None and not text.startswith("<|im_start|>"):
-            text, llama_template = generation_prompt(text), PROMPT_TEMPLATE
+        if llama_template is None:
+            llama_template = PROMPT_TEMPLATE
         # thinking=True: the Qwen3-VL tokenizer adds no empty think block, as the pipeline's template has none
         return super().tokenize_with_weights(text, return_word_ids=return_word_ids, llama_template=llama_template, images=images,
                                              thinking=thinking, **kwargs)
