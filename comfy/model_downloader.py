@@ -1107,6 +1107,8 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_sft_bf16.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=10164655808),
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_base_int8_convrot_attn.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=5413698958),
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_sft_int8_convrot_attn.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=5413698958),
+    # briaai/Fibo-2.0-dev 5306044 transformer, its two diffusers shards as one file (gated, non-commercial licence: a private repository)
+    HuggingFile("appmana/Fibo-2.0-ComfyUI", "diffusion_models/fibo2_dev_bf16.safetensors", revision="e51ce9667827b30d3c31290f57b81a0626910596", size=16254770194),
     HuggingFile("black-forest-labs/FLUX.2-klein-4b-fp8", "flux-2-klein-4b-fp8.safetensors"),
     HuggingFile("black-forest-labs/FLUX.2-klein-9b-fp8", "flux-2-klein-9b-fp8.safetensors"),
     HuggingFile("black-forest-labs/FLUX.2-klein-9b-kv-fp8", "flux-2-klein-9b-kv-fp8.safetensors"),

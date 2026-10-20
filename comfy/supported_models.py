@@ -19,6 +19,7 @@ from .text_encoders import boogu
 from .text_encoders import cogvideo
 from .text_encoders import cosmos
 from .text_encoders import ernie
+from .text_encoders import fibo2
 from .text_encoders import flux
 from .text_encoders import genmo
 from .text_encoders import gpt_oss
@@ -2100,6 +2101,37 @@ class MOSSImage(supported_models_base.BASE):
         hunyuan_detect = hunyuan_video.llama_detect(state_dict, "{}qwen35_9b.transformer.".format(pref))
         return supported_models_base.ClipTarget(moss_image.MOSSImageTokenizer, moss_image.te(**hunyuan_detect))
 
+class Fibo2(supported_models_base.BASE):
+    unet_config = {
+        "image_model": "fibo2",
+    }
+
+    # the reference scheduler's dynamic shift (FlowMatchEulerDiscreteScheduler, base_shift 0.5 at 256 tokens to max_shift
+    # 1.15 at 4096, exponential time shift) at 1024x1024; ModelSamplingFlux sets it for other sizes
+    sampling_settings = {
+        "multiplier": 1.0,
+        "shift": 1.15,
+    }
+
+    memory_usage_factor = 2.8
+
+    unet_extra_config = {}
+    latent_format = latent_formats.Flux2
+
+    supported_inference_dtypes = [torch.bfloat16, torch.float32]
+
+    vae_key_prefix = ["vae."]
+    text_encoder_key_prefix = ["text_encoders."]
+
+    def get_model(self, state_dict, prefix="", device=None):
+        return model_base.Fibo2(self, device=device)
+
+    def clip_target(self, state_dict={}):
+        pref = self.text_encoder_key_prefix[0]
+        hunyuan_detect = hunyuan_video.llama_detect(state_dict, "{}qwen3vl_4b.transformer.".format(pref))
+        return supported_models_base.ClipTarget(fibo2.Fibo2Tokenizer, fibo2.te(**hunyuan_detect))
+
+
 class MageFlow(supported_models_base.BASE):
     unet_config = {"image_model": "mage_flow"}
     sampling_settings = {"multiplier": 1.0, "shift": 6.0}
@@ -2848,6 +2880,7 @@ models = [
     Ideogram4,
     Krea2,
     MOSSImage,
+    Fibo2,
     Flux2,
     Flux3,
     Lens,

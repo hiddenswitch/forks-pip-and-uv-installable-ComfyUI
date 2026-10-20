@@ -54,6 +54,7 @@ from .ldm.cosmos.model import GeneralDIT
 from .ldm.cosmos.predict2 import MiniTrainDIT
 from .ldm.depth_anything_3.model import DepthAnything3Net
 from .ldm.ernie.model import ErnieImageModel
+from .ldm.fibo2.model import Fibo2 as Fibo2Model
 from .ldm.flux import model as flux_model
 from .ldm.flux3.model import Flux3 as Flux3Model
 from .ldm.genmo.joint_model.asymm_models_joint import AsymmDiTJoint
@@ -3046,6 +3047,23 @@ class MOSSImage(BaseModel):
         if cross_attn is not None:
             out['c_crossattn'] = conds.CONDRegular(cross_attn)
         return out
+
+class Fibo2(BaseModel):
+    def __init__(self, model_config, model_type=ModelType.FLUX, device=None):
+        super().__init__(model_config, model_type, device=device, unet_model=Fibo2Model)
+
+    def extra_conds(self, **kwargs):
+        out = super().extra_conds(**kwargs)
+        cross_attn = kwargs.get("cross_attn", None)
+        # the gist count follows the true text length, so no repeat padding: cond and uncond of different lengths run
+        # separately, as the reference pipeline runs them
+        if cross_attn is not None:
+            out['c_crossattn'] = conds.CONDRegular(cross_attn)
+        attention_mask = kwargs.get("attention_mask", None)
+        if attention_mask is not None and torch.numel(attention_mask) != attention_mask.sum():
+            out['attention_mask'] = conds.CONDRegular(attention_mask)
+        return out
+
 
 class HunyuanImage21(BaseModel):
     def __init__(self, model_config, model_type=ModelType.FLOW, device=None):

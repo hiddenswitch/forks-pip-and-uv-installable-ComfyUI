@@ -1,0 +1,176 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "fibo2_dev_bf16.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "qwen3vl_4b_bf16.safetensors",
+      "type": "fibo2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "3": {
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "4": {
+    "inputs": {
+      "text": "{\"short_description\":\"A small ceramic mug on a wooden desk.\",\"objects\":[{\"description\":\"a small white ceramic mug\",\"location\":\"center\"}],\"background_setting\":\"a wooden desk\",\"style_medium\":\"photograph\"}",
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "5": {
+    "inputs": {
+      "text": "{\"short_description\":\"\",\"objects\":[{\"description\":\"the main subject\",\"texture\":\"smooth, featureless, plastic-like, airbrushed, no fine surface detail\",\"appearance_details\":\"soft blurred edges, simplified shapes, no fine detail\",\"skin_tone_and_texture\":\"waxy airbrushed skin, poreless, plastic smooth\"}],\"background_setting\":\"a plain seamless studio backdrop, perfectly smooth gradient, blurred and featureless, no visible texture\",\"lighting\":{},\"aesthetics\":{\"artifacts\":[\"oversaturated colours\",\"neon colour cast\",\"overexposed highlights\",\"lens flare\",\"slight blur\",\"motion blur\",\"haze\"]},\"photographic_characteristics\":{\"depth_of_field\":\"shallow, heavy bokeh obscuring most of the frame\",\"focus\":\"soft, slightly out of focus, lacking fine texture\"},\"style_medium\":\"\",\"context\":\"\",\"artistic_style\":\"\"}",
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "6": {
+    "inputs": {
+      "width": 256,
+      "height": 256,
+      "batch_size": 1
+    },
+    "class_type": "EmptyFlux2LatentImage",
+    "_meta": {
+      "title": "Empty Flux 2 Latent"
+    }
+  },
+  "7": {
+    "inputs": {
+      "cfg": 5.0,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFG Guider"
+    }
+  },
+  "8": {
+    "inputs": {
+      "steps": 2,
+      "width": 256,
+      "height": 256
+    },
+    "class_type": "Fibo2Scheduler",
+    "_meta": {
+      "title": "Fibo 2.0 Scheduler"
+    }
+  },
+  "9": {
+    "inputs": {
+      "noise_seed": 12345
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Random Noise"
+    }
+  },
+  "10": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSampler Select"
+    }
+  },
+  "11": {
+    "inputs": {
+      "noise": [
+        "9",
+        0
+      ],
+      "guider": [
+        "7",
+        0
+      ],
+      "sampler": [
+        "10",
+        0
+      ],
+      "sigmas": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Sampler Custom Advanced"
+    }
+  },
+  "12": {
+    "inputs": {
+      "samples": [
+        "11",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "13": {
+    "inputs": {
+      "filename_prefix": "fibo2",
+      "images": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  }
+}

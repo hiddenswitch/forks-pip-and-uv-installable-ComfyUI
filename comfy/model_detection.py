@@ -1026,6 +1026,22 @@ def detect_unet_config(state_dict, key_prefix, metadata=None):
         dit_config["num_layers"] = count_blocks(state_dict_keys, '{}layers.'.format(key_prefix) + '{}.')
         return dit_config
 
+    if '{}perceiver.latent_queries'.format(key_prefix) in state_dict_keys and '{}noise_refiner.0.adaLN_modulation.0.weight'.format(key_prefix) in state_dict_keys:  # Fibo 2.0
+        dit_config = {}
+        dit_config["image_model"] = "fibo2"
+        x_embedder = state_dict['{}x_embedder.weight'.format(key_prefix)]
+        dit_config["dim"] = x_embedder.shape[0]
+        dit_config["patch_size"] = 2
+        dit_config["in_channels"] = x_embedder.shape[1] // 4
+        dit_config["n_heads"] = dit_config["dim"] // state_dict['{}layers.0.attention.norm_q.weight'.format(key_prefix)].shape[0]
+        dit_config["n_layers"] = count_blocks(state_dict_keys, '{}layers.'.format(key_prefix) + '{}.')
+        dit_config["n_refiner_layers"] = count_blocks(state_dict_keys, '{}noise_refiner.'.format(key_prefix) + '{}.')
+        dit_config["perceiver_num_layers"] = count_blocks(state_dict_keys, '{}perceiver.layers.'.format(key_prefix) + '{}.')
+        dit_config["cap_feat_dim"] = state_dict['{}perceiver.layers.0.cross_attention.to_k.weight'.format(key_prefix)].shape[1]
+        dit_config["max_num_gist_tokens"] = state_dict['{}perceiver.latent_queries'.format(key_prefix)].shape[0]
+        dit_config["injection_layer_ids"] = [i for i in range(dit_config["n_layers"]) if '{}layers.{}.cross_attention.to_q.weight'.format(key_prefix, i) in state_dict_keys]
+        return dit_config
+
     if '{}shared_block_modulation.weight'.format(key_prefix) in state_dict_keys and '{}layers.0.proj.ffn_up_gate.weight'.format(key_prefix) in state_dict_keys:  # MOSS-Image
         dit_config = {}
         dit_config["image_model"] = "moss_image"
