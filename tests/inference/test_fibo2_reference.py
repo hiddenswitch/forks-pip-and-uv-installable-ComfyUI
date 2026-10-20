@@ -66,10 +66,9 @@ def reference():
     processor = Qwen3VLProcessor.from_pretrained(snap, subfolder="processor")
     encoder = Qwen3VLForConditionalGeneration.from_pretrained(snap, subfolder="text_encoder", dtype=torch.bfloat16).to("cuda").eval()
     with torch.no_grad():
-        for name, prompt in (("positive", BriaFibo2Pipeline._parse_prompt(PROMPT)[0]), ("negative", NEGATIVE_T2I)):
-            text = prompt if isinstance(prompt, str) else json.dumps(prompt, separators=(",", ":"), ensure_ascii=False)
-            if name == "negative":
-                text = json.dumps(BriaFibo2Pipeline._parse_prompt(prompt)[0], separators=(",", ":"), ensure_ascii=False)
+        # __call__ puts the prompt in its trained form and encodes the negative prompt as it is
+        positive = json.dumps(BriaFibo2Pipeline._parse_prompt(PROMPT)[0], separators=(",", ":"), ensure_ascii=False)
+        for name, text in (("positive", positive), ("negative", NEGATIVE_T2I)):
             embeds, mask = BriaFibo2Pipeline._get_qwen_prompt_embeds(encoder, processor, text, device="cuda")
             out[name] = embeds.cpu()
             out[f"{name}_ids"] = processor(text=[module.PROMPT_TEMPLATE.format(text)], return_tensors="pt").input_ids[0].tolist()
@@ -114,11 +113,11 @@ def comfy_conditioning(reference):
     """ComfyUI's encoding of the prompt and the negative with the stock Qwen3-VL-4B file."""
     import huggingface_hub
     from comfy import sd
-    from comfy.text_encoders.fibo2 import NEGATIVE_T2I
+    from comfy.text_encoders.fibo2 import NEGATIVE_T2I, generation_prompt
     path = huggingface_hub.hf_hub_download(REPO, "text_encoder/model.safetensors", local_files_only=True)
     clip = sd.load_clip(ckpt_paths=[path], clip_type=sd.CLIPType.FIBO2)
     out = {}
-    for name, text in (("positive", PROMPT), ("negative", NEGATIVE_T2I)):
+    for name, text in (("positive", generation_prompt(PROMPT)), ("negative", NEGATIVE_T2I)):
         tokens = clip.tokenize(text)
         out[f"{name}_ids"] = [t[0] for t in tokens["qwen3vl_4b"][0]]
         out[name] = clip.encode_from_tokens_scheduled(tokens)

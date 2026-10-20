@@ -5,6 +5,7 @@ import torch
 from typing_extensions import override
 
 from comfy_api.latest import ComfyExtension, io
+from comfy.text_encoders.fibo2 import generation_prompt
 
 # briaai/Fibo-2.0-dev scheduler/scheduler_config.json
 BASE_IMAGE_SEQ_LEN = 256
@@ -54,10 +55,28 @@ class Fibo2Scheduler(io.ComfyNode):
         return io.NodeOutput(fibo2_sigmas(steps, width, height))
 
 
+class Fibo2Caption(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="Fibo2Caption",
+            display_name="Fibo 2.0 Caption",
+            category="model/conditioning/fibo2",
+            description="The prompt as the Fibo 2.0 pipeline encodes it: a JSON caption with its empty values and scores "
+                        "dropped, serialized compactly; any other prompt unchanged. The negative prompt is encoded as written.",
+            inputs=[io.String.Input("prompt", multiline=True, dynamic_prompts=True)],
+            outputs=[io.String.Output(display_name="prompt")],
+        )
+
+    @classmethod
+    def execute(cls, prompt) -> io.NodeOutput:
+        return io.NodeOutput(generation_prompt(prompt))
+
+
 class Fibo2Extension(ComfyExtension):
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
-        return [Fibo2Scheduler]
+        return [Fibo2Scheduler, Fibo2Caption]
 
 
 async def comfy_entrypoint() -> Fibo2Extension:

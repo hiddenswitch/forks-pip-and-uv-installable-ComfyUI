@@ -236,3 +236,19 @@ def test_the_weights_are_registered():
     clips = {str(m): m for m in KNOWN_CLIP_MODELS.data}
     assert clips["qwen3vl_4b_bf16.safetensors"].repo_id in ("Comfy-Org/Qwen3-VL", "Comfy-Org/Mage-Flow")
     assert "flux2-vae.safetensors" in {str(m) for m in KNOWN_VAES.data}
+
+
+def test_the_tokenizer_encodes_the_prompt_as_written():
+    # encode_prompt's form: the user turn around the text, no cleaning and no think block
+    from comfy.text_encoders.qwen3vl import Qwen3VLTokenizer
+    tokenizer = fibo2_te.Fibo2Tokenizer()
+    spaced = json.dumps({"short_description": "a cat", "lighting": {}}, indent=2)
+    ids = [t[0] for t in tokenizer.tokenize_with_weights(spaced)["qwen3vl_4b"][0]]
+    reference = Qwen3VLTokenizer(model_type="qwen3vl_4b").tokenize_with_weights(
+        fibo2_te.PROMPT_TEMPLATE.format(spaced), skip_template=True)
+    assert ids == [t[0] for t in reference["qwen3vl_4b"][0]]
+
+
+def test_the_caption_node_is_the_pipelines_prompt_form():
+    from comfy_extras.nodes.nodes_fibo2 import Fibo2Caption
+    assert Fibo2Caption.execute(PROMPTS[0]).result == (fibo2_te.generation_prompt(PROMPTS[0]),)
