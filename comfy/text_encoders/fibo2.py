@@ -16,7 +16,6 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
 
-import comfy.rmsnorm
 from .. import sd1_clip
 from . import qwen3vl
 

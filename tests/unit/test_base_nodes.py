@@ -7,7 +7,11 @@ from comfy.nodes.base_nodes import ImagePadForOutpaint, ImageBatch, ImageInvert,
     VAEEncodeForInpaint, VAEEncode, VAEDecode, ConditioningSetMask, ConditioningSetArea, ConditioningCombine, \
     EmptyImage
 
-torch.set_grad_enabled(False)
+@pytest.fixture(autouse=True)
+def _no_grad():
+    with torch.no_grad():
+        yield
+
 
 _image_1x1_px = np.array([[[255, 0, 0]]], dtype=np.uint8)
 _image_1x1 = torch.ones((1, 1, 1, 3), dtype=torch.float32, device="cpu")

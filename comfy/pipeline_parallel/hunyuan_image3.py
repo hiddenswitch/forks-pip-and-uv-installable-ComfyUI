@@ -381,7 +381,7 @@ def _wrap_generate_text(rewrite):
         if replay is not None and os.path.exists(replay):
             with open(replay) as handle:
                 tokens = json.load(handle)["tokens"]
-            print(f"  rewriting: {len(tokens)} tokens in 0s (replayed {os.path.basename(replay)})", flush=True)
+            logger.info("  rewriting: %d tokens in 0s (replayed %s)", len(tokens), os.path.basename(replay))
             return {"tokens": tokens}
         result = _generate_text(model, head, sequence, **kwargs)
         if replay is not None:
