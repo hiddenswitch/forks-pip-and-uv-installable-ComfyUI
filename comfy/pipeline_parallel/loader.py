@@ -272,7 +272,7 @@ def load_diffusion_model_pipeline(
     )
     root.cached_patcher_init = (
         load_diffusion_model_pipeline,
-        (unet_path, pipeline_config, model_options, disable_dynamic),
+        (unet_path, pipeline_config, model_options),
     )
     return root
 

@@ -1743,7 +1743,7 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
     )
     clip.patcher.cached_patcher_init = (
         load_clip_model_patcher,
-        (ckpt_paths, embedding_directory, clip_type, textmodel_json_config, model_options, disable_dynamic),
+        (ckpt_paths, embedding_directory, clip_type, textmodel_json_config, model_options),
     )
     return clip
 
@@ -2323,9 +2323,9 @@ def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, o
     # MultiGPU work-units, etc.) without falling back to copy.deepcopy of an
     # already-loaded module.
     if out[1] is not None and getattr(out[1], "patcher", None) is not None:
-        out[1].patcher.cached_patcher_init = (load_checkpoint_clip_patcher, (ckpt_path, embedding_directory, model_options, te_model_options, disable_dynamic))
+        out[1].patcher.cached_patcher_init = (load_checkpoint_clip_patcher, (ckpt_path, embedding_directory, model_options, te_model_options))
     if out[2] is not None and getattr(out[2], "patcher", None) is not None:
-        out[2].patcher.cached_patcher_init = (load_checkpoint_vae_patcher, (ckpt_path, embedding_directory, model_options, te_model_options, disable_dynamic))
+        out[2].patcher.cached_patcher_init = (load_checkpoint_vae_patcher, (ckpt_path, embedding_directory, model_options, te_model_options))
     return out
 
 
@@ -2619,7 +2619,7 @@ def load_diffusion_model(unet_path, model_options=None, disable_dynamic=False):
     if model is None:
         logger.error("ERROR UNSUPPORTED DIFFUSION MODEL {}".format(unet_path))
         raise RuntimeError("ERROR: Could not detect model type of: {}\n{}".format(unet_path, model_detection_error_hint(unet_path, sd)))
-    model.cached_patcher_init = (load_diffusion_model, (unet_path, model_options, disable_dynamic))
+    model.cached_patcher_init = (load_diffusion_model, (unet_path, model_options))
     return model
 
 
