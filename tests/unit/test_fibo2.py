@@ -134,7 +134,7 @@ def test_backpropagates_through_every_parameter(pytorch_attention, monkeypatch):
     import comfy.model_management
     monkeypatch.setattr(comfy.model_management, "in_training", True)
     ours = _ours_model() if reference is None else _models()[1]
-    ours.train()
+    ours.train().requires_grad_(True)
     latents, t, text = _inputs()
     ours(patchify(latents), t, comfy_context(text)).square().mean().backward()
     for name, p in ours.named_parameters():
@@ -146,7 +146,7 @@ def test_accumulated_gradients_match_reference_and_full_batch(pytorch_attention,
     monkeypatch.setattr(comfy.model_management, "in_training", True)
     if reference is not None:
         ref, ours = _models()
-        ref.train()
+        ref.train().requires_grad_(True)
         latents, t, text = _inputs(batch=2)
         ref(latents, t, text, return_dict=False)[0].square().mean().backward()
         reference_params = dict(ref.named_parameters())
@@ -154,7 +154,7 @@ def test_accumulated_gradients_match_reference_and_full_batch(pytorch_attention,
         ours = _ours_model()
         latents, t, text = _inputs(batch=2)
         reference_params = None
-    ours.train()
+    ours.train().requires_grad_(True)
     ours(patchify(latents), t, comfy_context(text)).square().mean().backward()
     full_batch = {name: p.grad.clone() for name, p in ours.named_parameters()}
     ours.zero_grad(set_to_none=True)
