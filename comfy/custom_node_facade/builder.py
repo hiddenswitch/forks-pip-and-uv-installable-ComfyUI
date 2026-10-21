@@ -419,6 +419,11 @@ PYPI_PROXY_PACKAGES: list[PyPIProxy] = [
     GithubReleaseWheelProxySpec(
         name="comfyui", repo=COMFYUI_RELEASE_REPO, asset_prefix="comfyui-"
     ),
+    GithubReleaseWheelProxySpec(
+        name="nccl-usb4",
+        repo="AppMana/forks-nccl-rdma-routing",
+        asset_prefix="nccl_usb4-",
+    ),
     PyPISdistRewriteProxySpec(
         name="sam2",
         version="1.1.0",

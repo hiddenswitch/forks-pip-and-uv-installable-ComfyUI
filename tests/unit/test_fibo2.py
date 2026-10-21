@@ -13,8 +13,14 @@ from comfy.nodes.base_nodes import CLIPLoader
 from comfy.text_encoders import fibo2 as fibo2_te
 from comfy_extras.nodes.nodes_fibo2 import fibo2_sigmas
 
-reference = pytest.importorskip("diffusers.models.transformers.transformer_bria_fibo2")
-pipeline_module = pytest.importorskip("diffusers.pipelines.bria_fibo2.pipeline_bria_fibo2")
+try:
+    from diffusers.models.transformers import transformer_bria_fibo2 as reference
+    from diffusers.pipelines.bria_fibo2 import pipeline_bria_fibo2 as pipeline_module
+except ImportError:
+    reference = None
+    pipeline_module = None
+
+needs_diffusers_ref = pytest.mark.skipif(reference is None, reason="needs diffusers with BriaFibo2 (de988b7e)")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 TINY = dict(in_channels=4, patch_size=2, dim=64, n_layers=4, n_refiner_layers=2, n_heads=2, norm_eps=1e-5, cap_feat_dim=24,
@@ -32,7 +38,18 @@ def pytorch_attention(monkeypatch):
     monkeypatch.setattr(comfy.model_management, "pytorch_attention_enabled", lambda: True)
 
 
+def _ours_model(seed=0):
+    torch.manual_seed(seed)
+    ours = Fibo2(**TINY, operations=comfy.ops.manual_cast).to(DEVICE).eval()
+    with torch.no_grad():
+        for p in ours.parameters():
+            p.normal_(0, 0.2)
+    return ours
+
+
 def _models(seed=0):
+    if reference is None:
+        pytest.skip("needs diffusers with BriaFibo2 (de988b7e)")
     torch.manual_seed(seed)
     ref = reference.BriaFibo2Transformer2DModel(**TINY)
     with torch.no_grad():
@@ -116,7 +133,7 @@ def test_backpropagates_through_every_parameter(pytorch_attention, monkeypatch):
     # training runs the differentiable rope (comfy.model_management.in_training), as trainers set it
     import comfy.model_management
     monkeypatch.setattr(comfy.model_management, "in_training", True)
-    _, ours = _models()
+    ours = _ours_model() if reference is None else _models()[1]
     ours.train()
     latents, t, text = _inputs()
     ours(patchify(latents), t, comfy_context(text)).square().mean().backward()
@@ -127,21 +144,27 @@ def test_backpropagates_through_every_parameter(pytorch_attention, monkeypatch):
 def test_accumulated_gradients_match_reference_and_full_batch(pytorch_attention, monkeypatch):
     import comfy.model_management
     monkeypatch.setattr(comfy.model_management, "in_training", True)
-    ref, ours = _models()
-    ref.train()
+    if reference is not None:
+        ref, ours = _models()
+        ref.train()
+        latents, t, text = _inputs(batch=2)
+        ref(latents, t, text, return_dict=False)[0].square().mean().backward()
+        reference_params = dict(ref.named_parameters())
+    else:
+        ours = _ours_model()
+        latents, t, text = _inputs(batch=2)
+        reference_params = None
     ours.train()
-    latents, t, text = _inputs(batch=2)
-    ref(latents, t, text, return_dict=False)[0].square().mean().backward()
     ours(patchify(latents), t, comfy_context(text)).square().mean().backward()
     full_batch = {name: p.grad.clone() for name, p in ours.named_parameters()}
     ours.zero_grad(set_to_none=True)
     for i in range(2):
         loss = ours(patchify(latents[i:i + 1]), t[i:i + 1], comfy_context(text[i:i + 1])).square().mean()
         (loss / 2).backward()
-    reference_params = dict(ref.named_parameters())
     for name, p in ours.named_parameters():
         assert torch.isfinite(p.grad).all(), name
-        for expected in (full_batch[name], reference_params[name].grad):
+        targets = (full_batch[name], reference_params[name].grad) if reference_params is not None else (full_batch[name],)
+        for expected in targets:
             # Reduction order changes with batch size; measure each parameter's full gradient, including near-zero entries.
             relative_error = (p.grad - expected).norm() / expected.norm().clamp_min(1e-12)
             assert relative_error < 1e-4, (name, relative_error.item())
@@ -152,8 +175,8 @@ def _state(**shapes):
 
 
 def test_detection_reads_the_config_from_the_weights():
-    ref = reference.BriaFibo2Transformer2DModel(**TINY)
-    sd = {k: torch.empty(v.shape, device="meta") for k, v in ref.state_dict().items()}
+    ours = _ours_model()
+    sd = {k: torch.empty(v.shape, device="meta") for k, v in ours.state_dict().items()}
     config = model_detection.detect_unet_config(sd, "")
     assert config == {"image_model": "fibo2", "dim": 64, "patch_size": 2, "in_channels": 4, "n_heads": 2, "n_layers": 4,
                       "n_refiner_layers": 2, "perceiver_num_layers": 2, "cap_feat_dim": 24, "max_num_gist_tokens": 12,
@@ -205,15 +228,19 @@ PROMPTS = [
 
 @pytest.mark.parametrize("prompt", PROMPTS)
 def test_generation_prompt_is_the_pipelines(prompt):
-    pipe = pipeline_module.BriaFibo2Pipeline
-    caption, _ = pipe._parse_prompt(prompt)
+    if pipeline_module is not None:
+        pipe = pipeline_module.BriaFibo2Pipeline
+        caption, _ = pipe._parse_prompt(prompt)
+    else:
+        caption, _ = fibo2_te.parse_prompt(prompt)
     expected = prompt if isinstance(caption, str) else json.dumps(caption or {}, separators=(",", ":"), ensure_ascii=False)
     assert fibo2_te.generation_prompt(prompt) == expected
 
 
 def test_the_card_negative_is_the_model_cards():
     assert json.loads(fibo2_te.NEGATIVE_T2I)["aesthetics"]["artifacts"][-1] == "haze"
-    assert fibo2_te.DEFAULT_NEGATIVE_PROMPT == pipeline_module.DEFAULT_NEGATIVE_PROMPT
+    if pipeline_module is not None:
+        assert fibo2_te.DEFAULT_NEGATIVE_PROMPT == pipeline_module.DEFAULT_NEGATIVE_PROMPT
 
 
 @pytest.mark.parametrize("prompt", ['{"short_description":"a sign","text_render":[{"text":"OPEN"}]}',
@@ -224,16 +251,17 @@ def test_unported_paths_are_refused(prompt):
 
 
 def test_bundles_are_the_pipelines():
-    assert fibo2_te.TEXT_ENCODER_OUT_LAYERS == pipeline_module.TEXT_ENCODER_OUT_LAYERS
-    assert fibo2_te.PROMPT_TEMPLATE == pipeline_module.PROMPT_TEMPLATE
+    if pipeline_module is not None:
+        assert fibo2_te.TEXT_ENCODER_OUT_LAYERS == pipeline_module.TEXT_ENCODER_OUT_LAYERS
+        assert fibo2_te.PROMPT_TEMPLATE == pipeline_module.PROMPT_TEMPLATE
     g = torch.Generator().manual_seed(0)
     hidden_states = [torch.randn(2, 7, 2560, generator=g).to(torch.bfloat16) * (i + 1) for i in range(37)]
     normalized = {}
-    for layer in sorted({layer for layers in pipeline_module.TEXT_ENCODER_OUT_LAYERS for layer in layers}):
+    for layer in sorted({layer for layers in fibo2_te.TEXT_ENCODER_OUT_LAYERS for layer in layers}):
         states = hidden_states[layer].float()
         normalized[layer] = (states * torch.rsqrt(states.pow(2).mean(dim=-1, keepdim=True) + 1e-6)).to(torch.bfloat16)
     expected = torch.stack([torch.cat([normalized[layer] for layer in layers], dim=-1)
-                            for layers in pipeline_module.TEXT_ENCODER_OUT_LAYERS], dim=1)
+                            for layers in fibo2_te.TEXT_ENCODER_OUT_LAYERS], dim=1)
     taps = torch.stack([hidden_states[layer].float() for layer in fibo2_te.TAP_LAYERS], dim=1)
     actual = fibo2_te.bundles(taps, torch.bfloat16)
     assert torch.equal(actual, comfy_context(expected))
@@ -244,12 +272,13 @@ def test_bundles_are_the_pipelines():
 def test_schedule_is_the_pipelines(steps, size):
     import numpy as np
     from diffusers import FlowMatchEulerDiscreteScheduler
+    from comfy_extras.nodes.nodes_fibo2 import calculate_shift
     width, height = size
     scheduler = FlowMatchEulerDiscreteScheduler(base_image_seq_len=256, base_shift=0.5, max_image_seq_len=4096, max_shift=1.15,
                                                 num_train_timesteps=1000, shift=3.0, time_shift_type="exponential",
                                                 use_dynamic_shifting=True)
-    mu = pipeline_module.calculate_shift((height // 16) * (width // 16), 256, 4096, 0.5, 1.15)
-    pipeline_module.retrieve_timesteps(scheduler, steps, "cpu", sigmas=np.linspace(1.0, 1 / steps, steps), mu=mu)
+    mu = calculate_shift((height // 16) * (width // 16), 256, 4096, 0.5, 1.15)
+    scheduler.set_timesteps(steps, device="cpu", sigmas=np.linspace(1.0, 1 / steps, steps), mu=mu)
     assert torch.equal(fibo2_sigmas(steps, width, height), scheduler.sigmas)
 
 
@@ -275,3 +304,99 @@ def test_the_tokenizer_encodes_the_prompt_as_written():
 def test_the_caption_node_is_the_pipelines_prompt_form():
     from comfy_extras.nodes.nodes_fibo2 import Fibo2Caption
     assert Fibo2Caption.execute(PROMPTS[0]).result == (fibo2_te.generation_prompt(PROMPTS[0]),)
+
+
+def _repack_state_dict(ref_sd, fused_ffn=True):
+    """Convert diffusers BriaFibo2Transformer2DModel state_dict to Comfy-Org repacked state_dict."""
+    out = {}
+    keys = list(ref_sd.keys())
+    used = set()
+    for k in keys:
+        if k in used:
+            continue
+        if k.endswith(".attention.to_q.weight"):
+            prefix = k[:-len("to_q.weight")]
+            out[prefix + "qkv.weight"] = torch.cat([
+                ref_sd[prefix + "to_q.weight"],
+                ref_sd[prefix + "to_k.weight"],
+                ref_sd[prefix + "to_v.weight"],
+            ], dim=0)
+            out[prefix + "out.weight"] = ref_sd[prefix + "to_out.0.weight"]
+            out[prefix + "q_norm.weight"] = ref_sd[prefix + "norm_q.weight"]
+            out[prefix + "k_norm.weight"] = ref_sd[prefix + "norm_k.weight"]
+            used.update([prefix + "to_q.weight", prefix + "to_k.weight", prefix + "to_v.weight",
+                         prefix + "to_out.0.weight", prefix + "norm_q.weight", prefix + "norm_k.weight"])
+        elif k.endswith(".cross_attention.to_k.weight") or k.endswith(".self_attention.to_k.weight"):
+            prefix = k[:-len("to_k.weight")]
+            out[prefix + "to_q.weight"] = ref_sd[prefix + "to_q.weight"]
+            out[prefix + "to_kv.weight"] = torch.cat([
+                ref_sd[prefix + "to_k.weight"],
+                ref_sd[prefix + "to_v.weight"],
+            ], dim=0)
+            out[prefix + "to_out.weight"] = ref_sd[prefix + "to_out.0.weight"]
+            out[prefix + "norm_q.weight"] = ref_sd[prefix + "norm_q.weight"]
+            out[prefix + "norm_k.weight"] = ref_sd[prefix + "norm_k.weight"]
+            used.update([prefix + "to_q.weight", prefix + "to_k.weight", prefix + "to_v.weight",
+                         prefix + "to_out.0.weight", prefix + "norm_q.weight", prefix + "norm_k.weight"])
+        elif k.endswith(".w1.weight"):
+            prefix = k[:-len("w1.weight")]
+            if fused_ffn:
+                out[prefix + "w13.weight"] = torch.cat([
+                    ref_sd[prefix + "w1.weight"],
+                    ref_sd[prefix + "w3.weight"],
+                ], dim=0)
+            else:
+                out[prefix + "w1.weight"] = ref_sd[prefix + "w1.weight"]
+                out[prefix + "w3.weight"] = ref_sd[prefix + "w3.weight"]
+            out[prefix + "w2.weight"] = ref_sd[prefix + "w2.weight"]
+            used.update([prefix + "w1.weight", prefix + "w2.weight", prefix + "w3.weight"])
+    for k, v in ref_sd.items():
+        if k not in used:
+            out[k] = v
+    return out
+
+
+@pytest.mark.parametrize("fused_ffn", [True, False])
+def test_repacked_detection_and_forward_match_the_reference(fused_ffn, pytorch_attention):
+    ours = _ours_model()
+    repacked_sd = _repack_state_dict(ours.state_dict(), fused_ffn=fused_ffn)
+    meta_sd = {k: torch.empty(v.shape, device="meta") for k, v in repacked_sd.items()}
+    detected = model_detection.detect_unet_config(meta_sd, "")
+    assert detected["image_model"] == "fibo2"
+    assert detected["repacked"] is True
+    assert detected["fused_ffn"] is fused_ffn
+
+    repacked_cfg = dict(TINY, **detected)
+    ours_repacked = Fibo2(**repacked_cfg, operations=comfy.ops.manual_cast).to(DEVICE).eval()
+    missing, unexpected = ours_repacked.load_state_dict(repacked_sd, strict=True)
+    assert not missing and not unexpected
+
+    latents, t, text = _inputs(text_len=9)
+    with torch.no_grad():
+        expected = ours(patchify(latents), t, comfy_context(text))
+        actual = ours_repacked(patchify(latents), t, comfy_context(text))
+    torch.testing.assert_close(actual, expected, rtol=1e-3, atol=1e-3)
+
+
+def test_text_encode_fibo2_and_text_render_glyph_images():
+    from comfy_extras.nodes.nodes_fibo2 import TextEncodeFibo2, has_images, trained_size
+    assert trained_size(1.0) == (1024, 1024)
+    tokenizer = fibo2_te.Fibo2Tokenizer()
+
+    # Empty prompt becomes NULL_CAPTION
+    empty_tokens = tokenizer.tokenize_with_weights("", text_images=True)
+    ref_null = tokenizer.tokenize_with_weights(fibo2_te.NULL_CAPTION, skip_template=True)
+    assert [t[0] for t in empty_tokens["qwen3vl_4b"][0]] == [t[0] for t in ref_null["qwen3vl_4b"][0]]
+
+    # Prompt with text_render produces vision marker + rendered glyph image when text_images=True
+    caption_with_text = json.dumps({"short_description": "a shop sign", "text_render": [{"text": "OPEN 24/7"}]})
+    tokens_with_img = tokenizer.tokenize_with_weights(caption_with_text, text_images=True)
+    tokens_no_img = tokenizer.tokenize_with_weights(caption_with_text, text_images=False)
+    assert has_images(tokens_with_img) is True
+    assert has_images(tokens_no_img) is False
+
+    # Multi-image edit tokenization
+    edit_img = torch.rand(1, 128, 128, 3)
+    edit_tokens = tokenizer.tokenize_with_weights("make the sky sunset orange", images=[edit_img], text_images=True)
+    assert has_images(edit_tokens) is True
+

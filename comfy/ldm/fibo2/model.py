@@ -1,7 +1,10 @@
 """Fibo 2.0 (briaai/Fibo-2.0-dev): an 8B single-stream flow-matching DiT on FLUX.2 VAE latents.
 
-Ported from diffusers' BriaFibo2Transformer2DModel (huggingface/diffusers de988b7e, Bria's reference
-implementation), with the same parameter names, so the diffusers checkpoint loads as it is.
+Supports both:
+- diffusers' BriaFibo2Transformer2DModel (huggingface/diffusers de988b7e, Bria's reference implementation,
+  appmana/Fibo-2.0-ComfyUI) with unfused to_q/to_k/to_v/to_out.0/norm_q/norm_k and w1/w2/w3, and
+- Comfy-Org's repacked checkpoint format (repacked=True) with JointAttention (qkv, out, q_norm, k_norm),
+  cross_attention (to_q, to_kv, to_out) and optionally fused w13 SwiGLU (fused_ffn=True).
 
 Z-Image's blocks: a 2x2 latent patch is a token, two noise-refiner blocks run on the image tokens alone,
 then 44 blocks run on one stream of [gist tokens, image tokens, context image tokens]. The gist tokens
@@ -20,17 +23,34 @@ is a token.
 import math
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 import comfy.model_management
 import comfy.model_prefetch
 import comfy.ops
 import comfy.patcher_extension
-from comfy.ldm.modules.attention import AttentionTensorContainer, ComfyAttention, optimized_attention_masked
+import comfy.utils
+from comfy.ldm.flux.layers import EmbedND
+from comfy.ldm.lumina.model import FinalLayer as LuminaFinalLayer, JointAttention, apply_gate, clamp_fp16, modulate, pos_ids_x
+from comfy.ldm.modules.attention import AttentionTensorContainer, ComfyAttention, optimized_attention, optimized_attention_masked
 from comfy.ldm.modules.diffusionmodules.mmdit import TimestepEmbedder
 
 ADALN_EMBED_DIM = 256
 NUM_BUNDLES = 6
+
+
+def residual(x, y, gate=None):
+    # in place inside the memory compiler region; out of place keeps x for backward when training
+    if comfy.model_management.in_training:
+        return x + y if gate is None else torch.addcmul(x, y, gate)
+    return x.add_(y) if gate is None else x.addcmul_(y, gate)
+
+
+def gist_count(text_len, max_gist):
+    # 256 gist tokens up to 256 text tokens, rising linearly to max_gist at 2048, in steps of 64
+    ratio = min(1.0, max(0.0, (text_len - 256) / (2048 - 256)))
+    return max(256, min(max_gist, math.ceil((256 + ratio * (max_gist - 256)) / 64) * 64))
 
 
 def compute_gist_count(text_lengths, min_gist, max_gist, gist_step, min_text_len, max_text_len):
@@ -119,14 +139,21 @@ def per_token(noisy, clean, noise_mask):
 
 
 class FeedForward(nn.Module):
-    def __init__(self, dim, hidden_dim, dtype=None, device=None, operations=None):
+    # SwiGLU; fused files carry w1 and w3 as one w13, the hidden width zero padded to a multiple of 256 so int8 weights quantize swiglu(x) inside w2's GEMM
+    def __init__(self, dim, hidden_dim, fused=False, dtype=None, device=None, operations=None):
         super().__init__()
-        self.w1 = operations.Linear(dim, hidden_dim, bias=False, dtype=dtype, device=device)
+        self.fused = fused
+        if fused:
+            self.w13 = operations.Linear(dim, 2 * hidden_dim, bias=False, dtype=dtype, device=device)
+        else:
+            self.w1 = operations.Linear(dim, hidden_dim, bias=False, dtype=dtype, device=device)
+            self.w3 = operations.Linear(dim, hidden_dim, bias=False, dtype=dtype, device=device)
         self.w2 = operations.Linear(hidden_dim, dim, bias=False, dtype=dtype, device=device)
-        self.w3 = operations.Linear(dim, hidden_dim, bias=False, dtype=dtype, device=device)
 
     def forward(self, x):
-        return self.w2(torch.nn.functional.silu(self.w1(x)) * self.w3(x))
+        if self.fused:
+            return comfy.ops.linear_input_act(self.w2, self.w13(x), "swiglu")
+        return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
 def ffn_dim(dim):
@@ -165,14 +192,102 @@ class Attention(nn.Module):
         return self.to_out[0](out)
 
 
-class TransformerBlock(nn.Module):
-    """Z-Image's block; with cross_attention_dim an injection block that also reads its text bundle."""
+class RepackedAttention(nn.Module):
+    # no RoPE: the cross-attention to the text, and the Perceiver's self-attention (repacked checkpoint format)
+    def __init__(self, dim, n_heads, kv_dim, norm_eps, dtype=None, device=None, operations=None):
+        super().__init__()
+        self.comfy_attention = ComfyAttention()
+        self.n_heads = n_heads
+        self.to_q = operations.Linear(dim, dim, bias=False, dtype=dtype, device=device)
+        self.to_kv = operations.Linear(kv_dim, 2 * dim, bias=False, dtype=dtype, device=device)
+        self.to_out = operations.Linear(dim, dim, bias=False, dtype=dtype, device=device)
+        self.norm_q = operations.RMSNorm(dim // n_heads, eps=norm_eps, dtype=dtype, device=device)
+        self.norm_k = operations.RMSNorm(dim // n_heads, eps=norm_eps, dtype=dtype, device=device)
 
-    def __init__(self, dim, n_heads, norm_eps, cross_attention_dim=None, dtype=None, device=None, operations=None):
+    def forward(self, x, context, transformer_options={}):
+        q = self.norm_q(self.to_q(x).unflatten(-1, (self.n_heads, -1)))
+        k, v = self.to_kv(context).unflatten(-1, (2, self.n_heads, -1)).unbind(2)
+        k = self.norm_k(k)
+        q, k, v = (AttentionTensorContainer(t.movedim(1, 2)) for t in (q, k, v))
+        return self.to_out(optimized_attention(q, k, v, self.n_heads, skip_reshape=True, transformer_options=transformer_options, preferred_attention=self.comfy_attention))
+
+
+class Block(nn.Module):
+    # Z-Image's block with in place residuals; an injection block also cross-attends to its own text bundle (repacked format)
+    def __init__(self, dim, n_heads, ffn_dim, fused_ffn, norm_eps, cap_feat_dim=None, operation_settings={}):
+        super().__init__()
+        operations, device, dtype = operation_settings["operations"], operation_settings["device"], operation_settings["dtype"]
+        self.attention = JointAttention(dim, n_heads, None, True, operation_settings=operation_settings)
+        self.attention.q_norm.eps = self.attention.k_norm.eps = norm_eps
+        self.feed_forward = FeedForward(dim, ffn_dim, fused_ffn, dtype=dtype, device=device, operations=operations)
+        self.attention_norm1 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
+        self.ffn_norm1 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
+        self.attention_norm2 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
+        self.ffn_norm2 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
+        self.adaLN_modulation = nn.Sequential(operations.Linear(min(dim, ADALN_EMBED_DIM), 4 * dim, bias=True, dtype=dtype, device=device))
+        self.cross_attention = None
+        if cap_feat_dim is not None:
+            self.cross_attn_norm1 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
+            self.cross_attention = RepackedAttention(dim, n_heads, cap_feat_dim, norm_eps, dtype=dtype, device=device, operations=operations)
+            self.cross_attn_norm2 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
+            self.cross_attn_gate = nn.Parameter(torch.empty(1, dtype=dtype, device=device))
+
+    def forward(self, x, freqs_cis, adaln_input, timestep_zero_index=None, context=None, transformer_options={}):
+        scale_msa, gate_msa, scale_mlp, gate_mlp = self.adaLN_modulation(adaln_input).chunk(4, dim=1)
+        y = self.attention(modulate(self.attention_norm1(x), scale_msa, timestep_zero_index=timestep_zero_index), None, freqs_cis, transformer_options=transformer_options)
+        x = residual(x, apply_gate(gate_msa.unsqueeze(1).tanh(), self.attention_norm2(clamp_fp16(y)), timestep_zero_index=timestep_zero_index))
+        if self.cross_attention is not None:
+            y = self.cross_attention(self.cross_attn_norm1(x), context, transformer_options)
+            x = residual(x, self.cross_attn_norm2(y), comfy.ops.cast_to_input(self.cross_attn_gate, y).tanh())
+        y = self.feed_forward(modulate(self.ffn_norm1(x), scale_mlp, timestep_zero_index=timestep_zero_index))
+        return residual(x, apply_gate(gate_mlp.unsqueeze(1).tanh(), self.ffn_norm2(clamp_fp16(y)), timestep_zero_index=timestep_zero_index))
+
+
+class RepackedPerceiverLayer(nn.Module):
+    def __init__(self, dim, n_heads, ffn_dim, fused_ffn, cap_feat_dim, norm_eps, operation_settings={}):
+        super().__init__()
+        operations, device, dtype = operation_settings["operations"], operation_settings["device"], operation_settings["dtype"]
+        self.cross_attn_norm = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
+        self.cross_attention = RepackedAttention(dim, n_heads, cap_feat_dim, norm_eps, dtype=dtype, device=device, operations=operations)
+        self.self_attn_norm = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
+        self.self_attention = RepackedAttention(dim, n_heads, dim, norm_eps, dtype=dtype, device=device, operations=operations)
+        self.ffn_norm = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
+        self.ffn = FeedForward(dim, ffn_dim, fused_ffn, dtype=dtype, device=device, operations=operations)
+
+    def forward(self, x, context, transformer_options={}):
+        x = x + self.cross_attention(self.cross_attn_norm(x), context, transformer_options)
+        y = self.self_attn_norm(x)
+        x = x + self.self_attention(y, y, transformer_options)
+        return x + self.ffn(self.ffn_norm(x))
+
+
+class Perceiver(nn.Module):
+    # squeezes the text encoder's hidden states into gist tokens (repacked format)
+    def __init__(self, dim, n_heads, ffn_dim, fused_ffn, cap_feat_dim, num_queries, num_layers, norm_eps, operation_settings={}):
+        super().__init__()
+        operations, device, dtype = operation_settings["operations"], operation_settings["device"], operation_settings["dtype"]
+        self.latent_queries = nn.Parameter(torch.empty(num_queries, dim, dtype=dtype, device=device))
+        self.layers = nn.ModuleList([RepackedPerceiverLayer(dim, n_heads, ffn_dim, fused_ffn, cap_feat_dim, norm_eps, operation_settings=operation_settings) for _ in range(num_layers)])
+        self.norm_out = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
+
+    def forward(self, context, num_gist, transformer_options={}):
+        x = comfy.ops.cast_to_input(self.latent_queries[:num_gist], context).unsqueeze(0).expand(context.shape[0], -1, -1)
+        prefetch_queue = comfy.model_prefetch.make_prefetch_queue(list(self.layers), context.device, transformer_options)
+        for layer in self.layers:
+            comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, context.device, layer, context.dtype)
+            x = layer(x, context, transformer_options)
+        comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, context.device, None)
+        return self.norm_out(x)
+
+
+class TransformerBlock(nn.Module):
+    """Z-Image's block; with cross_attention_dim an injection block that also reads its text bundle (diffusers format)."""
+
+    def __init__(self, dim, n_heads, norm_eps, cross_attention_dim=None, hidden_dim=None, fused_ffn=False, dtype=None, device=None, operations=None):
         super().__init__()
         kw = dict(dtype=dtype, device=device)
         self.attention = Attention(dim, n_heads, dim // n_heads, eps=norm_eps, operations=operations, **kw)
-        self.feed_forward = FeedForward(dim, ffn_dim(dim), operations=operations, **kw)
+        self.feed_forward = FeedForward(dim, hidden_dim or ffn_dim(dim), fused=fused_ffn, operations=operations, **kw)
         self.attention_norm1 = operations.RMSNorm(dim, eps=norm_eps, elementwise_affine=True, **kw)
         self.ffn_norm1 = operations.RMSNorm(dim, eps=norm_eps, elementwise_affine=True, **kw)
         self.attention_norm2 = operations.RMSNorm(dim, eps=norm_eps, elementwise_affine=True, **kw)
@@ -214,9 +329,9 @@ class TransformerBlock(nn.Module):
 
 
 class PerceiverLayer(nn.Module):
-    """Gist tokens read the text (cross-attention), then each other, then an FFN."""
+    """Gist tokens read the text (cross-attention), then each other, then an FFN (diffusers format)."""
 
-    def __init__(self, dim, n_heads, cross_attention_dim, norm_eps, dtype=None, device=None, operations=None):
+    def __init__(self, dim, n_heads, cross_attention_dim, norm_eps, hidden_dim=None, fused_ffn=False, dtype=None, device=None, operations=None):
         super().__init__()
         kw = dict(dtype=dtype, device=device)
         self.cross_attn_norm = operations.RMSNorm(dim, eps=norm_eps, elementwise_affine=True, **kw)
@@ -225,7 +340,7 @@ class PerceiverLayer(nn.Module):
         self.self_attn_norm = operations.RMSNorm(dim, eps=norm_eps, elementwise_affine=True, **kw)
         self.self_attention = Attention(dim, n_heads, dim // n_heads, eps=norm_eps, operations=operations, **kw)
         self.ffn_norm = operations.RMSNorm(dim, eps=norm_eps, elementwise_affine=True, **kw)
-        self.ffn = FeedForward(dim, ffn_dim(dim), operations=operations, **kw)
+        self.ffn = FeedForward(dim, hidden_dim or ffn_dim(dim), fused=fused_ffn, operations=operations, **kw)
 
     def forward(self, latents, context, context_mask=None, mask=None, transformer_options={}):
         latents = latents + self.cross_attention(self.cross_attn_norm(latents), context=context, mask=context_mask,
@@ -235,11 +350,11 @@ class PerceiverLayer(nn.Module):
 
 
 class PerceiverResampler(nn.Module):
-    def __init__(self, dim, n_heads, cross_attention_dim, num_queries, num_layers, norm_eps, dtype=None, device=None, operations=None):
+    def __init__(self, dim, n_heads, cross_attention_dim, num_queries, num_layers, norm_eps, hidden_dim=None, fused_ffn=False, dtype=None, device=None, operations=None):
         super().__init__()
         self.latent_queries = nn.Parameter(torch.empty(num_queries, dim, dtype=dtype, device=device))
-        self.layers = nn.ModuleList([PerceiverLayer(dim, n_heads, cross_attention_dim, norm_eps, dtype=dtype, device=device,
-                                                    operations=operations) for _ in range(num_layers)])
+        self.layers = nn.ModuleList([PerceiverLayer(dim, n_heads, cross_attention_dim, norm_eps, hidden_dim=hidden_dim, fused_ffn=fused_ffn,
+                                                    dtype=dtype, device=device, operations=operations) for _ in range(num_layers)])
         self.norm_out = operations.RMSNorm(dim, eps=norm_eps, elementwise_affine=True, dtype=dtype, device=device)
 
     def forward(self, context, num_gist_tokens, context_mask=None, mask=None, transformer_options={}):
@@ -264,29 +379,53 @@ class FinalLayer(nn.Module):
 
 class Fibo2(nn.Module):
     def __init__(self, in_channels=32, patch_size=2, dim=3584, n_layers=44, n_refiner_layers=2, n_heads=28, norm_eps=1e-5,
-                 cap_feat_dim=7680, injection_layer_ids=(6, 14, 22, 30, 38), perceiver_num_layers=2, min_num_gist_tokens=256,
-                 max_num_gist_tokens=512, gist_step=64, gist_min_text_len=256, gist_max_text_len=2048, rope_theta=256.0,
-                 t_scale=1000.0, axes_dims=(32, 48, 48), axes_lens=(2048, 512, 512), image_model=None, dtype=None, device=None,
-                 operations=None):
+                 cap_feat_dim=7680, injection_layer_ids=(6, 14, 22, 30, 38), injection_layers=None, perceiver_num_layers=2,
+                 perceiver_layers=None, min_num_gist_tokens=256, max_num_gist_tokens=512, max_gist_tokens=None,
+                 gist_step=64, gist_min_text_len=256, gist_max_text_len=2048, rope_theta=256.0,
+                 t_scale=1000.0, axes_dims=(32, 48, 48), axes_lens=(2048, 512, 512), ffn_dim=None, fused_ffn=False,
+                 repacked=False, image_model=None, dtype=None, device=None, operations=None):
         super().__init__()
         self.dtype = dtype
-        self.patch_channels = patch_size * patch_size * in_channels
+        self.repacked = repacked
+        if injection_layers is not None:
+            injection_layer_ids = injection_layers
+        if perceiver_layers is not None:
+            perceiver_num_layers = perceiver_layers
+        if max_gist_tokens is not None:
+            max_num_gist_tokens = max_gist_tokens
+
         self.cap_feat_dim = cap_feat_dim
         self.injection_layer_ids = tuple(injection_layer_ids)
+        self.injection_layers = self.injection_layer_ids
         self.min_num_gist_tokens, self.max_num_gist_tokens, self.gist_step = min_num_gist_tokens, max_num_gist_tokens, gist_step
+        self.max_gist_tokens = max_num_gist_tokens
         self.gist_min_text_len, self.gist_max_text_len = gist_min_text_len, gist_max_text_len
         self.t_scale = t_scale
-        operations = reference_norms(operations)
-        kw = dict(dtype=dtype, device=device, operations=operations)
-        self.x_embedder = operations.Linear(self.patch_channels, dim, bias=True, dtype=dtype, device=device)
-        self.t_embedder = TimestepEmbedder(1024, output_size=min(dim, ADALN_EMBED_DIM), **kw)
-        self.rope_embedder = RopeEmbedder(rope_theta, axes_dims, axes_lens)
-        self.noise_refiner = nn.ModuleList([TransformerBlock(dim, n_heads, norm_eps, **kw) for _ in range(n_refiner_layers)])
-        self.perceiver = PerceiverResampler(dim, n_heads, cap_feat_dim, max_num_gist_tokens, perceiver_num_layers, norm_eps, **kw)
-        self.layers = nn.ModuleList([
-            TransformerBlock(dim, n_heads, norm_eps, cross_attention_dim=cap_feat_dim if i in self.injection_layer_ids else None, **kw)
-            for i in range(n_layers)])
-        self.final_layer = FinalLayer(dim, self.patch_channels, dtype=dtype, device=device, operations=operations)
+
+        if repacked:
+            operation_settings = {"operations": operations, "device": device, "dtype": dtype}
+            hidden_dim = ffn_dim or globals()["ffn_dim"](dim)
+            self.patch_channels = in_channels
+            self.x_embedder = operations.Linear(self.patch_channels, dim, bias=True, dtype=dtype, device=device)
+            self.t_embedder = TimestepEmbedder(1024, output_size=min(dim, ADALN_EMBED_DIM), **operation_settings)
+            self.noise_refiner = nn.ModuleList([Block(dim, n_heads, hidden_dim, fused_ffn, norm_eps, operation_settings=operation_settings) for _ in range(n_refiner_layers)])
+            self.perceiver = Perceiver(dim, n_heads, hidden_dim, fused_ffn, cap_feat_dim, max_num_gist_tokens, perceiver_num_layers, norm_eps, operation_settings=operation_settings)
+            self.layers = nn.ModuleList([Block(dim, n_heads, hidden_dim, fused_ffn, norm_eps, cap_feat_dim if i in self.injection_layers else None, operation_settings=operation_settings) for i in range(n_layers)])
+            self.final_layer = LuminaFinalLayer(dim, 1, self.patch_channels, z_image_modulation=True, operation_settings=operation_settings)
+            self.rope_embedder = EmbedND(dim=dim // n_heads, theta=rope_theta, axes_dim=list(axes_dims))
+        else:
+            self.patch_channels = patch_size * patch_size * in_channels
+            operations = reference_norms(operations)
+            kw = dict(dtype=dtype, device=device, operations=operations)
+            self.x_embedder = operations.Linear(self.patch_channels, dim, bias=True, dtype=dtype, device=device)
+            self.t_embedder = TimestepEmbedder(1024, output_size=min(dim, ADALN_EMBED_DIM), **kw)
+            self.rope_embedder = RopeEmbedder(rope_theta, axes_dims, axes_lens)
+            self.noise_refiner = nn.ModuleList([TransformerBlock(dim, n_heads, norm_eps, hidden_dim=ffn_dim, fused_ffn=fused_ffn, **kw) for _ in range(n_refiner_layers)])
+            self.perceiver = PerceiverResampler(dim, n_heads, cap_feat_dim, max_num_gist_tokens, perceiver_num_layers, norm_eps, hidden_dim=ffn_dim, fused_ffn=fused_ffn, **kw)
+            self.layers = nn.ModuleList([
+                TransformerBlock(dim, n_heads, norm_eps, cross_attention_dim=cap_feat_dim if i in self.injection_layer_ids else None, hidden_dim=ffn_dim, fused_ffn=fused_ffn, **kw)
+                for i in range(n_layers)])
+            self.final_layer = FinalLayer(dim, self.patch_channels, dtype=dtype, device=device, operations=operations)
 
     def rope(self, ids):
         """(1, N, head_dim / 2) complex rotations for (N, 3) integer positions."""
@@ -324,12 +463,77 @@ class Fibo2(nn.Module):
         tokens = [x.flatten(2).transpose(1, 2).contiguous()]
         ids = [self.grid((1, h, w), (image_plane, 0, 0), device)]
         for k, ref in enumerate(ref_latents or []):
-            tokens.append(ref.to(dtype).flatten(2).transpose(1, 2).contiguous())
+            tokens.append(comfy.utils.repeat_to_batch_size(ref.to(dtype), B).flatten(2).transpose(1, 2).contiguous())
             ids.append(self.grid((1, ref.shape[2], ref.shape[3]), (image_plane + k + 1, 0, 0), device))
         hidden = self.x_embedder(torch.cat(tokens, dim=1))
         return hidden, self.rope(torch.cat(ids)), adaln_noisy, adaln_clean
 
+    def _forward_repacked(self, x, timestep, context, transformer_options={}, ref_latents=None, **kwargs):
+        B, C, H, W = x.shape
+        dtype, device = x.dtype, x.device
+        transformer_options = transformer_options.copy()
+        ref_latents = ref_latents or []
+
+        # the image and the reference tokens are noisy and clean: the second half of the adaln batch modulates the image
+        adaln_mixed = self.t_embedder(torch.cat((torch.zeros_like(timestep), timestep * self.t_scale)), dtype)
+        adaln_noisy = adaln_mixed[B:]
+
+        # gist tokens on rope planes 1..num_gist, the image on plane max_gist_tokens + 1 whatever the gist count, reference k on the k-th plane after it
+        num_gist = compute_gist_count([context.shape[1]], self.min_num_gist_tokens, self.max_num_gist_tokens, self.gist_step,
+                                      self.gist_min_text_len, self.gist_max_text_len)[0]
+        plane = self.max_gist_tokens + 1
+        tokens = [x.flatten(2).transpose(1, 2)]
+        ids = [torch.zeros(1, num_gist, 3, dtype=torch.float32, device=device), pos_ids_x(plane, H, W, 1, device, transformer_options=transformer_options)]
+        ids[0][0, :, 0] = torch.arange(1, num_gist + 1, dtype=torch.float32, device=device)
+        for k, ref in enumerate(ref_latents):
+            tokens.append(comfy.utils.repeat_to_batch_size(ref, B).flatten(2).transpose(1, 2))
+            ids.append(pos_ids_x(plane + 1 + k, ref.shape[-2], ref.shape[-1], 1, device, transformer_options=transformer_options))
+        img = self.x_embedder(torch.cat(tokens, dim=1))
+        freqs_cis = self.rope_embedder(torch.cat(ids, dim=1)).movedim(1, 2)
+        del tokens
+
+        n_img = H * W
+        refiner_adaln, refiner_index = (adaln_mixed, [(0, n_img)]) if len(ref_latents) > 0 else (adaln_noisy, None)
+        prefetch_queue = comfy.model_prefetch.make_prefetch_queue(list(self.noise_refiner), device, transformer_options)
+        for block in self.noise_refiner:
+            comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, block, dtype)
+            img = block(img, freqs_cis[:, num_gist:], refiner_adaln, refiner_index, transformer_options=transformer_options)
+        comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, None)
+
+        # the Perceiver reads the first text bundle, each injection block its own
+        bundles = context.chunk(1 + len(self.injection_layers), dim=-1)
+        gist = self.perceiver(bundles[0], num_gist, transformer_options)
+        text = dict(zip(self.injection_layers, bundles[1:]))
+
+        # allocated outside the memory compiler region, the blocks update it in place
+        x = torch.cat((gist, img), dim=1)
+        del gist, img
+        image_index = [(num_gist, num_gist + n_img)]
+
+        blocks_replace = transformer_options.get("patches_replace", {}).get("dit", {})
+        transformer_options["total_blocks"] = len(self.layers)
+        transformer_options["block_type"] = "single"
+        prefetch_queue = comfy.model_prefetch.make_prefetch_queue(list(self.layers), device, transformer_options)
+        comfy.model_prefetch.malloc_graph_begin(device)
+        for i, block in enumerate(self.layers):
+            comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, block, dtype, malloc_scope="block")
+            transformer_options["block_index"] = i
+            if ("single_block", i) in blocks_replace:
+                def block_wrap(args):
+                    return {"img": block(args["img"], args["pe"], args["vec"], image_index, text.get(i), args["transformer_options"])}
+                x = blocks_replace[("single_block", i)]({"img": x, "vec": adaln_mixed, "pe": freqs_cis, "transformer_options": transformer_options}, {"original_block": block_wrap})["img"]
+            else:
+                x = block(x, freqs_cis, adaln_mixed, image_index, text.get(i), transformer_options)
+        comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, None, malloc_scope="block")
+        comfy.model_prefetch.malloc_graph_end()
+
+        out = self.final_layer(x[:, num_gist:num_gist + n_img], adaln_noisy)
+        return out.transpose(1, 2).reshape(B, C, H, W)
+
     def _forward(self, x, timestep, context, attention_mask=None, ref_latents=None, transformer_options={}, **kwargs):
+        if self.repacked:
+            return self._forward_repacked(x, timestep, context, transformer_options=transformer_options, ref_latents=ref_latents, **kwargs)
+
         B, C, h, w = x.shape
         device = x.device
         dtype = x.dtype
@@ -379,6 +583,7 @@ class Fibo2(nn.Module):
         noise_mask[:, image_start:image_start + num_image_tokens] = True
 
         bundle_index = {layer_id: i + 1 for i, layer_id in enumerate(self.injection_layer_ids)}
+        blocks_replace = transformer_options.get("patches_replace", {}).get("dit", {})
         transformer_options["total_blocks"] = len(self.layers)
         transformer_options["block_type"] = "single"
         prefetch_queue = comfy.model_prefetch.make_prefetch_queue(list(self.layers), device, transformer_options)
@@ -386,8 +591,14 @@ class Fibo2(nn.Module):
             comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, block, dtype)
             transformer_options["block_index"] = i
             text = self.bundle(context, bundle_index[i]) if i in bundle_index else None
-            hidden = block(hidden, mask, pe, adaln_noisy, adaln_clean, noise_mask, context=text, context_mask=text_bias,
-                           transformer_options=transformer_options)
+            if ("single_block", i) in blocks_replace:
+                def block_wrap(args):
+                    return {"img": block(args["img"], mask, args["pe"], adaln_noisy, adaln_clean, noise_mask,
+                                         context=text, context_mask=text_bias, transformer_options=args["transformer_options"])}
+                hidden = blocks_replace[("single_block", i)]({"img": hidden, "vec": adaln_noisy, "pe": pe, "transformer_options": transformer_options}, {"original_block": block_wrap})["img"]
+            else:
+                hidden = block(hidden, mask, pe, adaln_noisy, adaln_clean, noise_mask, context=text, context_mask=text_bias,
+                               transformer_options=transformer_options)
         comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, None)
 
         out = self.final_layer(hidden[:, image_start:image_start + num_image_tokens], adaln_noisy)

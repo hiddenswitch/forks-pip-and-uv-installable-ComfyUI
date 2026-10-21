@@ -3051,6 +3051,7 @@ class MOSSImage(BaseModel):
 class Fibo2(BaseModel):
     def __init__(self, model_config, model_type=ModelType.FLUX, device=None):
         super().__init__(model_config, model_type, device=device, unet_model=Fibo2Model)
+        self.memory_usage_factor_conds = ("ref_latents",)
 
     def extra_conds(self, **kwargs):
         out = super().extra_conds(**kwargs)
@@ -3062,7 +3063,12 @@ class Fibo2(BaseModel):
         attention_mask = kwargs.get("attention_mask", None)
         if attention_mask is not None and torch.numel(attention_mask) != attention_mask.sum():
             out['attention_mask'] = conds.CONDRegular(attention_mask)
+        ref_latents = kwargs.get("reference_latents", None)
+        if ref_latents is not None:
+            out['ref_latents'] = conds.CONDList([self.process_latent_in(lat) for lat in ref_latents])
         return out
+
+    extra_conds_shapes = Flux.extra_conds_shapes
 
 
 class HunyuanImage21(BaseModel):

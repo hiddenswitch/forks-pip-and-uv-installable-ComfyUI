@@ -85,6 +85,11 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
            "nunchaku==1.3.0.dev20260717+${STABLE_ABI_CUDA}" \
            --index-url "https://appmana.github.io/forks-nunchaku-stable-abi/${STABLE_ABI_CUDA}"; \
          uv pip install --no-deps \
+           "nccl-usb4 @ https://github.com/AppMana/forks-nccl-rdma-routing/releases/download/v2.32.3/nccl_usb4-2.32.3-py3-none-manylinux_2_28_x86_64.whl" \
+           --extra-index-url https://nodes.appmana.com/simple; \
+         python3 -c "import nccl_usb4; st = nccl_usb4.activate(); assert st['active'] and st['tbrxe_loaded'], st"; \
+         ldconfig; \
+         uv pip install --no-deps \
            -r /workspace/requirements/custom_nodes_stable_abi_requirements.txt \
            --extra-index-url https://nodes.appmana.com/simple; \
        fi
