@@ -1256,7 +1256,8 @@ class CFGGuider:
             if seed is not None:
                 span.set_attribute("sampling.seed", int(seed))
             start = time.perf_counter()
-            samples = executor.execute(self, sigmas, extra_args, callback, noise, latent_image, denoise_mask, disable_pbar)
+            with self.model_patcher.writable_models(self.conds, noise.shape, self.model_options):
+                samples = executor.execute(self, sigmas, extra_args, callback, noise, latent_image, denoise_mask, disable_pbar)
             elapsed = time.perf_counter() - start
             _set_sampling_timing_attributes(span, step_count, elapsed)
         return self.inner_model.process_latent_out(samples.to(torch.float32))

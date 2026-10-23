@@ -49,6 +49,7 @@ from .ldm.minimax_music.dav import MiniMaxMusic3DAV
 from .ldm.mmaudio.vae.autoencoder import AudioAutoencoder
 from .ldm.models.autoencoder import AutoencoderKL
 from .ldm.models.autoencoder import AutoencodingEngine
+from .ldm.modules.diffusionmodules import model as diffusionmodules_model
 from .ldm.seedvr import vae as seedvr_vae
 from .ldm.trellis2 import vae as trellis2_vae
 from .ldm.triposplat.vae import OctreeGaussianDecoder
@@ -717,11 +718,13 @@ class VAE:
 
                     if 'bn.running_mean' in sd:
                         ddconfig["batch_norm_latent"] = True
+                        ddconfig["fused_norm"] = True
+                        self.working_dtypes = [torch.float16, torch.bfloat16, torch.float32]  # activations peak near 300
                         self.downscale_ratio *= 2
                         self.upscale_ratio *= 2
                         self.latent_channels *= 4
                         old_memory_used_decode = self.memory_used_decode
-                        self.memory_used_decode = lambda shape, dtype: old_memory_used_decode(shape, dtype) * 4.0
+                        self.memory_used_decode = lambda shape, dtype: old_memory_used_decode(shape, dtype) * (1.0 if diffusionmodules_model.fused_norm_served(self.device, dtype) else 4.0)
 
                     decoder_ch = sd['decoder.conv_in.weight'].shape[0] // ddconfig['ch_mult'][-1]
                     if decoder_ch != ddconfig['ch']:

@@ -205,6 +205,14 @@ class TestExecution:
         except Exception as e:
             assert 'prompt_id' in e.args[0], f"Did not get back a proper error message: {e}"
             assert e.args[0]['node_id'] == generator.id, "Error should have been on the generator node"
+            prompt_id = e.args[0]['prompt_id']
+
+        for _ in range(100):
+            history = client.get_history(prompt_id)
+            if prompt_id in history:
+                break
+            time.sleep(0.1)
+        assert history[prompt_id]['status']['status_str'] == 'error'
 
     async def test_custom_is_changed(self, client: ComfyClient, builder: GraphBuilder):
         g = builder

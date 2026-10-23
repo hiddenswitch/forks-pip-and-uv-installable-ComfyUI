@@ -897,8 +897,8 @@ def ensure_pin_budget(size, evict_active=False, loaded=False):
     shortfall = pin_budget_shortfall(size)
     if shortfall <= 0:
         return True
-    free_pins(shortfall + PIN_PRESSURE_HYSTERESIS, evict_active=evict_active, loaded=loaded)
-    return pin_budget_shortfall(size) <= 0
+    freed = free_pins(shortfall + PIN_PRESSURE_HYSTERESIS, evict_active=evict_active, loaded=loaded)
+    return freed >= shortfall or pin_budget_shortfall(size) <= 0
 
 def free_registrations(shortfall, evict_active=True):
     if MAX_PINNED_MEMORY <= 0:
@@ -1958,6 +1958,13 @@ def get_offload_stream(device):
         return s
     return None
 
+def sync_all_offload_streams():
+    if NUM_STREAMS == 0:
+        synchronize()
+        return
+    for streams in STREAMS.values():
+        for stream in streams:
+            stream.synchronize()
 
 def sync_stream(device, stream):
     if stream is None or current_stream(device) is None:
@@ -2304,8 +2311,6 @@ def pytorch_attention_enabled():
 
 
 def pytorch_attention_enabled_vae():
-    if is_amd():
-        return False  # enabling pytorch attention on AMD currently causes crash when doing high res
     return pytorch_attention_enabled()
 
 
@@ -2589,6 +2594,9 @@ def bfloat16_support_mps(device):
 
 
 def supports_fp8_compute(device=None):
+    if is_device_cpu(device):
+        return False
+
     if SUPPORT_FP8_OPS:
         return True
 
@@ -2618,6 +2626,8 @@ def supports_fp8_compute(device=None):
 
 
 def supports_nvfp4_compute(device=None):
+    if is_device_cpu(device):
+        return False
     if isinstance(device, torch.device) and device.type != "cuda":
         return False
     if not is_nvidia() or not torch.cuda.is_available():
@@ -2631,6 +2641,8 @@ def supports_nvfp4_compute(device=None):
 
 
 def supports_mxfp8_compute(device=None):
+    if is_device_cpu(device):
+        return False
     if isinstance(device, torch.device) and device.type != "cuda":
         return False
     if not is_nvidia() or not torch.cuda.is_available():
@@ -2646,21 +2658,6 @@ def supports_mxfp8_compute(device=None):
     return True
 
 
-def supports_int8_compute(device=None):
-    """INT8 tensor-core matmul support: NVIDIA sm_75 (Turing) and newer.
-
-    Unlike fp8, this includes all of Ampere (sm_80/sm_86).
-    """
-    if not is_nvidia():
-        return False
-
-    try:
-        props = torch.cuda.get_device_properties(device)
-    except (RuntimeError, ValueError, AssertionError):
-        return False
-
-    return (props.major, props.minor) >= (7, 5)
-
 def supports_fp64(device=None):
     if (device is not None and is_device_mps(device)) or mps_mode():
         return False
@@ -2675,6 +2672,28 @@ def supports_fp64(device=None):
         return False
 
     return True
+
+
+def supports_int8_compute(device=None):
+    """INT8 tensor-core matmul support: NVIDIA sm_75 (Turing) and newer.
+
+    Unlike fp8, this includes all of Ampere (sm_80/sm_86).
+    """
+    if is_device_cpu(device):
+        return False
+
+    if (device is not None and is_device_mps(device)) or mps_mode():
+        return False
+
+    if not is_nvidia():
+        return False
+
+    try:
+        props = torch.cuda.get_device_properties(device)
+    except (RuntimeError, ValueError, AssertionError):
+        return False
+
+    return (props.major, props.minor) >= (7, 5)
 
 def extended_fp16_support():
     # TODO: check why some models work with fp16 on newer torch versions but not on older

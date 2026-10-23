@@ -1,4 +1,3 @@
-from comfy.cmd import folder_paths
 from comfy.nodes.base_nodes import LoadImage
 from comfy.nodes.common import MAX_RESOLUTION
 
@@ -22,7 +21,7 @@ class WebcamCapture(LoadImage):
     CATEGORY = "image"
 
     def load_capture(self, image, **kwargs):
-        return super().load_image(folder_paths.get_annotated_filepath(image))
+        return super().load_image(image)
 
 
 NODE_CLASS_MAPPINGS = {

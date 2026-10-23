@@ -177,6 +177,7 @@ def legacy_pins(host):
 def module_with_pin_state():
     state = {subset: (FakeHostBuffer(), [], [-1], [0], [0], {}) for subset in
              ("weights", "patches", "weights-loaded", "patches-loaded", "weights-fast", "patches-fast")}
+    state["writable"] = False
     return SimpleNamespace(_pin_state=state)
 
 

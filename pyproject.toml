@@ -1,6 +1,6 @@
 [project]
 name = "comfyui"
-version = "0.41.0.2"
+version = "0.42.0.1"
 description = "An installable version of ComfyUI"
 readme = "README.md"
 authors = [
@@ -20,11 +20,11 @@ classifiers = [
 
 dependencies = [
     # todo: it looks like there are breaking frontend package changes, so this really does need to be pinned?
-    "comfyui-frontend-package==1.55.17",
-    "comfyui-workflow-templates==0.11.86",
+    "comfyui-frontend-package==1.57.1",
+    "comfyui-workflow-templates==0.11.96",
     "comfyui-embedded-docs==0.5.14",
-    "comfy-kitchen==0.2.37",
-    "comfy-aimdo==0.5.6",
+    "comfy-kitchen==0.2.40",
+    "comfy-aimdo==0.6.0",
     # todo: what should this really be? what's the idea?
     "comfyui_manager>=4.2.2,<5",
     "click",
@@ -53,7 +53,7 @@ dependencies = [
     "frozendict>=2.3.6",
     "python-dateutil>=2.8.2",
     "importlib_resources",
-    "Pillow",
+    "Pillow>=10.1.0",
     "scipy>=1.11.4",
     "simpleeval>=1.0.3",
     "tqdm",

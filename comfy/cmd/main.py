@@ -30,6 +30,8 @@ from ..nodes_context import get_nodes
 from ..app.assets.manager import AssetManager, default_asset_manager
 from ..app.assets.event_log import error_kind
 from ..app.database.db import get_database_url, get_db_path, init_db
+from ..app import agent_host
+from ..app import product_tips
 
 logger = logging.getLogger(__name__)
 _shutdown_event = threading.Event()
@@ -210,6 +212,10 @@ async def _prompt_worker(q: AbstractPromptQueue, server_instance: server_module.
                 else:
                     logger.info("Prompt executed in {:.2f} seconds".format(execution_time))
 
+                job_hint = product_tips.get_relevant_job_hint(args, os.environ, e.success, extra_data)
+                if job_hint is not None:
+                    logger.info(job_hint)
+
 
             flags = q.get_flags()
             free_memory = flags.get("free_memory", False)
@@ -381,6 +387,10 @@ async def __start_comfyui(from_script_dir: Optional[Path] = None):
     from ..app import governance
     governance.initialize(args)
 
+    if args.enable_agent:
+        logger.info("[agent-event] flag_enabled")
+        agent_host.load()  # a failure stays reported: the agent's paths answer 503 with the reason
+
     # Initialize comfyui_manager if available and enabled
     from ..manager_integration import init_manager, prestartup as manager_prestartup, start as manager_start
     init_manager(args)
@@ -482,6 +492,11 @@ async def __start_comfyui(from_script_dir: Optional[Path] = None):
         logger.debug(f"Setting output directory to: {output_dir}")
         folder_paths.set_output_directory(output_dir)
 
+    if args.previews_directory:
+        previews_dir = os.path.abspath(args.previews_directory)
+        logger.info(f"Setting previews directory to: {previews_dir}")
+        folder_paths.set_previews_directory(previews_dir)
+
     # These are the default folders that checkpoints, clip and vae models will be saved to when using CheckpointSave, etc.. nodes
     folder_paths.add_model_folder_path("checkpoints", os.path.join(folder_paths.get_output_directory(), "checkpoints"))
     folder_paths.add_model_folder_path("clip", os.path.join(folder_paths.get_output_directory(), "clip"))
@@ -516,11 +531,22 @@ async def __start_comfyui(from_script_dir: Optional[Path] = None):
 
         call_on_start = startup_server
 
+    if args.enable_agent:
+        open_browser = call_on_start
+
+        def start_agent(scheme, address, port):
+            if open_browser is not None:
+                open_browser(scheme, address, port)
+            agent_host.start(server, scheme, address, port)
+        call_on_start = start_agent
+
     first_listen_addr = args.listen.split(',')[0] if ',' in args.listen else args.listen
     server.address = first_listen_addr
     server.port = args.port
 
     try:
+        if product_tips.tips_enabled(args, os.environ):
+            logger.info(product_tips.COMFY_API_STARTUP_TIP)
         await server.setup()
         await run(server, address=first_listen_addr, port=args.port, call_on_start=call_on_start)
     except (asyncio.CancelledError, KeyboardInterrupt):
@@ -529,6 +555,7 @@ async def __start_comfyui(from_script_dir: Optional[Path] = None):
         _shutdown_event.set()
         if _prompt_worker_executor is not None:
             _prompt_worker_executor.shutdown(wait=True, cancel_futures=True)
+        agent_host.stop()
         server.asset_manager.shutdown()
         if distributed:
             await q.close()

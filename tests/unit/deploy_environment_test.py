@@ -1,4 +1,4 @@
-"""Tests for comfy.deploy_environment."""
+"""Tests for app.deploy_environment."""
 
 import os
 

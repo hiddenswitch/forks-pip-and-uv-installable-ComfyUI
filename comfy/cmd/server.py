@@ -46,6 +46,7 @@ from .. import model_management
 from .. import node_helpers
 from .. import utils
 from ..api_server.routes.internal.internal_routes import InternalRoutes
+from ..app import agent_host
 from ..app.assets.event_log import emit
 from ..app.asset_export import AssetExportManager
 from ..app.assets.services.asset_management import get_export_file
@@ -1611,6 +1612,12 @@ class PromptServer(ExecutorToClientProgress):
             self.routes.route(route.method, route.path)(route.func)
         prompt_server_instance_routes.clear()
 
+        # The comfy-agent host mounts its own /api/agent and /api/workflows
+        # routes (the proxy + trust boundary now live in the wheel). Do it before
+        # the '/' static catch-all below so those prefixes win, and before the
+        # router freezes in start_multi_address().
+        if current_execution_context().configuration.enable_agent:
+            agent_host.register(self.app)
         self.user_manager.add_routes(self.routes)
         self.model_file_manager.add_routes(self.routes)
         # todo: needs to use module directories

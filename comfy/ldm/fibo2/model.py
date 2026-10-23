@@ -26,15 +26,16 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-import comfy.model_management
-import comfy.model_prefetch
-import comfy.ops
-import comfy.patcher_extension
-import comfy.utils
-from comfy.ldm.flux.layers import EmbedND
-from comfy.ldm.lumina.model import FinalLayer as LuminaFinalLayer, JointAttention, apply_gate, clamp_fp16, modulate, pos_ids_x
-from comfy.ldm.modules.attention import AttentionTensorContainer, ComfyAttention, optimized_attention, optimized_attention_masked
-from comfy.ldm.modules.diffusionmodules.mmdit import TimestepEmbedder
+from ... import model_management
+from ... import model_prefetch
+from ... import ops
+from ... import patcher_extension
+from ... import utils
+from ..flux import math as flux_math
+from ..flux.layers import EmbedND
+from ..lumina.model import FinalLayer as LuminaFinalLayer, JointAttention, apply_gate, clamp_fp16, modulate, pos_ids_x
+from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimized_attention, optimized_attention_masked
+from ..modules.diffusionmodules.mmdit import TimestepEmbedder
 
 ADALN_EMBED_DIM = 256
 NUM_BUNDLES = 6
@@ -42,7 +43,7 @@ NUM_BUNDLES = 6
 
 def residual(x, y, gate=None):
     # in place inside the memory compiler region; out of place keeps x for backward when training
-    if comfy.model_management.in_training:
+    if model_management.in_training:
         return x + y if gate is None else torch.addcmul(x, y, gate)
     return x.add_(y) if gate is None else x.addcmul_(y, gate)
 
@@ -89,11 +90,11 @@ def reference_norms(operations):
     """operations.RMSNorm computing as the reference does (rms_norm), its weight cast and offloaded as ComfyUI's."""
     class RMSNorm(operations.RMSNorm):
         def forward_comfy_cast_weights(self, input):
-            weight, bias, cast_state = comfy.ops._cast_weight_bias(self, input)
-            return comfy.ops._release_weight_bias(self, rms_norm(input, weight, self.eps), cast_state)
+            weight, bias, cast_state = ops._cast_weight_bias(self, input)
+            return ops._release_weight_bias(self, rms_norm(input, weight, self.eps), cast_state)
 
         def forward(self, input):
-            comfy.ops.run_every_op()
+            ops.run_every_op()
             if self.comfy_cast_weights or len(self.weight_function) > 0 or len(self.bias_function) > 0:
                 return self.forward_comfy_cast_weights(input)
             return rms_norm(input, self.weight, self.eps)
@@ -152,7 +153,7 @@ class FeedForward(nn.Module):
 
     def forward(self, x):
         if self.fused:
-            return comfy.ops.linear_input_act(self.w2, self.w13(x), "swiglu")
+            return ops.linear_input_act(self.w2, self.w13(x), "swiglu")
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
@@ -238,7 +239,7 @@ class Block(nn.Module):
         x = residual(x, apply_gate(gate_msa.unsqueeze(1).tanh(), self.attention_norm2(clamp_fp16(y)), timestep_zero_index=timestep_zero_index))
         if self.cross_attention is not None:
             y = self.cross_attention(self.cross_attn_norm1(x), context, transformer_options)
-            x = residual(x, self.cross_attn_norm2(y), comfy.ops.cast_to_input(self.cross_attn_gate, y).tanh())
+            x = residual(x, self.cross_attn_norm2(y), ops.cast_to_input(self.cross_attn_gate, y).tanh())
         y = self.feed_forward(modulate(self.ffn_norm1(x), scale_mlp, timestep_zero_index=timestep_zero_index))
         return residual(x, apply_gate(gate_mlp.unsqueeze(1).tanh(), self.ffn_norm2(clamp_fp16(y)), timestep_zero_index=timestep_zero_index))
 
@@ -271,12 +272,12 @@ class Perceiver(nn.Module):
         self.norm_out = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
 
     def forward(self, context, num_gist, transformer_options={}):
-        x = comfy.ops.cast_to_input(self.latent_queries[:num_gist], context).unsqueeze(0).expand(context.shape[0], -1, -1)
-        prefetch_queue = comfy.model_prefetch.make_prefetch_queue(list(self.layers), context.device, transformer_options)
+        x = ops.cast_to_input(self.latent_queries[:num_gist], context).unsqueeze(0).expand(context.shape[0], -1, -1)
+        prefetch_queue = model_prefetch.make_prefetch_queue(list(self.layers), context.device, transformer_options)
         for layer in self.layers:
-            comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, context.device, layer, context.dtype)
+            model_prefetch.prefetch_queue_pop(prefetch_queue, context.device, layer, context.dtype)
             x = layer(x, context, transformer_options)
-        comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, context.device, None)
+        model_prefetch.prefetch_queue_pop(prefetch_queue, context.device, None)
         return self.norm_out(x)
 
 
@@ -323,7 +324,7 @@ class TransformerBlock(nn.Module):
         if self.cross_attention is not None:
             cross = self.cross_attention(self.cross_attn_norm1(x), context=context, mask=context_mask,
                                          transformer_options=transformer_options)
-            gate = comfy.model_management.cast_to(self.cross_attn_gate, dtype=x.dtype, device=x.device)
+            gate = model_management.cast_to(self.cross_attn_gate, dtype=x.dtype, device=x.device)
             x = x + gate.tanh() * self.cross_attn_norm2(cross)
         return x + gate_mlp * self.ffn_norm2(self.feed_forward(self.ffn_norm1(x) * scale_mlp))
 
@@ -358,7 +359,7 @@ class PerceiverResampler(nn.Module):
         self.norm_out = operations.RMSNorm(dim, eps=norm_eps, elementwise_affine=True, dtype=dtype, device=device)
 
     def forward(self, context, num_gist_tokens, context_mask=None, mask=None, transformer_options={}):
-        queries = comfy.model_management.cast_to(self.latent_queries[:num_gist_tokens], dtype=context.dtype, device=context.device)
+        queries = model_management.cast_to(self.latent_queries[:num_gist_tokens], dtype=context.dtype, device=context.device)
         latents = queries.unsqueeze(0).expand(context.shape[0], -1, -1)
         for layer in self.layers:
             latents = layer(latents, context, context_mask, mask, transformer_options=transformer_options)
@@ -401,6 +402,7 @@ class Fibo2(nn.Module):
         self.max_gist_tokens = max_num_gist_tokens
         self.gist_min_text_len, self.gist_max_text_len = gist_min_text_len, gist_max_text_len
         self.t_scale = t_scale
+        self.rope_axes_dim = list(axes_dims)
 
         if repacked:
             operation_settings = {"operations": operations, "device": device, "dtype": dtype}
@@ -445,10 +447,10 @@ class Fibo2(nn.Module):
         return context[..., index * self.cap_feat_dim:(index + 1) * self.cap_feat_dim].contiguous()
 
     def forward(self, x, timestep, context, attention_mask=None, ref_latents=None, transformer_options={}, **kwargs):
-        return comfy.patcher_extension.WrapperExecutor.new_class_executor(
+        return patcher_extension.WrapperExecutor.new_class_executor(
             self._forward,
             self,
-            comfy.patcher_extension.get_all_wrappers(comfy.patcher_extension.WrappersMP.DIFFUSION_MODEL, transformer_options)
+            patcher_extension.get_all_wrappers(patcher_extension.WrappersMP.DIFFUSION_MODEL, transformer_options)
         ).execute(x, timestep, context, attention_mask, ref_latents, transformer_options, **kwargs)
 
     def embed(self, x, timestep, ref_latents=None):
@@ -463,7 +465,7 @@ class Fibo2(nn.Module):
         tokens = [x.flatten(2).transpose(1, 2).contiguous()]
         ids = [self.grid((1, h, w), (image_plane, 0, 0), device)]
         for k, ref in enumerate(ref_latents or []):
-            tokens.append(comfy.utils.repeat_to_batch_size(ref.to(dtype), B).flatten(2).transpose(1, 2).contiguous())
+            tokens.append(utils.repeat_to_batch_size(ref.to(dtype), B).flatten(2).transpose(1, 2).contiguous())
             ids.append(self.grid((1, ref.shape[2], ref.shape[3]), (image_plane + k + 1, 0, 0), device))
         hidden = self.x_embedder(torch.cat(tokens, dim=1))
         return hidden, self.rope(torch.cat(ids)), adaln_noisy, adaln_clean
@@ -482,23 +484,28 @@ class Fibo2(nn.Module):
         num_gist = compute_gist_count([context.shape[1]], self.min_num_gist_tokens, self.max_num_gist_tokens, self.gist_step,
                                       self.gist_min_text_len, self.gist_max_text_len)[0]
         plane = self.max_gist_tokens + 1
+        # NTK-aware axis scales: the positions keep their spacing, zero collapses the axis
+        rope_options = transformer_options.get("rope_options", {})
+        scales = (1.0, rope_options.get("scale_y", 1.0), rope_options.get("scale_x", 1.0))
+        pos_options = {"rope_options": {**rope_options, "scale_y": float(scales[1] != 0), "scale_x": float(scales[2] != 0)}}
         tokens = [x.flatten(2).transpose(1, 2)]
-        ids = [torch.zeros(1, num_gist, 3, dtype=torch.float32, device=device), pos_ids_x(plane, H, W, 1, device, transformer_options=transformer_options)]
+        ids = [torch.zeros(1, num_gist, 3, dtype=torch.float32, device=device), pos_ids_x(plane, H, W, 1, device, transformer_options=pos_options)]
         ids[0][0, :, 0] = torch.arange(1, num_gist + 1, dtype=torch.float32, device=device)
         for k, ref in enumerate(ref_latents):
-            tokens.append(comfy.utils.repeat_to_batch_size(ref, B).flatten(2).transpose(1, 2))
-            ids.append(pos_ids_x(plane + 1 + k, ref.shape[-2], ref.shape[-1], 1, device, transformer_options=transformer_options))
+            tokens.append(utils.repeat_to_batch_size(ref, B).flatten(2).transpose(1, 2))
+            ids.append(pos_ids_x(plane + 1 + k, ref.shape[-2], ref.shape[-1], 1, device, transformer_options=pos_options))
         img = self.x_embedder(torch.cat(tokens, dim=1))
-        freqs_cis = self.rope_embedder(torch.cat(ids, dim=1)).movedim(1, 2)
+        ids = torch.cat(ids, dim=1)
+        freqs_cis = torch.cat([flux_math.rope(ids[..., i], d, 256.0 * (s or 1.0) ** (-d / (d - 2))) for i, (d, s) in enumerate(zip(self.rope_axes_dim, scales))], dim=-3).unsqueeze(2)
         del tokens
 
         n_img = H * W
         refiner_adaln, refiner_index = (adaln_mixed, [(0, n_img)]) if len(ref_latents) > 0 else (adaln_noisy, None)
-        prefetch_queue = comfy.model_prefetch.make_prefetch_queue(list(self.noise_refiner), device, transformer_options)
+        prefetch_queue = model_prefetch.make_prefetch_queue(list(self.noise_refiner), device, transformer_options)
         for block in self.noise_refiner:
-            comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, block, dtype)
+            model_prefetch.prefetch_queue_pop(prefetch_queue, device, block, dtype)
             img = block(img, freqs_cis[:, num_gist:], refiner_adaln, refiner_index, transformer_options=transformer_options)
-        comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, None)
+        model_prefetch.prefetch_queue_pop(prefetch_queue, device, None)
 
         # the Perceiver reads the first text bundle, each injection block its own
         bundles = context.chunk(1 + len(self.injection_layers), dim=-1)
@@ -513,10 +520,10 @@ class Fibo2(nn.Module):
         blocks_replace = transformer_options.get("patches_replace", {}).get("dit", {})
         transformer_options["total_blocks"] = len(self.layers)
         transformer_options["block_type"] = "single"
-        prefetch_queue = comfy.model_prefetch.make_prefetch_queue(list(self.layers), device, transformer_options)
-        comfy.model_prefetch.malloc_graph_begin(device)
+        prefetch_queue = model_prefetch.make_prefetch_queue(list(self.layers), device, transformer_options)
+        model_prefetch.malloc_graph_begin(device)
         for i, block in enumerate(self.layers):
-            comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, block, dtype, malloc_scope="block")
+            model_prefetch.prefetch_queue_pop(prefetch_queue, device, block, dtype, malloc_scope="block")
             transformer_options["block_index"] = i
             if ("single_block", i) in blocks_replace:
                 def block_wrap(args):
@@ -524,8 +531,8 @@ class Fibo2(nn.Module):
                 x = blocks_replace[("single_block", i)]({"img": x, "vec": adaln_mixed, "pe": freqs_cis, "transformer_options": transformer_options}, {"original_block": block_wrap})["img"]
             else:
                 x = block(x, freqs_cis, adaln_mixed, image_index, text.get(i), transformer_options)
-        comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, None, malloc_scope="block")
-        comfy.model_prefetch.malloc_graph_end()
+        model_prefetch.prefetch_queue_pop(prefetch_queue, device, None, malloc_scope="block")
+        model_prefetch.malloc_graph_end()
 
         out = self.final_layer(x[:, num_gist:num_gist + n_img], adaln_noisy)
         return out.transpose(1, 2).reshape(B, C, H, W)
@@ -586,9 +593,9 @@ class Fibo2(nn.Module):
         blocks_replace = transformer_options.get("patches_replace", {}).get("dit", {})
         transformer_options["total_blocks"] = len(self.layers)
         transformer_options["block_type"] = "single"
-        prefetch_queue = comfy.model_prefetch.make_prefetch_queue(list(self.layers), device, transformer_options)
+        prefetch_queue = model_prefetch.make_prefetch_queue(list(self.layers), device, transformer_options)
         for i, block in enumerate(self.layers):
-            comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, block, dtype)
+            model_prefetch.prefetch_queue_pop(prefetch_queue, device, block, dtype)
             transformer_options["block_index"] = i
             text = self.bundle(context, bundle_index[i]) if i in bundle_index else None
             if ("single_block", i) in blocks_replace:
@@ -599,7 +606,7 @@ class Fibo2(nn.Module):
             else:
                 hidden = block(hidden, mask, pe, adaln_noisy, adaln_clean, noise_mask, context=text, context_mask=text_bias,
                                transformer_options=transformer_options)
-        comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, device, None)
+        model_prefetch.prefetch_queue_pop(prefetch_queue, device, None)
 
         out = self.final_layer(hidden[:, image_start:image_start + num_image_tokens], adaln_noisy)
         return out.transpose(1, 2).reshape(B, C, h, w)

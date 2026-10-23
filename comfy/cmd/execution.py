@@ -990,6 +990,7 @@ class PromptExecutor:
                     node_id, error, ex = await execution_list.stage_node_execution()
                     node_id: str
                     if error is not None:
+                        self.success = False
                         self.handle_execution_error(prompt_id, dynamic_prompt.original_prompt, current_outputs, executed, error, ex)
                         break
 
