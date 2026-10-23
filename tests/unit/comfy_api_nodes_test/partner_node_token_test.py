@@ -255,7 +255,7 @@ def test_rate_limited_renewal_surfaces_the_auth_error_and_waits_for_retry_after(
 @pytest.mark.parametrize(
     ("auth_token", "api_key", "expected_header"),
     [
-        (_jwt({"aud": "comfy-api", "sid": "s", "exp": time.time() - 10}), None, "Authorization"),
+        (_jwt({"aud": "comfy-api", "sid": "s", "exp": 1}), None, "Authorization"),
         (None, "comfyui-api-key", "X-API-KEY"),
     ],
 )
