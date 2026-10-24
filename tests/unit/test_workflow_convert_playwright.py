@@ -375,9 +375,8 @@ def _app_page(_static_server, _object_info_json, _real_nodes):
             browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
         except Exception as e:
             if "Executable doesn't exist" in str(e):
-                pytest.skip(
-                    "Playwright browsers not installed. Run: playwright install chromium"
-                )
+                yield None
+                return
             raise
         context = browser.new_context(viewport={"width": 1920, "height": 1080})
         page = context.new_page()
@@ -661,6 +660,11 @@ def _get_frontend_output(
         if cached is not None:
             return cached
 
+    if page is None:
+        pytest.skip(
+            "Playwright browsers not installed. Run: playwright install chromium"
+        )
+
     def _evaluate_frontend_output() -> dict:
         # Frontend loadGraphData(clean=true) resets the canvas to rootGraph,
         # clears it, and awaits configuration of the supplied workflow. A
@@ -735,7 +739,7 @@ class TestFrontendParity:
         f = _normalize_api_output(frontend_output)
         p = _normalize_api_output(python_output)
         mismatches = _compare_outputs(f, p)
-        if mismatches and used_cache:
+        if mismatches and used_cache and _app_page is not None:
             # A cache entry is only an optimization, never the parity
             # authority. Re-run the exact workflow through the pinned real
             # frontend before reporting a converter mismatch. This also

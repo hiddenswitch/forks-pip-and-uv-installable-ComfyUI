@@ -76,7 +76,7 @@ jobs:
 
   windows_nvidia:
     environment: Testing
-    name: Windows RTX 3090 CUDA 12.8 PyTorch 2.10
+    name: Windows RTX 3090 Python 3.14 CUDA 13.0 PyTorch 2.14
     runs-on: [self-hosted, windows-cuda-3090-24gb]
     timeout-minutes: 120
     container:
@@ -106,10 +106,21 @@ jobs:
           choco config set cacheLocation $env:CHOCO_CACHE_LOCATION
       - name: Create venv and install PyTorch
         run: |
-          uv venv C:/venv --python python3
+          uv_zip="C:/ci-cache/installers/uv-0.12.2-x86_64-pc-windows-msvc.zip"
+          mkdir -p "C:/ci-cache/installers"
+          if [ ! -f "$uv_zip" ]; then
+            tmp_zip="${uv_zip}.${GITHUB_RUN_ID:-0}.tmp"
+            curl -fsSL --retry 5 -o "$tmp_zip" "https://github.com/astral-sh/uv/releases/download/0.12.2/uv-x86_64-pc-windows-msvc.zip"
+            echo "01442d8ce5c7124151a73e697c836d252c6da853c18c73206d3cc4c2378a91d2  $tmp_zip" | sha256sum -c -
+            mv -f "$tmp_zip" "$uv_zip"
+          fi
+          echo "01442d8ce5c7124151a73e697c836d252c6da853c18c73206d3cc4c2378a91d2  $uv_zip" | sha256sum -c -
+          unzip -oq "$uv_zip" -d "$(dirname "$(command -v uv)")"
+          uv --version
+          uv venv --python 3.14.7 C:/venv
           uv pip install --python C:/venv/Scripts/python.exe \
-            "torch==2.10.0+cu128" "torchvision==0.25.0+cu128" "torchaudio==2.10.0+cu128" \
-            --index-url https://download.pytorch.org/whl/cu128
+            "torch==2.14.1+cu130" "torchvision==0.29.1+cu130" "torchaudio==2.11.0+cu130" \
+            --index-url https://download.pytorch.org/whl/cu130
       - name: Install cached Windows runtime
         shell: powershell
         run: |
@@ -125,16 +136,31 @@ jobs:
           if ($signature.Status -ne "Valid") { throw "Invalid VC++ redistributable signature: $($signature.Status)" }
           Start-Process -FilePath $installer -ArgumentList "/install", "/quiet", "/norestart" -Wait
       - name: Install locked dependencies
-        run: ci/install-locked.sh ci/locks/pylock.windows-py312.toml C:/venv/Scripts/python.exe
+        run: ci/install-locked.sh ci/locks/pylock.windows-py314.toml C:/venv/Scripts/python.exe
       - name: Install pinned stable-ABI CUDA extensions
         run: |
-          uv pip install --python C:/venv/Scripts/python.exe --no-deps "triton-windows==3.7.1.post27"
-          uv pip install --python C:/venv/Scripts/python.exe --no-deps "sageattention==2.2.0+cu128" --index-url https://appmana.github.io/forks-sageattention-stable-abi/cu128
-          uv pip install --python C:/venv/Scripts/python.exe --no-deps "nunchaku==1.3.0.dev20260717+cu128" --index-url https://appmana.github.io/forks-nunchaku-stable-abi/cu128
+          uv pip install --python C:/venv/Scripts/python.exe --no-deps "triton-windows==3.8.0.post29" --index-url https://nodes.appmana.com/simple/cu130
+          uv pip install --python C:/venv/Scripts/python.exe --no-deps "sageattention==2.2.0+cu130" --index-url https://appmana.github.io/forks-sageattention-stable-abi/cu130
+          uv pip install --python C:/venv/Scripts/python.exe --no-deps "nunchaku==1.3.0.dev20260717+cu130" --index-url https://appmana.github.io/forks-nunchaku-stable-abi/cu130
           uv pip install --python C:/venv/Scripts/python.exe --no-deps -r tests/custom_nodes_stable_abi_requirements.txt --extra-index-url https://nodes.appmana.com/simple
       - name: CUDA smoke
         run: |
-          C:/venv/Scripts/python.exe -c "import torch; print(torch.__version__, torch.cuda.get_device_name(0)); assert torch.__version__.startswith('2.10.0+cu128'); assert (torch.ones(16, device='cuda') * 2).sum().item() == 32"
+          C:/venv/Scripts/python.exe - <<'PY'
+          import sys
+          import torch
+          import torchvision
+          import torchaudio
+          assert sys.version_info[:3] == (3, 14, 7), sys.version_info
+          print("torch", torch.__version__, "cuda", torch.version.cuda, "device", torch.cuda.get_device_name(0))
+          assert torch.__version__ == "2.14.1+cu130"
+          assert torchvision.__version__ == "0.29.1+cu130"
+          assert torchaudio.__version__ == "2.11.0+cu130"
+          assert torch.version.cuda == "13.0"
+          assert torch.cuda.is_available()
+          result = (torch.ones(16, device="cuda") * 2).sum()
+          torch.cuda.synchronize()
+          assert result.item() == 32
+          PY
       - name: Custom-node registration
         run: C:/venv/Scripts/python.exe -m pytest -v -s --timeout=900 tests/custom_nodes/test_installed_node_registration.py
       - name: Windows unit tests

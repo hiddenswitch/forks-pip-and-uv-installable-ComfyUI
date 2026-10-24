@@ -34,6 +34,11 @@ The XPU lock includes native PyTorch 2.14.1, torchvision 0.29.1, TorchAudio
 Python 3.14.7 environment; the base image supplies the GPU driver libraries.
 `xpu-requirements.txt` pins this backend independently of the CUDA and CPU jobs.
 
+`pylock.windows-py314.toml` targets Windows and Python 3.14.7. The Windows RTX
+3090 job installs native CUDA 13.0 PyTorch 2.14.1, torchvision 0.29.1, and
+TorchAudio 2.11.0 wheels (`cu130`) along with the CUDA 13.0 stable-ABI
+extensions before installing this lock.
+
 `pylock.linux-py312-numpy1.toml` is the compatibility lock for the CUDA 12.8
 NGC image. Its Torch and bundled extensions use the NumPy 1 ABI, so the whole
 NumPy/OpenCV/SciPy set is resolved together under `numpy<2`; newer backends use

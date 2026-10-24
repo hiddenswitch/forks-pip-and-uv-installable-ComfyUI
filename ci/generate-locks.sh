@@ -53,9 +53,9 @@ uv pip compile "${common[@]}" \
 uv pip compile "${common[@]}" \
   --constraints ci/torch-constraints.txt \
   "${without_torch[@]}" \
-  --python-version 3.12 \
+  --python-version 3.14 \
   --python-platform windows \
-  --output-file ci/locks/pylock.windows-py312.toml
+  --output-file ci/locks/pylock.windows-py314.toml
 
 MACOSX_DEPLOYMENT_TARGET=14.0 uv pip compile "${common[@]}" \
   --constraints ci/torch-constraints.txt \
