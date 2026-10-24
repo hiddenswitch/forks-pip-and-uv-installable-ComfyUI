@@ -1950,8 +1950,9 @@ wheels = [
 
 [[packages]]
 name = "stringzilla"
-version = "4.1.0"
-sdist = { url = "https://files.pythonhosted.org/packages/c3/89/ae2e60081277f43b1d2cf3782598018f22fd0e926ea8845cadbbb085335d/stringzilla-4.1.0.tar.gz", upload-time = 2025-10-02T20:22:32Z, size = 473879, hashes = { sha256 = "ab7182191c8ab5ffdf0370a6f20961c75316ec35d948bfd8cd8326d464bb2224" } }
+version = "5.3.1"
+sdist = { url = "https://files.pythonhosted.org/packages/b8/92/477d21501bc9aa20f8fdad3bcf48fad9dee9162457677f41a8d01a85e3bf/stringzilla-5.3.1.tar.gz", upload-time = 2026-10-19T03:59:45Z, size = 1995419, hashes = { sha256 = "845dc4c2889e73d4f0ff650cb80469a02af554a7a0c20c090a4226605d87f018" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/db/5f/2659ed04da67a0767a33cf79064d8da8ce95ae5049eb3f5ccc800e2736a7/stringzilla-5.3.1-cp314-cp314-win_amd64.whl", upload-time = 2026-10-19T03:59:30Z, size = 768154, hashes = { sha256 = "f5b1ef6b11d72b0e51188e7e79f3fc94503d058f1e4205d984bdc069928316b9" } }]
 
 [[packages]]
 name = "svg-path"
