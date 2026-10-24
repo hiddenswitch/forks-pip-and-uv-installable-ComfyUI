@@ -31,7 +31,7 @@ def mock_yaml_content():
 
 @pytest.fixture
 def mock_expanded_home():
-    return '/home/user'
+    return 'C:/home/user' if sys.platform == 'win32' else '/home/user'
 
 
 @pytest.fixture
