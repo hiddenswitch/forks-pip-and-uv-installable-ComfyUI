@@ -1556,6 +1556,8 @@ def _resolve_legacy_sg_output(sg_dto, slot, target_type, dto_map, visited, set_n
     behaviour by matching that host output to a terminal inner node output with
     the same type/name.
     """
+    if "outputNode" in (sg_dto.sg_def or {}):
+        return None
     outer_outputs = sg_dto.node.get('outputs', [])
     if slot >= len(outer_outputs):
         return None
