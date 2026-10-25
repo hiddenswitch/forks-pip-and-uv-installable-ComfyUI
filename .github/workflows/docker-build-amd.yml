@@ -17,7 +17,9 @@ env:
 jobs:
   build:
     if: startsWith(github.ref, 'refs/heads/')
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, cpu]
+    container:
+      image: ubuntu:24.04
     environment: Testing
     permissions:
       contents: read
@@ -27,24 +29,24 @@ jobs:
     outputs:
       build_attempt: ${{ github.run_attempt }}
     steps:
-      - uses: insightsengineering/disk-space-reclaimer@v1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
+      - name: Set up Docker CLI and cluster BuildKit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git docker.io docker-buildx
+          mkdir -p ~/.docker
+          ghcr_auth="$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          printf '{"auths":{"%s":{"auth":"%s"}}}\n' "$REGISTRY" "$ghcr_auth" > ~/.docker/config.json
+          docker buildx create --name cluster --driver remote \
+            --driver-opt "cacert=${BUILDKIT_TLSCACERT},cert=${BUILDKIT_TLSCERT},key=${BUILDKIT_TLSKEY},servername=${BUILDKIT_TLSSERVERNAME}" \
+            --use "$BUILDKIT_HOST"
+          docker buildx inspect --bootstrap
       - uses: actions/checkout@v7
-      - uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v4
       - name: Build and push immutable ROCm candidate
         uses: docker/build-push-action@v7
         with:
+          builder: cluster
           context: .
           file: ./amd.Dockerfile
           push: true
@@ -115,17 +117,22 @@ jobs:
   promote:
     needs: [build, validate-rx7600]
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, cpu]
+    container:
+      image: ubuntu:24.04
     environment: Testing
     permissions:
       packages: write
     steps:
-      - uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v4
+      - name: Set up Docker CLI and registry auth
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates docker.io docker-buildx
+          mkdir -p ~/.docker
+          ghcr_auth="$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          printf '{"auths":{"%s":{"auth":"%s"}}}\n' "$REGISTRY" "$ghcr_auth" > ~/.docker/config.json
       - name: Promote validated ROCm image
         shell: bash
         env:
@@ -144,17 +151,22 @@ jobs:
 
   retag-release:
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, cpu]
+    container:
+      image: ubuntu:24.04
     environment: Testing
     permissions:
       packages: write
     steps:
-      - uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v4
+      - name: Set up Docker CLI and registry auth
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates docker.io docker-buildx
+          mkdir -p ~/.docker
+          ghcr_auth="$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          printf '{"auths":{"%s":{"auth":"%s"}}}\n' "$REGISTRY" "$ghcr_auth" > ~/.docker/config.json
       - name: Retag the validated ROCm commit image
         shell: bash
         run: |

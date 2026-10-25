@@ -14,22 +14,15 @@ jobs:
   full:
     if: github.ref_name == 'develop' || github.event_name == 'workflow_dispatch'
     name: Full suite — Arch Python / PyTorch 2.14 CPU
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, cpu]
     timeout-minutes: 30
     container:
       image: archlinux:latest
       options: --shm-size=8g
-    env:
-      UV_CACHE_DIR: ${{ github.workspace }}/.uv-cache
     steps:
       - name: Install system dependencies
         run: pacman -Syu --noconfirm git python uv zip base-devel libxcb mesa
       - uses: actions/checkout@v7
-      - uses: actions/cache@v6
-        with:
-          path: .uv-cache
-          key: uv-linux-py314-${{ hashFiles('ci/locks/pylock.linux-py314-cpu.toml') }}
-          restore-keys: uv-linux-py314-
       - name: Install locked dependencies
         run: |
           uv venv --python /usr/bin/python --no-python-downloads .venv
@@ -62,20 +55,18 @@ jobs:
   package-smoke:
     if: github.ref_name == 'master'
     name: Master package smoke
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, cpu]
     timeout-minutes: 12
+    container:
+      image: archlinux:latest
+      options: --shm-size=8g
     steps:
+      - name: Install system dependencies
+        run: pacman -Syu --noconfirm git python uv zip
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: ci/locks/pylock.linux-py314-core.toml
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
       - name: Build and install the package
         run: |
-          uv venv --python 3.14
+          uv venv --python /usr/bin/python --no-python-downloads .venv
           ci/install-locked.sh ci/locks/pylock.linux-py314-core.toml .venv/bin/python
           uv build --wheel --out-dir dist
           uv pip install --python .venv/bin/python --reinstall --no-deps dist/*.whl

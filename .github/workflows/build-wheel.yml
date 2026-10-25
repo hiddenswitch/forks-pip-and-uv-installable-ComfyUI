@@ -14,10 +14,13 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64, cpu]
+    container:
+      image: archlinux:latest
     steps:
+      - name: Install system dependencies
+        run: pacman -Syu --noconfirm git python uv zip github-cli
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
       - name: Build wheel and sdist
         run: uv build --wheel --sdist --out-dir dist

@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   detect:
+    if: github.repository == 'Comfy-Org/ComfyUI'
     uses: Comfy-Org/github-workflows/.github/workflows/detect-unreviewed-merge.yml@4d9cb6b87f953bb7cd69954280e1465fb9bd2040 # v1
     with:
       approval-mode: latest-per-reviewer
