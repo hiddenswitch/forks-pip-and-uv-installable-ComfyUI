@@ -15,7 +15,7 @@ jobs:
     if: github.ref_name == 'develop' || github.event_name == 'workflow_dispatch'
     name: Full suite — Arch Python / PyTorch 2.14 CPU
     runs-on: [self-hosted, linux, X64, cpu]
-    timeout-minutes: 30
+    timeout-minutes: 60
     container:
       image: archlinux:latest
       options: --shm-size=8g

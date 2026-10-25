@@ -614,8 +614,12 @@ except:
 
 if ENABLE_PYTORCH_ATTENTION:
     torch.backends.cuda.enable_math_sdp(True)
-    torch.backends.cuda.enable_flash_sdp(True)
-    torch.backends.cuda.enable_mem_efficient_sdp(True)
+    torch.backends.cuda.enable_flash_sdp(not is_amd())
+    torch.backends.cuda.enable_mem_efficient_sdp(not is_amd())
+elif is_amd() and torch.cuda.is_available():
+    torch.backends.cuda.enable_math_sdp(True)
+    torch.backends.cuda.enable_flash_sdp(False)
+    torch.backends.cuda.enable_mem_efficient_sdp(False)
 
 PRIORITIZE_FP16 = False  # TODO: remove and replace with something that shows exactly which dtype is faster than the other
 try:
