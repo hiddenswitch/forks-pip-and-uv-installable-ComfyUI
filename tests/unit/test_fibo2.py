@@ -282,6 +282,17 @@ def test_schedule_is_the_pipelines(steps, size):
     assert torch.equal(fibo2_sigmas(steps, width, height), scheduler.sigmas)
 
 
+@pytest.mark.parametrize("filename", [
+    "fibo2_dev_int8_convrot.safetensors",
+    "fibo2_edit_turbo_int8_convrot.safetensors",
+])
+def test_official_template_weights_are_registered(filename):
+    unets = {str(m): m for m in KNOWN_UNET_MODELS.data}
+    model = unets[filename]
+    assert model.repo_id == "Comfy-Org/Fibo-2.0"
+    assert model.filename == f"diffusion_models/{filename}"
+
+
 def test_the_weights_are_registered():
     unets = {str(m): m for m in KNOWN_UNET_MODELS.data}
     assert unets["fibo2_dev_bf16.safetensors"].repo_id == "appmana/Fibo-2.0-ComfyUI"
