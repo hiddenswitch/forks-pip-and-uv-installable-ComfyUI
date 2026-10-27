@@ -35,8 +35,8 @@ class XDiTSequenceParallelWorkerLoadSpec:
     strategy: str
 
 
-def _replicate_state(state, rank, size):
-    del rank, size
+def _replicate_state(state, model_family, rank, size):
+    del model_family, rank, size
     return dict(state)
 
 
@@ -66,6 +66,7 @@ def _load_xdit_rank(
         dtype,
         device,
         XDiTSequenceParallelConfig(operations, strategy),
+        model_config.unet_config["image_model"],
         operations_decorator=xdit_sequence_parallel_operations,
         state_transform=_replicate_state,
     )

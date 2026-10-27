@@ -48,6 +48,7 @@ def _load_rank(
     parallel_config,
     model_family,
     operations_decorator=tensor_parallel_operations,
+    state_transform=shard_tensor_parallel_state_dict,
 ):
     rank_config = type(model_config)(model_config.unet_config)
     rank_config.quant_config = utils.deepcopy_list_dict(model_config.quant_config) if model_config.quant_config is not None else None
@@ -98,7 +99,7 @@ def _load_rank(
     state = reader.load_keys(original_keys.values())
     if prefix:
         state = utils.state_dict_prefix_replace(state, {prefix: ""}, filter_keys=True)
-    state = shard_tensor_parallel_state_dict(
+    state = state_transform(
         state,
         model_family,
         parallel_config.rank,

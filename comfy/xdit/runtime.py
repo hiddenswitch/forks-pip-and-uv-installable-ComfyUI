@@ -128,7 +128,7 @@ class TorchDistributedUlyssesOperations(
     def all_gather(self, tensor: torch.Tensor, dim: int) -> torch.Tensor:
         output = functional_collectives.all_gather_tensor(
             tensor.contiguous(),
-            gather_dim=dim,
+            gather_dim=dim if dim >= 0 else tensor.ndim + dim,
             group=self.process_group,
         )
         return self._wait(output)
