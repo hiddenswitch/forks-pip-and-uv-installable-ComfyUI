@@ -1,6 +1,5 @@
 """Recent model workflows across memory, attention and multi-device configurations."""
 import json
-import os
 from contextlib import ExitStack
 from functools import wraps
 from pathlib import Path
@@ -39,16 +38,15 @@ CASES += [("qwen-image", mode, {flag: 2})
 CASES += [("qwen-image-multigpu-cfg", "cfg2", {}), ("flux-compile", "compile", {})]
 
 
-def install_runtime_probe(benchmark_path, runtime_path, configuration=None):
+def install_runtime_probe(benchmark_path, runtime_path, configuration):
     from comfy.execution_context import context_configuration
     from comfy.component_model.setup import setup_pre_torch
     stack = ExitStack()
-    if configuration is not None:
-        if configuration.torch_device is not None:
-            os.environ["CUDA_VISIBLE_DEVICES"] = configuration.torch_device.split(":", 1)[1]
-        stack.enter_context(context_configuration(configuration))
-        setup_pre_torch(configuration)
-    from comfy import samplers, model_management
+    if configuration.torch_device is not None:
+        torch.cuda.set_device(torch.device(configuration.torch_device))
+    stack.enter_context(context_configuration(configuration))
+    setup_pre_torch(configuration)
+    from comfy import samplers, model_management, memory_management
 
     stack.enter_context(install_benchmark(benchmark_path))
     original = samplers.calc_cond_batch
@@ -60,6 +58,7 @@ def install_runtime_probe(benchmark_path, runtime_path, configuration=None):
         attachments = model.current_patcher.attachments
         record = {"model": type(model).__name__, "finite": True,
                   "vram_state": model_management.vram_state.name,
+                  "dynamic_vram": memory_management.aimdo_allocator is not None,
                   "parallel": [name for name in ("tensor_parallel_executor", "pipeline_parallel_executor", "xdit_sequence_parallel_executor")
                                if name in attachments],
                   "cfg_devices": len(model_options.get("multigpu_clones", {}))}
@@ -133,6 +132,8 @@ async def test_runtime_configuration(name, mode, changes, tmp_path, request):
     assert records and all(row["finite"] for row in records)
     if mode == "low-vram":
         assert all(row["vram_state"] == "LOW_VRAM" for row in records), records
+    if mode in {"static-vram", "low-vram"}:
+        assert not any(row["dynamic_vram"] for row in records), records
     expected = {"tp2": "tensor_parallel_executor", "pp2": "pipeline_parallel_executor",
                 "ulysses2": "xdit_sequence_parallel_executor", "ring2": "xdit_sequence_parallel_executor"}.get(mode)
     if expected:
