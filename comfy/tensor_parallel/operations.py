@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import torch
+
 from .types import TensorParallelConfig
 
 
@@ -97,6 +99,53 @@ def tensor_parallel_operations(base_operations, parallel: TensorParallelConfig):
 
     TensorParallelOperations.__name__ = f"TensorParallel{base_operations.__name__}"
     return TensorParallelOperations
+
+
+def full_domain_tensor_parallel_operations(base_operations, parallel: TensorParallelConfig):
+    """Preserve the complete input domain for activation-rotating quantization.
+
+    ConvRot rotates across the full feature dimension before quantization. A
+    conventional row-parallel linear would rotate each feature shard
+    independently, which is not equivalent. Gather the activation, calculate
+    an output-row shard, and gather the result instead.
+    """
+    TensorParallelOperations = tensor_parallel_operations(base_operations, parallel)
+
+    class FullDomainTensorParallelOperations(TensorParallelOperations):
+        class RowParallelLinear(base_operations.Linear):
+            def __init__(self, in_features, out_features, bias=True, *,
+                         device=None, dtype=None):
+                if out_features % parallel.size:
+                    raise ValueError(
+                        f"Full-domain row-parallel output {out_features} must divide "
+                        f"{parallel.size} ranks"
+                    )
+                super().__init__(
+                    in_features,
+                    out_features // parallel.size,
+                    bias=bias,
+                    device=device,
+                    dtype=dtype,
+                )
+                self.tensor_parallel_in_features = in_features
+                self.tensor_parallel_out_features = out_features
+
+            def forward(self, input, *args, **kwargs):
+                full_input = parallel.operations.gather(input)
+                local_output = super().forward(full_input, *args, **kwargs)
+                return parallel.operations.gather(local_output)
+
+            def forward_input_act(self, input, input_act):
+                if input_act != "swiglu":
+                    raise ValueError(f"Unsupported full-domain input activation {input_act!r}")
+                gate, value = input.chunk(2, dim=-1)
+                activated = torch.nn.functional.silu(gate) * value
+                return self.forward(activated)
+
+    FullDomainTensorParallelOperations.__name__ = (
+        f"FullDomainTensorParallel{base_operations.__name__}"
+    )
+    return FullDomainTensorParallelOperations
 
 
 def gathered_output_operations(base_operations, parallel: TensorParallelConfig):

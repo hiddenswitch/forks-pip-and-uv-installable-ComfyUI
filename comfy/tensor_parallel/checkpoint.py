@@ -25,6 +25,8 @@ def shard_minimax_h3_state_dict(
     state_dict: Mapping[str, torch.Tensor],
     rank: int,
     size: int,
+    *,
+    full_domain_rows: bool = False,
 ) -> dict[str, torch.Tensor]:
     """Return one Megatron-style MiniMax shard without retaining full-weight views."""
     if size < 2:
@@ -36,8 +38,20 @@ def shard_minimax_h3_state_dict(
             sharded[key] = _section_rows(tensor, (tensor.shape[0] // 3,) * 3, rank, size)
         elif key.endswith(".mlp.fc1.weight") or key.endswith(".mlp.fc1.weight_scale"):
             sharded[key] = _section_rows(tensor, (tensor.shape[0] // 2,) * 2, rank, size)
-        elif key.endswith(".attn.out_proj.weight") or key.endswith(".mlp.fc2.weight"):
-            sharded[key] = _columns(tensor, rank, size)
+        elif key.endswith((
+            ".attn.out_proj.weight",
+            ".attn.out_proj.weight_scale",
+            ".attn.out_proj.bias",
+            ".mlp.fc2.weight",
+            ".mlp.fc2.weight_scale",
+            ".mlp.fc2.bias",
+        )):
+            if full_domain_rows:
+                sharded[key] = _section_rows(tensor, (tensor.shape[0],), rank, size)
+            elif key.endswith(".weight"):
+                sharded[key] = _columns(tensor, rank, size)
+            else:
+                sharded[key] = tensor
         else:
             sharded[key] = tensor
     return sharded

@@ -288,7 +288,11 @@ class MLP(nn.Module):
         )
 
     def forward(self, x):
-        return ops.linear_input_act(self.fc2, self.fc1(x), "swiglu")
+        hidden = self.fc1(x)
+        forward_input_act = getattr(self.fc2, "forward_input_act", None)
+        if forward_input_act is not None:
+            return forward_input_act(hidden, "swiglu")
+        return ops.linear_input_act(self.fc2, hidden, "swiglu")
 
 
 class AdalnProj(nn.Module):

@@ -1,6 +1,7 @@
 from .checkpoint import shard_minimax_h3_state_dict, shard_tensor_parallel_state_dict
 from .operations import (
     column_parallel_linear,
+    full_domain_tensor_parallel_operations,
     local_size,
     row_parallel_linear,
     tensor_parallel_operations,
@@ -17,6 +18,7 @@ __all__ = [
     "TensorParallelConfig",
     "TorchDistributedTensorParallelOperations",
     "column_parallel_linear",
+    "full_domain_tensor_parallel_operations",
     "local_size",
     "row_parallel_linear",
     "shard_minimax_h3_state_dict",

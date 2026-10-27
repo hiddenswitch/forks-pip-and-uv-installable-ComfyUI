@@ -12,6 +12,7 @@ from comfy.ldm.modules.attention import AttentionTensorContainer
 from comfy.model_base import BaseModel, MiniMaxH3
 from comfy.tensor_parallel import (
     AbstractBaseTensorParallelOperations,
+    full_domain_tensor_parallel_operations,
     TensorParallelConfig,
     TorchDistributedTensorParallelOperations,
     shard_minimax_h3_state_dict,
@@ -93,6 +94,16 @@ class ThreadCollective:
                 self.condition.wait_for(lambda: len(values) == self.size)
         return tensor
 
+    def gather(self, index, rank, tensor):
+        with self.condition:
+            values = self.values.setdefault(("gather", index), {})
+            values[rank] = tensor
+            if len(values) == self.size:
+                self.condition.notify_all()
+            else:
+                self.condition.wait_for(lambda: len(values) == self.size)
+            return torch.cat([values[rank].clone() for rank in range(self.size)], dim=-1)
+
 
 class ThreadTensorParallelOperations(AbstractBaseTensorParallelOperations):
     def __init__(self, collective, rank):
@@ -112,6 +123,11 @@ class ThreadTensorParallelOperations(AbstractBaseTensorParallelOperations):
         index = self.index
         self.index += 1
         return self.collective.sum(index, tensor)
+
+    def gather(self, tensor):
+        index = self.index
+        self.index += 1
+        return self.collective.gather(index, self._rank, tensor)
 
 
 def _attention(query, key, value, heads, mask=None, **kwargs):
@@ -158,6 +174,23 @@ def test_minimax_checkpoint_shards_megatron_projection_dimensions():
     assert torch.equal(first["blocks.0.attn.out_proj.weight"], state["blocks.0.attn.out_proj.weight"][:, :4])
     assert torch.equal(second["blocks.0.mlp.fc2.weight"], state["blocks.0.mlp.fc2.weight"][:, 4:])
     assert first["blocks.0.norm.weight"] is state["blocks.0.norm.weight"]
+
+
+def test_minimax_quantized_checkpoint_shards_row_outputs_for_full_domain_matmul():
+    state = {
+        "blocks.0.attn.out_proj.weight": torch.arange(32).reshape(4, 8),
+        "blocks.0.attn.out_proj.weight_scale": torch.arange(4).reshape(4, 1),
+        "blocks.0.mlp.fc2.weight": torch.arange(32).reshape(4, 8),
+        "blocks.0.mlp.fc2.weight_scale": torch.arange(4).reshape(4, 1),
+    }
+
+    first = shard_minimax_h3_state_dict(state, 0, 2, full_domain_rows=True)
+    second = shard_minimax_h3_state_dict(state, 1, 2, full_domain_rows=True)
+
+    assert torch.equal(first["blocks.0.attn.out_proj.weight"], state["blocks.0.attn.out_proj.weight"][:2])
+    assert torch.equal(second["blocks.0.attn.out_proj.weight"], state["blocks.0.attn.out_proj.weight"][2:])
+    assert torch.equal(first["blocks.0.mlp.fc2.weight_scale"], state["blocks.0.mlp.fc2.weight_scale"][:2])
+    assert torch.equal(second["blocks.0.mlp.fc2.weight_scale"], state["blocks.0.mlp.fc2.weight_scale"][2:])
 
 
 @pytest.mark.parametrize(
@@ -642,6 +675,69 @@ def test_minimax_tensor_parallel_attention_and_mlp_match_full_model(monkeypatch)
         fc1 = full_mlp.fc1.weight.reshape(2, 12, 8)
         mlp.fc1.weight.detach().copy_(fc1[:, rank * 6:(rank + 1) * 6].reshape(12, 8))
         mlp.fc2.weight.detach().copy_(full_mlp.fc2.weight[:, rank * 6:(rank + 1) * 6])
+        attentions.append(attention)
+        mlps.append(mlp)
+
+    value = torch.randn(5, 8)
+    expected_attention = full_attention(value)
+    expected_mlp = full_mlp(value)
+    attention_outputs = _run_parallel(attentions, value)
+    mlp_outputs = _run_parallel(mlps, value)
+
+    for output in attention_outputs:
+        torch.testing.assert_close(output, expected_attention)
+    for output in mlp_outputs:
+        torch.testing.assert_close(output, expected_mlp)
+
+
+def test_minimax_full_domain_tensor_parallel_matches_full_model(monkeypatch):
+    monkeypatch.setattr("comfy.ldm.minimax.model.optimized_attention", _attention)
+    torch.manual_seed(7)
+    full_attention = Attention(
+        8, 4, 2, 1e-5, dtype=torch.float32, device="cpu",
+        operations=comfy_ops.disable_weight_init,
+    )
+    full_mlp = MLP(
+        8, 12, dtype=torch.float32, device="cpu",
+        operations=comfy_ops.disable_weight_init,
+    )
+    for module in (full_attention, full_mlp):
+        for parameter in module.parameters():
+            torch.nn.init.uniform_(parameter, -0.1, 0.1)
+
+    collective = ThreadCollective(2)
+    attentions = []
+    mlps = []
+    for rank in range(2):
+        config = TensorParallelConfig(ThreadTensorParallelOperations(collective, rank))
+        operations = full_domain_tensor_parallel_operations(
+            comfy_ops.disable_weight_init,
+            config,
+        )
+        attention = Attention(
+            8, 4, 2, 1e-5, dtype=torch.float32, device="cpu",
+            operations=operations,
+        )
+        mlp = MLP(
+            8, 12, dtype=torch.float32, device="cpu",
+            operations=operations,
+        )
+        qkv = full_attention.qkv_proj.weight.reshape(3, 8, 8)
+        attention.qkv_proj.weight.detach().copy_(
+            qkv[:, rank * 4:(rank + 1) * 4].reshape(12, 8)
+        )
+        attention.out_proj.weight.detach().copy_(
+            full_attention.out_proj.weight[rank * 4:(rank + 1) * 4]
+        )
+        attention.q_norm.weight.detach().copy_(full_attention.q_norm.weight)
+        attention.k_norm.weight.detach().copy_(full_attention.k_norm.weight)
+        fc1 = full_mlp.fc1.weight.reshape(2, 12, 8)
+        mlp.fc1.weight.detach().copy_(
+            fc1[:, rank * 6:(rank + 1) * 6].reshape(12, 8)
+        )
+        mlp.fc2.weight.detach().copy_(
+            full_mlp.fc2.weight[rank * 4:(rank + 1) * 4]
+        )
         attentions.append(attention)
         mlps.append(mlp)
 

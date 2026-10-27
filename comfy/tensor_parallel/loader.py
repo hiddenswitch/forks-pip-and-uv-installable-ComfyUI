@@ -16,7 +16,7 @@ from ..pipeline_parallel.loader import _normalize_detection_state, _normalized_d
 from .checkpoint import shard_tensor_parallel_state_dict
 from .distributed import RemoteTensorParallelRankModel, launch_tensor_parallel
 from .types import TensorParallelConfig
-from .operations import tensor_parallel_operations
+from .operations import full_domain_tensor_parallel_operations, tensor_parallel_operations
 
 
 logger = logging.getLogger(__name__)
@@ -72,6 +72,8 @@ def _load_rank(
             fp8_optimizations=rank_config.optimizations.get("fp8", False),
             model_config=rank_config,
         )
+    if model_family == "minimax_h3" and rank_config.quant_config is not None:
+        operations_decorator = full_domain_tensor_parallel_operations
     rank_config.custom_operations = operations_decorator(
         base_operations,
         parallel_config,
@@ -99,12 +101,21 @@ def _load_rank(
     state = reader.load_keys(original_keys.values())
     if prefix:
         state = utils.state_dict_prefix_replace(state, {prefix: ""}, filter_keys=True)
-    state = state_transform(
-        state,
-        model_family,
-        parallel_config.rank,
-        parallel_config.size,
-    )
+    if model_family == "minimax_h3" and rank_config.quant_config is not None:
+        from .checkpoint import shard_minimax_h3_state_dict
+        state = shard_minimax_h3_state_dict(
+            state,
+            parallel_config.rank,
+            parallel_config.size,
+            full_domain_rows=True,
+        )
+    else:
+        state = state_transform(
+            state,
+            model_family,
+            parallel_config.rank,
+            parallel_config.size,
+        )
     if model_options.get("custom_operations") is None:
         state, _ = utils.convert_old_quants(state, "", metadata=dict(metadata))
 
