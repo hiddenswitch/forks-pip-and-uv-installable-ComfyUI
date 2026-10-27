@@ -39,12 +39,17 @@ CASES += [("qwen-image", mode, {flag: 2})
 CASES += [("qwen-image-multigpu-cfg", "cfg2", {}), ("flux-compile", "compile", {})]
 
 
-def install_runtime_probe(benchmark_path, runtime_path, torch_device=None):
-    if torch_device is not None:
-        os.environ["CUDA_VISIBLE_DEVICES"] = torch_device.split(":", 1)[1]
-    from comfy import samplers
-
+def install_runtime_probe(benchmark_path, runtime_path, configuration=None):
+    from comfy.execution_context import context_configuration
+    from comfy.component_model.setup import setup_pre_torch
     stack = ExitStack()
+    if configuration is not None:
+        if configuration.torch_device is not None:
+            os.environ["CUDA_VISIBLE_DEVICES"] = configuration.torch_device.split(":", 1)[1]
+        stack.enter_context(context_configuration(configuration))
+        setup_pre_torch(configuration)
+    from comfy import samplers, model_management
+
     stack.enter_context(install_benchmark(benchmark_path))
     original = samplers.calc_cond_batch
 
@@ -54,6 +59,7 @@ def install_runtime_probe(benchmark_path, runtime_path, torch_device=None):
         assert all(value is None or torch.isfinite(value).all().item() for value in outputs)
         attachments = model.current_patcher.attachments
         record = {"model": type(model).__name__, "finite": True,
+                  "vram_state": model_management.vram_state.name,
                   "parallel": [name for name in ("tensor_parallel_executor", "pipeline_parallel_executor", "xdit_sequence_parallel_executor")
                                if name in attachments],
                   "cfg_devices": len(model_options.get("multigpu_clones", {}))}
@@ -72,7 +78,7 @@ def runtime_workflow(name, mode):
         values = node["inputs"]
         if node["class_type"] == "ResolutionSelector":
             values.setdefault("multiple", 8)
-            values["megapixels"] = 0.0625
+            values["megapixels"] = 0.1
         for field in ("steps", "num_inference_steps", "inference_steps"):
             if field in values:
                 values[field] = 2
@@ -112,7 +118,7 @@ async def test_runtime_configuration(name, mode, changes, tmp_path, request):
     monitor = ResourceMonitor()
     with monitor:
         with ProcessPoolExecutor(max_workers=1, initializer=install_runtime_probe,
-                                 initargs=(str(benchmark_path), str(runtime_path), config.torch_device)) as executor:
+                                 initargs=(str(benchmark_path), str(runtime_path), config)) as executor:
             async with Comfy(configuration=config, executor=executor) as client:
                 outputs = await client.queue_prompt(Prompt.validate(workflow))
     assert outputs
@@ -125,6 +131,8 @@ async def test_runtime_configuration(name, mode, changes, tmp_path, request):
                     assert decoded.width > 0 and decoded.height > 0
     records = [json.loads(line) for line in runtime_path.read_text().splitlines()]
     assert records and all(row["finite"] for row in records)
+    if mode == "low-vram":
+        assert all(row["vram_state"] == "LOW_VRAM" for row in records), records
     expected = {"tp2": "tensor_parallel_executor", "pp2": "pipeline_parallel_executor",
                 "ulysses2": "xdit_sequence_parallel_executor", "ring2": "xdit_sequence_parallel_executor"}.get(mode)
     if expected:
