@@ -957,6 +957,17 @@ class TestImageNodeInputTypes:
         assert img.shape == (1, 1, 1, 3)
         assert torch.allclose(img[0, 0, 0], torch.tensor([0.0, 1.0, 0.0]))
 
+    def test_ignores_auxiliary_frames_with_different_dimensions(self, tmp_path):
+        path = tmp_path / "multi-size.tiff"
+        primary = Image.new("RGB", (8, 6), "red")
+        auxiliary = Image.new("RGB", (4, 3), "blue")
+        primary.save(path, save_all=True, append_images=[auxiliary])
+
+        image, mask = LoadImageFromURL().execute(value=str(path))
+
+        assert image.shape == (1, 6, 8, 3)
+        assert mask.shape == (1, 6, 8)
+
 
 def _make_test_video(path, width=16, height=16, num_frames=3, fps=24):
     import av as _av

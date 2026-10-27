@@ -855,6 +855,7 @@ class ImageRequestParameter(CustomNode):
             return (default_if_empty,)
         output_images = []
         output_masks = []
+        width = height = None
         # todo: additional security is needed here to prevent users from accessing local paths
         # however this generally needs to be done with user accounts on all OSes
         with _open_media_files(value) as files:
@@ -874,6 +875,10 @@ class ImageRequestParameter(CustomNode):
                         if i.mode == 'I':
                             i = i.point(lambda i: i * (1 / 255))
                         image = i.convert("RGBA" if alpha_is_transparency else "RGB")
+                        if width is None or height is None:
+                            width, height = image.size
+                        elif image.size != (width, height):
+                            continue
                         image = np.array(image).astype(np.float32) / 255.0
                         image = torch.from_numpy(image)[None,]
                         if 'A' in i.getbands():
@@ -886,6 +891,11 @@ class ImageRequestParameter(CustomNode):
                             mask = torch.zeros((image.shape[1], image.shape[2]), dtype=torch.float32, device="cpu")
                         output_images.append(image)
                         output_masks.append(mask.unsqueeze(0))
+
+                        # Multi-picture JPEGs commonly contain a reduced-size
+                        # auxiliary image, not an animation frame.
+                        if img.format == "MPO":
+                            break
 
         output_images_batched: ImageBatch = torch.cat(output_images, dim=0)
         output_masks_batched: MaskBatch = torch.cat(output_masks, dim=0)

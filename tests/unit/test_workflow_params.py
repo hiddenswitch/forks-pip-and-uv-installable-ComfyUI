@@ -188,6 +188,25 @@ def test_turbo_switch_requires_paired_lora_and_step_switches():
     assert turbo_switches(workflow, None) == []
 
 
+def test_turbo_switch_allows_acceleration_lora_layered_on_baseline_lora():
+    workflow = _turbo_switch_workflow()
+    workflow["baseline_lora"] = {
+        "class_type": "LoraLoaderModelOnly",
+        "inputs": {
+            "model": ["model", 0],
+            "lora_name": "style.safetensors",
+            "strength_model": 1.0,
+        },
+    }
+    workflow["lora"]["inputs"]["model"] = ["baseline_lora", 0]
+    workflow["model_switch"]["inputs"]["on_false"] = ["baseline_lora", 0]
+
+    turbo = turbo_switches(workflow, None)
+
+    assert len(turbo) == 1
+    assert turbo[0].address == ("toggle", "value")
+
+
 def test_turbo_switch_supports_ui_converted_primitive_widget_names():
     workflow = _turbo_switch_workflow()
     workflow["toggle"]["inputs"] = {"widget_0": False}
@@ -268,6 +287,31 @@ def test_bundled_workflow_catalog_turbo_detection_is_complete():
         assert len(friendly[0].addresses) == len(raw_params), path.name
         assert len({param.value for param in raw_params}) == 1, path.name
         assert len(set(step_pairs)) == 1, path.name
+        disable_sets = [
+            f"{node_id}.inputs.{widget_name}=false"
+            for node_id, widget_name in friendly[0].addresses
+        ]
+        disabled = _apply_overrides(workflow, Configuration(set=disable_sets))
+        overridden = _apply_overrides(workflow, Configuration(set=disable_sets, steps=13))
+        for param in raw_params:
+            assert disabled[param.node_id]["inputs"][param.widget_name] is False, path.name
+            assert overridden[param.node_id]["inputs"][param.widget_name] is False, path.name
+            step_switch = next(
+                node
+                for switch_id, node in workflow.items()
+                if isinstance(node, dict)
+                and node.get("class_type") in {"ComfySwitchNode", "SwitchNode"}
+                and node.get("inputs", {}).get("switch") == [param.node_id, 0]
+                and any(
+                    isinstance(consumer, dict)
+                    and consumer.get("inputs", {}).get("steps") == [str(switch_id), 0]
+                    for consumer in workflow.values()
+                )
+            )
+            full_source = str(step_switch["inputs"]["on_false"][0])
+            turbo_source = str(step_switch["inputs"]["on_true"][0])
+            assert overridden[full_source]["inputs"]["value"] == 13, path.name
+            assert overridden[turbo_source]["inputs"]["value"] == step_pairs[0][1], path.name
         detected[path.stem] = (raw_params[0].value, *step_pairs[0], len(raw_params))
 
     assert detected == {
@@ -287,9 +331,13 @@ def test_bundled_workflow_catalog_turbo_detection_is_complete():
         "image_qwen_image_edit_2509": (True, 20, 4, 1),
         "image_qwen_image_edit_2511": (False, 40, 4, 1),
         "image_qwen_image_edit_2511_int8": (False, 40, 4, 1),
+        "image_qwen_image_union_control_lora": (False, 20, 4, 1),
+        "template_qwen_Image_2512_360_lora": (False, 50, 4, 1),
         "template_qwen_image_edit_2511_systms_action": (True, 40, 4, 1),
         "template_qwen_multiangle.app": (True, 40, 4, 1),
         "templates-1_click_multiple_character_angles-v1.0": (True, 40, 4, 8),
+        "templates-portrait_light_migration": (False, 20, 4, 1),
+        "templates_rob_portrait_light_migration.app": (False, 20, 4, 1),
         "video_bernini_r_image_editing": (True, 40, 6, 1),
         "video_bernini_r_video_editing": (True, 40, 6, 1),
         "video_minimax_h3_i2v": (False, 20, 8, 1),
@@ -299,6 +347,8 @@ def test_bundled_workflow_catalog_turbo_detection_is_complete():
         "video_minimax_h3_t2v": (False, 20, 8, 1),
         "video_wan2_2_14B_i2v": (False, 20, 4, 1),
         "video_wan2_2_14B_t2v": (False, 20, 4, 1),
+        "video_wan21_scail2_character_replacement": (True, 40, 6, 2),
+        "video_wan21_scail2_character_replacement_int8": (True, 40, 6, 2),
         "video_wan_dancer": (True, 25, 6, 1),
         "video_wan_vace_flf2v": (False, 20, 6, 1),
         "video_wan_vace_inpainting": (True, 20, 6, 1),

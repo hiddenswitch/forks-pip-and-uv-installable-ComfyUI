@@ -313,12 +313,12 @@ def turbo_switches(api: dict, ui: dict | None) -> list[Param]:
         on_true = inputs.get("on_true")
         on_false = inputs.get("on_false")
         true_node = api.get(str(on_true[0])) if _is_link(on_true) else None
-        false_node = api.get(str(on_false[0])) if _is_link(on_false) else None
-        if (
+        true_is_acceleration_layer = (
             isinstance(true_node, dict)
             and "loraloader" in str(true_node.get("class_type", "")).lower()
-            and not (isinstance(false_node, dict) and "loraloader" in str(false_node.get("class_type", "")).lower())
-        ):
+            and true_node.get("inputs", {}).get("model") == on_false
+        )
+        if true_is_acceleration_layer:
             model_toggles.add(toggle_id)
 
         full_steps = _literal_value_source(api, on_false)
