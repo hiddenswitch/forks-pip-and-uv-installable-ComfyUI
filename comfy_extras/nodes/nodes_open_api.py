@@ -872,30 +872,30 @@ class ImageRequestParameter(CustomNode):
                     finally:
                         if prev_value is not None:
                             ImageFile.LOAD_TRUNCATED_IMAGES = prev_value
-                        if i.mode == 'I':
-                            i = i.point(lambda i: i * (1 / 255))
-                        image = i.convert("RGBA" if alpha_is_transparency else "RGB")
-                        if width is None or height is None:
-                            width, height = image.size
-                        elif image.size != (width, height):
-                            continue
-                        image = np.array(image).astype(np.float32) / 255.0
-                        image = torch.from_numpy(image)[None,]
-                        if 'A' in i.getbands():
-                            mask = np.array(i.getchannel('A')).astype(np.float32) / 255.0
-                            mask = 1. - torch.from_numpy(mask)
-                        elif i.mode == 'P' and 'transparency' in i.info:
-                            mask = np.array(i.convert('RGBA').getchannel('A')).astype(np.float32) / 255.0
-                            mask = 1. - torch.from_numpy(mask)
-                        else:
-                            mask = torch.zeros((image.shape[1], image.shape[2]), dtype=torch.float32, device="cpu")
-                        output_images.append(image)
-                        output_masks.append(mask.unsqueeze(0))
+                    if i.mode == 'I':
+                        i = i.point(lambda i: i * (1 / 255))
+                    image = i.convert("RGBA" if alpha_is_transparency else "RGB")
+                    if width is None or height is None:
+                        width, height = image.size
+                    elif image.size != (width, height):
+                        continue
+                    image = np.array(image).astype(np.float32) / 255.0
+                    image = torch.from_numpy(image)[None,]
+                    if 'A' in i.getbands():
+                        mask = np.array(i.getchannel('A')).astype(np.float32) / 255.0
+                        mask = 1. - torch.from_numpy(mask)
+                    elif i.mode == 'P' and 'transparency' in i.info:
+                        mask = np.array(i.convert('RGBA').getchannel('A')).astype(np.float32) / 255.0
+                        mask = 1. - torch.from_numpy(mask)
+                    else:
+                        mask = torch.zeros((image.shape[1], image.shape[2]), dtype=torch.float32, device="cpu")
+                    output_images.append(image)
+                    output_masks.append(mask.unsqueeze(0))
 
-                        # Multi-picture JPEGs commonly contain a reduced-size
-                        # auxiliary image, not an animation frame.
-                        if img.format == "MPO":
-                            break
+                    # Multi-picture JPEGs commonly contain a reduced-size
+                    # auxiliary image, not an animation frame.
+                    if img.format == "MPO":
+                        break
 
         output_images_batched: ImageBatch = torch.cat(output_images, dim=0)
         output_masks_batched: MaskBatch = torch.cat(output_masks, dim=0)
