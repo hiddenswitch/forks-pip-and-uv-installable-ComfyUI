@@ -4,6 +4,7 @@ import io
 import json
 import socket
 import subprocess
+import sys
 import threading
 import time
 import urllib.request
@@ -17,25 +18,25 @@ from comfy_execution.graph_utils import GraphBuilder
 
 
 @pytest.fixture(scope="module")
-def server(args_pytest, tmp_path_factory):
+def server(tmp_path_factory):
     work = tmp_path_factory.mktemp("exr-previews")
     log = (work / "server.log").open("w")
     # Its own port: a server another module hasn't finished killing must not answer for this one.
     with socket.socket() as probe:
-        probe.bind((args_pytest["listen"], 0))
+        probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     process = subprocess.Popen([
-        "python", "main.py",
-        "--output-directory", args_pytest["output_dir"],
-        "--listen", args_pytest["listen"],
+        sys.executable, "-c", "from comfy.cmd.cli import entrypoint; entrypoint()",
+        "--output-directory", str(work / "output"),
+        "--listen", "127.0.0.1",
         "--port", str(port),
-        "--extra-model-paths-config", "tests/execution/extra_model_paths.yaml",
+        "--disable-all-custom-nodes",
         "--cpu",
         "--enable-assets",
         "--database-url", f"sqlite:///{work / 'assets.db'}",
         "--previews-directory", str(work / "previews"),
     ], stdout=log, stderr=subprocess.STDOUT)
-    base = f"http://{args_pytest['listen']}:{port}"
+    base = f"http://127.0.0.1:{port}"
     try:
         for _ in range(120):
             if process.poll() is not None:
@@ -83,7 +84,7 @@ def _run(base: str, prompt: dict) -> tuple[dict, str]:
 def _exr_save_graph(prefix: str, batch_size: int) -> tuple[dict, str]:
     g = GraphBuilder(prefix=prefix)
     # Small frames: decode speed is the unit tests' business, not this one's.
-    image = g.node("StubImage", content="WHITE", height=60, width=200, batch_size=batch_size)
+    image = g.node("EmptyImage", color=0xFFFFFF, height=60, width=200, batch_size=batch_size)
     save = g.node(
         "SaveImageAdvanced",
         images=image.out(0),

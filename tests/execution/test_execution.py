@@ -208,7 +208,7 @@ class TestExecution:
             prompt_id = e.args[0]['prompt_id']
 
         for _ in range(100):
-            history = client.get_history(prompt_id)
+            history = client.get_all_history(prompt_id)
             if prompt_id in history:
                 break
             time.sleep(0.1)
