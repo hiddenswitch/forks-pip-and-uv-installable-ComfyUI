@@ -1706,7 +1706,7 @@ class PromptQueue(AbstractPromptQueue):
         """
         with self.mutex:
             for item in self.currently_running.values():
-                if item[1] == prompt_id:
+                if item.prompt_id == prompt_id:
                     interruption.interrupt_current_processing()
                     return True
         return False

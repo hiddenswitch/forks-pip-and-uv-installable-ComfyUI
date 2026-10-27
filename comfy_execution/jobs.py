@@ -453,9 +453,13 @@ def get_job_create_times(
     Returns:
         Dict of creation times keyed by prompt_id; jobs the server no longer knows are left out
     """
-    extra_data_by_prompt = {item[1]: item[3] for item in [*running, *queued]}
+    extra_data_by_prompt = {
+        _queue_item_prompt_id(item): item.get("extra_data") if isinstance(item, dict) else item[3]
+        for item in [*running, *queued]
+    }
     for prompt_id, history_item in history.items():
-        extra_data_by_prompt[prompt_id] = history_item['prompt'][3]
+        item = history_item['prompt']
+        extra_data_by_prompt[prompt_id] = item.get("extra_data") if isinstance(item, dict) else item[3]
 
     create_times = {}
     for prompt_id in prompt_ids:
@@ -529,20 +533,24 @@ def get_all_jobs(
     return (jobs, total_count)
 
 
+def _queue_item_prompt_id(item):
+    return (item.get("id") or item.get("prompt_id")) if isinstance(item, dict) else item[1]
+
+
 def classify_job_for_cancel(prompt_id: str, running: list, queued: list, history: dict) -> str:
     """Classify a job id for cancellation.
 
     Returns one of CANCEL_RUNNING, CANCEL_PENDING, CANCEL_TERMINAL, CANCEL_UNKNOWN.
 
-    Queue items are tuples whose second element (index 1) is the prompt_id.
+    Queue items are dicts with id/prompt_id, or tuples with prompt_id at index 1.
     History is a dict keyed by prompt_id, so a job present there has already
     finished and cancelling it is a no-op.
     """
     for item in running:
-        if item[1] == prompt_id:
+        if _queue_item_prompt_id(item) == prompt_id:
             return CANCEL_RUNNING
     for item in queued:
-        if item[1] == prompt_id:
+        if _queue_item_prompt_id(item) == prompt_id:
             return CANCEL_PENDING
     if prompt_id in history:
         return CANCEL_TERMINAL
