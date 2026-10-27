@@ -36,6 +36,7 @@ CASES += [(name, "pp2", {"pipeline_parallel_size": 2})
 CASES += [("qwen-image", mode, {flag: 2})
           for mode, flag in (("ulysses2", "ulysses_degree"), ("ring2", "ring_degree"))]
 CASES += [("qwen-image-multigpu-cfg", "cfg2", {}), ("flux-compile", "compile", {})]
+CASES += [("ltx-2", "reserved-vram", {"reserve_vram": 4})]
 
 
 def install_runtime_probe(benchmark_path, runtime_path, configuration):
