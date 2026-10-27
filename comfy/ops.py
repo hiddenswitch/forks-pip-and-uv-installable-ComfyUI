@@ -21,6 +21,7 @@ import contextlib
 import json
 import logging
 import os
+import threading
 import typing
 
 from torch import Tensor
@@ -274,6 +275,7 @@ except:
 cast_to = model_management.cast_to  # TODO: remove once no more references
 
 _DEFERRED_VBAR_UNPINS = []
+_DEFERRED_VBAR_UNPINS_LOCK = threading.RLock()
 
 
 def cast_to_input(weight, input, non_blocking=False, copy=True):
@@ -288,27 +290,29 @@ def materialize_meta_param(s, param_keys):
 
 
 def _defer_vbar_unpin(alloc, device):
-    if device is None or device.type != "cuda":
-        comfy_aimdo.model_vbar.vbar_unpin(alloc)
-        return
-    event = torch.cuda.Event()
-    event.record(model_management.current_stream(device))
-    _DEFERRED_VBAR_UNPINS.append((event, alloc))
+    with _DEFERRED_VBAR_UNPINS_LOCK:
+        if device is None or device.type != "cuda":
+            comfy_aimdo.model_vbar.vbar_unpin(alloc)
+            return
+        event = torch.cuda.Event()
+        event.record(model_management.current_stream(device))
+        _DEFERRED_VBAR_UNPINS.append((event, alloc))
 
 
 def _drain_deferred_vbar_unpins(block=False):
-    if not _DEFERRED_VBAR_UNPINS:
-        return
-    pending = []
-    for event, alloc in _DEFERRED_VBAR_UNPINS:
-        if block:
-            event.synchronize()
-            comfy_aimdo.model_vbar.vbar_unpin(alloc)
-        elif event.query():
-            comfy_aimdo.model_vbar.vbar_unpin(alloc)
-        else:
-            pending.append((event, alloc))
-    _DEFERRED_VBAR_UNPINS[:] = pending
+    with _DEFERRED_VBAR_UNPINS_LOCK:
+        if not _DEFERRED_VBAR_UNPINS:
+            return
+        pending = []
+        for event, alloc in _DEFERRED_VBAR_UNPINS:
+            if block:
+                event.synchronize()
+                comfy_aimdo.model_vbar.vbar_unpin(alloc)
+            elif event.query():
+                comfy_aimdo.model_vbar.vbar_unpin(alloc)
+            else:
+                pending.append((event, alloc))
+        _DEFERRED_VBAR_UNPINS[:] = pending
 
 
 def finish_weight_cast_execution():
