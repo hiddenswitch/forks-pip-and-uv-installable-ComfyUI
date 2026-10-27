@@ -107,6 +107,8 @@ from ..app.assets.previews import generate_upload_preview
 from ..app.assets.services.asset_management import get_preview_file_paths
 from ..app.assets.services.preview_rules import preview_fields
 
+from ..app import deploy_to_cloud
+
 logger = logging.getLogger(__name__)
 
 
@@ -347,6 +349,7 @@ class PromptServer(ExecutorToClientProgress):
         self.subgraph_manager = SubgraphManager()
         self.node_replace_manager = NodeReplaceManager()
         self.internal_routes = InternalRoutes(self)
+        self.deploy_to_cloud_routes = deploy_to_cloud.DeployToCloudRoutes(self)
         # todo: this is probably read by custom nodes elsewhere
         self.supports: List[str] = ["custom_nodes_from_web"]
         self.prompt_queue: AbstractPromptQueue | AsyncAbstractPromptQueue | None = execution.PromptQueue(self)
@@ -1639,6 +1642,8 @@ class PromptServer(ExecutorToClientProgress):
                 api_routes.route(route.method, "/api" + route.path)(route.handler, **route.kwargs)
         self.app.add_routes(api_routes)
         self.app.add_routes(self.routes)
+        # Registered after the /api duplication above, so these exist only under /api.
+        self.deploy_to_cloud_routes.add_routes(self.app)
 
         # LSP WebSocket for eval node code intelligence
         self._lsp_manager = LspManager()

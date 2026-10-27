@@ -54,6 +54,10 @@ class PromptRequest(BaseModel):
         None,
         description='[cloud-only] Cloud workflow version ID for pinning execution to a specific version. Ignored by local ComfyUI.',
     )
+    workflow_metadata: dict[str, str] | None = Field(
+        None,
+        description='Key/values echoed on the json websocket messages of this prompt that carry a `prompt_id`, so a client can tell which of its open workflows a message belongs to. Messages without a `prompt_id`, such as `status`, do not carry it. The server does not interpret the contents. Limited to 256 bytes serialised; a larger or non-object value is ignored. When omitted, the server falls back to `{workflow_id: extra_data.extra_pnginfo.workflow.id}` if the submitted workflow carries an id.',
+    )
 
 
 class PromptErrorResponse(BaseModel):
@@ -2449,6 +2453,28 @@ class UpdateWorkflowRequest(BaseModel):
     default_view: DefaultView | None = Field(None, description='New default view mode')
     description: str | None = Field(None, description='New description')
     name: str | None = Field(None, description='New display name')
+
+
+class Error2(Enum):
+    offline = 'offline'
+    multiple_credentials = 'multiple_credentials'
+    invalid_api_key_format = 'invalid_api_key_format'
+    invalid_body = 'invalid_body'
+    missing_credentials = 'missing_credentials'
+    unauthorized = 'unauthorized'
+    too_large = 'too_large'
+    too_many_bundles = 'too_many_bundles'
+    builder_rejected = 'builder_rejected'
+    builder_unavailable = 'builder_unavailable'
+    builder_busy = 'builder_busy'
+
+
+class DeployToCloudError(BaseModel):
+    error: Error2 = Field(..., title='DeployToCloudErrorCode')
+    message: str | None = Field(
+        None,
+        description='Human-readable detail, present for invalid_body and builder_rejected.',
+    )
 
 
 class PromptResponse(BaseModel):
