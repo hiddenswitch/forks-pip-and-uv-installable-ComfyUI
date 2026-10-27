@@ -54,8 +54,6 @@ class MultiGPUThreadPool:
                 try:
                     result = fn(*args, **kwargs)
                     result_q.put((result, None))
-                except model_management.InterruptProcessingException as e:
-                    result_q.put((None, e))
                 except Exception as e:
                     result_q.put((None, e))
         finally:
