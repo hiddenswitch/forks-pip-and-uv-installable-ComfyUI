@@ -114,10 +114,11 @@ def _apply_overrides(obj: dict, configuration: Configuration) -> dict:
         replace_images, replace_videos, replace_audios,
         add_loras, enable_compile,
     )
-    from .workflow_params import apply_role, discover
+    from .workflow_params import apply_acceleration_defaults, apply_role, discover
 
     if configuration.set:
         obj = _apply_sets(obj, configuration.set)
+    obj = apply_acceleration_defaults(obj)
 
     role_overrides: list[tuple[str, object]] = [
         ("prompt", configuration.prompt),

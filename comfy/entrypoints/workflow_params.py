@@ -101,6 +101,27 @@ class Param:
 Predicate = Callable[[dict, dict | None], Iterable[Param]]
 
 
+@dataclass(frozen=True)
+class AccelerationProfile:
+    full_steps: int
+    turbo_steps: int
+    full_sampler: str
+    turbo_sampler: str
+
+
+# Diffusers MiniMax-H3 uses 50 sigma grid points including terminal zero,
+# which is 49 model evaluations in ComfyUI. The turbo LoRAs retain their
+# workflow-specific distilled schedules.
+ACCELERATION_LORA_PROFILES: dict[str, AccelerationProfile] = {
+    "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors": AccelerationProfile(
+        full_steps=49, turbo_steps=4, full_sampler="euler", turbo_sampler="res_multistep",
+    ),
+    "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors": AccelerationProfile(
+        full_steps=49, turbo_steps=8, full_sampler="euler", turbo_sampler="res_multistep",
+    ),
+}
+
+
 def _is_link(value: Any) -> bool:
     """Mirror the API-format link shape: [src_node_id, src_slot_idx]."""
     return (
@@ -351,6 +372,64 @@ def turbo_switches(api: dict, ui: dict | None) -> list[Param]:
             label="Turbo",
             source_predicates=["turbo_switches"],
         ))
+    return out
+
+
+def apply_acceleration_defaults(workflow: dict) -> dict:
+    """Apply authoritative base/turbo schedules for indexed acceleration LoRAs."""
+    out = copy.deepcopy(workflow)
+    for node_id, node in out.items():
+        if not isinstance(node, dict) or node.get("class_type") not in {"ComfySwitchNode", "SwitchNode"}:
+            continue
+        inputs = node.get("inputs") or {}
+        switch = inputs.get("switch")
+        on_true = inputs.get("on_true")
+        on_false = inputs.get("on_false")
+        if not (_is_link(switch) and _is_link(on_true) and _is_link(on_false)):
+            continue
+        true_node = out.get(str(on_true[0]))
+        if not isinstance(true_node, dict) or "loraloader" not in str(true_node.get("class_type", "")).lower():
+            continue
+        lora_name = true_node.get("inputs", {}).get("lora_name")
+        profile = ACCELERATION_LORA_PROFILES.get(str(lora_name).lower())
+        if profile is None or true_node.get("inputs", {}).get("model") != on_false:
+            continue
+        toggle = out.get(str(switch[0]))
+        if not isinstance(toggle, dict):
+            continue
+        toggle_widget = _primitive_value_widget(toggle)
+        enabled = toggle.get("inputs", {}).get(toggle_widget) if toggle_widget else None
+        if not isinstance(enabled, bool):
+            continue
+
+        for step_switch_id, step_switch in out.items():
+            if not isinstance(step_switch, dict) or step_switch.get("class_type") not in {"ComfySwitchNode", "SwitchNode"}:
+                continue
+            step_inputs = step_switch.get("inputs") or {}
+            if step_inputs.get("switch") != switch:
+                continue
+            feeds_steps = any(
+                isinstance(candidate, dict)
+                and candidate.get("class_type") in _pu._STEPS_CLASS_TYPES
+                and candidate.get("inputs", {}).get("steps") == [str(step_switch_id), 0]
+                for candidate in out.values()
+            )
+            if not feeds_steps:
+                continue
+            branch = step_inputs.get("on_true" if enabled else "on_false")
+            if _is_link(branch):
+                source = out.get(str(branch[0]))
+                if isinstance(source, dict):
+                    widget = _primitive_value_widget(source)
+                    if widget is not None:
+                        source.setdefault("inputs", {})[widget] = (
+                            profile.turbo_steps if enabled else profile.full_steps
+                        )
+
+        sampler_name = profile.turbo_sampler if enabled else profile.full_sampler
+        for candidate in out.values():
+            if isinstance(candidate, dict) and candidate.get("class_type") == "KSamplerSelect":
+                candidate.setdefault("inputs", {})["sampler_name"] = sampler_name
     return out
 
 

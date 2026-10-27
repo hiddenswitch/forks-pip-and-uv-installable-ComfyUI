@@ -13,6 +13,7 @@ from comfy.component_model.prompt_utils import (
     replace_steps,
     find_seed_nodes,
     replace_seed,
+    replace_sampler,
     find_image_load_nodes,
     replace_images,
     find_video_load_nodes,
@@ -491,6 +492,16 @@ class TestReplaceSeedSpecific:
         }
         result = replace_seed(prompt, 42)
         assert result is prompt
+
+
+def test_replace_sampler_updates_sampler_select_nodes():
+    prompt = {
+        "1": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "res_multistep"}},
+    }
+
+    result = replace_sampler(prompt, "euler")
+
+    assert result["1"]["inputs"]["sampler_name"] == "euler"
 
 
 class TestReplaceImages:

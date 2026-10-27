@@ -46,6 +46,7 @@ _CFG_CLASS_TYPES = frozenset({
 _SAMPLER_CLASS_TYPES = frozenset({
     "KSampler",
     "KSamplerAdvanced",
+    "KSamplerSelect",
 })
 
 _SCHEDULER_CLASS_TYPES = frozenset({

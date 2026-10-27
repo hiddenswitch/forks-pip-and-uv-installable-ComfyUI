@@ -249,6 +249,28 @@ def test_turbo_toggle_selects_matching_default_steps_before_explicit_override(
     assert output["turbo_steps"]["inputs"]["value"] == expected_turbo
 
 
+def test_h3_acceleration_profile_uses_diffusers_base_schedule_and_allows_overrides():
+    workflow = _turbo_switch_workflow(enabled=False)
+    workflow["lora"]["inputs"]["lora_name"] = (
+        "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors"
+    )
+    workflow["sampler"] = {
+        "class_type": "KSamplerSelect",
+        "inputs": {"sampler_name": "res_multistep"},
+    }
+
+    base = _apply_overrides(workflow, Configuration())
+    explicit = _apply_overrides(
+        workflow,
+        Configuration(steps=17, sampler="heun"),
+    )
+
+    assert base["full_steps"]["inputs"]["value"] == 49
+    assert base["sampler"]["inputs"]["sampler_name"] == "euler"
+    assert explicit["full_steps"]["inputs"]["value"] == 17
+    assert explicit["sampler"]["inputs"]["sampler_name"] == "heun"
+
+
 def test_bundled_workflow_catalog_turbo_detection_is_complete():
     cache_root = Path(__file__).parent / "playwright_cache"
     template_dir = max(
