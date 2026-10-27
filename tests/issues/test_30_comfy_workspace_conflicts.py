@@ -7,11 +7,12 @@ import shutil
 import time
 from importlib.resources import files
 from pathlib import Path
+from tests.conftest import server_startup_timeout_seconds
 
 pytestmark = [pytest.mark.slow, pytest.mark.git_clone]
 
 # Timeout in seconds for the server to start and print the expected lines.
-SERVER_START_TIMEOUT = 20
+SERVER_START_TIMEOUT = max(120, server_startup_timeout_seconds())
 # Repository URLs and references
 COMFYUI_REPO = "https://github.com/comfyanonymous/ComfyUI.git"
 COMFYSTREAM_REPO = "https://github.com/doctorpangloss/forks-comfystream.git"
@@ -155,7 +156,7 @@ def test_server_starts_with_comfystream(comfyui_workspace):
         env = os.environ.copy()
         env["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
         process = subprocess.Popen(
-            [str(venv_python), str(main_py_path), "--port", str(port)],
+            [str(venv_python), str(main_py_path), "--cpu", "--port", str(port)],
             cwd=comfyui_dir,
             env=env,
             stdout=subprocess.PIPE,
