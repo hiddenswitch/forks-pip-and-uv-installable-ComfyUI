@@ -87,6 +87,7 @@ _IMAGE_LOAD_CLASS_TYPES = frozenset({
 
 _VIDEO_LOAD_CLASS_TYPES = frozenset({
     "LoadVideo",
+    "LoadVideoObjectFromURL",
     "LoadVideoFromURL",
     "VHS_LoadVideo",
     "VHS_LoadVideoFFmpeg",
@@ -300,7 +301,7 @@ def replace_seed(prompt: dict, seed: int) -> dict:
 # filesystem-loader -> URL-loader class_type
 _MEDIA_LOADER_TO_URL: dict[str, str] = {
     "LoadImage": "LoadImageFromURL",
-    "LoadVideo": "LoadVideoFromURL",
+    "LoadVideo": "LoadVideoObjectFromURL",
     "LoadAudio": "LoadAudioFromURL",
 }
 

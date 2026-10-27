@@ -1254,9 +1254,13 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
     def _known_option_names(cls, ctx: click.Context | None) -> set[str]:
         return set(cls._option_value_arity_by_name(ctx))
 
-    @staticmethod
-    def _set_expr_for_workflow_param(param, raw_value: str) -> str:
-        return f"{param.node_id}.inputs.{param.widget_name}={raw_value}"
+    @classmethod
+    def _set_args_for_workflow_param(cls, param, raw_value: str) -> list[str]:
+        addresses = getattr(param, "addresses", [param.address])
+        out: list[str] = []
+        for node_id, widget_name in addresses:
+            out.extend(["--set", f"{node_id}.inputs.{widget_name}={raw_value}"])
+        return out
 
     @classmethod
     def _workflow_flag_for_param(cls, param, ctx: click.Context | None = None) -> str | None:
@@ -1303,7 +1307,7 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
             if negative_boolean_param is not None:
                 if eq:
                     raise click.UsageError(f"Option {option!r} does not take a value.")
-                rewritten.extend(["--set", cls._set_expr_for_workflow_param(negative_boolean_param, "false")])
+                rewritten.extend(cls._set_args_for_workflow_param(negative_boolean_param, "false"))
                 i += 1
                 continue
 
@@ -1314,18 +1318,18 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
                 continue
 
             if eq:
-                rewritten.extend(["--set", cls._set_expr_for_workflow_param(param, value)])
+                rewritten.extend(cls._set_args_for_workflow_param(param, value))
                 i += 1
                 continue
 
             if param.type == "BOOLEAN" and (i + 1 >= n or args[i + 1].startswith("-")):
-                rewritten.extend(["--set", cls._set_expr_for_workflow_param(param, "true")])
+                rewritten.extend(cls._set_args_for_workflow_param(param, "true"))
                 i += 1
                 continue
 
             if i + 1 >= n:
                 raise click.UsageError(f"Option {arg!r} requires a value.")
-            rewritten.extend(["--set", cls._set_expr_for_workflow_param(param, args[i + 1])])
+            rewritten.extend(cls._set_args_for_workflow_param(param, args[i + 1]))
             i += 2
         return rewritten
 
@@ -1423,6 +1427,8 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
         def _flag_for(p) -> str:
             flag = self._workflow_flag_for_param(p, ctx=ctx)
             if flag:
+                if p.type == "BOOLEAN":
+                    return f"{flag}/--no-{flag.removeprefix('--')}"
                 return flag
             return f"--set {p.node_id}.{p.widget_name}"
 

@@ -116,6 +116,9 @@ def _apply_overrides(obj: dict, configuration: Configuration) -> dict:
     )
     from .workflow_params import apply_role, discover
 
+    if configuration.set:
+        obj = _apply_sets(obj, configuration.set)
+
     role_overrides: list[tuple[str, object]] = [
         ("prompt", configuration.prompt),
         ("negative_prompt", configuration.negative_prompt),
@@ -144,8 +147,6 @@ def _apply_overrides(obj: dict, configuration: Configuration) -> dict:
         obj = replace_videos(obj, configuration.video)
     if configuration.audio is not None:
         obj = replace_audios(obj, configuration.audio)
-    if configuration.set:
-        obj = _apply_sets(obj, configuration.set)
     # LoRAs must splice in BEFORE --compile so the compiled graph captures
     # the LoRA patches. add_loras inserts right after the root loader
     # (earliest predecessor of the sampler); enable_compile wraps the

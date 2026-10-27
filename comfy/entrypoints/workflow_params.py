@@ -87,10 +87,15 @@ class Param:
     flag_name: str | None = None
     label: str | None = None
     source_predicates: list[str] = field(default_factory=list)
+    targets: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def address(self) -> tuple[str, str]:
         return (self.node_id, self.widget_name)
+
+    @property
+    def addresses(self) -> list[tuple[str, str]]:
+        return [self.address, *self.targets]
 
 
 Predicate = Callable[[dict, dict | None], Iterable[Param]]
@@ -150,6 +155,15 @@ def _literal_value_source(api: dict, value: Any, seen: set[tuple[str, str]] | No
     return None if _is_link(result) else result
 
 
+def _primitive_value_widget(node: dict) -> str | None:
+    inputs = node.get("inputs") or {}
+    if "value" in inputs:
+        return "value"
+    if "widget_0" in inputs:
+        return "widget_0"
+    return next((name for name, value in inputs.items() if not _is_link(value)), None)
+
+
 def _resolve_linked_input_source(
     api: dict,
     node_id: str,
@@ -159,14 +173,16 @@ def _resolve_linked_input_source(
     """Return the concrete API widget that currently feeds a linked input."""
     if seen is None:
         seen = set()
+    node = api.get(str(node_id))
+    if not isinstance(node, dict):
+        return None
+    if widget_name == "value" and node.get("class_type") in _TYPED_PRIMITIVE_CLASSES:
+        widget_name = _primitive_value_widget(node) or widget_name
     key = (str(node_id), widget_name)
     if key in seen:
         return None
     seen.add(key)
 
-    node = api.get(str(node_id))
-    if not isinstance(node, dict):
-        return None
     inputs = node.get("inputs") or {}
     value = inputs.get(widget_name)
     if value is None:
@@ -182,11 +198,14 @@ def _resolve_linked_input_source(
 
     source_type = source_node.get("class_type") or ""
     source_inputs = source_node.get("inputs") or {}
-    if source_type in _TYPED_PRIMITIVE_CLASSES and "value" in source_inputs:
-        primitive_value = source_inputs.get("value")
+    if source_type in _TYPED_PRIMITIVE_CLASSES:
+        value_widget = _primitive_value_widget(source_node)
+        if value_widget is None:
+            return None
+        primitive_value = source_inputs.get(value_widget)
         if _is_link(primitive_value):
-            return _resolve_linked_input_source(api, source_node_id, "value", seen)
-        return (source_node_id, "value")
+            return _resolve_linked_input_source(api, source_node_id, value_widget, seen)
+        return (source_node_id, value_widget)
 
     if source_type in {"ComfySwitchNode", "SwitchNode"}:
         switch_value = _literal_value_source(api, source_inputs.get("switch"), seen)
@@ -272,6 +291,66 @@ def class_type_roles(api: dict, ui: dict | None) -> list[Param]:
                     source_predicates=["class_type_roles"],
                 )
             )
+    return out
+
+
+def turbo_switches(api: dict, ui: dict | None) -> list[Param]:
+    model_toggles: set[str] = set()
+    step_toggles: set[str] = set()
+
+    for node_id, node in api.items():
+        if not isinstance(node, dict) or node.get("class_type") not in {"ComfySwitchNode", "SwitchNode"}:
+            continue
+        inputs = node.get("inputs") or {}
+        switch = inputs.get("switch")
+        if not _is_link(switch):
+            continue
+        toggle_id = str(switch[0])
+        toggle = api.get(toggle_id)
+        if not isinstance(toggle, dict) or toggle.get("class_type") != "PrimitiveBoolean":
+            continue
+
+        on_true = inputs.get("on_true")
+        on_false = inputs.get("on_false")
+        true_node = api.get(str(on_true[0])) if _is_link(on_true) else None
+        false_node = api.get(str(on_false[0])) if _is_link(on_false) else None
+        if (
+            isinstance(true_node, dict)
+            and "loraloader" in str(true_node.get("class_type", "")).lower()
+            and not (isinstance(false_node, dict) and "loraloader" in str(false_node.get("class_type", "")).lower())
+        ):
+            model_toggles.add(toggle_id)
+
+        full_steps = _literal_value_source(api, on_false)
+        turbo_steps = _literal_value_source(api, on_true)
+        feeds_steps = any(
+            candidate.get("class_type") in _pu._STEPS_CLASS_TYPES
+            and candidate.get("inputs", {}).get("steps") == [str(node_id), 0]
+            for candidate in api.values()
+            if isinstance(candidate, dict)
+        )
+        if feeds_steps and isinstance(full_steps, int) and isinstance(turbo_steps, int) and full_steps > turbo_steps:
+            step_toggles.add(toggle_id)
+
+    out: list[Param] = []
+    for toggle_id in sorted(model_toggles & step_toggles):
+        toggle = api[toggle_id]
+        widget_name = _primitive_value_widget(toggle)
+        value = toggle.get("inputs", {}).get(widget_name) if widget_name else None
+        if not isinstance(value, bool):
+            continue
+        out.append(Param(
+            node_id=toggle_id,
+            class_type="PrimitiveBoolean",
+            widget_name=widget_name,
+            value=value,
+            type="BOOLEAN",
+            roles={"turbo"},
+            tier=TIER_HEADLINE,
+            flag_name="turbo",
+            label="Turbo",
+            source_predicates=["turbo_switches"],
+        ))
     return out
 
 
@@ -804,6 +883,7 @@ def prompt_polarity(api: dict, ui: dict | None) -> list[Param]:
 _PREDICATES: list[tuple[str, Predicate]] = [
     ("frontend_widget_pool", frontend_widget_pool),
     ("class_type_roles", class_type_roles),
+    ("turbo_switches", turbo_switches),
     ("prompt_polarity", prompt_polarity),
     ("set_node_pairs", set_node_pairs),
     ("primitive_nodes", primitive_nodes),
@@ -883,6 +963,9 @@ def _merge_equivalent_flag_params(params: list[Param]) -> list[Param]:
             existing.label = param.label
         if not existing.options and param.options:
             existing.options = param.options
+        for address in param.addresses:
+            if address != existing.address and address not in existing.targets:
+                existing.targets.append(address)
     return out
 
 
@@ -934,11 +1017,12 @@ def apply(workflow: dict, param: Param, value: Any) -> dict:
             "apply() expects an API-format workflow; call convert_ui_to_api first"
         )
     out = copy.deepcopy(workflow)
-    node = out.get(param.node_id)
-    if not isinstance(node, dict):
-        raise KeyError(f"node {param.node_id!r} not in workflow")
-    inputs = node.setdefault("inputs", {})
-    inputs[param.widget_name] = value
+    for node_id, widget_name in param.addresses:
+        node = out.get(node_id)
+        if not isinstance(node, dict):
+            raise KeyError(f"node {node_id!r} not in workflow")
+        inputs = node.setdefault("inputs", {})
+        inputs[widget_name] = value
     return out
 
 
@@ -994,11 +1078,12 @@ def apply_role(
         return workflow
     out = copy.deepcopy(workflow)
     for p in matches:
-        node = out.get(p.node_id)
-        if not isinstance(node, dict):
-            continue
-        inputs = node.setdefault("inputs", {})
-        if _is_link(inputs.get(p.widget_name)):
-            continue
-        inputs[p.widget_name] = value
+        for node_id, widget_name in p.addresses:
+            node = out.get(node_id)
+            if not isinstance(node, dict):
+                continue
+            inputs = node.setdefault("inputs", {})
+            if _is_link(inputs.get(widget_name)):
+                continue
+            inputs[widget_name] = value
     return out

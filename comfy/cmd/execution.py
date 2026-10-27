@@ -1062,6 +1062,22 @@ def iterate_obj_classes(prompt: dict[str, typing.Any]) -> typing.Generator[typin
         yield get_nodes().NODE_CLASS_MAPPINGS[node['class_type']]
 
 
+def _inactive_switch_input(prompt: typing.Mapping[str, typing.Any], class_type: str, inputs: typing.Mapping[str, typing.Any]) -> str | None:
+    if class_type not in {"ComfySwitchNode", "SwitchNode"}:
+        return None
+
+    switch = inputs.get("switch")
+    if isinstance(switch, list) and len(switch) == 2:
+        source = prompt.get(str(switch[0]))
+        if source is None or source.get("class_type") != "PrimitiveBoolean" or switch[1] != 0:
+            return None
+        source_inputs = source.get("inputs", {})
+        switch = source_inputs.get("value", source_inputs.get("widget_0"))
+    if not isinstance(switch, bool):
+        return None
+    return "on_false" if switch else "on_true"
+
+
 async def validate_inputs(prompt_id: typing.Any, prompt, item, validated: typing.Dict[str, ValidateInputsTuple], visiting: Optional[list[str]] = None) -> ValidateInputsTuple:
     # todo: this should check if LoadImage / LoadImageMask paths exist
     # todo: or, nodes should provide a way to validate their values
@@ -1137,8 +1153,11 @@ async def validate_inputs(prompt_id: typing.Any, prompt, item, validated: typing
     received_types = {}
 
     valid_inputs = set(class_inputs.get('required', {})).union(set(class_inputs.get('optional', {})))
+    inactive_switch_input = _inactive_switch_input(prompt, class_type, inputs)
 
     for x in valid_inputs:
+        if x == inactive_switch_input:
+            continue
         input_type, input_category, extra_info = get_input_info(obj_class, x, class_inputs)
         assert extra_info is not None
         if x not in inputs:

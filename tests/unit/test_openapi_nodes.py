@@ -22,7 +22,7 @@ from comfy_extras.nodes.nodes_open_api import SaveImagesResponse, IntRequestPara
     StringRequestParameter, HashImage, StringPosixPathJoin, LegacyOutputURIs, DevNullUris, StringJoin, StringToUri, \
     UriFormat, ImageExifMerge, ImageExifCreationDateAndBatchNumber, ImageExif, ImageExifUncommon, \
     StringEnumRequestParameter, ExifContainer, BooleanRequestParameter, ImageRequestParameter, \
-    VideoRequestParameter, AudioRequestParameter, LoadImageFromURL, LoadVideoFromURL, LoadAudioFromURL, \
+    VideoRequestParameter, AudioRequestParameter, LoadImageFromURL, LoadVideoFromURL, LoadVideoObjectFromURL, LoadAudioFromURL, \
     _open_media_files, _media_input_types, _HTTP_USER_AGENT, _open_api_common_schema, _VIDEO_EXTRA_OPTIONAL
 
 _image_1x1 = torch.zeros((1, 1, 1, 3), dtype=torch.float32, device="cpu")
@@ -1066,6 +1066,17 @@ class TestLoadVideoFromURLExecute:
         video, mask, count, fps = node.execute(value=path)
         assert count == 4
         assert video.shape[0] == 4
+
+
+class TestLoadVideoObjectFromURLExecute:
+    def test_returns_video_object_with_audio_capable_components(self, tmp_path):
+        path = str(tmp_path / "video-object.mp4")
+        _make_test_video(path, num_frames=4)
+
+        video, = LoadVideoObjectFromURL().execute(value=path)
+        components = video.get_components()
+
+        assert components.images.shape[0] == 4
 
 
 def _make_test_audio(path, sr=16000, duration_s=0.1, channels=1):

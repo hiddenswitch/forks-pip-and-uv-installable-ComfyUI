@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import io
 import json
 import logging
 import os
@@ -31,6 +32,8 @@ from fsspec.implementations.local import LocalFileSystem
 from joblib import Parallel, delayed
 from natsort import natsorted
 from torch import Tensor
+
+from comfy_api.latest import InputImpl
 
 from comfy.cmd import folder_paths
 from comfy.comfy_types import IO
@@ -1015,6 +1018,26 @@ class LoadVideoFromURL(VideoRequestParameter):
 
     def execute(self, value: str = "", default_if_empty=None, frame_load_cap=0, skip_first_frames=0, select_every_nth=1, *args, **kwargs):
         return super().execute(value, default_if_empty, frame_load_cap, skip_first_frames, select_every_nth, *args, **kwargs)
+
+
+class LoadVideoObjectFromURL(VideoRequestParameter):
+    @classmethod
+    def INPUT_TYPES(cls) -> InputTypes:
+        return _media_input_types("VIDEO", include_api_schema=False)
+
+    RETURN_TYPES = ("VIDEO",)
+    FUNCTION = "execute"
+    CATEGORY = "api/openapi"
+
+    def execute(self, value: str = "", default_if_empty=None, *args, **kwargs):
+        if value.strip() == "":
+            return (default_if_empty,)
+
+        with _open_media_files(value) as files:
+            for file in files:
+                return (InputImpl.VideoFromFile(io.BytesIO(file.read())),)
+
+        return (default_if_empty,)
 
 
 class AudioRequestParameter(CustomNode):

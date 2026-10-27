@@ -818,7 +818,7 @@ class TestReplaceVideosSpecific:
             }
         }
         result = replace_videos(prompt, ["https://example.com/clip.mp4"])
-        assert result["1"]["class_type"] == "LoadVideoFromURL"
+        assert result["1"]["class_type"] == "LoadVideoObjectFromURL"
         assert result["1"]["inputs"]["value"] == "https://example.com/clip.mp4"
         assert "_meta" not in result["1"]
 
@@ -890,7 +890,7 @@ class TestReplaceVideosSpecific:
         }
         result = replace_videos(prompt, ["url1.mp4"])
         assert prompt["1"]["class_type"] == "LoadVideo"
-        assert result["1"]["class_type"] == "LoadVideoFromURL"
+        assert result["1"]["class_type"] == "LoadVideoObjectFromURL"
 
 
 class TestReplaceAudiosSpecific:

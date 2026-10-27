@@ -8,6 +8,7 @@ from pytest_mock import MockerFixture
 from comfy.cli_args import args
 from comfy.cmd.execution import validate_prompt
 from comfy.nodes_context import get_nodes
+from comfy_extras.nodes.nodes_logic import SwitchNode
 
 import uuid
 
@@ -205,6 +206,57 @@ async def test_validate_prompt_invalid_input_type(mock_nodes):
     assert not result.valid
     assert result.error["type"] == "prompt_outputs_failed_validation"
     assert result.node_errors["1"]["errors"][0]["type"] == "value_not_in_list"
+
+
+@pytest.mark.parametrize("boolean_widget", ["value", "widget_0"])
+async def test_validate_prompt_only_validates_selected_switch_branch(mock_nodes, mocker, boolean_widget):
+    class ModelSource:
+        @staticmethod
+        def INPUT_TYPES():
+            return {"required": {"model_name": (["available.safetensors"],)}}
+
+        RETURN_TYPES = ("MODEL",)
+
+    class PrimitiveBoolean:
+        @staticmethod
+        def INPUT_TYPES():
+            return {"required": {boolean_widget: ("BOOLEAN",)}}
+
+        RETURN_TYPES = ("BOOLEAN",)
+
+    class ModelOutput:
+        @staticmethod
+        def INPUT_TYPES():
+            return {"required": {"model": ("MODEL",)}}
+
+        RETURN_TYPES = ()
+        OUTPUT_NODE = True
+
+    mocker.patch.dict(get_nodes().NODE_CLASS_MAPPINGS, {
+        "ModelSource": ModelSource,
+        "PrimitiveBoolean": PrimitiveBoolean,
+        "ComfySwitchNode": SwitchNode,
+        "ModelOutput": ModelOutput,
+    })
+    prompt = {
+        "flag": {"class_type": "PrimitiveBoolean", "inputs": {boolean_widget: False}},
+        "full": {"class_type": "ModelSource", "inputs": {"model_name": "available.safetensors"}},
+        "turbo": {"class_type": "ModelSource", "inputs": {"model_name": "missing.safetensors"}},
+        "switch": {"class_type": "ComfySwitchNode", "inputs": {
+            "switch": ["flag", 0],
+            "on_false": ["full", 0],
+            "on_true": ["turbo", 0],
+        }},
+        "output": {"class_type": "ModelOutput", "inputs": {"model": ["switch", 0]}},
+    }
+
+    result = await validate_prompt(str(uuid.uuid4()), prompt)
+    assert result.valid, result.node_errors
+
+    prompt["flag"]["inputs"][boolean_widget] = True
+    result = await validate_prompt(str(uuid.uuid4()), prompt)
+    assert not result.valid
+    assert result.node_errors["turbo"]["errors"][0]["type"] == "value_not_in_list"
 
 
 @pytest.mark.parametrize("ckpt_name, known_model", [

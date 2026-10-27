@@ -105,6 +105,32 @@ def test_rewrites_discovered_boolean_flags(monkeypatch):
     ) == ["workflow.json", "--set", "10.inputs.value=false"]
 
 
+def test_rewrites_grouped_turbo_boolean_for_every_matching_branch(monkeypatch):
+    _patch_params(
+        monkeypatch,
+        [
+            Param(
+                node_id="10",
+                class_type="PrimitiveBoolean",
+                widget_name="value",
+                value=True,
+                type="BOOLEAN",
+                flag_name="turbo",
+                targets=[("20", "value")],
+            )
+        ],
+    )
+
+    assert _RunWorkflowCommand._rewrite_workflow_param_args(
+        ["workflow.json", "--no-turbo"],
+        ctx=_ctx(),
+    ) == [
+        "workflow.json",
+        "--set", "10.inputs.value=false",
+        "--set", "20.inputs.value=false",
+    ]
+
+
 def test_builtin_option_collision_gets_x_prefixed_workflow_flag(monkeypatch):
     _patch_params(
         monkeypatch,

@@ -18,7 +18,10 @@ from importlib.resources import files
 from pathlib import Path
 
 import pytest
+from packaging.version import Version
 
+from comfy.cli_args_types import Configuration
+from comfy.entrypoints.workflow import _apply_overrides
 from comfy.entrypoints.workflow_params import (
     Param,
     TIER_ADVANCED,
@@ -40,6 +43,7 @@ from comfy.entrypoints.workflow_params import (
     prompt_polarity,
     set_node_pairs,
     titled_nodes,
+    turbo_switches,
     workflow_extra_metadata,
 )
 
@@ -149,6 +153,157 @@ def test_discover_sorted_stably_by_node_then_widget():
     )
     addrs = [p.address for p in discover(api)]
     assert addrs == [("10", "a"), ("10", "b"), ("2", "a"), ("2", "b")]
+
+
+def _turbo_switch_workflow(enabled: bool = False) -> dict:
+    return {
+        "model": {"class_type": "UNETLoader", "inputs": {"unet_name": "base.safetensors"}},
+        "lora": {"class_type": "LoraLoaderModelOnly", "inputs": {
+            "model": ["model", 0], "lora_name": "turbo.safetensors", "strength_model": 1.0,
+        }},
+        "toggle": {"class_type": "PrimitiveBoolean", "inputs": {"value": enabled}},
+        "model_switch": {"class_type": "ComfySwitchNode", "inputs": {
+            "switch": ["toggle", 0], "on_false": ["model", 0], "on_true": ["lora", 0],
+        }},
+        "full_steps": {"class_type": "PrimitiveInt", "inputs": {"value": 20}},
+        "turbo_steps": {"class_type": "PrimitiveInt", "inputs": {"value": 4}},
+        "step_switch": {"class_type": "ComfySwitchNode", "inputs": {
+            "switch": ["toggle", 0], "on_false": ["full_steps", 0], "on_true": ["turbo_steps", 0],
+        }},
+        "scheduler": {"class_type": "BasicScheduler", "inputs": {
+            "model": ["model_switch", 0], "steps": ["step_switch", 0], "scheduler": "simple", "denoise": 1.0,
+        }},
+    }
+
+
+def test_turbo_switch_requires_paired_lora_and_step_switches():
+    workflow = _turbo_switch_workflow()
+    turbo = turbo_switches(workflow, None)
+
+    assert [(p.address, p.flag_name, p.value, p.roles) for p in turbo] == [
+        (("toggle", "value"), "turbo", False, {"turbo"}),
+    ]
+
+    del workflow["scheduler"]["inputs"]["steps"]
+    assert turbo_switches(workflow, None) == []
+
+
+def test_turbo_switch_supports_ui_converted_primitive_widget_names():
+    workflow = _turbo_switch_workflow()
+    workflow["toggle"]["inputs"] = {"widget_0": False}
+
+    turbo = turbo_switches(workflow, None)
+
+    assert len(turbo) == 1
+    assert turbo[0].widget_name == "widget_0"
+
+
+def test_discover_exposes_one_turbo_boolean_for_paired_switches():
+    params = discover(_turbo_switch_workflow())
+    turbo = params_by_role(params, "turbo")
+
+    assert len(turbo) == 1
+    assert turbo[0].flag_name == "turbo"
+    assert turbo[0].type == "BOOLEAN"
+
+
+@pytest.mark.parametrize(
+    "enabled,steps,expected_full,expected_turbo",
+    [
+        (False, None, 20, 4),
+        (False, 12, 12, 4),
+        (True, None, 20, 4),
+        (True, 2, 20, 2),
+    ],
+)
+def test_turbo_toggle_selects_matching_default_steps_before_explicit_override(
+    enabled, steps, expected_full, expected_turbo
+):
+    workflow = _turbo_switch_workflow(enabled=not enabled)
+    output = _apply_overrides(
+        workflow,
+        Configuration(set=[f"toggle.inputs.value={str(enabled).lower()}"], steps=steps),
+    )
+
+    assert output["toggle"]["inputs"]["value"] is enabled
+    assert output["full_steps"]["inputs"]["value"] == expected_full
+    assert output["turbo_steps"]["inputs"]["value"] == expected_turbo
+
+
+def test_bundled_workflow_catalog_turbo_detection_is_complete():
+    cache_root = Path(__file__).parent / "playwright_cache"
+    template_dir = max(
+        (path for path in cache_root.iterdir() if path.is_dir()),
+        key=lambda path: Version(path.name.split("+", 1)[0]),
+    )
+    detected = {}
+    for path in template_dir.glob("*.json"):
+        workflow = json.loads(path.read_text())
+        if not isinstance(workflow, dict) or not workflow:
+            continue
+        raw_params = turbo_switches(workflow, None)
+        if not raw_params:
+            continue
+        step_pairs = []
+        for param in raw_params:
+            step_switch = next(
+                node
+                for switch_id, node in workflow.items()
+                if isinstance(node, dict)
+                and node.get("class_type") in {"ComfySwitchNode", "SwitchNode"}
+                and node.get("inputs", {}).get("switch") == [param.node_id, 0]
+                and any(
+                    isinstance(consumer, dict)
+                    and consumer.get("inputs", {}).get("steps") == [str(switch_id), 0]
+                    for consumer in workflow.values()
+                )
+            )
+            inputs = step_switch["inputs"]
+            step_pairs.append((
+                workflow[str(inputs["on_false"][0])]["inputs"]["value"],
+                workflow[str(inputs["on_true"][0])]["inputs"]["value"],
+            ))
+        friendly = params_by_role(discover(workflow), "turbo")
+        assert len(friendly) == 1, path.name
+        assert len(friendly[0].addresses) == len(raw_params), path.name
+        assert len({param.value for param in raw_params}) == 1, path.name
+        assert len(set(step_pairs)) == 1, path.name
+        detected[path.stem] = (raw_params[0].value, *step_pairs[0], len(raw_params))
+
+    assert detected == {
+        "image_anima_base_v1": (False, 30, 8, 1),
+        "image_anima_lllite_any_control_to_image": (False, 30, 8, 1),
+        "image_anima_lllite_depth_control_to_image": (False, 30, 8, 1),
+        "image_anima_lllite_image_inpainting": (True, 30, 8, 1),
+        "image_chrono_edit_14B": (False, 20, 4, 1),
+        "image_firered_image_edit1_1": (False, 40, 8, 1),
+        "image_flux2": (False, 20, 8, 1),
+        "image_flux2_fp8": (False, 20, 8, 1),
+        "image_flux2_text_to_image": (False, 20, 8, 1),
+        "image_qwen_Image_2512": (False, 50, 4, 1),
+        "image_qwen_Image_2512_controlnet": (False, 50, 4, 1),
+        "image_qwen_image": (False, 20, 8, 1),
+        "image_qwen_image_edit": (False, 20, 4, 1),
+        "image_qwen_image_edit_2509": (True, 20, 4, 1),
+        "image_qwen_image_edit_2511": (False, 40, 4, 1),
+        "image_qwen_image_edit_2511_int8": (False, 40, 4, 1),
+        "template_qwen_image_edit_2511_systms_action": (True, 40, 4, 1),
+        "template_qwen_multiangle.app": (True, 40, 4, 1),
+        "templates-1_click_multiple_character_angles-v1.0": (True, 40, 4, 8),
+        "video_bernini_r_image_editing": (True, 40, 6, 1),
+        "video_bernini_r_video_editing": (True, 40, 6, 1),
+        "video_minimax_h3_i2v": (False, 20, 8, 1),
+        "video_minimax_h3_i2v_continuation": (False, 20, 8, 1),
+        "video_minimax_h3_multiframe_reference": (False, 20, 4, 1),
+        "video_minimax_h3_r2v": (False, 20, 4, 1),
+        "video_minimax_h3_t2v": (False, 20, 8, 1),
+        "video_wan2_2_14B_i2v": (False, 20, 4, 1),
+        "video_wan2_2_14B_t2v": (False, 20, 4, 1),
+        "video_wan_dancer": (True, 25, 6, 1),
+        "video_wan_vace_flf2v": (False, 20, 6, 1),
+        "video_wan_vace_inpainting": (True, 20, 6, 1),
+        "video_wanmove_480p": (False, 20, 6, 1),
+    }
 
 
 def test_discover_collapses_equivalent_flags_and_suffixes_distinct_collisions():
