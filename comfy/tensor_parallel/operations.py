@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import torch
-
 from .types import TensorParallelConfig
 
 
@@ -82,6 +80,9 @@ def tensor_parallel_operations(base_operations, parallel: TensorParallelConfig):
                 self.tensor_parallel_out_features = out_features
 
         class RowParallelLinear(base_operations.Linear):
+            # Fused activation helpers must preserve the collective in forward.
+            comfy_force_forward = True
+
             def __init__(self, in_features, out_features, bias=True, *,
                          device=None, dtype=None):
                 if in_features % parallel.size:
@@ -113,6 +114,8 @@ def full_domain_tensor_parallel_operations(base_operations, parallel: TensorPara
 
     class FullDomainTensorParallelOperations(TensorParallelOperations):
         class RowParallelLinear(base_operations.Linear):
+            comfy_force_forward = True
+
             def __init__(self, in_features, out_features, bias=True, *,
                          device=None, dtype=None):
                 if out_features % parallel.size:
@@ -135,13 +138,6 @@ def full_domain_tensor_parallel_operations(base_operations, parallel: TensorPara
                 local_output = super().forward(full_input, *args, **kwargs)
                 return parallel.operations.gather(local_output)
 
-            def forward_input_act(self, input, input_act):
-                if input_act != "swiglu":
-                    raise ValueError(f"Unsupported full-domain input activation {input_act!r}")
-                gate, value = input.chunk(2, dim=-1)
-                activated = torch.nn.functional.silu(gate) * value
-                return self.forward(activated)
-
     FullDomainTensorParallelOperations.__name__ = (
         f"FullDomainTensorParallel{base_operations.__name__}"
     )
@@ -152,6 +148,8 @@ def gathered_output_operations(base_operations, parallel: TensorParallelConfig):
     """Shard output rows while keeping the full activation quantization domain."""
     class GatheredOutputOperations(base_operations):
         class Linear(base_operations.Linear):
+            comfy_force_forward = True
+
             def __init__(self, in_features, out_features, bias=True, *, device=None, dtype=None):
                 if out_features % parallel.size:
                     raise ValueError(f"Output size {out_features} must divide {parallel.size} ranks")

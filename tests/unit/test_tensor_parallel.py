@@ -26,6 +26,7 @@ from comfy.tensor_parallel.distributed import (
     _broadcast_tensors,
     _without_execution_caches,
 )
+from comfy.tensor_parallel.operations import gathered_output_operations
 
 
 class RecordingExecutor:
@@ -151,6 +152,51 @@ def _run_parallel(modules, value):
     for thread in threads:
         thread.join()
     return outputs
+
+
+@pytest.mark.parametrize("size", [2, 4])
+@pytest.mark.parametrize("input_act", ["swiglu", "gelu_tanh"])
+@pytest.mark.parametrize("layout", ["row", "full_domain", "gathered_output"])
+def test_fused_input_activation_preserves_parallel_forward(monkeypatch, size, input_act, layout):
+    monkeypatch.setattr(comfy_ops, "_fp16_linear_wanted", lambda value: True)
+    monkeypatch.setattr(model_management, "in_training", False)
+
+    def fused_linear(value, weight, bias, activation, act_weight, act_eps, residual, residual_scale):
+        activated = comfy_ops.INPUT_ACT_EAGER[activation](value)
+        output = torch.nn.functional.linear(activated, weight, bias)
+        return torch.addcmul(residual, output, residual_scale)
+
+    monkeypatch.setattr(comfy_ops, "linear_input_act_", fused_linear)
+    torch.manual_seed(42)
+    value = torch.randn(3, 16 if input_act == "swiglu" else 8)
+    weight = torch.randn(8, 8)
+    bias = torch.randn(8)
+    residual = torch.randn(3, 8)
+    scale = torch.randn(8)
+    expected = fused_linear(value, weight, bias, input_act, None, 0.0, residual, scale)
+    collective = ThreadCollective(size)
+    calls = []
+    for rank in range(size):
+        config = TensorParallelConfig(ThreadTensorParallelOperations(collective, rank))
+        if layout == "gathered_output":
+            operations = gathered_output_operations(comfy_ops.disable_weight_init, config)
+            linear = operations.Linear(8, 8)
+            local_input = value
+        else:
+            decorator = tensor_parallel_operations if layout == "row" else full_domain_tensor_parallel_operations
+            operations = decorator(comfy_ops.disable_weight_init, config)
+            linear = operations.RowParallelLinear(8, 8)
+            sections = value.chunk(2, dim=-1) if input_act == "swiglu" else (value,)
+            local_input = torch.cat([section.chunk(size, dim=-1)[rank] for section in sections], dim=-1)
+        local_weight = weight.chunk(size, dim=1 if layout == "row" else 0)[rank]
+        linear.weight.detach().copy_(local_weight)
+        if linear.bias is not None:
+            linear.bias.detach().copy_(bias if layout == "row" else bias.chunk(size)[rank])
+        calls.append(lambda _, linear=linear, local_input=local_input: comfy_ops.linear_input_act(
+            linear, local_input, input_act, residual=residual, residual_scale=scale,
+        ))
+    for output in _run_parallel(calls, None):
+        torch.testing.assert_close(output, expected)
 
 
 def test_minimax_checkpoint_shards_megatron_projection_dimensions():
