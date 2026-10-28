@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import pytest
 import torch
 
+from comfy.execution_context import current_execution_context
 from comfy.cmd import folder_paths
-from comfy.cli_args import args
 from comfy_extras.nodes import nodes_images
 from comfy_extras.nodes.nodes_images import (
     ImageColorSpace,
@@ -98,7 +98,7 @@ def dirs(tmp_path, monkeypatch):
     folder_paths.set_output_directory(str(tmp_path / "output"))
     folder_paths.set_previews_directory(str(tmp_path / "previews"))
     (tmp_path / "output").mkdir()
-    monkeypatch.setattr(args, "disable_metadata", False)
+    monkeypatch.setitem(current_execution_context().configuration, "disable_metadata", False)
     monkeypatch.setattr(SaveImageAdvanced, "hidden", SimpleNamespace(prompt=None, extra_pnginfo=None), raising=False)
     yield tmp_path
     folder_paths.set_output_directory(saved[0])

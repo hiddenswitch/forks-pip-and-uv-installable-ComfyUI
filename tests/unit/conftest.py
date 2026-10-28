@@ -100,7 +100,7 @@ def file_db(tmp_path, monkeypatch):
     from comfy.app.database import db as db_module
 
     db_path = str(tmp_path / "comfyui.db")
-    monkeypatch.setattr(db_module.current_execution_context().configuration, "database_url", f"sqlite:///{db_path}")
+    monkeypatch.setitem(db_module.current_execution_context().configuration, "database_url", f"sqlite:///{db_path}")
     monkeypatch.setattr(db_module, "Session", None)
     monkeypatch.setattr(db_module, "WriteSession", None)
     monkeypatch.setattr(db_module, "_db_lock", None)

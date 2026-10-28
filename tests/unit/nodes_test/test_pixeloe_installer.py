@@ -9,7 +9,7 @@ from comfy.nodes.vanilla_node_importing import _vanilla_load_custom_nodes_1
 
 @pytest.mark.parametrize("block_installation", [True, False])
 def test_pixeloe_loads_without_importing_obsolete_runtime_installer(tmp_path, monkeypatch, block_installation):
-    monkeypatch.setattr(current_execution_context().configuration, "block_runtime_package_installation", block_installation)
+    monkeypatch.setitem(current_execution_context().configuration, "block_runtime_package_installation", block_installation)
     package = tmp_path / 'PixelOE'
     nodes = package / 'nodes'
     nodes.mkdir(parents=True)

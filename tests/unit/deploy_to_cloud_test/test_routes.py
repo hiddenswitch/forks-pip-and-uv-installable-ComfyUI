@@ -9,8 +9,7 @@ import pytest_asyncio
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer, unused_port
 
-from comfy.cli_args import args
-
+from comfy.execution_context import current_execution_context
 from comfy.cmd import folder_paths  # noqa: E402
 from comfy.cmd import server
 from comfy.app import deploy_to_cloud  # noqa: E402
@@ -108,8 +107,8 @@ async def builder(builder_state, monkeypatch):
 
 @pytest_asyncio.fixture
 async def client(monkeypatch, installation):
-    monkeypatch.setattr(args, "offline", False)
-    monkeypatch.setattr(args, "comfy_api_base", "https://api.comfy.org")
+    monkeypatch.setitem(current_execution_context().configuration, "offline", False)
+    monkeypatch.setitem(current_execution_context().configuration, "comfy_api_base", "https://api.comfy.org")
     prompt_server = server.PromptServer(None, MagicMock(enabled=False))
     prompt_server.add_routes()
     await prompt_server.setup()
@@ -155,7 +154,7 @@ async def test_no_route_aliases(client, method, path):
 
 @pytest.mark.asyncio
 async def test_summary_offline(client, monkeypatch):
-    monkeypatch.setattr(args, "offline", True)
+    monkeypatch.setitem(current_execution_context().configuration, "offline", True)
     assert await error_of(await client.get("/api/deploy/summary"), 403) == "offline"
 
 
@@ -217,7 +216,7 @@ async def test_proxy_basic_auth_is_ignored_and_api_key_forwarded_alone(client, b
 
 @pytest.mark.asyncio
 async def test_staging_tier_returns_staging_platform_url(client, builder, installation, monkeypatch):
-    monkeypatch.setattr(args, "comfy_api_base", "https://stagingapi.comfy.org")
+    monkeypatch.setitem(current_execution_context().configuration, "comfy_api_base", "https://stagingapi.comfy.org")
     resp = await client.post("/api/deploy/bundle", json={}, headers={"Authorization": BEARER})
     assert (await resp.json())["url"].startswith("https://stagingplatform.comfy.org/profile/builds/new?")
 
@@ -253,7 +252,7 @@ async def test_bundle_local_rejections_skip_collection_and_network(client, build
 
 @pytest.mark.asyncio
 async def test_bundle_offline_makes_no_request(client, builder, monkeypatch):
-    monkeypatch.setattr(args, "offline", True)
+    monkeypatch.setitem(current_execution_context().configuration, "offline", True)
     resp = await client.post("/api/deploy/bundle", json={}, headers={"Authorization": BEARER})
     assert await error_of(resp, 403) == "offline"
     assert builder["requests"] == []
@@ -370,6 +369,6 @@ def test_expected_error_codes_are_all_exercised():
     ("https://pr-7.testenvs.comfy.org", "https://stagingplatformapi.comfy.org/builder", "https://stagingplatform.comfy.org"),
 ])
 def test_builder_and_platform_urls_follow_api_tier(monkeypatch, base, builder_url, platform_url):
-    monkeypatch.setattr(args, "comfy_api_base", base)
+    monkeypatch.setitem(current_execution_context().configuration, "comfy_api_base", base)
     assert comfy_api_env.builder_base_url() == builder_url
     assert comfy_api_env.platform_base_url() == platform_url

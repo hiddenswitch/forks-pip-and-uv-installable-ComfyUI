@@ -10,6 +10,7 @@ import pytest
 import torch
 from aiohttp import web
 
+from comfy.execution_context import current_execution_context
 from comfy.cli_args import args
 
 if not torch.cuda.is_available():
@@ -92,7 +93,7 @@ async def _with_server(api: FakeComfyApi, monkeypatch, body):
     site = web.TCPSite(runner, "127.0.0.1", 0)
     await site.start()
     port = site._server.sockets[0].getsockname()[1]
-    monkeypatch.setattr(args, "comfy_api_base", f"http://127.0.0.1:{port}")
+    monkeypatch.setitem(current_execution_context().configuration, "comfy_api_base", f"http://127.0.0.1:{port}")
     try:
         return await body()
     finally:

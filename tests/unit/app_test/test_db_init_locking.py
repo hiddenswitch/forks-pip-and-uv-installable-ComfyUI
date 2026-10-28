@@ -131,7 +131,7 @@ def test_legacy_database_copy_runs_under_file_lock(tmp_path, monkeypatch):
         copied.append((source, destination))
         return real_copy(source, destination)
 
-    monkeypatch.setattr(db_module.current_execution_context().configuration, "database_url", None)
+    monkeypatch.setitem(db_module.current_execution_context().configuration, "database_url", None)
     monkeypatch.setattr(db_module, "get_db_path", lambda: str(target_db))
     monkeypatch.setattr(
         db_module, "get_legacy_default_db_path", lambda: str(legacy_db)

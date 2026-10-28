@@ -132,7 +132,7 @@ def test_legacy_copy_includes_rows_still_in_the_wal(monkeypatch, tmp_path):
     shutil.copy(tmp_path / "main-only.db", legacy_db)
     shutil.copy(tmp_path / "saved-wal", str(legacy_db) + "-wal")
 
-    monkeypatch.setattr(db.current_execution_context().configuration, "database_url", None)
+    monkeypatch.setitem(db.current_execution_context().configuration, "database_url", None)
     monkeypatch.setattr(db, "get_legacy_default_db_path", lambda: str(legacy_db))
 
     db.copy_legacy_default_db(str(user_db))
@@ -156,7 +156,7 @@ def test_legacy_copy_skipped_when_its_wal_cannot_be_checkpointed(monkeypatch, tm
     reader.execute("BEGIN")
     reader.execute("SELECT x FROM t").fetchall()  # an open read pins the WAL
 
-    monkeypatch.setattr(db.current_execution_context().configuration, "database_url", None)
+    monkeypatch.setitem(db.current_execution_context().configuration, "database_url", None)
     monkeypatch.setattr(db, "get_legacy_default_db_path", lambda: str(legacy_db))
 
     try:

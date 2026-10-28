@@ -5,14 +5,14 @@ from unittest.mock import MagicMock
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from comfy.cli_args import args
+from comfy.execution_context import current_execution_context
 from comfy.cmd import execution, folder_paths, server
 from comfy_api import feature_flags
 
 
 @pytest.mark.parametrize("offline", [False, True])
 async def test_cloud_discovery_does_not_require_headless_history(monkeypatch, offline):
-    monkeypatch.setattr(args, "offline", offline)
+    monkeypatch.setitem(current_execution_context().configuration, "offline", offline)
     prompt_server = server.PromptServer(asyncio.get_running_loop(), MagicMock(enabled=False))
     prompt_server.add_routes()
     async with TestClient(TestServer(prompt_server.app)) as client:

@@ -39,8 +39,8 @@ class _AssetsOn:
 @pytest.fixture
 def db_path(tmp_path, monkeypatch):
     path = str(tmp_path / "comfyui.db")
-    monkeypatch.setattr(current_execution_context().configuration, "database_url", f"sqlite:///{path}")
-    monkeypatch.setattr(current_execution_context().configuration, "_database_url_explicit", True, raising=False)
+    monkeypatch.setitem(current_execution_context().configuration, "database_url", f"sqlite:///{path}")
+    monkeypatch.setitem(current_execution_context().configuration, "_database_url_explicit", True)
     monkeypatch.setattr(db_module, "Session", None)
     monkeypatch.setattr(db_module, "WriteSession", None)
     monkeypatch.setattr(db_module, "_db_lock", None)
@@ -165,7 +165,7 @@ def test_database_path_is_a_directory(db_path, caplog):
 def test_folder_path_runs_through_a_file(tmp_path, monkeypatch, db_path, caplog, parts):
     (tmp_path / "taken").write_text("")
     path = str(tmp_path.joinpath(*parts))
-    monkeypatch.setattr(current_execution_context().configuration, "database_url", f"sqlite:///{path}")
+    monkeypatch.setitem(current_execution_context().configuration, "database_url", f"sqlite:///{path}")
 
     error = _startup_error(caplog, kind="path_blocked")
 
@@ -217,7 +217,7 @@ def test_failure_after_the_database_opened_doesnt_suggest_deleting_it(db_path, c
     "url", ["postgresql://user:secret@localhost/comfy", "sqlite:relative.db", "sqlite://user:secret@host/x.db"]
 )
 def test_database_url_that_is_not_sqlite_file_url(monkeypatch, db_path, caplog, url):
-    monkeypatch.setattr(current_execution_context().configuration, "database_url", url)
+    monkeypatch.setitem(current_execution_context().configuration, "database_url", url)
 
     error = _startup_error(caplog, kind="unsupported_url", level=logging.DEBUG)
 
@@ -233,7 +233,7 @@ def test_no_second_database_suggested_for_a_broken_one(tmp_path, monkeypatch, db
     user_dir = tmp_path / "user"
     user_dir.mkdir()
     (user_dir / "comfyui.db").write_bytes(b"not a database" * 1000)
-    monkeypatch.setattr(current_execution_context().configuration, "database_url", None)
+    monkeypatch.setitem(current_execution_context().configuration, "database_url", None)
     monkeypatch.setattr(db_module, "get_legacy_default_db_path", lambda: None)
     monkeypatch.setattr(folder_paths, "get_user_directory", lambda: str(user_dir))
 
@@ -277,7 +277,7 @@ def _sqlalchemy_quotes_question_marks():
 def test_default_database_path_is_used_literally(tmp_path, monkeypatch, db_path, folder):
     # SQLAlchemy 2.1 decodes %xx in a URL and ends the path at ?, so the path must be quoted.
     user_dir = tmp_path / folder
-    monkeypatch.setattr(current_execution_context().configuration, "database_url", None)
+    monkeypatch.setitem(current_execution_context().configuration, "database_url", None)
     monkeypatch.setattr(db_module, "get_legacy_default_db_path", lambda: None)
     monkeypatch.setattr(folder_paths, "get_user_directory", lambda: str(user_dir))
 

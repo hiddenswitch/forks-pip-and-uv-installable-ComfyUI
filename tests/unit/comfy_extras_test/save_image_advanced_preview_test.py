@@ -9,8 +9,8 @@ import pytest
 import torch
 from PIL import Image
 
+from comfy.execution_context import current_execution_context
 from comfy.cmd import folder_paths
-from comfy.cli_args import args
 from comfy_execution.preview_tonemap import linear_to_preview
 
 previous_nodes = sys.modules.get("nodes")
@@ -32,9 +32,9 @@ def dirs(tmp_path, monkeypatch):
     folder_paths.set_output_directory(str(tmp_path / "output"))
     folder_paths.set_previews_directory(str(tmp_path / "previews"))
     (tmp_path / "output").mkdir()
-    monkeypatch.setattr(args, "enable_assets", True)
-    monkeypatch.setattr(args, "disable_assets", False)
-    monkeypatch.setattr(args, "disable_metadata", True)
+    monkeypatch.setitem(current_execution_context().configuration, "enable_assets", True)
+    monkeypatch.setitem(current_execution_context().configuration, "disable_assets", False)
+    monkeypatch.setitem(current_execution_context().configuration, "disable_metadata", True)
     monkeypatch.setattr(SaveImageAdvanced, "hidden", SimpleNamespace(prompt=None, extra_pnginfo=None), raising=False)
     yield tmp_path
     folder_paths.set_output_directory(saved[0])
@@ -62,7 +62,7 @@ def test_an_rgba_exr_gets_a_webp_with_straight_alpha_within_one_megapixel(dirs):
 
 
 def test_with_assets_off_no_preview_is_written(dirs, monkeypatch):
-    monkeypatch.setattr(args, "disable_assets", True)
+    monkeypatch.setitem(current_execution_context().configuration, "disable_assets", True)
 
     entry = _save(torch.full((1, 8, 8, 3), 0.5))[0]
 

@@ -15,7 +15,7 @@ def autoclean_unit_test_assets():
     yield
 
 
-def run_quick_startup(tmp_path: Path, *flags: str) -> str:
+def run_quick_startup(tmp_path: Path, *flags: str, timeout: float) -> str:
     result = subprocess.run(
         [
             sys.executable,
@@ -33,7 +33,7 @@ def run_quick_startup(tmp_path: Path, *flags: str) -> str:
         cwd=tmp_path,
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=timeout,
         check=True,
     )
     return result.stdout + result.stderr
@@ -49,16 +49,16 @@ def run_quick_startup(tmp_path: Path, *flags: str) -> str:
     ],
 )
 def test_enabled_assets_emits_once_with_the_hashing_flag(
-    tmp_path: Path, hashing_flag: tuple[str, ...], expected: bool
+    tmp_path: Path, hashing_flag: tuple[str, ...], expected: bool, process_startup_timeout_seconds
 ) -> None:
-    output = run_quick_startup(tmp_path, "--enable-assets", *hashing_flag)
+    output = run_quick_startup(tmp_path, "--enable-assets", *hashing_flag, timeout=process_startup_timeout_seconds)
     lines = [line for line in output.splitlines() if f"{TAG} assets.enabled " in line]
 
     assert len(lines) == 1
     assert f"hashing_enabled={str(expected).lower()}" in lines[0]
 
 
-def test_noassets_emits_no_enabled_event(tmp_path: Path) -> None:
-    output = run_quick_startup(tmp_path, "--disable-assets")
+def test_noassets_emits_no_enabled_event(tmp_path: Path, process_startup_timeout_seconds) -> None:
+    output = run_quick_startup(tmp_path, "--disable-assets", timeout=process_startup_timeout_seconds)
 
     assert f"{TAG} assets.enabled " not in output

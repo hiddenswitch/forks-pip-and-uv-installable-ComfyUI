@@ -1,6 +1,7 @@
 import pytest
 import torch
 
+from comfy.execution_context import current_execution_context
 from comfy.cli_args import args
 
 if not torch.cuda.is_available():
@@ -38,7 +39,7 @@ def test_cache_budget_admits_all_conditions_together(monkeypatch, vram_margin, r
 
     # Two blocks: positive (9 tokens) rounds to 2 KiB; negative (23) to 3 KiB.
     cache_bytes = 2 * (2048 + 3072)
-    monkeypatch.setattr(args, "high_ram", False)
+    monkeypatch.setitem(current_execution_context().configuration, "high_ram", False)
     monkeypatch.setattr(memory_management, "RAM_CACHE_HEADROOM", 6 * 1024 ** 3)
     monkeypatch.setattr(model_management, "pinned_memory_reserve", lambda: 2 * 1024 ** 3)
     monkeypatch.setattr(system_memory, "virtual_memory_available", lambda: 3 * 1024 ** 3 + cache_bytes + ram_margin)

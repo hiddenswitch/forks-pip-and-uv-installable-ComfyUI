@@ -5,6 +5,7 @@ import tempfile
 import pytest
 
 from .test_inmemory_assets import InMemoryAssets
+from comfy.execution_context import current_execution_context
 
 _BASE = os.path.join(tempfile.gettempdir(), "execute-reentry-test-base")
 
@@ -92,8 +93,7 @@ class _AsyncUINode:
 @pytest.fixture
 def execution_env(monkeypatch):
     try:
-        from comfy.cli_args import args
-        monkeypatch.setattr(args, "cpu", True, raising=False)
+        monkeypatch.setitem(current_execution_context().configuration, "cpu", True)
         from comfy.cmd import execution as comfy_execution
         from comfy.cmd import folder_paths
         from comfy.nodes_context import get_nodes

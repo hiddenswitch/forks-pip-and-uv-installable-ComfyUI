@@ -124,7 +124,9 @@ TEST_NODE_DISPLAY_NAME_MAPPINGS = {
 
 EXECUTOR_FACTORIES = [
     (ContextVarExecutor, {"max_workers": 1}),
-    (ProcessPoolExecutor, {"max_workers": 1}),
+    pytest.param(ProcessPoolExecutor, {"max_workers": 1}, marks=[
+        pytest.mark.server_process, pytest.mark.xdist_group("server-process"),
+    ]),
 ]
 
 
@@ -241,7 +243,9 @@ async def test_executor_cleanup(executor_cls, executor_kwargs):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("executor_cls,executor_kwargs", [
     (ContextVarExecutor, {"max_workers": 2}),
-    (ProcessPoolExecutor, {"max_workers": 2}),
+    pytest.param(ProcessPoolExecutor, {"max_workers": 2}, marks=[
+        pytest.mark.server_process, pytest.mark.xdist_group("server-process"),
+    ]),
 ])
 async def test_parallel_execution(executor_cls, executor_kwargs):
     """Test that executors can handle multiple workflows in parallel"""
