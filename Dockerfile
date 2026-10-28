@@ -79,7 +79,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
       --index-strategy unsafe-best-match \
     && if [ -n "$STABLE_ABI_CUDA" ]; then \
          uv pip install --no-deps \
-           "sageattention==2.2.0+${STABLE_ABI_CUDA}" \
+           "sageattention==2.2.0.post1+${STABLE_ABI_CUDA}" \
            --index-url "https://appmana.github.io/forks-sageattention-stable-abi/${STABLE_ABI_CUDA}"; \
          uv pip install --no-deps \
            "nunchaku==1.3.0.dev20260717+${STABLE_ABI_CUDA}" \
