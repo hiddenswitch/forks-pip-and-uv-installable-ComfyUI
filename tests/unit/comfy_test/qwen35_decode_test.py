@@ -5,6 +5,7 @@ import pytest
 import torch
 
 from comfy.cli_args import args as cli_args
+from comfy.execution_context import current_execution_context
 
 if not torch.cuda.is_available():
     cli_args.cpu = True
@@ -134,7 +135,7 @@ def test_int8_cache_requires_cli_flag_and_native_support(monkeypatch):
     attn = _gated_attention()
     device = torch.device("cpu")
     monkeypatch.setattr(qwen35, "int8_decode_is_available", lambda device: True)
-    monkeypatch.setattr(cli_args, "use_ck_attention", True)
+    monkeypatch.setitem(current_execution_context().configuration, "use_ck_attention", True)
     monkeypatch.setenv("COMFY_INT8_KV", "0")
     assert attn.kv_cache_type(device, torch.bfloat16) is qwen35.Int8FixedKVCache
     for dtype, head_dim in ((torch.float16, 256), (torch.float32, 256), (torch.bfloat16, 128)):
@@ -144,7 +145,7 @@ def test_int8_cache_requires_cli_flag_and_native_support(monkeypatch):
     monkeypatch.setattr(qwen35, "int8_decode_is_available", lambda device: False)
     assert attn.kv_cache_type(device, torch.bfloat16) is FixedKVCache
     monkeypatch.setattr(qwen35, "int8_decode_is_available", lambda device: True)
-    monkeypatch.setattr(cli_args, "use_ck_attention", False)
+    monkeypatch.setitem(current_execution_context().configuration, "use_ck_attention", False)
     monkeypatch.setenv("COMFY_INT8_KV", "1")
     assert attn.kv_cache_type(device, torch.bfloat16) is FixedKVCache
     for dtype, head_dim in ((torch.float16, 256), (torch.float32, 256), (torch.bfloat16, 128)):
@@ -518,7 +519,7 @@ def test_checkpoint_and_lora_attention_select_each_kv_layer(monkeypatch):
     monkeypatch.setattr(qwen35.comfy_kitchen, "sol_attn_is_available", lambda device: False)
     monkeypatch.setattr(qwen35, "int8_decode_is_available", lambda device: True)
     monkeypatch.setattr(llama, "Int8DecodeCache", _FakePacked)
-    monkeypatch.setattr(cli_args, "use_ck_attention", False)
+    monkeypatch.setitem(current_execution_context().configuration, "use_ck_attention", False)
     model = _tiny_model(monkeypatch, layers=8, head_dim=256)
     key = "model.layers.3.self_attn.comfy_attention.config"
     mtp_key = "mtp.layers.0.self_attn.comfy_attention.config"
@@ -547,11 +548,11 @@ def test_checkpoint_and_lora_attention_select_each_kv_layer(monkeypatch):
     patcher.patch_model(load_weights=False)
     try:
         # A LoRA's supported setting beats both the checkpoint and the CLI default.
-        monkeypatch.setattr(cli_args, "use_ck_attention", True)
+        monkeypatch.setitem(current_execution_context().configuration, "use_ck_attention", True)
         assert cache_types() == (FixedKVCache, qwen35.Int8FixedKVCache, FixedKVCache)
     finally:
         patcher.unpatch_model(unpatch_weights=False)
-    monkeypatch.setattr(cli_args, "use_ck_attention", False)
+    monkeypatch.setitem(current_execution_context().configuration, "use_ck_attention", False)
     assert cache_types() == (qwen35.Int8FixedKVCache, FixedKVCache, qwen35.Int8FixedKVCache)
     # Reloading an unavailable setting clears the previously resolved INT8 selection.
     monkeypatch.setattr(qwen35.comfy_kitchen, "int8_attention_is_available", lambda device: False)

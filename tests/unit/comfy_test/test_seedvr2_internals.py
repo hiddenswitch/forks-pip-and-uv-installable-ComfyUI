@@ -5,6 +5,8 @@ from __future__ import annotations
 import inspect
 from unittest.mock import patch
 
+from contextlib import contextmanager
+
 import pytest
 import torch
 
@@ -415,10 +417,20 @@ def _states(n):
     return [vae_mod.MemoryState.INITIALIZING] + [vae_mod.MemoryState.ACTIVE] * (n - 1)
 
 
+@contextmanager
+def _fp16_accumulation(enabled):
+    previous = torch.backends.cuda.matmul.allow_fp16_accumulation
+    try:
+        torch.backends.cuda.matmul.allow_fp16_accumulation = enabled
+        yield
+    finally:
+        torch.backends.cuda.matmul.allow_fp16_accumulation = previous
+
+
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="the buffered convs run fp16 on CUDA")
 @pytest.mark.parametrize("fp16acc", [False, True])
 @pytest.mark.parametrize("temporal_down", [False, True])
-def test_seedvr2_downsample_buffered_matches_padded_conv(temporal_down, fp16acc, monkeypatch):
+def test_seedvr2_downsample_buffered_matches_padded_conv(temporal_down, fp16acc):
     """The buffered downsampler writes into the conv's buffer with its own right/bottom border in
     place of F.pad; across slices it must match the pad-then-conv path and its cache."""
     down = _half_cuda(vae_mod.Downsample3D(16, temporal_down=temporal_down))
@@ -426,8 +438,7 @@ def test_seedvr2_downsample_buffered_matches_padded_conv(temporal_down, fp16acc,
     ref_cache, cache = vae_mod.CausalMemoryCache(), vae_mod.CausalMemoryCache()
     for x, state in zip(slices, _states(len(slices))):
         ref = down.run([x], state, ref_cache)
-        with monkeypatch.context() as m:
-            m.setattr(torch.backends.cuda.matmul, "allow_fp16_accumulation", fp16acc, raising=False)
+        with _fp16_accumulation(fp16acc):
             got = down.run([x.contiguous(memory_format=torch.channels_last_3d)], state, cache)
         assert got.shape == ref.shape
         assert _rel_err(got, ref) < (2e-3 if fp16acc else 1e-3)
@@ -435,7 +446,7 @@ def test_seedvr2_downsample_buffered_matches_padded_conv(temporal_down, fp16acc,
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="the buffered convs run fp16 on CUDA")
 @pytest.mark.parametrize("fp16acc", [False, True])
-def test_seedvr2_upsample_per_frame_matches_whole_slice(fp16acc, monkeypatch):
+def test_seedvr2_upsample_per_frame_matches_whole_slice(fp16acc):
     """The decoder's last temporal upsampler runs a latent frame at a time through frames(); its
     output frames, and the whole-slice buffered run, must match the eager shuffle-then-conv path."""
     up = _half_cuda(vae_mod.Upsample3D(16, temporal_up=True))
@@ -444,8 +455,7 @@ def test_seedvr2_upsample_per_frame_matches_whole_slice(fp16acc, monkeypatch):
     for x, state in zip(slices, _states(len(slices))):
         ref = up.run([x], state, caches[0])
         x = x.contiguous(memory_format=torch.channels_last_3d)
-        with monkeypatch.context() as m:
-            m.setattr(torch.backends.cuda.matmul, "allow_fp16_accumulation", fp16acc, raising=False)
+        with _fp16_accumulation(fp16acc):
             whole = up.run([x], state, caches[1])
             per_frame = torch.cat([box.pop() for box in up.frames([x], state, caches[2])], dim=2)
         for got in (whole, per_frame):
