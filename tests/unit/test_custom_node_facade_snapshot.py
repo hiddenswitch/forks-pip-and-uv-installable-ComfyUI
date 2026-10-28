@@ -679,3 +679,21 @@ async def test_snapshot_command_reuses_the_previous_snapshot_at_any_fsspec_url(f
     key = (project.node_id, "https://github.com/pythongosssss/comfyui-custom-scripts")
     assert previous[key][0] == "1.2.5"
     assert [item.version for item in previous[key][1]] == ["1.2.5"]
+
+
+@pytest.mark.parametrize("staged", [True, False])
+def test_publish_file_accepts_destinations_in_the_filesystems_unnormalized_forms(tmp_path, staged):
+    """A local destination given as a file:// URL (or, on Windows, a native
+    backslash path) is normalized before the temporary sibling is named."""
+    from fsspec.implementations.local import LocalFileSystem
+
+    from comfy.custom_node_facade.storage import publish_file
+
+    source = tmp_path / "source.whl"
+    source.write_bytes(b"PK\x03\x04wheel")
+    destination = tmp_path / "cache" / "project" / "project-1.0.0-py3-none-any.whl"
+    for form in (destination.as_uri(), str(destination)):
+        publish_file(LocalFileSystem(), str(source), form, staged=staged)
+        assert destination.read_bytes() == b"PK\x03\x04wheel"
+        assert list(destination.parent.glob("*.tmp")) == []
+        destination.unlink()

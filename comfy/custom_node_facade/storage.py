@@ -48,6 +48,9 @@ def publish_file(fs: fsspec.AbstractFileSystem, source: str, destination: str, *
     filesystem publishing an object only when its upload completes, which
     object stores do; a local filesystem is always staged.
     """
+    # A file:// URL or a native Windows path becomes the filesystem's own
+    # path form, so the temporary sibling's name and the rename target agree.
+    destination = fs._strip_protocol(destination)  # pylint: disable=protected-access
     if not (staged or is_local(fs)):
         fs.put_file(source, destination)
         return
