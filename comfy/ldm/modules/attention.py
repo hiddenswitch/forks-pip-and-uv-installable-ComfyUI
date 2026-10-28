@@ -777,6 +777,9 @@ def attention_comfy_kitchen_sol(q, k, v, heads, mask=None, attn_precision=None, 
     return out.reshape(b, -1, heads * dim_head)
 
 
+_SAGE_FALLBACK_CAUSES: set[str] = set()
+
+
 @wrap_attn
 def attention_sage(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False, skip_output_reshape=False, **kwargs):
     return_lse = kwargs.pop("return_lse", False)
@@ -811,7 +814,11 @@ def attention_sage(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=
     try:
         out = sageattn(q, k, v, **sage_kwargs)
     except Exception as e:
-        logger.error("Error running sage attention: {}, using pytorch attention instead.".format(e))
+        cause = str(e)
+        if cause not in _SAGE_FALLBACK_CAUSES:
+            # said once per cause: a shape sage attention cannot take fails on every call of every step
+            _SAGE_FALLBACK_CAUSES.add(cause)
+            logger.error("Error running sage attention: {}, using pytorch attention instead.".format(e))
         exception_fallback = True
     if exception_fallback:
         if tensor_layout == "NHD":
