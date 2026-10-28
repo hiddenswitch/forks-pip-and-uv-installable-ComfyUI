@@ -24,7 +24,8 @@ jobs:
     environment: Testing
     name: Python 3.14 PyTorch 2.14 XPU
     runs-on: [self-hosted, linux, X64, ipex-a380-6gb]
-    timeout-minutes: 30
+    # Container scheduling and first-use GPU compilation count toward this limit.
+    timeout-minutes: 60
     container:
       image: intel/intel-extension-for-pytorch:2.8.10-xpu
       options: --shm-size=8g
