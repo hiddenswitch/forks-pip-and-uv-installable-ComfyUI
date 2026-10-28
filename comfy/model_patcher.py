@@ -2630,6 +2630,29 @@ class ModelPatcherDynamic(ModelPatcher):
             for m in self.model.modules():
                 move_weight_functions(m, device_to)
 
+    _resident_state = None
+
+    def _resident_signature(self, device_to):
+        """What load set up that a later load may find changed: the device, the patches, the force-loaded
+        weights (restore_loaded_backups under memory pressure undoes them), the weight wrappers and the VBAR.
+        None (never reused) with hooks or load callbacks, which load applies each time."""
+        if self.forced_hooks or self.current_hooks is not None or self.hook_patches or self.get_all_callbacks(CallbacksMP.ON_LOAD):
+            return None
+        vbar = self._vbar_get()
+        return (device_to, getattr(self.model, "device", None), self.patches_uuid,
+                getattr(self.model, "current_weight_patches_uuid", None),
+                getattr(self.model, "model_loaded_weight_memory", 0), tuple(self.backup),
+                tuple((k, len(v)) for k, v in self.weight_wrapper_patches.items()), id(vbar))
+
+    def _reactivate(self, device_to):
+        pin_state = self.model.dynamic_pins[self.load_device]
+        pin_state["failed"] = False
+        pin_state["active"] = True
+        vbar = self._vbar_get()
+        if vbar is not None:
+            vbar.prioritize()
+        logger.debug(f"Model {self.model.__class__.__name__} resident for dynamic VRAM loading; not staged again.")
+
     def partially_load(self, device_to, extra_memory=0, force_patch_weights=False):
         assert not force_patch_weights  # See above
         with self.use_ejected(skip_and_inject_on_exit_only=True):
@@ -2639,11 +2662,18 @@ class ModelPatcherDynamic(ModelPatcher):
             self.unpatch_model(self.offload_device, unpatch_weights=False)
             self.patch_model(load_weights=False)
 
+            if not dirty and self._resident_state is not None and self._resident_state == self._resident_signature(device_to):
+                # every prompt reloads its models (load_models_gpu): one still resident under what load set up
+                # (its patches, its force-loaded weights, no hooks) is only made active again, not staged again
+                self._reactivate(device_to)
+                return None
+            self._resident_state = None
             try:
                 self.load(device_to, dirty=dirty)
             except Exception as e:
                 self.detach()
                 raise e
+            self._resident_state = self._resident_signature(device_to)
             # ModelPatcher::partially_load returns a number on what got loaded but
             # nothing in core uses this and we have no data in the Dynamic world. Hit
             # the custom node devs with a None rather than a 0 that would mislead any

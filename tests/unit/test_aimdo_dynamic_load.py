@@ -282,3 +282,53 @@ class TestBakedPatchesSurviveReload(unittest.TestCase):
             torch.testing.assert_close(patcher.model.lin.weight, original)
             self.assertEqual(patcher.model.dynamic_baked_keys, set())
             self.assertEqual(patcher.backup, {})
+
+
+class TestResidentReloadSkipsStaging(unittest.TestCase):
+    """load_models_gpu reloads every model of every prompt. A dynamic model still resident on its device
+    under the same patches is not staged again (the module pass of load); it is only made active again.
+    Anything that changed what load set up stages it again."""
+
+    def _patcher(self):
+        from comfy.model_patcher import ModelPatcherDynamic
+        model = torch.nn.Module()
+        model.lin = torch.nn.Linear(4, 4)
+        patcher = ModelPatcherDynamic(model, torch.device("cuda", 0), torch.device("cpu"))
+        calls = []
+
+        def fake_load(self, device_to, dirty=False):
+            calls.append(dirty)
+            self.model.device = device_to
+            self.model.current_weight_patches_uuid = self.patches_uuid
+            self.model.model_loaded_weight_memory = 1024
+            pin_state = self.model.dynamic_pins[self.load_device]
+            pin_state["active"], pin_state["failed"] = True, False
+
+        return patcher, calls, mock.patch.object(ModelPatcherDynamic, "load", fake_load)
+
+    def test_a_resident_model_is_activated_not_staged(self):
+        patcher, calls, fake = self._patcher()
+        device = torch.device("cuda", 0)
+        with fake:
+            patcher.partially_load(device)
+            pin_state = patcher.model.dynamic_pins[device]
+            pin_state["active"], pin_state["failed"] = False, True  # reset_cast_buffers after the prompt
+            patcher.partially_load(device)
+        self.assertEqual(calls, [False])
+        self.assertTrue(pin_state["active"])
+        self.assertFalse(pin_state["failed"])
+
+    def test_changed_patches_or_unloaded_weights_stage_again(self):
+        device = torch.device("cuda", 0)
+        for change in ("patches", "unloaded", "hooks"):
+            patcher, calls, fake = self._patcher()
+            with fake:
+                patcher.partially_load(device)
+                if change == "patches":
+                    patcher.patches_uuid = "another"
+                elif change == "unloaded":
+                    patcher.model.model_loaded_weight_memory = 0  # restore_loaded_backups under pressure
+                else:
+                    patcher.forced_hooks = mock.MagicMock()
+                patcher.partially_load(device)
+            self.assertEqual(len(calls), 2, change)
