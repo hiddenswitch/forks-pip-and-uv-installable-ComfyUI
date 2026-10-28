@@ -20,10 +20,12 @@ from urllib.parse import urlparse
 
 import aiohttp
 import fsspec
+import fsspec.utils
 
 from ..app.custom_node_manager import CustomNodeManager
 from ..component_model.node_registry import CUSTOM_NODE_REGISTRY, CustomNodeSpec
 from ..nodes.custom_node_dependencies import CUSTOM_NODE_RUNTIME_DEPS
+from .storage import signature, url_to_fs
 
 logger = logging.getLogger(__name__)
 
@@ -247,58 +249,38 @@ class SnapshotUnavailableError(RuntimeError):
 
 
 class SnapshotFacadeRegistry:
-    def __init__(self, *, snapshot_uri: str, max_age_seconds: int = 0) -> None:
+    """Registry metadata served from a snapshot at any fsspec URL.
+
+    The snapshot is read into memory, and requests and :meth:`health` are
+    answered from that generation without touching storage. :meth:`refresh`
+    (run periodically by :meth:`run_refresh_loop`) checks the source's fsspec
+    ``info`` and loads a new generation only when it changed. While the source
+    is unavailable the last generation keeps being served until it is older
+    than ``max_age_seconds``.
+    """
+
+    def __init__(
+        self,
+        *,
+        snapshot_uri: str,
+        max_age_seconds: int = 0,
+        storage_options: dict[str, Any] | None = None,
+    ) -> None:
         if max_age_seconds < 0:
             raise ValueError("Snapshot maximum age must be nonnegative")
         self._snapshot_uri = snapshot_uri
+        self._fs, self._path = url_to_fs(snapshot_uri, storage_options)
+        self._compression = fsspec.utils.infer_compression(self._path)
         self._max_age_seconds = max_age_seconds
         self._created_at: datetime | None = None
-        self._db_path: str | None = None
         self._lock = asyncio.Lock()
+        self._loaded = False
         self._projects: list[FacadeProject] = []
         self._alias_cache: dict[str, str] = {}
         self._versions_cache: dict[str, list[FacadeVersion]] = {}
-        self._loaded_signature: tuple[int, int, int, int, int] | None = None
-
-    def _file_path(self) -> str | None:
-        if self._snapshot_uri.startswith("file://"):
-            return self._snapshot_uri.removeprefix("file://")
-        if not self._snapshot_uri.startswith(
-            ("pkg://", "s3://", "http://", "https://")
-        ):
-            return self._snapshot_uri
-        return None
-
-    def _needs_reload(self) -> bool:
-        path = self._file_path()
-        if path is None:
-            return not self._projects or bool(self._max_age_seconds and self.snapshot_age_seconds > self._max_age_seconds)
-        signature = self._file_signature()
-        return signature != self._loaded_signature
-
-    def _file_signature(self) -> tuple[int, int, int, int, int] | None:
-        path = self._file_path()
-        if path is None:
-            return None
-        # A cached generation must not hide a disconnected shared-volume mount.
-        with open(path, "rb") as source:
-            source.read(1)
-            stat = os.fstat(source.fileno())
-        return (
-            stat.st_dev,
-            stat.st_ino,
-            stat.st_size,
-            stat.st_mtime_ns,
-            stat.st_ctime_ns,
-        )
-
-    async def _ensure_loaded(self) -> None:
-        try:
-            await self._reload_if_needed()
-            if self._max_age_seconds and self.snapshot_age_seconds > self._max_age_seconds:
-                raise SnapshotUnavailableError("Registry snapshot has expired")
-        except (OSError, sqlite3.Error, ValueError, KeyError) as exc:
-            raise SnapshotUnavailableError(f"Registry snapshot is unavailable: {exc}") from exc
+        self._loaded_signature: tuple[tuple[str, str], ...] | None = None
+        self._refresh_error: str | None = None
+        self._refreshed_at: datetime | None = None
 
     @property
     def snapshot_age_seconds(self) -> float:
@@ -306,42 +288,79 @@ class SnapshotFacadeRegistry:
             return 0.0
         return max(0.0, (datetime.now(timezone.utc) - self._created_at).total_seconds())
 
-    async def health(self) -> dict[str, Any]:
-        error = None
-        try:
-            await self._ensure_loaded()
-        except SnapshotUnavailableError as exc:
-            error = str(exc)
+    def _availability_error(self) -> str | None:
+        if not self._loaded:
+            return f"Registry snapshot is unavailable: {self._refresh_error or 'not loaded yet'}"
+        if self._max_age_seconds and self.snapshot_age_seconds > self._max_age_seconds:
+            return "Registry snapshot has expired"
+        return None
+
+    def health(self) -> dict[str, Any]:
+        """The state of the loaded generation; never touches storage."""
         return {
             "snapshot_created_at": self._created_at.isoformat() if self._created_at else None,
             "snapshot_age_seconds": self.snapshot_age_seconds if self._created_at else None,
-            "snapshot_error": error,
+            "snapshot_error": self._availability_error(),
+            "snapshot_refresh_error": self._refresh_error,
+            "snapshot_refreshed_at": self._refreshed_at.isoformat() if self._refreshed_at else None,
         }
 
-    async def _reload_if_needed(self) -> None:
-        if not self._needs_reload():
-            return
+    async def refresh(self) -> bool:
+        """Load the source's current generation if it changed; True if one was loaded.
+
+        Errors are recorded in :meth:`health` and the previous generation is kept.
+        """
         async with self._lock:
-            if not self._needs_reload():
-                return
-            while True:
-                signature_before = self._file_signature()
-                projects, aliases, versions, created_at = await asyncio.to_thread(self._load_all)
-                signature_after = self._file_signature()
-                if (
-                    self._file_path() is not None
-                    and signature_before != signature_after
-                ):
-                    logger.debug(
-                        "Facade snapshot changed while loading; retrying the new generation"
-                    )
+            try:
+                loaded = await asyncio.to_thread(self._refresh_blocking)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                self._refresh_error = f"{type(exc).__name__}: {exc}"
+                logger.warning("Facade snapshot refresh from %s failed: %s", self._snapshot_uri, self._refresh_error)
+                return False
+            self._refresh_error = None
+            self._refreshed_at = datetime.now(timezone.utc)
+            return loaded
+
+    async def run_refresh_loop(self, interval_seconds: float) -> None:
+        while True:
+            await self.refresh()
+            await asyncio.sleep(interval_seconds)
+
+    def _refresh_blocking(self) -> bool:
+        while True:
+            signature_before = signature(self._fs.info(self._path))
+            if self._loaded and signature_before == self._loaded_signature:
+                return False
+            with tempfile.TemporaryDirectory(prefix="comfyui_facade_snapshot_") as temp_dir:
+                local_copy = os.path.join(temp_dir, "registry.sqlite")
+                self._download(local_copy)
+                signature_after = signature(self._fs.info(self._path))
+                if signature_before != signature_after:
+                    logger.debug("Facade snapshot changed while loading; retrying the new generation")
                     continue
-                self._projects = projects
-                self._alias_cache = aliases
-                self._versions_cache = versions
-                self._loaded_signature = signature_after
-                self._created_at = created_at
-                return
+                projects, aliases, versions, created_at = self._load_all(local_copy)
+            self._projects = projects
+            self._alias_cache = aliases
+            self._versions_cache = versions
+            self._created_at = created_at
+            self._loaded_signature = signature_after
+            self._loaded = True
+            return True
+
+    def _download(self, destination: str) -> None:
+        """Copy the (decompressed) snapshot to a local file for SQLite."""
+        source = fsspec.core.OpenFile(self._fs, self._path, mode="rb", compression=self._compression)
+        with source as remote, open(destination, "wb") as local:
+            shutil.copyfileobj(remote, local, length=1024 * 1024)
+
+    async def _ensure_loaded(self) -> None:
+        if not self._loaded:
+            await self.refresh()
+        error = self._availability_error()
+        if error is not None:
+            raise SnapshotUnavailableError(error)
 
     async def list_projects(self) -> list[FacadeProject]:
         await self._ensure_loaded()
@@ -382,71 +401,57 @@ class SnapshotFacadeRegistry:
         return canonicalize_project_name(dependency_id)
 
     @staticmethod
-    def _needs_decompression(path: str) -> bool:
-        return path.endswith((".xz", ".gz", ".bz2", ".zst"))
-
     def _load_all(
-        self,
+        db_path: str,
     ) -> tuple[list[FacadeProject], dict[str, str], dict[str, list[FacadeVersion]], datetime]:
-        path = self._file_path()
-        if path is not None and not self._needs_decompression(path):
-            db_path = path
-            cleanup = False
-        else:
-            db_path = self._materialize_snapshot()
-            cleanup = True
+        conn = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
         try:
-            conn = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True, check_same_thread=False)
-            conn.row_factory = sqlite3.Row
-            try:
-                metadata = dict(conn.execute("SELECT key, value FROM metadata"))
-                if metadata.get("format") != "appmana-comfyui-pip-facade-registry-snapshot" or metadata.get("schema_version") != "1":
-                    raise ValueError("Unsupported registry snapshot format or schema")
-                created_at = datetime.fromisoformat(metadata["created_at"])
-                if created_at.tzinfo is None:
-                    raise ValueError("Registry snapshot created_at must include a timezone")
-                projects = [
-                    FacadeProject(
-                        canonical_name=row["canonical_name"],
-                        display_name=row["display_name"],
-                        node_id=row["node_id"],
-                        repo_url=row["repo_url"],
-                        repo_name=row["repo_name"],
-                        description=row["description"],
-                        aliases=tuple(json.loads(row["aliases_json"])),
-                        extra_requirements=tuple(
-                            json.loads(row["extra_requirements_json"])
-                        ),
-                        skip_requirements=frozenset(
-                            json.loads(row["skip_requirements_json"])
-                        ),
-                        depends_on=tuple(json.loads(row["depends_on_json"])),
-                        latest_version=row["latest_version"],
-                    )
-                    for row in conn.execute(
-                        "SELECT * FROM projects ORDER BY canonical_name"
-                    )
-                    if row["canonical_name"] not in EXCLUDED_FACADE_PROJECT_NAMES
-                ]
-                raw_versions: dict[str, list[FacadeVersion]] = {}
+            metadata = dict(conn.execute("SELECT key, value FROM metadata"))
+            if metadata.get("format") != "appmana-comfyui-pip-facade-registry-snapshot" or metadata.get("schema_version") != "1":
+                raise ValueError("Unsupported registry snapshot format or schema")
+            created_at = datetime.fromisoformat(metadata["created_at"])
+            if created_at.tzinfo is None:
+                raise ValueError("Registry snapshot created_at must include a timezone")
+            projects = [
+                FacadeProject(
+                    canonical_name=row["canonical_name"],
+                    display_name=row["display_name"],
+                    node_id=row["node_id"],
+                    repo_url=row["repo_url"],
+                    repo_name=row["repo_name"],
+                    description=row["description"],
+                    aliases=tuple(json.loads(row["aliases_json"])),
+                    extra_requirements=tuple(
+                        json.loads(row["extra_requirements_json"])
+                    ),
+                    skip_requirements=frozenset(
+                        json.loads(row["skip_requirements_json"])
+                    ),
+                    depends_on=tuple(json.loads(row["depends_on_json"])),
+                    latest_version=row["latest_version"],
+                )
                 for row in conn.execute(
-                    "SELECT * FROM versions ORDER BY node_id, version"
-                ):
-                    if row["node_id"] in EXCLUDED_FACADE_PROJECT_NAMES:
-                        continue
-                    raw_versions.setdefault(row["node_id"], []).append(
-                        FacadeVersion(
-                            version=row["version"],
-                            download_url=row["download_url"],
-                            dependencies=tuple(json.loads(row["dependencies_json"])),
-                            deprecated=bool(row["deprecated"]),
-                        )
+                    "SELECT * FROM projects ORDER BY canonical_name"
+                )
+                if row["canonical_name"] not in EXCLUDED_FACADE_PROJECT_NAMES
+            ]
+            raw_versions: dict[str, list[FacadeVersion]] = {}
+            for row in conn.execute(
+                "SELECT * FROM versions ORDER BY node_id, version"
+            ):
+                if row["node_id"] in EXCLUDED_FACADE_PROJECT_NAMES:
+                    continue
+                raw_versions.setdefault(row["node_id"], []).append(
+                    FacadeVersion(
+                        version=row["version"],
+                        download_url=row["download_url"],
+                        dependencies=tuple(json.loads(row["dependencies_json"])),
+                        deprecated=bool(row["deprecated"]),
                     )
-            finally:
-                conn.close()
+                )
         finally:
-            if cleanup:
-                Path(db_path).unlink(missing_ok=True)
+            conn.close()
 
         versions_cache: dict[str, list[FacadeVersion]] = {}
         for node_id, versions in raw_versions.items():
@@ -465,25 +470,6 @@ class SnapshotFacadeRegistry:
 
         aliases = _build_alias_cache(projects)
         return projects, aliases, versions_cache, created_at
-
-    def _materialize_snapshot(self) -> str:
-        with tempfile.NamedTemporaryFile(
-            prefix="comfyui_facade_snapshot_",
-            suffix=".sqlite",
-            delete=False,
-        ) as temp_file:
-            temp_path = temp_file.name
-
-        try:
-            with fsspec.open(
-                self._snapshot_uri, mode="rb", compression="infer"
-            ) as source:
-                with open(temp_path, "wb") as destination:
-                    shutil.copyfileobj(source, destination)
-        except Exception:
-            Path(temp_path).unlink(missing_ok=True)
-            raise
-        return temp_path
 
 
 def _rewrite_projects_and_versions() -> tuple[

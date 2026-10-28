@@ -253,7 +253,7 @@ class Configuration(dict):
         enable_eval (Optional[bool]): Enable nodes that can evaluate Python code in workflows.
         pip_facade_registry_base_url (str): Base URL for the Comfy registry API used by the `serve-pip` facade when no snapshot URI is provided.
         pip_facade_cache_prefix (Optional[str]): Writable fsspec URI prefix where `serve-pip` caches generated wheels.
-        pip_facade_cache_s3_endpoint_url (Optional[str]): Custom S3-compatible endpoint URL for an s3:// pip-facade cache prefix.
+        pip_facade_cache_s3_endpoint_url (Optional[str]): S3-compatible endpoint URL for every s3:// URL the pip facade opens; equivalent to FSSPEC_S3_ENDPOINT_URL.
         pip_facade_only_known_nodes (bool): Only expose nodes present in this repository's local compatibility registry.
         pip_facade_snapshot_uri (Optional[str]): Read a pip-facade registry snapshot from this fsspec URI instead of querying the live registry API.
         pip_facade_snapshot_max_age_seconds (int): Maximum snapshot age before metadata and readiness return 503. Zero disables age enforcement.

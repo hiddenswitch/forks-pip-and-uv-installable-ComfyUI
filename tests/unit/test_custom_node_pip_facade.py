@@ -4,19 +4,15 @@ import asyncio
 import concurrent.futures
 import io
 import os
-import shutil
 import tarfile
 import types
 import zipfile
 from pathlib import Path
 
-import pytest
 import s3fs
-from docker.errors import DockerException
-from testcontainers.core.container import DockerContainer
-from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 from comfy.custom_node_facade import flash_attention_wheels
+from .facade_storage import fixture_seaweedfs_s3_endpoint  # noqa: F401  pylint: disable=unused-import
 from comfy.custom_node_facade.builder import FacadeWheelBuilder
 from comfy.custom_node_facade.builder import FlashAttentionProxySpec
 from comfy.custom_node_facade.builder import FacadeCacheStore
@@ -88,34 +84,6 @@ _FLASH_ATTENTION_WHEEL_URLS = (
     "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.8.2/flash_attn_3-3.0.0+cu128torch2.8-cp39-abi3-linux_x86_64.whl",
     "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.29/flash_attn_3-3.0.0+cu124torch2.5-cp39-abi3-linux_x86_64.whl",
 )
-
-
-class SeaweedFSS3Container(DockerContainer):
-    def __init__(self):
-        super().__init__("chrislusf/seaweedfs:latest")
-        self.with_exposed_ports(8333)
-        self.with_command("server -ip=0.0.0.0 -dir=/data -s3 -s3.port=8333")
-        self.waiting_for(LogMessageWaitStrategy("Start Seaweed S3 API Server"))
-
-    def endpoint_url(self) -> str:
-        return f"http://127.0.0.1:{self.get_exposed_port(8333)}"
-
-
-@pytest.fixture(name="seaweedfs_s3_endpoint")
-def fixture_seaweedfs_s3_endpoint():
-    if shutil.which("docker") is None:
-        pytest.skip("Docker is required for SeaweedFS S3 testcontainer")
-
-    try:
-        container = SeaweedFSS3Container()
-        container.start()
-    except DockerException as exc:
-        pytest.skip(f"Docker is unavailable for SeaweedFS S3 testcontainer: {exc}")
-
-    try:
-        yield container.endpoint_url()
-    finally:
-        container.stop()
 
 
 def test_strip_url_dependency_rewrites_sam2():
@@ -700,17 +668,6 @@ def test_build_wheel_to_memory_fs_prefix(tmp_path: Path):
         )
 
 
-def test_facade_cache_store_handles_windows_local_parent(tmp_path: Path):
-    builder = FacadeWheelBuilder(
-        session=None, registry=None, cache_prefix=str(tmp_path)
-    )  # type: ignore[arg-type]
-    cache = builder._cache  # type: ignore[attr-defined]
-
-    windows_style_path = str(tmp_path / "facade" / "wheel.whl").replace("/", "\\")
-
-    assert cache._parent(windows_style_path).endswith("\\facade")
-
-
 def test_facade_cache_store_filesystem_copy_from_installs_complete_file(tmp_path: Path):
     """Filesystem cache writes are installed with temp+rename semantics, so the
     destination is always one complete source, never a mixture or truncation."""
@@ -758,7 +715,7 @@ def test_facade_cache_store_filesystem_copy_from_installs_complete_file(tmp_path
     assert (distinct.pop() - 1) in range(workers)
 
     # No temp siblings left behind after a clean run.
-    leftovers = list(Path(dest).parent.glob(".facade-*.tmp"))
+    leftovers = list(Path(dest).parent.glob("*.tmp"))
     assert leftovers == [], f"leftover temp files: {leftovers}"
 
 
@@ -773,7 +730,7 @@ def test_facade_cache_store_write_bytes_is_atomic(tmp_path: Path):
     )
     cache.write_bytes(dest, b"PK\x03\x04payload")
     assert Path(dest).read_bytes() == b"PK\x03\x04payload"
-    assert list(Path(dest).parent.glob(".facade-*.tmp")) == []
+    assert list(Path(dest).parent.glob("*.tmp")) == []
 
 
 def test_facade_cache_store_object_cache_writes_final_key_without_rename(
@@ -783,9 +740,6 @@ def test_facade_cache_store_object_cache_writes_final_key_without_rename(
         session=None, registry=None, cache_prefix="memory://facade-object-cache"
     )  # type: ignore[arg-type]
     cache = builder._cache  # type: ignore[attr-defined]
-    cache._is_object_cache = (
-        True  # exercise S3-style object-store behavior without s3fs
-    )
 
     def fail_mv(*_args, **_kwargs):
         raise AssertionError("object cache writes must not rename or move temp objects")

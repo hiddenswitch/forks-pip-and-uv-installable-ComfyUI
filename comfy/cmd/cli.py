@@ -309,17 +309,17 @@ _LOGGING_OPTS: list[tuple] = [
 _PIP_FACADE_OPTS: list[tuple] = [
     ("pip_facade_snapshot_max_age_seconds", int, typer.Option(0, "--pip-facade-snapshot-max-age-seconds", min=0, help="Maximum registry snapshot age in seconds; 0 disables age enforcement.")),
     ("pip_facade_registry_base_url", str, typer.Option("https://api.comfy.org", "--pip-facade-registry-base-url", help="Base URL for the Comfy registry API used to resolve custom node versions.")),
-    ("pip_facade_cache_prefix", Optional[str], typer.Option(None, "--pip-facade-cache-prefix", help="Writable fsspec URI prefix where generated facade wheels are cached, e.g. /var/cache/comfyui, file:///var/cache/comfyui, or s3://bucket/prefix.")),
-    ("pip_facade_cache_s3_endpoint_url", Optional[str], typer.Option(None, "--pip-facade-cache-s3-endpoint-url", envvar="PIP_FACADE_CACHE_S3_ENDPOINT_URL", help="Custom S3-compatible endpoint URL for an s3:// facade cache prefix, e.g. a SeaweedFS S3 gateway.")),
+    ("pip_facade_cache_prefix", Optional[str], typer.Option(None, "--pip-facade-cache-prefix", help="Writable fsspec URL prefix where generated facade wheels are cached, e.g. /var/cache/comfyui, file:///var/cache/comfyui, s3://bucket/prefix or gs://bucket/prefix. Backend options come from fsspec configuration, e.g. FSSPEC_S3_ENDPOINT_URL.")),
+    ("pip_facade_cache_s3_endpoint_url", Optional[str], typer.Option(None, "--pip-facade-cache-s3-endpoint-url", envvar="PIP_FACADE_CACHE_S3_ENDPOINT_URL", help="S3-compatible endpoint URL for every s3:// URL the facade opens (snapshot, cache, snapshot output), e.g. a SeaweedFS S3 gateway. Equivalent to FSSPEC_S3_ENDPOINT_URL.")),
     ("pip_facade_cache_revision", Optional[int], typer.Option(None, "--pip-facade-cache-revision", help="Override the wheel cache revision. Changing this invalidates all cached wheels.")),
     ("pip_facade_only_known_nodes", bool, typer.Option(False, "--pip-facade-only-known-nodes/--no-pip-facade-only-known-nodes", help="Only expose nodes covered by the local custom node compatibility registry.")),
-    ("pip_facade_snapshot_uri", Optional[str], typer.Option(None, "--pip-facade-snapshot-uri", help="Read facade registry metadata from this fsspec URI instead of querying the live registry API, e.g. file:///data/registry.sqlite.xz, s3://bucket/registry.sqlite.xz, or pkg://comfy.custom_nodes/pip_facade_registry_snapshot.sqlite.xz.")),
+    ("pip_facade_snapshot_uri", Optional[str], typer.Option(None, "--pip-facade-snapshot-uri", help="Read facade registry metadata from a snapshot at this fsspec URL instead of querying the live registry API, e.g. /data/registry.sqlite, file:///data/registry.sqlite.xz, s3://bucket/registry.sqlite.xz, or pkg://comfy.custom_nodes/pip_facade_registry_snapshot.sqlite.xz. serve-pip checks it for a new generation every 30 seconds.")),
 ]
 
 _PIP_FACADE_SNAPSHOT_OPTS: list[tuple] = [
-    ("pip_facade_snapshot_output", str, typer.Argument(..., help="Output snapshot path. Use a .xz suffix or --pip-facade-snapshot-compression=xz for a compressed archive.")),
+    ("pip_facade_snapshot_output", str, typer.Argument(..., help="Output snapshot fsspec URL, e.g. /data/registry.sqlite or s3://bucket/registry.sqlite. Use a .xz suffix or --pip-facade-snapshot-compression=xz for a compressed archive.")),
     ("pip_facade_snapshot_compression", str, typer.Option("auto", "--pip-facade-snapshot-compression", click_type=click.Choice(["auto", "none", "xz"]), help="Snapshot compression mode. 'auto' uses the output suffix.")),
-    ("pip_facade_snapshot_overwrite", bool, typer.Option(False, "--pip-facade-snapshot-overwrite/--no-pip-facade-snapshot-overwrite", help="Overwrite an existing snapshot output file.")),
+    ("pip_facade_snapshot_overwrite", bool, typer.Option(False, "--pip-facade-snapshot-overwrite/--no-pip-facade-snapshot-overwrite", help="Replace an existing snapshot at the output URL.")),
 ]
 
 _MISC_OPTS: list[tuple] = [

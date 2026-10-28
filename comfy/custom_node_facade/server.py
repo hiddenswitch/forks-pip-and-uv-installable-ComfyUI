@@ -16,6 +16,7 @@ from .builder import (
     DEFAULT_CUDA_VARIANT,
     PYPI_PROXY_INDEX,
     PYPI_SDIST_REWRITE_FILENAME_INDEX,
+    CachedWheel,
     FacadeCacheStore,
     FacadeWheelBuilder,
     is_index_variant,
@@ -23,8 +24,17 @@ from .builder import (
 from .triton_wheels import TritonWheelBuilder, prewarm_targets as triton_prewarm_targets
 from .rocm_index import RocmSimpleIndexProxy
 from .registry import FacadeRegistry, FacadeRegistryProtocol, SnapshotFacadeRegistry, SnapshotUnavailableError, canonicalize_project_name
+from .storage import apply_fsspec_configuration
 
 logger = logging.getLogger(__name__)
+
+# How often the registry snapshot's source is checked for a new generation.
+SNAPSHOT_REFRESH_INTERVAL_SECONDS = 30.0
+# How often a local wheel cache directory is checked for a lost mount, and how
+# long one check may take before it is reported as slow.
+CACHE_HEALTH_INTERVAL_SECONDS = 30.0
+CACHE_HEALTH_TIMEOUT_SECONDS = 30.0
+_STREAM_CHUNK_BYTES = 1024 * 1024
 
 
 def _simple_html(title: str, body: str) -> str:
@@ -45,21 +55,20 @@ def create_facade_app(
         except SnapshotUnavailableError as exc:
             raise web.HTTPServiceUnavailable(text=str(exc), headers={"Cache-Control": "no-store"}) from exc
 
+    apply_fsspec_configuration(configuration)
     app = web.Application(middlewares=[snapshot_errors])
     app["facade_ready"] = False
+    # Mutable state the background cache check updates after startup.
+    app["facade_cache_state"] = {"error": None, "check": None}
     cache_prefix = configuration.pip_facade_cache_prefix
     if cache_prefix is None:
         cache_prefix = os.path.join(user_cache_dir(appname="comfyui"), "pip_facade")
-    cache_storage_options = _cache_storage_options(configuration, str(cache_prefix))
 
     async def on_startup(application: web.Application) -> None:
         with tracer.start_as_current_span("Initialize Pip Facade Server") as span:
             span.set_attribute("facade.listen", configuration.listen)
             span.set_attribute("facade.port", configuration.port)
             span.set_attribute("facade.cache_prefix", str(cache_prefix))
-            endpoint_url = getattr(configuration, "pip_facade_cache_s3_endpoint_url", None)
-            if endpoint_url:
-                span.set_attribute("facade.cache_s3_endpoint_url", endpoint_url)
             timeout = aiohttp.ClientTimeout(total=10 * 60.0, connect=60.0)
             session = aiohttp.ClientSession(timeout=timeout)
             registry: FacadeRegistryProtocol
@@ -81,23 +90,27 @@ def create_facade_app(
                 session,
                 registry,
                 cache_prefix=cache_prefix,
-                cache_storage_options=cache_storage_options,
                 cache_revision=cache_revision,
             )
             application["facade_session"] = session
             application["facade_registry"] = registry
             application["facade_builder"] = builder
             application["facade_triton_builder"] = TritonWheelBuilder(session)
-            application["facade_triton_cache"] = FacadeCacheStore(cache_prefix, storage_options=cache_storage_options)
+            application["facade_triton_cache"] = FacadeCacheStore(cache_prefix)
             application["facade_triton_locks"] = {}
             application["facade_pypi_rewrite_locks"] = {}
             application["facade_rocm_proxy"] = RocmSimpleIndexProxy()
-            with tracer.start_as_current_span("Warm Pip Facade Registry") as warmup_span:
-                try:
+            if isinstance(registry, SnapshotFacadeRegistry):
+                # The snapshot loads in the background: the server answers
+                # probes at once and reports ready when a generation is loaded.
+                application["facade_snapshot_refresh"] = asyncio.create_task(
+                    registry.run_refresh_loop(SNAPSHOT_REFRESH_INTERVAL_SECONDS)
+                )
+            else:
+                with tracer.start_as_current_span("Warm Pip Facade Registry") as warmup_span:
                     projects = await registry.list_projects()
                     warmup_span.set_attribute("facade.project_count", len(projects))
-                except SnapshotUnavailableError as exc:
-                    logger.warning("Facade snapshot is not ready: %s", exc)
+            application["facade_cache_health"] = asyncio.create_task(_cache_health_loop(application))
             application["facade_ready"] = True
             # Build the triton / triton-windows wheels in the background so the
             # first request for a patched cu13x wheel is served from cache.
@@ -112,11 +125,11 @@ def create_facade_app(
         try:
             async for served, cuda in triton_prewarm_targets(session):
                 path = cache.custom_path("triton", cuda, served)
-                if cache.exists(path):
+                if await asyncio.to_thread(cache.exists, path):
                     continue
                 try:
                     data = await builder.build(served_filename=served, cuda=cuda)
-                    cache.write_bytes(path, data)
+                    await asyncio.to_thread(cache.write_bytes, path, data)
                     built += 1
                 except asyncio.CancelledError:
                     raise
@@ -128,13 +141,14 @@ def create_facade_app(
 
     async def on_cleanup(application: web.Application) -> None:
         application["facade_ready"] = False
-        prewarm: asyncio.Task | None = application.get("facade_triton_prewarm")
-        if prewarm is not None and not prewarm.done():
-            prewarm.cancel()
-            try:
-                await prewarm
-            except asyncio.CancelledError:
-                pass
+        for name in ("facade_triton_prewarm", "facade_snapshot_refresh", "facade_cache_health"):
+            task: asyncio.Task | None = application.get(name)
+            if task is not None and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
         session: aiohttp.ClientSession | None = application.get("facade_session")
         if session is not None:
             await session.close()
@@ -143,17 +157,16 @@ def create_facade_app(
         return web.json_response({"ok": True, "live": True, "ready": bool(app.get("facade_ready"))})
 
     async def readiness(_: web.Request) -> web.Response:
+        # Answered from state the background tasks keep; never touches storage.
         ready = bool(app.get("facade_ready"))
         details = {}
         if ready and isinstance(app["facade_registry"], SnapshotFacadeRegistry):
-            details = await app["facade_registry"].health()
+            details = app["facade_registry"].health()
             ready = details["snapshot_error"] is None
-        if ready:
-            try:
-                await asyncio.to_thread(app["facade_triton_cache"].check_local_storage)
-            except OSError as exc:
-                details["cache_error"] = str(exc)
-                ready = False
+        cache_error = app["facade_cache_state"]["error"]
+        if cache_error is not None:
+            details["cache_error"] = cache_error
+            ready = False
         status = 200 if ready else 503
         return web.json_response({"ok": ready, "live": True, "ready": ready, **details}, status=status, headers={"Cache-Control": "no-store"})
 
@@ -239,13 +252,7 @@ def create_facade_app(
 
             wheel = await builder.build_wheel(project, version, requested_name)
             span.set_attribute("facade.wheel_path", wheel.cache_path)
-            if wheel.local_path is not None:
-                return web.FileResponse(path=wheel.local_path)
-            return web.Response(
-                body=await builder.read_cached_wheel(wheel),
-                content_type="application/octet-stream",
-                headers={"Content-Disposition": f'attachment; filename="{expected_name}"'},
-            )
+            return await _serve_cached(request, app["facade_triton_cache"], wheel, expected_name, "application/octet-stream")
 
     async def triton_package_download(request: web.Request) -> web.StreamResponse:
         with tracer.start_as_current_span("Serve Triton Wheel") as span:
@@ -264,17 +271,11 @@ def create_facade_app(
             locks: dict = app["facade_triton_locks"]
             lock = locks.setdefault((cuda, filename), asyncio.Lock())
             async with lock:
-                if not cache.exists(path):
+                if not await asyncio.to_thread(cache.exists, path):
                     data = await builder.build(served_filename=filename, cuda=cuda)
-                    cache.write_bytes(path, data)
+                    await asyncio.to_thread(cache.write_bytes, path, data)
                 cached = cache.cached_wheel(path)
-            if cached.local_path is not None:
-                return web.FileResponse(path=cached.local_path)
-            return web.Response(
-                body=cache.read_bytes(path),
-                content_type="application/octet-stream",
-                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-            )
+            return await _serve_cached(request, cache, cached, filename, "application/octet-stream")
 
     async def pypi_rewrite_package_download(request: web.Request) -> web.StreamResponse:
         filename = request.match_info["filename"]
@@ -287,17 +288,11 @@ def create_facade_app(
         locks: dict = app["facade_pypi_rewrite_locks"]
         lock = locks.setdefault(filename, asyncio.Lock())
         async with lock:
-            if not cache.exists(path):
+            if not await asyncio.to_thread(cache.exists, path):
                 session: aiohttp.ClientSession = app["facade_session"]
-                cache.write_bytes(path, await spec.build_sdist(session))
+                await asyncio.to_thread(cache.write_bytes, path, await spec.build_sdist(session))
             cached = cache.cached_wheel(path)
-        if cached.local_path is not None:
-            return web.FileResponse(path=cached.local_path)
-        return web.Response(
-            body=cache.read_bytes(path),
-            content_type="application/gzip",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
+        return await _serve_cached(request, cache, cached, filename, "application/gzip")
 
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)
@@ -344,11 +339,63 @@ def create_facade_app(
     return app
 
 
-def _cache_storage_options(configuration: Configuration, cache_prefix: str) -> dict:
-    endpoint_url = getattr(configuration, "pip_facade_cache_s3_endpoint_url", None)
-    if endpoint_url and cache_prefix.startswith(("s3://", "s3a://")):
-        return {"client_kwargs": {"endpoint_url": endpoint_url}}
-    return {}
+async def _serve_cached(
+    request: web.Request,
+    cache: FacadeCacheStore,
+    cached: CachedWheel,
+    filename: str,
+    content_type: str,
+) -> web.StreamResponse:
+    """Send a cache entry, streaming it in chunks from a remote filesystem."""
+    if cached.local_path is not None:
+        return web.FileResponse(path=cached.local_path)
+    handle = await asyncio.to_thread(cache.open_read, cached.cache_path)
+    try:
+        response = web.StreamResponse(
+            headers={
+                "Content-Type": content_type,
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            }
+        )
+        size = getattr(handle, "size", None)
+        if isinstance(size, int):
+            response.content_length = size
+        await response.prepare(request)
+        while chunk := await asyncio.to_thread(handle.read, _STREAM_CHUNK_BYTES):
+            await response.write(chunk)
+        await response.write_eof()
+        return response
+    finally:
+        await asyncio.to_thread(handle.close)
+
+
+async def check_cache_health(app: web.Application) -> None:
+    """Check a local wheel cache directory once and record the result for /readyz.
+
+    A check that outlasts the timeout keeps running and is awaited again by the
+    next call instead of starting another one on a hung mount.
+    """
+    cache: FacadeCacheStore = app["facade_triton_cache"]
+    state = app["facade_cache_state"]
+    check = state["check"]
+    if check is None or check.done():
+        check = asyncio.ensure_future(asyncio.to_thread(cache.check_local_storage))
+        state["check"] = check
+    try:
+        await asyncio.wait_for(asyncio.shield(check), CACHE_HEALTH_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        logger.warning("Wheel cache check has taken longer than %ss", CACHE_HEALTH_TIMEOUT_SECONDS)
+        return
+    except OSError as exc:
+        state["error"] = str(exc)
+        return
+    state["error"] = None
+
+
+async def _cache_health_loop(app: web.Application) -> None:
+    while True:
+        await check_cache_health(app)
+        await asyncio.sleep(CACHE_HEALTH_INTERVAL_SECONDS)
 
 
 async def run_facade_server(

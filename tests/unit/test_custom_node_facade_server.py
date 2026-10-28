@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import asyncio
+
 from aiohttp.test_utils import TestClient, TestServer
+import fsspec
+import fsspec.config
 import pytest
 
 from comfy.component_model.configuration import Configuration
 from comfy.custom_node_facade import server as facade_server
 from comfy.custom_node_facade.rocm_index import RocmSimpleIndexProxy, _absolute_links
 from comfy.custom_node_facade.snapshot import write_facade_registry_snapshot
+
+from .facade_storage import (  # noqa: F401  pylint: disable=unused-import
+    fixture_facade_storage_url,
+    fixture_seaweedfs_s3_endpoint,
+)
 
 
 class _FakeRegistry:
@@ -27,6 +36,13 @@ class _FakeSnapshotRegistry(_FakeRegistry):
         del args, kwargs
         type(self).snapshot_uri = snapshot_uri
 
+    async def run_refresh_loop(self, interval_seconds):
+        del interval_seconds
+        await self.list_projects()
+
+    def health(self):
+        return {"snapshot_error": None}
+
 
 class _FakeBuilder:
     def __init__(self, *args, **kwargs):
@@ -46,65 +62,9 @@ def test_local_cache_health_checks_usable_directory(tmp_path):
     cache.check_local_storage()
 
 
-async def test_snapshot_health_tracks_mount_loss_and_recovers(tmp_path, monkeypatch):
-    snapshot = tmp_path / "registry.sqlite"
-    config = Configuration()
-    config.pip_facade_snapshot_uri = str(snapshot)
-    config.pip_facade_snapshot_max_age_seconds = 2100
-    monkeypatch.setattr(facade_server, "triton_prewarm_targets", _no_prewarm)
-
-    def write():
-        write_facade_registry_snapshot(
-            snapshot, projects=[], versions_by_node_id={},
-            base_url="https://registry.example.invalid", only_known_nodes=True,
-        )
-
-    async with TestClient(TestServer(facade_server.create_facade_app(configuration=config))) as client:
-        for path in ("/readyz", "/healthz", "/simple/"):
-            response = await client.get(path)
-            assert response.status == 503
-            assert response.headers["Cache-Control"] == "no-store"
-        assert (await client.get("/livez")).status == 200
-        write()
-        response = await client.get("/readyz")
-        assert response.status == 200
-        assert (await response.json())["snapshot_created_at"]
-        assert (await client.get("/simple/")).status == 200
-        snapshot.unlink()
-        assert (await client.get("/readyz")).status == 503
-        assert (await client.get("/simple/")).status == 503
-        assert (await client.get("/livez")).status == 200
-        write()
-        assert (await client.get("/readyz")).status == 200
-
-
 async def _no_prewarm(session):
     for item in ():
         yield item
-
-
-async def test_readiness_detects_disconnected_wheel_cache(tmp_path, monkeypatch):
-    config = Configuration()
-    config.pip_facade_cache_prefix = str(tmp_path / "cache")
-    monkeypatch.setattr(facade_server, "FacadeRegistry", _FakeRegistry)
-    monkeypatch.setattr(facade_server, "triton_prewarm_targets", _no_prewarm)
-    app = facade_server.create_facade_app(configuration=config)
-    async with TestClient(TestServer(app)) as client:
-        assert (await client.get("/readyz")).status == 200
-        cache = app["facade_triton_cache"]
-        original = cache.check_local_storage
-
-        def disconnected():
-            raise OSError(107, "Transport endpoint is not connected")
-
-        monkeypatch.setattr(cache, "check_local_storage", disconnected)
-        response = await client.get("/readyz")
-        assert response.status == 503
-        assert "Transport endpoint" in (await response.json())["cache_error"]
-        assert response.headers["Cache-Control"] == "no-store"
-        assert (await client.get("/livez")).status == 200
-        monkeypatch.setattr(cache, "check_local_storage", original)
-        assert (await client.get("/readyz")).status == 200
 
 
 class _FakeProxy:
@@ -132,16 +92,6 @@ class _FakeSdistRewrite:
         del session
         self.calls += 1
         return b"rewritten-sam2-sdist"
-
-
-def test_cache_storage_options_sets_s3_endpoint_only_for_s3_prefix():
-    config = Configuration()
-    config.pip_facade_cache_s3_endpoint_url = "http://seaweedfs-s3:8333"
-
-    assert facade_server._cache_storage_options(config, "s3://bucket/prefix") == {
-        "client_kwargs": {"endpoint_url": "http://seaweedfs-s3:8333"}
-    }
-    assert facade_server._cache_storage_options(config, "/mnt/seaweedfs/prefix") == {}
 
 
 async def test_serve_pip_warms_registry_before_reporting_ready(monkeypatch):
@@ -396,6 +346,7 @@ async def test_triton_package_route_builds_and_caches(monkeypatch, tmp_path):
     monkeypatch.setattr(facade_server, "FacadeWheelBuilder", _FakeBuilder)
     monkeypatch.setattr(facade_server, "TritonWheelBuilder", _FakeTritonBuilder)
     monkeypatch.setattr(facade_server, "PYPI_PROXY_INDEX", {})
+    monkeypatch.setattr(facade_server, "triton_prewarm_targets", _no_prewarm)
 
     config = Configuration()
     config.pip_facade_cache_prefix = str(tmp_path)
@@ -472,6 +423,7 @@ async def test_serve_pip_uses_snapshot_registry_when_configured(monkeypatch):
     await client.start_server()
     try:
         assert _FakeRegistry.calls == 0
+        await asyncio.sleep(0)
         assert _FakeSnapshotRegistry.calls == 1
         assert _FakeSnapshotRegistry.snapshot_uri == configuration.pip_facade_snapshot_uri
     finally:
@@ -587,3 +539,155 @@ async def test_alias_request_serves_wheels_named_after_requested_name(monkeypatc
     finally:
         await client.close()
         await archive_client.close()
+
+
+def _write_snapshot(uri, projects=()):
+    write_facade_registry_snapshot(
+        uri, projects=list(projects), versions_by_node_id={},
+        base_url="https://registry.example.invalid", only_known_nodes=True,
+        overwrite=True,
+    )
+
+
+async def _wait_ready(client, timeout=30.0):
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while True:
+        response = await client.get("/readyz")
+        if response.status == 200:
+            return await response.json()
+        assert loop.time() < deadline, await response.text()
+        await asyncio.sleep(0.05)
+
+
+async def test_snapshot_readiness_follows_the_loaded_generation_not_live_storage(
+    facade_storage_url, monkeypatch
+):
+    snapshot = f"{facade_storage_url}/registry.sqlite"
+    config = Configuration()
+    config.pip_facade_snapshot_uri = snapshot
+    config.pip_facade_snapshot_max_age_seconds = 2100
+    config.pip_facade_cache_prefix = f"{facade_storage_url}/cache"
+    monkeypatch.setattr(facade_server, "triton_prewarm_targets", _no_prewarm)
+    monkeypatch.setattr(facade_server, "SNAPSHOT_REFRESH_INTERVAL_SECONDS", 0.05)
+    app = facade_server.create_facade_app(configuration=config)
+
+    async with TestClient(TestServer(app)) as client:
+        for path in ("/readyz", "/healthz", "/simple/"):
+            response = await client.get(path)
+            assert response.status == 503
+            assert response.headers["Cache-Control"] == "no-store"
+        assert (await client.get("/livez")).status == 200
+
+        _write_snapshot(snapshot)
+        assert (await _wait_ready(client))["snapshot_created_at"]
+        assert (await client.get("/simple/")).status == 200
+
+        fs, path = fsspec.core.url_to_fs(snapshot)
+        fs.rm(path)
+        registry = app["facade_registry"]
+        assert not await registry.refresh()
+        response = await client.get("/readyz")
+        assert response.status == 200
+        assert (await response.json())["snapshot_refresh_error"]
+        assert (await client.get("/simple/")).status == 200
+        assert (await client.get("/livez")).status == 200
+
+
+async def test_probes_do_not_touch_storage(facade_storage_url, monkeypatch):
+    snapshot = f"{facade_storage_url}/registry.sqlite"
+    _write_snapshot(snapshot)
+    config = Configuration()
+    config.pip_facade_snapshot_uri = snapshot
+    config.pip_facade_cache_prefix = f"{facade_storage_url}/cache"
+    monkeypatch.setattr(facade_server, "triton_prewarm_targets", _no_prewarm)
+    app = facade_server.create_facade_app(configuration=config)
+
+    async with TestClient(TestServer(app)) as client:
+        await _wait_ready(client)
+        for task in ("facade_snapshot_refresh", "facade_cache_health"):
+            app[task].cancel()
+
+        def no_io(*_args, **_kwargs):
+            raise AssertionError("probes must not touch storage")
+
+        with monkeypatch.context() as patch:
+            for fs in (app["facade_registry"]._fs, app["facade_triton_cache"]._fs):  # pylint: disable=protected-access
+                for method in ("info", "open", "_open", "exists", "ls", "touch", "makedirs", "mkdir"):
+                    patch.setattr(fs, method, no_io, raising=False)
+            patch.setattr(app["facade_triton_cache"], "check_local_storage", no_io)
+
+            for path in ("/livez", "/readyz", "/healthz"):
+                assert (await client.get(path)).status == 200
+
+
+async def test_readiness_reports_a_disconnected_local_wheel_cache_from_the_background_check(
+    tmp_path, monkeypatch
+):
+    config = Configuration()
+    config.pip_facade_cache_prefix = str(tmp_path / "cache")
+    monkeypatch.setattr(facade_server, "FacadeRegistry", _FakeRegistry)
+    monkeypatch.setattr(facade_server, "triton_prewarm_targets", _no_prewarm)
+    app = facade_server.create_facade_app(configuration=config)
+    async with TestClient(TestServer(app)) as client:
+        await _wait_ready(client)
+        await facade_server.check_cache_health(app)  # the startup check has finished
+        cache = app["facade_triton_cache"]
+        original = cache.check_local_storage
+
+        def disconnected():
+            raise OSError(107, "Transport endpoint is not connected")
+
+        monkeypatch.setattr(cache, "check_local_storage", disconnected)
+        await facade_server.check_cache_health(app)
+        response = await client.get("/readyz")
+        assert response.status == 503
+        assert "Transport endpoint" in (await response.json())["cache_error"]
+        assert response.headers["Cache-Control"] == "no-store"
+        assert (await client.get("/livez")).status == 200
+        monkeypatch.setattr(cache, "check_local_storage", original)
+        await facade_server.check_cache_health(app)
+        assert (await client.get("/readyz")).status == 200
+
+
+async def test_wheel_cache_builds_once_and_serves_from_any_fsspec_url(
+    facade_storage_url, monkeypatch
+):
+    rewrite = _FakeSdistRewrite()
+    monkeypatch.setattr(facade_server, "FacadeRegistry", _FakeRegistry)
+    monkeypatch.setattr(facade_server, "FacadeWheelBuilder", _FakeBuilder)
+    monkeypatch.setattr(facade_server, "triton_prewarm_targets", _no_prewarm)
+    monkeypatch.setattr(
+        facade_server, "PYPI_SDIST_REWRITE_FILENAME_INDEX", {rewrite.filename: rewrite}
+    )
+    _FakeTritonBuilder.calls = []
+    monkeypatch.setattr(facade_server, "TritonWheelBuilder", _FakeTritonBuilder)
+    monkeypatch.setattr(facade_server, "PYPI_PROXY_INDEX", {})
+    configuration = Configuration()
+    configuration.pip_facade_cache_prefix = f"{facade_storage_url}/pip-facade"
+    app = facade_server.create_facade_app(configuration=configuration)
+    async with TestClient(TestServer(app)) as client:
+        for url, payload in (
+            (f"/packages/pypi-rewrite/{rewrite.filename}", b"rewritten-sam2-sdist"),
+            ("/packages/triton/cu130/triton-3.7.0.post26-cp312-cp312-win_amd64.whl", b"PATCHED_WHEEL_BYTES"),
+        ):
+            for _ in range(2):
+                response = await client.get(url)
+                assert response.status == 200
+                assert await response.read() == payload
+        assert rewrite.calls == 1
+        assert len(_FakeTritonBuilder.calls) == 1
+
+    fs, root = fsspec.core.url_to_fs(configuration.pip_facade_cache_prefix)
+    assert fs.cat_file(f"{root}/pypi-rewrite/sam2/{rewrite.filename}") == b"rewritten-sam2-sdist"
+
+
+def test_cache_s3_endpoint_flag_maps_onto_fsspec_configuration(monkeypatch):
+    monkeypatch.setattr(fsspec.config, "conf", {"s3": {"anon": True}})
+    config = Configuration()
+    config.pip_facade_cache_s3_endpoint_url = "http://seaweedfs-s3:8333"
+    facade_server.create_facade_app(configuration=config)
+
+    assert fsspec.config.conf["s3"] == {"anon": True, "endpoint_url": "http://seaweedfs-s3:8333"}
+    fs = fsspec.filesystem("s3", skip_instance_cache=True)
+    assert fs.endpoint_url == "http://seaweedfs-s3:8333"

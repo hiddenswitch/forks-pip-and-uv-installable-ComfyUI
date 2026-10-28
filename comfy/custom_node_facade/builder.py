@@ -10,7 +10,6 @@ import functools
 import hashlib
 import html
 import io
-import ntpath
 import os
 import posixpath
 import re
@@ -19,15 +18,14 @@ import subprocess
 import tarfile
 import tempfile
 import time
-import uuid
 import zipfile
 from dataclasses import dataclass
 from typing import Any, Mapping
 from pathlib import Path
 
 import aiohttp
-import fsspec
 
+from .storage import is_local, publish_file, url_to_fs
 from .registry import (
     FacadeProject,
     FacadeRegistryProtocol,
@@ -44,12 +42,6 @@ _FACADE_BUILD_REVISION = 5
 _FACADE_ALWAYS_SKIPPED_DEPENDENCIES: frozenset[str] = frozenset(
     {
         "gguf",
-    }
-)
-_OBJECT_CACHE_PROTOCOLS: frozenset[str] = frozenset(
-    {
-        "s3",
-        "s3a",
     }
 )
 
@@ -685,6 +677,15 @@ class CachedWheel:
 
 
 class FacadeCacheStore:
+    """The generated-wheel cache at any fsspec URL prefix.
+
+    Entries are published whole: a local filesystem installs each entry with a
+    temporary sibling and a rename, and other filesystems upload the final
+    object directly, which object stores publish only when the upload
+    completes (see :func:`.storage.publish_file`). All methods block; async
+    callers run them in a thread.
+    """
+
     def __init__(
         self,
         prefix: str | os.PathLike[str],
@@ -692,12 +693,7 @@ class FacadeCacheStore:
         storage_options: Mapping[str, Any] | None = None,
     ) -> None:
         self._prefix = str(prefix)
-        self._fs, self._root = fsspec.core.url_to_fs(
-            self._prefix, **(storage_options or {})
-        )
-        protocol = self._fs.protocol
-        protocols = {protocol} if isinstance(protocol, str) else set(protocol)
-        self._is_object_cache = bool(protocols & _OBJECT_CACHE_PROTOCOLS)
+        self._fs, self._root = url_to_fs(self._prefix, storage_options)
 
     def wheel_path(
         self,
@@ -714,77 +710,30 @@ class FacadeCacheStore:
 
     def check_local_storage(self) -> None:
         """Detect disconnected or read-only filesystem cache mounts."""
-        if isinstance(self._fs, fsspec.implementations.local.LocalFileSystem):
+        if is_local(self._fs):
             self._fs.makedirs(self._root, exist_ok=True)
             with tempfile.TemporaryFile(dir=self._root):
                 pass
 
     def write_bytes(self, path: str, data: bytes) -> None:
-        if self._is_object_cache:
-            with self._fs.open(path, "wb") as handle:
+        with tempfile.TemporaryDirectory(prefix="comfyui_facade_cache_") as temp_dir:
+            source = os.path.join(temp_dir, "entry")
+            with open(source, "wb") as handle:
                 handle.write(data)
-            return
-
-        def fill(tmp: str) -> None:
-            with self._fs.open(tmp, "wb") as handle:
-                handle.write(data)
-
-        self._install_atomically(path, fill)
+            self.copy_from(source, path)
 
     def copy_from(self, source_path: str, dest_path: str) -> None:
-        if self._is_object_cache:
-            with open(source_path, "rb") as src, self._fs.open(dest_path, "wb") as dst:
-                shutil.copyfileobj(src, dst)
-            return
-
-        def fill(tmp: str) -> None:
-            with open(source_path, "rb") as src, self._fs.open(tmp, "wb") as dst:
-                shutil.copyfileobj(src, dst)
-
-        self._install_atomically(dest_path, fill)
-
-    def _install_atomically(self, dest_path: str, fill) -> None:
-        """Install a filesystem cache entry via temp sibling and rename.
-
-        This path is for real filesystem-style cache prefixes. Object stores
-        such as S3 publish a complete object on PUT completion, so they bypass
-        this method and write the final key directly.
-        """
-        parent = self._ensure_parent(dest_path)
-        is_local = isinstance(self._fs, fsspec.implementations.local.LocalFileSystem)
-        if is_local and parent:
-            fd, tmp = tempfile.mkstemp(dir=parent, prefix=".facade-", suffix=".tmp")
-            os.close(fd)
-        else:
-            tmp = f"{dest_path}.{uuid.uuid4().hex}.tmp"
-        try:
-            fill(tmp)
-            if is_local:
-                os.replace(tmp, dest_path)
-            else:
-                self._fs.mv(tmp, dest_path)
-        except BaseException:
-            try:
-                if is_local:
-                    os.remove(tmp)
-                else:
-                    self._fs.rm(tmp)
-            except Exception:  # noqa: BLE001 - best-effort temp cleanup
-                pass
-            raise
-
-    def _ensure_parent(self, path: str) -> str:
-        parent = self._parent(path)
-        if parent:
-            self._fs.makedirs(parent, exist_ok=True)
-        return parent
+        publish_file(self._fs, source_path, dest_path, staged=False)
 
     def read_bytes(self, path: str) -> bytes:
         with self._fs.open(path, "rb") as handle:
             return handle.read()
 
+    def open_read(self, path: str):
+        return self._fs.open(path, "rb")
+
     def cached_wheel(self, path: str) -> CachedWheel:
-        return CachedWheel(cache_path=path, local_path=self._local_path(path))
+        return CachedWheel(cache_path=path, local_path=path if is_local(self._fs) else None)
 
     def custom_path(self, *parts: str) -> str:
         """Cache path for non-registry artifacts (e.g. patched triton wheels)."""
@@ -798,17 +747,6 @@ class FacadeCacheStore:
         if not clean_parts:
             return root
         return posixpath.join(root, *clean_parts)
-
-    def _parent(self, path: str) -> str:
-        if isinstance(self._fs, fsspec.implementations.local.LocalFileSystem):
-            return ntpath.dirname(path)
-        return posixpath.dirname(path)
-
-    def _local_path(self, path: str) -> str | None:
-        try:
-            return os.fspath(fsspec.open_local(path, mode="rb"))
-        except (AttributeError, FileNotFoundError, OSError, ValueError):
-            return None
 
 
 class FacadeWheelBuilder:
@@ -879,7 +817,7 @@ class FacadeWheelBuilder:
                 resolved_project, wheel_name, self._cache_revision
             )
             span.set_attribute("facade.wheel_path", wheel_path)
-            if self._cache.exists(wheel_path):
+            if await asyncio.to_thread(self._cache.exists, wheel_path):
                 span.set_attribute("facade.cache_hit", True)
                 return self._cache.cached_wheel(wheel_path)
 
@@ -888,7 +826,7 @@ class FacadeWheelBuilder:
                 (name, resolved_version.version), asyncio.Lock()
             )
             async with lock:
-                if self._cache.exists(wheel_path):
+                if await asyncio.to_thread(self._cache.exists, wheel_path):
                     span.set_attribute("facade.cache_hit_after_lock", True)
                     return self._cache.cached_wheel(wheel_path)
                 rewrite = _PYPI_REWRITE_INDEX.get(resolved_project.canonical_name)

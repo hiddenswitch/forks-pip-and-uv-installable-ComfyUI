@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 import lzma
-import os
 import sqlite3
 import sys
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import fsspec
 import pytest
 
 from comfy.custom_node_facade.registry import (
@@ -23,8 +23,14 @@ from comfy.custom_node_facade.registry import (
 from comfy.custom_node_facade.snapshot import (
     _build_class_type_rows,
     _collect_versions,
+    _load_previous_snapshot,
     _validated_installable_projects,
     write_facade_registry_snapshot,
+)
+
+from .facade_storage import (  # noqa: F401  pylint: disable=unused-import
+    fixture_facade_storage_url,
+    fixture_seaweedfs_s3_endpoint,
 )
 
 
@@ -51,43 +57,6 @@ def _sample_version() -> FacadeVersion:
         dependencies=("requests>=2",),
         deprecated=False,
     )
-
-
-async def test_snapshot_unavailable_and_expired_generations_recover(tmp_path: Path):
-    output = tmp_path / "registry.sqlite"
-    project = _sample_project()
-
-    def write():
-        write_facade_registry_snapshot(
-            output, projects=[project],
-            versions_by_node_id={project.node_id: [_sample_version()]},
-            base_url="https://registry.example.invalid", only_known_nodes=True,
-            overwrite=True,
-        )
-
-    write()
-    registry = SnapshotFacadeRegistry(snapshot_uri=str(output), max_age_seconds=2100)
-    assert await registry.get_project(project.node_id) == project
-    output.unlink()
-    with pytest.raises(SnapshotUnavailableError):
-        await registry.list_projects()
-    assert not output.exists()
-    assert (await registry.health())["snapshot_error"]
-
-    output.write_bytes(b"invalid snapshot")
-    with pytest.raises(SnapshotUnavailableError):
-        await registry.list_projects()
-    write()
-    with closing(sqlite3.connect(output)) as connection, connection:
-        connection.execute("UPDATE metadata SET value = ? WHERE key = 'created_at'", (
-            (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
-        ))
-    with pytest.raises(SnapshotUnavailableError, match="expired"):
-        await registry.list_projects()
-    assert (await registry.health())["snapshot_age_seconds"] >= 3600
-    write()
-    assert await registry.get_project(project.node_id) == project
-    assert (await registry.health())["snapshot_error"] is None
 
 
 async def test_snapshot_age_limit_is_optional(tmp_path: Path):
@@ -248,71 +217,6 @@ async def test_snapshot_registry_reads_plain_sqlite(tmp_path: Path):
     assert project.canonical_name in [item.canonical_name for item in projects]
     loaded_version = await registry.get_version(project.canonical_name, version.version)
     assert loaded_version == version
-
-
-async def test_snapshot_registry_retries_replacement_during_load(
-    tmp_path: Path, monkeypatch
-):
-    output = tmp_path / "registry.sqlite"
-    old_project = _sample_project()
-    old_version = _sample_version()
-    write_facade_registry_snapshot(
-        output,
-        projects=[old_project],
-        versions_by_node_id={old_project.node_id: [old_version]},
-        base_url="https://registry.example.invalid",
-        only_known_nodes=True,
-    )
-
-    new_project = FacadeProject(
-        canonical_name="new-project",
-        display_name="New Project",
-        node_id="new-project",
-        repo_url="https://github.com/example/new-project",
-        repo_name="new-project",
-        description="New snapshot generation",
-        aliases=("new-project",),
-        extra_requirements=(),
-        skip_requirements=frozenset(),
-        depends_on=(),
-        latest_version="2.0.0",
-    )
-    new_version = FacadeVersion(
-        version="2.0.0",
-        download_url="https://example.invalid/new-project.zip",
-        dependencies=(),
-        deprecated=False,
-    )
-    replacement = tmp_path / "replacement.sqlite"
-    write_facade_registry_snapshot(
-        replacement,
-        projects=[new_project],
-        versions_by_node_id={new_project.node_id: [new_version]},
-        base_url="https://registry.example.invalid",
-        only_known_nodes=True,
-    )
-
-    registry = SnapshotFacadeRegistry(snapshot_uri=str(output))
-    original_load = registry._load_all  # pylint: disable=protected-access
-    load_count = 0
-
-    def replace_after_first_load():
-        nonlocal load_count
-        loaded = original_load()
-        load_count += 1
-        if load_count == 1:
-            os.replace(replacement, output)
-        return loaded
-
-    monkeypatch.setattr(registry, "_load_all", replace_after_first_load)
-
-    projects = await registry.list_projects()
-
-    assert load_count == 2
-    project_names = {project.canonical_name for project in projects}
-    assert "new-project" in project_names
-    assert old_project.canonical_name not in project_names
-    assert await registry.get_version("new-project", "2.0.0") == new_version
 
 
 async def test_snapshot_registry_reads_pkg_xz_uri(tmp_path: Path, monkeypatch):
@@ -477,37 +381,6 @@ def test_snapshot_validation_rejects_a_missing_declared_latest():
         )
 
 
-def test_snapshot_replacement_is_atomic_when_staging_fails(tmp_path: Path, monkeypatch):
-    output = tmp_path / "registry.sqlite"
-    output.write_bytes(b"previous-valid-snapshot")
-    project = _sample_project()
-
-    def fail_staging(_source, staged):
-        Path(staged).write_bytes(b"partial")
-        raise OSError("simulated interrupted network-filesystem write")
-
-    monkeypatch.setattr(
-        "comfy.custom_node_facade.snapshot.shutil.copyfile", fail_staging
-    )
-
-    try:
-        write_facade_registry_snapshot(
-            output,
-            projects=[project],
-            versions_by_node_id={project.node_id: [_sample_version()]},
-            base_url="https://registry.example.invalid",
-            only_known_nodes=False,
-            overwrite=True,
-        )
-    except OSError as exc:
-        assert "simulated interrupted" in str(exc)
-    else:
-        raise AssertionError("staging failure should propagate")
-
-    assert output.read_bytes() == b"previous-valid-snapshot"
-    assert list(tmp_path.glob(".registry.sqlite.*.tmp")) == []
-
-
 async def test_snapshot_registry_hides_excluded_facade_projects(tmp_path: Path):
     output = tmp_path / "registry.sqlite"
     excluded_projects = [
@@ -589,3 +462,220 @@ def test_snapshot_class_type_rows_exclude_facade_shadow_packages():
     assert ("GGUFNode", "gguf") not in rows
     assert all(not is_excluded_facade_project(pkg) for _, pkg in rows)
     assert ("CustomScriptsNode", "comfyui-custom-scripts") in rows
+
+
+def _write(output, *, projects, created_at=None, overwrite=True, compression="auto"):
+    return write_facade_registry_snapshot(
+        output,
+        projects=projects,
+        versions_by_node_id={
+            project.node_id: [
+                FacadeVersion(
+                    version=project.latest_version or "1.0.0",
+                    download_url=f"https://example.invalid/{project.node_id}.zip",
+                    dependencies=(),
+                    deprecated=False,
+                )
+            ]
+            for project in projects
+        },
+        base_url="https://registry.example.invalid",
+        only_known_nodes=True,
+        compression=compression,
+        overwrite=overwrite,
+        created_at=created_at,
+    )
+
+
+def _other_project() -> FacadeProject:
+    return FacadeProject(
+        canonical_name="new-project",
+        display_name="New Project",
+        node_id="new-project",
+        repo_url="https://github.com/example/new-project",
+        repo_name="new-project",
+        description="New snapshot generation",
+        aliases=("new-project",),
+        extra_requirements=(),
+        skip_requirements=frozenset(),
+        depends_on=(),
+        latest_version="2.0.0",
+    )
+
+
+@pytest.mark.parametrize("name", ["registry.sqlite", "registry.sqlite.xz"])
+async def test_snapshot_round_trips_through_any_fsspec_url(facade_storage_url, name):
+    output = f"{facade_storage_url}/{name}"
+    project = _sample_project()
+
+    assert _write(output, projects=[project], overwrite=False) == output
+    with pytest.raises(FileExistsError):
+        _write(output, projects=[project], overwrite=False)
+
+    registry = SnapshotFacadeRegistry(snapshot_uri=output)
+    assert await registry.get_project(project.node_id) == project
+    assert (await registry.get_version(project.node_id, "1.2.5")).download_url.endswith(
+        f"{project.node_id}.zip"
+    )
+    fs, path = fsspec.core.url_to_fs(output)
+    assert [item for item in fs.ls(fs._parent(path), detail=False) if item.endswith(".tmp")] == []
+
+
+async def test_snapshot_registry_serves_its_last_generation_while_the_source_is_unavailable(
+    facade_storage_url,
+):
+    output = f"{facade_storage_url}/registry.sqlite"
+    project = _sample_project()
+    _write(output, projects=[project])
+    registry = SnapshotFacadeRegistry(snapshot_uri=output, max_age_seconds=2100)
+    assert await registry.refresh()
+
+    fs, path = fsspec.core.url_to_fs(output)
+    fs.rm(path)
+    assert not await registry.refresh()
+    health = registry.health()
+    assert health["snapshot_error"] is None
+    assert health["snapshot_refresh_error"]
+    assert await registry.get_project(project.node_id) == project
+
+    _write(output, projects=[_other_project()])
+    assert await registry.refresh()
+    assert registry.health()["snapshot_refresh_error"] is None
+    assert await registry.get_project("new-project") == _other_project()
+    assert await registry.get_project(project.node_id) is None
+
+
+async def test_snapshot_registry_loads_a_replaced_generation_and_skips_an_unchanged_one(
+    facade_storage_url, monkeypatch
+):
+    output = f"{facade_storage_url}/registry.sqlite.xz"
+    _write(output, projects=[_sample_project()])
+    registry = SnapshotFacadeRegistry(snapshot_uri=output)
+    assert await registry.refresh()
+
+    downloads = 0
+    original = registry._download  # pylint: disable=protected-access
+
+    def counting_download(destination):
+        nonlocal downloads
+        downloads += 1
+        return original(destination)
+
+    monkeypatch.setattr(registry, "_download", counting_download)
+    assert not await registry.refresh()
+    assert downloads == 0
+
+    _write(output, projects=[_other_project()])
+    assert await registry.refresh()
+    assert downloads == 1
+    names = [item.canonical_name for item in await registry.list_projects()]
+    assert "new-project" in names
+    assert _sample_project().canonical_name not in names
+
+
+async def test_snapshot_registry_retries_a_generation_replaced_during_download(
+    facade_storage_url, monkeypatch
+):
+    output = f"{facade_storage_url}/registry.sqlite"
+    _write(output, projects=[_sample_project()])
+    registry = SnapshotFacadeRegistry(snapshot_uri=output)
+    original = registry._download  # pylint: disable=protected-access
+    downloads = 0
+
+    def replace_after_first_download(destination):
+        nonlocal downloads
+        original(destination)
+        downloads += 1
+        if downloads == 1:
+            _write(output, projects=[_other_project()])
+
+    monkeypatch.setattr(registry, "_download", replace_after_first_download)
+    projects = await registry.list_projects()
+
+    assert downloads == 2
+    names = [item.canonical_name for item in projects]
+    assert "new-project" in names
+    assert _sample_project().canonical_name not in names
+
+
+async def test_snapshot_registry_requests_and_health_do_no_storage_io(
+    facade_storage_url, monkeypatch
+):
+    output = f"{facade_storage_url}/registry.sqlite"
+    project = _sample_project()
+    _write(output, projects=[project])
+    registry = SnapshotFacadeRegistry(snapshot_uri=output, max_age_seconds=2100)
+    assert await registry.refresh()
+
+    def no_io(*_args, **_kwargs):
+        raise AssertionError("request and health paths must not touch snapshot storage")
+
+    fs = registry._fs  # pylint: disable=protected-access
+    with monkeypatch.context() as patch:
+        for method in ("info", "open", "_open", "exists", "cat_file", "get_file"):
+            patch.setattr(fs, method, no_io, raising=False)
+
+        assert await registry.get_project(project.node_id) == project
+        assert await registry.list_versions(project.node_id)
+        assert registry.health()["snapshot_error"] is None
+
+
+async def test_snapshot_registry_reports_unavailable_before_the_first_load_and_expired_generations(
+    facade_storage_url,
+):
+    output = f"{facade_storage_url}/registry.sqlite"
+    registry = SnapshotFacadeRegistry(snapshot_uri=output, max_age_seconds=2100)
+    assert registry.health()["snapshot_error"]
+    with pytest.raises(SnapshotUnavailableError):
+        await registry.list_projects()
+
+    _write(output, projects=[_sample_project()],
+           created_at=datetime.now(timezone.utc) - timedelta(hours=1))
+    with pytest.raises(SnapshotUnavailableError, match="expired"):
+        await registry.list_projects()
+    assert registry.health()["snapshot_age_seconds"] >= 3600
+    assert "expired" in registry.health()["snapshot_error"]
+
+    _write(output, projects=[_sample_project()])
+    assert await registry.refresh()
+    assert registry.health()["snapshot_error"] is None
+    assert await registry.get_project(_sample_project().node_id) == _sample_project()
+
+    fs, path = fsspec.core.url_to_fs(output)
+    fs.pipe_file(path, b"invalid snapshot")
+    assert not await registry.refresh()
+    assert registry.health()["snapshot_refresh_error"]
+    assert await registry.get_project(_sample_project().node_id) == _sample_project()
+
+
+def test_snapshot_replacement_is_atomic_when_publishing_fails(facade_storage_url, monkeypatch):
+    output = f"{facade_storage_url}/registry.sqlite"
+    _write(output, projects=[_sample_project()])
+    fs, path = fsspec.core.url_to_fs(output)
+    previous = fs.cat_file(path)
+
+    def interrupted_put(lpath, rpath, *args, **kwargs):
+        del lpath, args, kwargs
+        fs.pipe_file(rpath, b"partial")
+        raise OSError("simulated interrupted upload")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(fs, "put_file", interrupted_put)
+        with pytest.raises(OSError, match="simulated interrupted"):
+            _write(output, projects=[_other_project()])
+
+    fs, path = fsspec.core.url_to_fs(output)
+    assert fs.cat_file(path) == previous
+    assert [item for item in fs.ls(fs._parent(path), detail=False) if item.endswith(".tmp")] == []
+
+
+async def test_snapshot_command_reuses_the_previous_snapshot_at_any_fsspec_url(facade_storage_url):
+    output = f"{facade_storage_url}/registry.sqlite.xz"
+    assert await _load_previous_snapshot(output) == {}
+
+    project = _sample_project()
+    _write(output, projects=[project])
+    previous = await _load_previous_snapshot(output)
+    key = (project.node_id, "https://github.com/pythongosssss/comfyui-custom-scripts")
+    assert previous[key][0] == "1.2.5"
+    assert [item.version for item in previous[key][1]] == ["1.2.5"]

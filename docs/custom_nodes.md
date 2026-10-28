@@ -231,27 +231,42 @@ Then install from it:
 uv pip install --extra-index-url http://localhost:8190/simple/ comfyui-wanvideowrapper
 ```
 
-The wheel cache can be a normal directory or any writable fsspec URI:
+The registry snapshot (`--pip-facade-snapshot-uri`), the wheel cache
+(`--pip-facade-cache-prefix`) and the `snapshot-pip-registry` output are fsspec
+URLs, all opened the same way: a local path, `file://`, `s3://`, `gs://`,
+`memory://` or any other fsspec filesystem.
 
 ```bash
 comfyui serve-pip --pip-facade-cache-prefix=/tmp/comfyui-pip-facade
 comfyui serve-pip --pip-facade-cache-prefix=s3://my-bucket/comfyui/pip-facade
 ```
 
-For SeaweedFS, prefer the S3 API over a SeaweedFS CSI-mounted directory:
+Backend options come from fsspec's configuration: `FSSPEC_<PROTOCOL>_<OPTION>`
+environment variables or an fsspec config file. For an S3-compatible gateway
+such as SeaweedFS:
 
 ```bash
 AWS_ACCESS_KEY_ID=... \
 AWS_SECRET_ACCESS_KEY=... \
+FSSPEC_S3_ENDPOINT_URL=http://seaweedfs-s3:8333 \
 comfyui serve-pip \
-  --pip-facade-cache-prefix=s3://my-bucket/comfyui/pip-facade \
-  --pip-facade-cache-s3-endpoint-url=http://seaweedfs-s3:8333
+  --pip-facade-snapshot-uri=s3://my-bucket/registry-snapshot.db \
+  --pip-facade-snapshot-max-age-seconds=2100 \
+  --pip-facade-cache-prefix=s3://my-bucket/comfyui/pip-facade
+FSSPEC_S3_ENDPOINT_URL=http://seaweedfs-s3:8333 \
+comfyui snapshot-pip-registry --pip-facade-snapshot-overwrite s3://my-bucket/registry-snapshot.db
 ```
 
-The S3 backend publishes each wheel as a complete object PUT. A CSI-mounted
-object store can expose weaker filesystem semantics than a normal local disk,
-which is not a good fit for generated wheel cache files served directly to pip
-and uv clients.
+`--pip-facade-cache-s3-endpoint-url` is equivalent to `FSSPEC_S3_ENDPOINT_URL`.
+
+serve-pip reads the snapshot into memory and checks its source for a new
+generation every 30 seconds in the background. Requests and the `/livez`,
+`/readyz` probes are answered without touching storage, so a slow filesystem
+delays only new generations and cache misses. While the source is unreachable
+the last generation is served until it is older than
+`--pip-facade-snapshot-max-age-seconds`. Each snapshot replaces the previous one
+in one step, and each cache entry is published whole: a local directory through
+a temporary file and a rename, an object store as one completed upload.
 
 Use `--pip-facade-only-known-nodes` to restrict to tested nodes. Use `snapshot-pip-registry` to pre-generate a sqlite snapshot for faster startup.
 
@@ -620,7 +635,7 @@ Each generated wheel contains the upstream custom node repository contents, gene
 
 For nodes without published versions on the Comfy Node Registry, `inject_version` in `comfy/component_model/node_registry.py` generates a synthetic version from the GitHub archive. URL dependencies (like `sam2 @ git+https://...`) are rewritten to plain package names using `packaging.requirements.Requirement`.
 
-Use `snapshot-pip-registry` to pre-generate a sqlite snapshot of the full registry for faster startup. The snapshot can be served directly from disk (no decompression needed for `.db` files) and updated periodically by a separate process.
+Use `snapshot-pip-registry` to pre-generate a sqlite snapshot of the full registry for faster startup. It writes to any fsspec URL, and a separate process can update it periodically; serve-pip picks up each new generation.
 
 #### Wheel cache
 

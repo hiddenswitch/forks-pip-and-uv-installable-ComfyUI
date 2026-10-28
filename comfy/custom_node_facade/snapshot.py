@@ -17,6 +17,7 @@ import aiohttp
 
 from ..component_model.configuration import Configuration
 from ..component_model.node_registry import CUSTOM_NODE_REGISTRY
+from .storage import apply_fsspec_configuration, publish_file, url_to_fs
 from .registry import (
     FacadeProject,
     FacadeRegistry,
@@ -36,9 +37,9 @@ def _compact_json(value: object) -> str:
     return json.dumps(value, separators=(",", ":"), sort_keys=False)
 
 
-def _resolve_compression(output_path: Path, compression: str) -> str:
+def _resolve_compression(output_path: str, compression: str) -> str:
     if compression == "auto":
-        return "xz" if output_path.suffix == ".xz" else "none"
+        return "xz" if output_path.endswith(".xz") else "none"
     return compression
 
 
@@ -110,6 +111,7 @@ def _write_snapshot_sqlite(
     class_type_rows: list[tuple[str, str]],
     base_url: str,
     only_known_nodes: bool,
+    created_at: datetime | None = None,
 ) -> None:
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(sqlite_path)
@@ -212,7 +214,7 @@ def _write_snapshot_sqlite(
         metadata_rows = [
             ("format", "appmana-comfyui-pip-facade-registry-snapshot"),
             ("schema_version", _SCHEMA_VERSION),
-            ("created_at", datetime.now(timezone.utc).isoformat()),
+            ("created_at", (created_at or datetime.now(timezone.utc)).isoformat()),
             ("registry_base_url", base_url),
             ("only_known_nodes", "1" if only_known_nodes else "0"),
             ("project_count", str(len(projects))),
@@ -228,7 +230,7 @@ def _write_snapshot_sqlite(
 
 
 def write_facade_registry_snapshot(
-    output_path: str | Path,
+    output_path: str | os.PathLike[str],
     *,
     projects: list[FacadeProject],
     versions_by_node_id: dict[str, list[FacadeVersion]],
@@ -237,11 +239,17 @@ def write_facade_registry_snapshot(
     only_known_nodes: bool,
     compression: str = "auto",
     overwrite: bool = False,
-) -> Path:
-    destination = Path(output_path)
-    if destination.exists() and not overwrite:
-        raise FileExistsError(f"Snapshot output already exists: {destination}")
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    created_at: datetime | None = None,
+    storage_options: dict | None = None,
+) -> str | os.PathLike[str]:
+    """Write a snapshot to *output_path*, any fsspec URL, and return it.
+
+    The snapshot is built locally and then replaces the destination in one
+    step, so readers see the previous or the complete new generation.
+    """
+    fs, destination = url_to_fs(output_path, storage_options)
+    if not overwrite and fs.exists(destination):
+        raise FileExistsError(f"Snapshot output already exists: {output_path}")
     resolved_compression = _resolve_compression(destination, compression)
 
     with tempfile.TemporaryDirectory(prefix="comfyui_facade_snapshot_") as temp_dir_str:
@@ -254,37 +262,30 @@ def write_facade_registry_snapshot(
             class_type_rows=class_type_rows or [],
             base_url=base_url,
             only_known_nodes=only_known_nodes,
+            created_at=created_at,
         )
-        with tempfile.NamedTemporaryFile(
-            prefix=f".{destination.name}.",
-            suffix=".tmp",
-            dir=destination.parent,
-            delete=False,
-        ) as staged_file:
-            staged_path = Path(staged_file.name)
-        try:
-            if resolved_compression == "xz":
-                with (
-                    sqlite_path.open("rb") as source,
-                    lzma.open(staged_path, "wb", preset=9) as compressed,
-                ):
-                    shutil.copyfileobj(source, compressed)
-            else:
-                shutil.copyfile(sqlite_path, staged_path)
-            os.replace(staged_path, destination)
-        finally:
-            staged_path.unlink(missing_ok=True)
-    return destination
+        if resolved_compression == "xz":
+            staged_path = temp_dir / "registry.sqlite.xz"
+            with (
+                sqlite_path.open("rb") as source,
+                lzma.open(staged_path, "wb", preset=9) as compressed,
+            ):
+                shutil.copyfileobj(source, compressed)
+        else:
+            staged_path = sqlite_path
+        publish_file(fs, str(staged_path), destination, staged=True)
+    return output_path
 
 
-async def snapshot_facade_registry(configuration: Configuration) -> Path:
+async def snapshot_facade_registry(configuration: Configuration) -> str:
     output_path = configuration.pip_facade_snapshot_output
     if not output_path:
         raise ValueError("pip_facade_snapshot_output must be set")
+    apply_fsspec_configuration(configuration)
 
     timeout = aiohttp.ClientTimeout(total=10 * 60.0, connect=60.0)
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        previous = await _load_previous_snapshot(Path(output_path))
+        previous = await _load_previous_snapshot(output_path)
         registry = FacadeRegistry(
             session,
             base_url=configuration.pip_facade_registry_base_url,
@@ -405,23 +406,26 @@ async def _collect_versions(
 
 
 async def _load_previous_snapshot(
-    output_path: Path,
+    output_path: str,
 ) -> dict[tuple[str, str], tuple[str | None, list[FacadeVersion]]]:
-    if not output_path.exists():
-        return {}
+    registry = SnapshotFacadeRegistry(snapshot_uri=str(output_path))
     try:
-        registry = SnapshotFacadeRegistry(snapshot_uri=str(output_path))
-        projects = await registry.list_projects()
-        return {
-            (project.node_id, normalize_repo_url(project.repo_url)): (
-                project.latest_version,
-                await registry.list_versions(project),
-            )
-            for project in projects
-        }
-    except Exception:
+        if not await asyncio.to_thread(registry._fs.exists, registry._path):  # pylint: disable=protected-access
+            return {}
+    except Exception:  # pylint: disable=broad-exception-caught
+        logger.warning("Could not check for a previous facade snapshot; performing a full refresh", exc_info=True)
+        return {}
+    if not await registry.refresh():
         logger.warning(
-            "Could not reuse previous facade snapshot; performing a full refresh",
-            exc_info=True,
+            "Could not reuse previous facade snapshot (%s); performing a full refresh",
+            registry.health()["snapshot_refresh_error"],
         )
         return {}
+    projects = await registry.list_projects()
+    return {
+        (project.node_id, normalize_repo_url(project.repo_url)): (
+            project.latest_version,
+            await registry.list_versions(project),
+        )
+        for project in projects
+    }
