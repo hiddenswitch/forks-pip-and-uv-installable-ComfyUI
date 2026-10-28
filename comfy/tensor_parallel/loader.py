@@ -47,8 +47,8 @@ def _load_rank(
     device,
     parallel_config,
     model_family,
-    operations_decorator=tensor_parallel_operations,
-    state_transform=shard_tensor_parallel_state_dict,
+    operations_decorator=None,
+    state_transform=None,
 ):
     rank_config = type(model_config)(model_config.unet_config)
     rank_config.quant_config = utils.deepcopy_list_dict(model_config.quant_config) if model_config.quant_config is not None else None
@@ -72,8 +72,16 @@ def _load_rank(
             fp8_optimizations=rank_config.optimizations.get("fp8", False),
             model_config=rank_config,
         )
-    if model_family == "minimax_h3" and rank_config.quant_config is not None:
-        operations_decorator = full_domain_tensor_parallel_operations
+    if operations_decorator is None:
+        operations_decorator = (
+            full_domain_tensor_parallel_operations if rank_config.quant_config is not None
+            else tensor_parallel_operations
+        )
+    if state_transform is None:
+        state_transform = partial(
+            shard_tensor_parallel_state_dict,
+            full_domain_rows=rank_config.quant_config is not None,
+        )
     rank_config.custom_operations = operations_decorator(
         base_operations,
         parallel_config,
@@ -101,23 +109,9 @@ def _load_rank(
     state = reader.load_keys(original_keys.values())
     if prefix:
         state = utils.state_dict_prefix_replace(state, {prefix: ""}, filter_keys=True)
-    if model_family == "minimax_h3" and rank_config.quant_config is not None:
-        from .checkpoint import shard_minimax_h3_state_dict
-        state = shard_minimax_h3_state_dict(
-            state,
-            parallel_config.rank,
-            parallel_config.size,
-            full_domain_rows=True,
-        )
-    else:
-        state = state_transform(
-            state,
-            model_family,
-            parallel_config.rank,
-            parallel_config.size,
-        )
     if model_options.get("custom_operations") is None:
         state, _ = utils.convert_old_quants(state, "", metadata=dict(metadata))
+    state = state_transform(state, model_family, parallel_config.rank, parallel_config.size)
 
     model = rank_config.get_model(state, "", device=torch.device("cpu"))
     patcher = get_model_patcher_class(disable_dynamic)(

@@ -351,6 +351,7 @@ class SingleStreamBlock(nn.Module):
         # proj and mlp_out
         self.linear2 = row_parallel_linear(
             operations, hidden_size + self.mlp_hidden_dim, hidden_size, bias=bias,
+            section_sizes=(hidden_size, self.mlp_hidden_dim),
             dtype=dtype, device=device,
         )
         self.local_hidden_size = local_size(operations, hidden_size, "Flux hidden size")

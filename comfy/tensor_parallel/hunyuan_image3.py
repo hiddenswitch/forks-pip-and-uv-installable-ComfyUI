@@ -18,6 +18,7 @@ from ..model_patcher import get_model_patcher_class
 from ..pipeline_parallel.checkpoint import SafetensorsCheckpointReader
 from .distributed import RemoteTensorParallelRankModel, launch_tensor_parallel
 from .custom_node_state import CachedStateExecutor, install_state_transport
+from .checkpoint import output_parameter_axis, quantization_format, shard_output_parameter
 from .operations import gathered_output_operations
 from .types import TensorParallelConfig
 from . import hunyuan_image3_runtime
@@ -142,21 +143,52 @@ def _shard_model(model, base_operations, parallel, expert_only=False):
 
 def _load_state(reader, shards, parallel, head_prefixes):
     selections = {}
-    row_parameters = {"weight", "bias", "weight_scale", "weight_s_rel", "weight_s_channel"}
+    metadata = reader.load_keys([f"{module}.comfy_quant" for module in shards
+                                if f"{module}.comfy_quant" in reader.tensors])
+    formats = {module: quantization_format(metadata, module) for module in shards}
+    packed_parameters = {}
     for key, descriptor in reader.tensors.items():
         if key.startswith(head_prefixes):
             continue
         module, _, parameter = key.rpartition(".")
-        axis = shards.get(module)
+        axis = None
         selection = None
-        expert_codebook = parameter == "weight_codebook" and axis == 0 and len(descriptor.shape) == 2
-        if axis is not None and (parameter in row_parameters or expert_codebook) and len(descriptor.shape) > axis:
+        if module in shards:
+            weight = reader.tensors[f"{module}.weight"]
+            quant_format = formats[module]
+            if len(weight.shape) == 3:
+                # Expert banks retain the full input/output domain of each expert.
+                if (parameter.startswith("weight") or parameter == "bias") and descriptor.shape and descriptor.shape[0] == weight.shape[0]:
+                    if parameter != "weight_codebook" or len(descriptor.shape) == 2:
+                        axis = 0
+            elif parameter == "weight_scale" and quant_format in ("nvfp4", "mxfp8"):
+                packed_parameters[key] = (weight, quant_format, weight.shape[0])
+            elif (quant_format == "svdquant_w4a4" and len(weight.shape) == 4
+                  and parameter in ("weight", "weight_scale", "weight_proj_up") and len(descriptor.shape) >= 3):
+                if weight.shape[0] % parallel.size:
+                    scale_shape = reader.tensors[f"{module}.weight_scale"].shape
+                    packed_parameters[key] = (weight, quant_format, scale_shape[0] * scale_shape[2])
+                else:
+                    axis = 0
+            else:
+                rows = weight.shape[0]
+                if quant_format == "svdquant_w4a4" and len(weight.shape) == 4:
+                    scale_shape = reader.tensors[f"{module}.weight_scale"].shape
+                    rows = scale_shape[0] * scale_shape[2]
+                axis = output_parameter_axis(parameter, descriptor.shape, rows, quant_format)
+        if axis is not None:
             width, remainder = divmod(descriptor.shape[axis], parallel.size)
             if remainder:
                 raise ValueError(f"{key} cannot be split across {parallel.size} ranks")
             selection = tuple(slice(parallel.rank * width, (parallel.rank + 1) * width) if i == axis else slice(None) for i in range(len(descriptor.shape)))
         selections[key] = selection
-    return reader.load_slices(selections)
+    state = reader.load_slices(selections)
+    for key, (weight, quant_format, rows) in packed_parameters.items():
+        state[key] = shard_output_parameter(
+            key.rpartition(".")[2], state[key], weight, quant_format,
+            (rows,), parallel.rank, parallel.size,
+        )
+    return state
 
 
 @contextlib.contextmanager

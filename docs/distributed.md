@@ -55,6 +55,14 @@ listed block layouts and uses DynamicVRAM-aware partitioning. Sequence
 parallelism is provided by the xDiT operations backend. Unsupported models
 continue through the ordinary single-device loader.
 
+For quantized native TP models, row projections gather the complete input
+before applying output-channel shards, preserving the quantizer's input
+domain. Checkpoint sharding handles packed projection sections, scalar and
+channel scales, blocked scales, and tiled SVDQuant weights through shared
+layout helpers. HunyuanImage3's streaming loader uses the same helpers for
+dense projections and preserves per-expert quantization data. Kandinsky 6
+TP currently requires unquantized weights.
+
 ## Examples
 
 ```console

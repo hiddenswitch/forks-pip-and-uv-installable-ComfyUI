@@ -11,7 +11,9 @@ from comfy.xdit.loader import _load_xdit_rank
 
 @pytest.mark.parametrize("strategy", ["ulysses", "ring"])
 @pytest.mark.parametrize("rank", [0, 1])
-def test_sequence_parallel_rank_loads_complete_weights(monkeypatch, strategy, rank):
+@pytest.mark.parametrize("model_type,family", [(supported_models.Flux2, "flux2"), (supported_models.MiniMaxH3, "minimax_h3")])
+@pytest.mark.parametrize("quantized", [False, True])
+def test_sequence_parallel_rank_loads_complete_weights(monkeypatch, strategy, rank, model_type, family, quantized):
     weight = torch.arange(24 * 8, dtype=torch.float32).reshape(24, 8)
     key = "double_blocks.0.img_attn.qkv.weight"
     reader = Mock()
@@ -23,13 +25,15 @@ def test_sequence_parallel_rank_loads_complete_weights(monkeypatch, strategy, ra
         configurations.append(config.custom_operations.xdit_sequence_parallel)
         return model
 
-    monkeypatch.setattr(supported_models.Flux2, "get_model", get_model)
+    monkeypatch.setattr(model_type, "get_model", get_model)
     monkeypatch.setattr(tensor_loader, "get_model_patcher_class", lambda disabled: (
         lambda model, **kwargs: SimpleNamespace(model=model, is_dynamic=lambda: False)
     ))
     operations = SimpleNamespace(rank=rank, world_size=2)
+    config = model_type({"image_model": family, "hidden_size": 8})
+    config.quant_config = {} if quantized else None
     result = _load_xdit_rank(
-        reader, supported_models.Flux2({"image_model": "flux2", "hidden_size": 8}), {}, "", {key: key},
+        reader, config, {}, "", {key: key},
         "model.safetensors", {}, True, torch.float32, torch.device("cpu"),
         operations, strategy,
     )

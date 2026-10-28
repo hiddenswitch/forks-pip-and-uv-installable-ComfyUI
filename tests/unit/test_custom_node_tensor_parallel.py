@@ -321,7 +321,7 @@ def test_w4a8_expert_slices_keep_full_k_and_matching_codebook(tmp_path, expert_c
         prefix + ".weight_s_rel": torch.randn(2, 16, 4),
         prefix + ".weight_s_channel": torch.randn(2, 16, 1),
         prefix + ".weight_codebook": torch.randn(2, 16) if expert_codebook else torch.randn(16),
-        prefix + ".comfy_quant": torch.tensor([1, 2, 3], dtype=torch.uint8),
+        prefix + ".comfy_quant": torch.tensor(list(b'{"format":"asym_w4a8_int8"}'), dtype=torch.uint8),
     }
     path = tmp_path / "model.safetensors"
     save_file(state, path)

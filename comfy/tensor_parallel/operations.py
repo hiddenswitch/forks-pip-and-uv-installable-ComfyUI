@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import torch
+
 from .types import TensorParallelConfig
 
 
@@ -33,13 +35,14 @@ def column_parallel_linear(operations, in_features, out_features, bias=True, *,
 
 
 def row_parallel_linear(operations, in_features, out_features, bias=False, *,
-                        device=None, dtype=None):
+                        section_sizes=None, device=None, dtype=None):
     if tensor_parallel_size(operations) == 1:
         return operations.Linear(
             in_features, out_features, bias=bias, device=device, dtype=dtype
         )
+    section_options = {} if section_sizes is None else {"section_sizes": section_sizes}
     return operations.RowParallelLinear(
-        in_features, out_features, bias=bias, device=device, dtype=dtype
+        in_features, out_features, bias=bias, device=device, dtype=dtype, **section_options
     )
 
 
@@ -84,8 +87,9 @@ def tensor_parallel_operations(base_operations, parallel: TensorParallelConfig):
             comfy_force_forward = True
 
             def __init__(self, in_features, out_features, bias=True, *,
-                         device=None, dtype=None):
-                if in_features % parallel.size:
+                         section_sizes=None, device=None, dtype=None):
+                sections = (in_features,) if section_sizes is None else tuple(section_sizes)
+                if sum(sections) != in_features or any(section % parallel.size for section in sections):
                     raise ValueError(
                         f"Row-parallel input {in_features} must divide {parallel.size} ranks"
                     )
@@ -117,7 +121,10 @@ def full_domain_tensor_parallel_operations(base_operations, parallel: TensorPara
             comfy_force_forward = True
 
             def __init__(self, in_features, out_features, bias=True, *,
-                         device=None, dtype=None):
+                         section_sizes=None, device=None, dtype=None):
+                sections = (in_features,) if section_sizes is None else tuple(section_sizes)
+                if sum(sections) != in_features or any(section % parallel.size for section in sections):
+                    raise ValueError(f"Input sections {sections} must divide {parallel.size} ranks")
                 if out_features % parallel.size:
                     raise ValueError(
                         f"Full-domain row-parallel output {out_features} must divide "
@@ -132,9 +139,16 @@ def full_domain_tensor_parallel_operations(base_operations, parallel: TensorPara
                 )
                 self.tensor_parallel_in_features = in_features
                 self.tensor_parallel_out_features = out_features
+                self.tensor_parallel_input_sections = tuple(section // parallel.size for section in sections)
 
             def forward(self, input, *args, **kwargs):
-                full_input = parallel.operations.gather(input)
+                if len(self.tensor_parallel_input_sections) == 1:
+                    full_input = parallel.operations.gather(input)
+                else:
+                    full_input = torch.cat([
+                        parallel.operations.gather(section)
+                        for section in input.split(self.tensor_parallel_input_sections, dim=-1)
+                    ], dim=-1)
                 local_output = super().forward(full_input, *args, **kwargs)
                 return parallel.operations.gather(local_output)
 
