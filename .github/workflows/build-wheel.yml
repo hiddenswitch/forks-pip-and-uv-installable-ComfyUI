@@ -45,6 +45,7 @@ jobs:
         if: github.event_name == 'release' || inputs.release_tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
         run: gh release upload "$TAG" dist/*.whl dist/*.tar.gz --clobber
 
