@@ -2405,7 +2405,9 @@ class ModelPatcherDynamic(ModelPatcher):
                         has_lowvram_patch=has_lowvram_patch,
                         function_count=len(weight_function),
                     )
-                    return (False, vram_bytes)
+                    # the VBAR holds the weight itself; the patch math's scratch (in vram_bytes) is transient, budgeted
+                    # by the materialization spec. Staging the scratch too made a patched model that fits stream.
+                    return (False, memory_management.vram_aligned_size(vram_geometry) if vram_geometry is not None else 0)
 
                 def force_load_param(self, param_key, device_to):
                     key = key_param_name_to_key(n, param_key)

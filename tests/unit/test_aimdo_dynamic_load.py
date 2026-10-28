@@ -332,3 +332,25 @@ class TestResidentReloadSkipsStaging(unittest.TestCase):
                     patcher.forced_hooks = mock.MagicMock()
                 patcher.partially_load(device)
             self.assertEqual(len(calls), 2, change)
+
+
+class TestPatchedWeightsStageTheirOwnSize(unittest.TestCase):
+    """A LoRA-patched weight holds its own (unpatched) bytes in the VBAR, as an unpatched one does; the patch math's
+    scratch is a transient budget (the materialization spec), not VBAR space. With the scratch in the VBAR a 14 GB
+    Qwen Image 2.1 under a LoRA staged 40 GB on a 24 GB card and streamed every step."""
+
+    def test_a_patched_weight_allocates_its_own_bytes(self):
+        import comfy.ops as comfy_ops
+        from comfy import memory_management as mm
+        from comfy.model_patcher import ModelPatcherDynamic
+        model = torch.nn.Module()
+        model.lin = comfy_ops.manual_cast.Linear(128, 128, bias=False, dtype=torch.bfloat16)
+        model.model_loaded_weight_memory = 0
+        patcher = ModelPatcherDynamic(model, torch.device("cuda", 0), torch.device("cpu"))
+        patcher.add_patches({"lin.weight": ("lora", (torch.zeros(128, 4), torch.zeros(4, 128), None, None))}, 1.0)
+        allocs = []
+        vbar = types.SimpleNamespace(alloc=lambda size: allocs.append(size) or ("vbar", 0, size), prioritize=lambda: None)
+        with mock.patch.object(ModelPatcherDynamic, "_vbar_get", lambda self, create=False: vbar), \
+                mock.patch("comfy.model_patcher.move_weight_functions", lambda m, device: 0):
+            patcher.load(torch.device("cuda", 0))
+        self.assertEqual(allocs, [mm.vram_aligned_size(model.lin.weight)])
