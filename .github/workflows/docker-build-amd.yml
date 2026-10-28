@@ -16,7 +16,7 @@ env:
 
 jobs:
   build:
-    if: startsWith(github.ref, 'refs/heads/')
+    if: github.ref == 'refs/heads/develop'
     runs-on: [self-hosted, linux, X64, cpu]
     container:
       image: ubuntu:24.04
@@ -116,7 +116,7 @@ jobs:
 
   promote:
     needs: [build, validate-rx7600]
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/develop'
     runs-on: [self-hosted, linux, X64, cpu]
     container:
       image: ubuntu:24.04
@@ -141,16 +141,12 @@ jobs:
           image="${REGISTRY}/${IMAGE_NAME}"
           source="${image}:${GITHUB_SHA}-rocm-${GITHUB_RUN_ID}-${BUILD_ATTEMPT}.dev"
           short_sha="${GITHUB_SHA::7}"
-          tags=(--tag "${image}:${short_sha}-rocm")
-          if [ "$GITHUB_REF" = refs/heads/master ]; then
-            tags+=(--tag "${image}:latest-rocm")
-          else
-            tags+=(--tag "${image}:develop-rocm")
-          fi
+          tags=(--tag "${image}:${GITHUB_SHA}-rocm" --tag "${image}:${short_sha}-rocm" --tag "${image}:develop-rocm")
           docker buildx imagetools create "${tags[@]}" "$source"
 
-  retag-release:
-    if: startsWith(github.ref, 'refs/tags/')
+  publish-validated:
+    name: Publish previously validated ROCm image
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')
     runs-on: [self-hosted, linux, X64, cpu]
     container:
       image: ubuntu:24.04
@@ -167,11 +163,13 @@ jobs:
           mkdir -p ~/.docker
           ghcr_auth="$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 | tr -d '\n')"
           printf '{"auths":{"%s":{"auth":"%s"}}}\n' "$REGISTRY" "$ghcr_auth" > ~/.docker/config.json
-      - name: Retag the validated ROCm commit image
+      - name: Publish the validated ROCm commit image
         shell: bash
         run: |
           image="${REGISTRY}/${IMAGE_NAME}"
-          source="${image}:${GITHUB_SHA::7}-rocm"
+          # Only develop's successful validation creates this full-SHA tag.
+          # A new, unvalidated master commit must fail rather than publish.
+          source="${image}:${GITHUB_SHA}-rocm"
           version="${GITHUB_REF_NAME#v}"
           for attempt in {1..120}; do
             docker buildx imagetools inspect "$source" >/dev/null 2>&1 && break
@@ -181,6 +179,9 @@ jobs:
             fi
             sleep 10
           done
-          docker buildx imagetools create \
-            --tag "${image}:${version}-rocm" \
-            "$source"
+          if [ "$GITHUB_REF" = refs/heads/master ]; then
+            target="latest-rocm"
+          else
+            target="${version}-rocm"
+          fi
+          docker buildx imagetools create --tag "${image}:${target}" "$source"

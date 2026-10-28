@@ -2,6 +2,15 @@
 
 This page covers automated testing of ComfyUI workflows using pytest. For general library usage, see [Embedded / Library Usage](embedded.md).
 
+## CI validation and publication
+
+Develop runs the CPU, Windows, XPU, CUDA, and ROCm suites. CUDA/ROCm images
+receive a full-commit-SHA tag only after their validation succeeds. Master
+and release-tag pushes reuse those validated images without rebuilding or
+rerunning accelerator tests. Publication fails if the exact commit has no
+validated image; merge develop into master by fast-forward to preserve that
+commit identity. Master additionally runs the installed-package smoke check.
+
 ## ProcessPoolExecutor for Isolation
 
 Use `ProcessPoolExecutor` to run each workflow in a subprocess. This ensures VRAM is fully released between runs and prevents state leakage between tests:

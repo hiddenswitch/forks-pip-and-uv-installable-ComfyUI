@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import importlib.resources
 import re
+import os
+import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -95,3 +98,46 @@ def test_accelerator_builds_reuse_promoted_images_without_duplicate_gha_export()
         assert "cache-to: type=inline" in workflow
         assert "type=registry" in workflow
         assert "type=gha" not in workflow
+
+
+@pytest.mark.parametrize("filename,build", [
+    ("docker-build.yml", "build-candidates"), ("docker-build-amd.yml", "build"),
+])
+def test_master_does_not_rebuild_validated_develop_commits(filename, build):
+    jobs = _workflow(filename)["jobs"]
+    assert jobs[build]["if"] == "github.ref == 'refs/heads/develop'"
+    assert jobs["promote"]["if"] == "github.ref == 'refs/heads/develop'"
+    assert "refs/heads/master" in jobs["publish-validated"]["if"]
+
+
+@pytest.mark.parametrize("filename,backend", [
+    ("docker-build.yml", "cuda"), ("docker-build-amd.yml", "rocm"),
+])
+@pytest.mark.parametrize("ref", ["refs/heads/master", "refs/tags/v0.43.0.1"])
+@pytest.mark.parametrize("validated", [True, False])
+@pytest.mark.skipif(os.name == "nt", reason="Publication scripts run in Linux containers")
+def test_publication_requires_the_exact_validated_commit(tmp_path, filename, backend, ref, validated):
+    script = _workflow(filename)["jobs"]["publish-validated"]["steps"][-1]["run"]
+    trace = tmp_path / "published"
+    # Execute the actual publication script without a registry or retry delays.
+    harness = f'''
+    docker() {{
+        if [ "$3" = inspect ]; then return {0 if validated else 1}; fi
+        printf '%s\\n' "$*" >> "$TRACE"
+    }}
+    sleep() {{ :; }}
+    '''
+    sha = "1234567890abcdef" * 2 + "12345678"
+    result = subprocess.run(["bash", "-e", "-c", harness + script], capture_output=True, text=True,
+                            env={**os.environ, "TRACE": str(trace), "REGISTRY": "registry.example",
+                                 "IMAGE_NAME": "comfyui", "GITHUB_SHA": sha, "GITHUB_REF": ref,
+                                 "GITHUB_REF_NAME": ref.rsplit("/", 1)[-1]}, timeout=10)
+    if not validated:
+        assert result.returncode != 0
+        assert not trace.exists()
+        return
+    assert result.returncode == 0, result.stderr
+    published = trace.read_text()
+    assert published.rstrip().endswith(f"registry.example/comfyui:{sha}-{backend}")
+    target = "latest" if ref == "refs/heads/master" else "0.43.0.1"
+    assert f"--tag registry.example/comfyui:{target}-{backend}" in published

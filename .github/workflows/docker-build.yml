@@ -16,7 +16,7 @@ env:
 
 jobs:
   build-candidates:
-    if: startsWith(github.ref, 'refs/heads/')
+    if: github.ref == 'refs/heads/develop'
     name: Build ${{ matrix.target.name }} candidate
     runs-on: [self-hosted, linux, X64, cpu]
     container:
@@ -128,7 +128,7 @@ jobs:
 
   promote:
     needs: [build-candidates, validate-candidates]
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/develop'
     runs-on: [self-hosted, linux, X64, cpu]
     container:
       image: ubuntu:24.04
@@ -153,17 +153,13 @@ jobs:
           image="${REGISTRY}/${IMAGE_NAME}"
           source="${image}:${GITHUB_SHA}-cuda133-${GITHUB_RUN_ID}-${BUILD_ATTEMPT}.dev"
           short_sha="${GITHUB_SHA::7}"
-          tags=(--tag "${image}:${short_sha}" --tag "${image}:${short_sha}-cuda")
-          if [ "$GITHUB_REF" = refs/heads/master ]; then
-            tags+=(--tag "${image}:latest" --tag "${image}:latest-cuda")
-            tags+=(--tag "${image}:master-${short_sha}-$(date +%s)")
-          else
-            tags+=(--tag "${image}:develop" --tag "${image}:develop-cuda")
-          fi
+          tags=(--tag "${image}:${GITHUB_SHA}-cuda" --tag "${image}:${short_sha}" --tag "${image}:${short_sha}-cuda")
+          tags+=(--tag "${image}:develop" --tag "${image}:develop-cuda")
           docker buildx imagetools create "${tags[@]}" "$source"
 
-  retag-release:
-    if: startsWith(github.ref, 'refs/tags/')
+  publish-validated:
+    name: Publish previously validated CUDA image
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')
     runs-on: [self-hosted, linux, X64, cpu]
     container:
       image: ubuntu:24.04
@@ -181,11 +177,13 @@ jobs:
           mkdir -p ~/.docker
           ghcr_auth="$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 | tr -d '\n')"
           printf '{"auths":{"%s":{"auth":"%s"}}}\n' "$REGISTRY" "$ghcr_auth" > ~/.docker/config.json
-      - name: Retag the validated commit image
+      - name: Publish the validated commit image
         shell: bash
         run: |
           image="${REGISTRY}/${IMAGE_NAME}"
-          source="${image}:${GITHUB_SHA::7}-cuda"
+          # Only develop's successful validation creates this full-SHA tag.
+          # A new, unvalidated master commit must fail rather than publish.
+          source="${image}:${GITHUB_SHA}-cuda"
           version="${GITHUB_REF_NAME#v}"
 
           for attempt in {1..120}; do
@@ -197,12 +195,17 @@ jobs:
             sleep 10
           done
 
-          IFS=. read -r major minor patch _revision <<< "$version"
-          tags=(--tag "${image}:${version}" --tag "${image}:${version}-cuda")
-          if [ -n "${patch:-}" ]; then
-            tags+=(--tag "${image}:${major}.${minor}.${patch}" --tag "${image}:${major}.${minor}.${patch}-cuda")
-          fi
-          if [ -n "${minor:-}" ]; then
-            tags+=(--tag "${image}:${major}.${minor}" --tag "${image}:${major}.${minor}-cuda")
+          if [ "$GITHUB_REF" = refs/heads/master ]; then
+            tags=(--tag "${image}:latest" --tag "${image}:latest-cuda")
+            tags+=(--tag "${image}:master-${GITHUB_SHA::7}-$(date +%s)")
+          else
+            IFS=. read -r major minor patch _revision <<< "$version"
+            tags=(--tag "${image}:${version}" --tag "${image}:${version}-cuda")
+            if [ -n "${patch:-}" ]; then
+              tags+=(--tag "${image}:${major}.${minor}.${patch}" --tag "${image}:${major}.${minor}.${patch}-cuda")
+            fi
+            if [ -n "${minor:-}" ]; then
+              tags+=(--tag "${image}:${major}.${minor}" --tag "${image}:${major}.${minor}-cuda")
+            fi
           fi
           docker buildx imagetools create "${tags[@]}" "$source"
