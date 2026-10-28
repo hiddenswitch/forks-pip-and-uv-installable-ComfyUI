@@ -72,6 +72,19 @@ def test_windows_process_tests_have_the_cold_start_budget():
     assert "-n" not in process_tests["run"]
 
 
+def test_windows_cached_environment_still_tests_the_current_checkout():
+    steps = _workflow("test.yml")["jobs"]["windows_nvidia"]["steps"]
+    by_name = {step["name"]: step for step in steps}
+    for name in ("Create venv and install PyTorch", "Install locked dependencies",
+                 "Install pinned stable-ABI CUDA extensions"):
+        assert by_name[name]["if"] == "steps.environment-cache.outputs.hit != 'true'"
+    checkout = by_name["Install current checkout into restored environment"]
+    assert checkout["if"] == "steps.environment-cache.outputs.hit == 'true'"
+    assert "--reinstall --no-deps ." in checkout["run"]
+    assert steps.index(checkout) < steps.index(by_name["CUDA smoke"])
+    assert steps.index(by_name["CUDA smoke"]) < steps.index(by_name["Save prepared Windows environment to SeaweedFS"])
+
+
 def test_cuda_image_preserves_the_ngc_python_environment():
     dockerfile = (_source_root() / "Dockerfile").read_text(encoding="utf-8")
     assert "ngc-preserved.txt" in dockerfile

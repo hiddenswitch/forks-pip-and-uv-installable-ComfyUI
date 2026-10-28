@@ -37,7 +37,18 @@ Python 3.14.7 environment; the base image supplies the GPU driver libraries.
 `pylock.windows-py314.toml` targets Windows and Python 3.14.7. The Windows RTX
 3090 job installs native CUDA 13.0 PyTorch 2.14.1, torchvision 0.29.1, and
 TorchAudio 2.11.0 wheels (`cu130`) along with the CUDA 13.0 stable-ABI
-extensions before installing this lock.
+extensions alongside this lock.
+
+Windows keeps a prepared Python interpreter and dependency environment in a
+ZIP64 archive on the existing SeaweedFS volume (`C:/ci-cache/python-environments`).
+The cache key covers the dependency lock, installation scripts, stable-ABI
+requirements, and workflow (including interpreter, Torch, and base-image versions).
+Jobs copy the archive to local NTFS before unpacking, then reinstall the current
+ComfyUI checkout. They never execute packages or use uv's unpacked-wheel cache
+directly on SeaweedFS. Missing or corrupt archives fall back to installation;
+successful CUDA smoke checks precede publishing a new archive. Cache logs report
+hits, misses, archive size, and elapsed time. Dependency changes incur one cold
+setup; ordinary source and documentation commits reuse the prepared environment.
 
 `pylock.linux-py312-numpy1.toml` is the compatibility lock for the CUDA 12.8
 NGC image. Its Torch and bundled extensions use the NumPy 1 ABI, so the whole

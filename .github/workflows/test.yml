@@ -81,6 +81,10 @@ jobs:
     timeout-minutes: 120
     container:
       image: harbor.appmana.com/appmana-shared/buildervscuda:windows-1.0.1-ltsc2022
+    env:
+      # The prepared interpreter and venv are restored here on local NTFS.
+      # SeaweedFS stores only their immutable archive, never live package files.
+      UV_PYTHON_INSTALL_DIR: C:/ci-python
     defaults:
       run:
         shell: sh -e {0}
@@ -104,7 +108,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path $env:CHOCO_CACHE_LOCATION | Out-Null
           choco config set cacheLocation $env:CHOCO_CACHE_LOCATION
-      - name: Create venv and install PyTorch
+      - name: Install cached uv
         run: |
           uv_zip="C:/ci-cache/installers/uv-0.12.2-x86_64-pc-windows-msvc.zip"
           mkdir -p "C:/ci-cache/installers"
@@ -117,6 +121,12 @@ jobs:
           echo "01442d8ce5c7124151a73e697c836d252c6da853c18c73206d3cc4c2378a91d2  $uv_zip" | sha256sum -c -
           unzip -oq "$uv_zip" -d "$(dirname "$(command -v uv)")"
           uv --version
+      - name: Restore prepared Windows environment from SeaweedFS
+        id: environment-cache
+        run: C:/Python312/python.exe ci/windows_environment_cache.py restore
+      - name: Create venv and install PyTorch
+        if: steps.environment-cache.outputs.hit != 'true'
+        run: |
           uv venv --python 3.14.7 C:/venv
           uv pip install --python C:/venv/Scripts/python.exe \
             "torch==2.14.1+cu130" "torchvision==0.29.1+cu130" "torchaudio==2.11.0+cu130" \
@@ -136,13 +146,18 @@ jobs:
           if ($signature.Status -ne "Valid") { throw "Invalid VC++ redistributable signature: $($signature.Status)" }
           Start-Process -FilePath $installer -ArgumentList "/install", "/quiet", "/norestart" -Wait
       - name: Install locked dependencies
+        if: steps.environment-cache.outputs.hit != 'true'
         run: ci/install-locked.sh ci/locks/pylock.windows-py314.toml C:/venv/Scripts/python.exe
       - name: Install pinned stable-ABI CUDA extensions
+        if: steps.environment-cache.outputs.hit != 'true'
         run: |
-          uv pip install --python C:/venv/Scripts/python.exe --no-deps "triton-windows==3.8.0.post29" --index-url https://nodes.appmana.com/simple/cu130
+          uv pip install --python C:/venv/Scripts/python.exe --no-deps "triton-windows==3.8.0.post29" --index-url https://pypi.org/simple
           uv pip install --python C:/venv/Scripts/python.exe --no-deps "sageattention==2.2.0+cu130" --index-url https://appmana.github.io/forks-sageattention-stable-abi/cu130
           uv pip install --python C:/venv/Scripts/python.exe --no-deps "nunchaku==1.3.0.dev20260717+cu130" --index-url https://appmana.github.io/forks-nunchaku-stable-abi/cu130
           uv pip install --python C:/venv/Scripts/python.exe --no-deps -r tests/custom_nodes_stable_abi_requirements.txt --extra-index-url https://nodes.appmana.com/simple
+      - name: Install current checkout into restored environment
+        if: steps.environment-cache.outputs.hit == 'true'
+        run: uv pip install --no-cache --python C:/venv/Scripts/python.exe --reinstall --no-deps .
       - name: CUDA smoke
         run: |
           C:/venv/Scripts/python.exe - <<'PY'
@@ -161,6 +176,11 @@ jobs:
           torch.cuda.synchronize()
           assert result.item() == 32
           PY
+      - name: Save prepared Windows environment to SeaweedFS
+        if: steps.environment-cache.outputs.hit != 'true'
+        # A cache outage must not prevent the actual tests from running.
+        continue-on-error: true
+        run: C:/Python312/python.exe ci/windows_environment_cache.py save
       - name: Custom-node registration
         run: C:/venv/Scripts/python.exe -m pytest -v -s --timeout=900 tests/custom_nodes/test_installed_node_registration.py
       - name: Windows unit tests
