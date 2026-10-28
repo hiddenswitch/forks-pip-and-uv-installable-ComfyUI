@@ -21,6 +21,8 @@ jobs:
       - name: Install system dependencies
         run: pacman -Syu --noconfirm git python uv zip github-cli
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Build wheel and sdist
         run: uv build --wheel --sdist --out-dir dist
@@ -29,6 +31,7 @@ jobs:
         run: ls -l dist
 
       - uses: actions/upload-artifact@v7
+        if: github.event_name != 'release' && inputs.release_tag == ''
         with:
           name: comfyui-dist
           path: dist/*
