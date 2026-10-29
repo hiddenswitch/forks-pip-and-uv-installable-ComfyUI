@@ -1,29 +1,38 @@
-# ComfyUI Documentation
+# ComfyUI documentation
 
-## Core
-- [Installation & Getting Started](installing.md)
-- [Hardware Compatibility](compatibility.md)
+## Choose and install
+- [Why this fork](differences.md)
+- [Installation and upgrades](installing.md)
+- [Hardware compatibility](compatibility.md)
 - [Configuration](configuration.md)
 - [Troubleshooting](troubleshooting.md)
 
-## Features & Workflows
-- [Large Language Models](llm.md)
-- [Vendored Prompting Guides](prompting_guides/README.md)
-- [Other Features](other_features.md) (SVG)
+## Create and automate
+- [Run workflows from the CLI](workflows.md)
+- [Agent guide](../llms.txt)
+- [Model prompting guides](prompting_guides/README.md)
+- [Language-model workflows](llm.md)
+- [Media and SVG](other_features.md)
+- [Install custom nodes](custom_nodes.md)
 
-## Extending ComfyUI
-- [Custom Nodes](custom_nodes.md) (Installing & Authoring)
-- [API Usage](api.md) (Python, REST, Embedded)
+## Performance and deployment
+- [Multi-GPU inference](distributed.md)
+- [Worker queues](workers.md)
+- [Containers](docker.md)
 
-## Deployment
-- [Distributed / Multi-GPU](distributed.md)
-- [Docker & Containers](docker.md)
+## Build integrations
+- [Embedded Python](embedded.md)
+- [Remote API](api.md)
+- [Author custom nodes](node_authoring.md)
+- [Manage nodes programmatically](node_management.md)
+- [Host a package index](package_index.md)
+- [Frontend extensions](frontend.md)
 
-## Development
+## Contribute
+- [Contributing](../CONTRIBUTING.md)
 - [Testing](testing.md)
 - [Linting](linting.md)
-- [Troubleshooting](troubleshooting.md)
-
-## Community & Support
-- [Discord](https://comfy.org/discord)
-- [Issues](https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/issues)
+- [Upstream merges](merging.md)
+- [Quantization format](../QUANTIZATION.md)
+- [CI maintenance](../ci/README.md)
+- [Report an issue](https://github.com/hiddenswitch/forks-pip-and-uv-installable-ComfyUI/issues)

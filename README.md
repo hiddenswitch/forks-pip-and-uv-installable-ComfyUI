@@ -1,37 +1,38 @@
 # ComfyUI
 
-A vanilla, up-to-date fork of [ComfyUI](https://github.com/comfyanonymous/comfyui) intended for long term support (LTS) from [AppMana](https://appmana.com) and [Hidden Switch](https://hiddenswitch.com).
+An installable, production-focused fork of [ComfyUI](https://github.com/comfyanonymous/comfyui) intended for long term support (LTS) from [AppMana](https://appmana.com) and [Hidden Switch](https://hiddenswitch.com).
 
 > **For AI coding assistants (Claude, Codex, Cursor, etc.)**: start with [`llms.txt`](./llms.txt). It walks through how to fulfill creative requests — searching Civitai for the right LoRA, grounding edits in a reference image, picking a workflow that matches the user's VRAM — with worked examples (Studio Ghibli portrait, dancing video clip, Renaissance restyle, civitai workflow reproduction).
 >
 > Paste this into your agent (Claude Code, Codex CLI, Cursor, etc.) to use it as a guidebook:
 >
 > ```
-> Use https://raw.githubusercontent.com/hiddenswitch/pip-and-uv-installable-ComfyUI/refs/heads/master/llms.txt as a guidebook for ComfyUI. Fetch it now and follow it for any ComfyUI task in this session.
+> Use https://raw.githubusercontent.com/hiddenswitch/forks-pip-and-uv-installable-ComfyUI/refs/heads/master/llms.txt as a guidebook for ComfyUI. Fetch it now and follow it for any ComfyUI task in this session.
 > ```
 
 ## Used By
 
 Used in production by **Scopely**, a game studio, **Livepeer** and **Nunchaku Tech**. Used by innovators at **Ferrero Group**, **Hyundai** and **Nike**.
 
-If you need to develop an application or plugin around ComfyUI, this fork stays compatible and up-to-date with upstream, fixing numerous bugs and adding features. It also packages tacit knowledge about running diffusion models and art workflows, distributed inference, deployment on Kubernetes, and other production tasks that Claude and Gemini cannot do.
+If you need to develop an application or plugin around ComfyUI, this fork stays compatible and up-to-date with upstream, fixing numerous bugs and adding features. It also packages tacit knowledge about running diffusion models and art workflows, distributed inference, deployment on Kubernetes, and other production tasks.
 
-## Key Features and Differences
+## Why use this fork?
 
-This LTS fork adds development, embedding, automated testing, LLM and distributed inference features to ComfyUI, but maintains compatibility with custom nodes from the ecosystem.
+**ComfyUI, ready for your workstation, scripts, and production applications.**
+Keep the familiar workflow editor and ecosystem while gaining a Python package,
+powerful automation tools, and integrated multi-GPU execution.
 
-- **Pip and UV Installable:** Install via `pip` or `uv` from the appmana package index (`--extra-index-url https://nodes.appmana.com/simple/`). No manual cloning required for users.
-- **Automatic Model Downloading:** Missing models (e.g., Stable Diffusion, FLUX, LLMs) are downloaded on-demand from Hugging Face or CivitAI.
-- **Docker and Containers:** First-class support for Docker and Kubernetes with optimized containers for NVIDIA and AMD.
-- **Distributed Inference:** Run scalable inference clusters with multiple workers and frontends using RabbitMQ.
-- **Embedded / Library:** Use ComfyUI as a Python library (`import comfy`) inside your own applications without the web server. Runs like `diffusers`.
-- **Vanilla Custom Nodes:** Fully compatible with existing ComfyUI custom nodes (ComfyUI-Manager, WanVideoWrapper, KJNodes, etc.). Clone into `custom_nodes/` and install dependencies into your venv.
-- **Custom Node Pip Facade:** Serve ecosystem custom nodes through a local/simple Python package index and install them with `uv pip install --extra-index-url ...`.
-- **LTS Custom Nodes:** A curated set of "Installable" custom nodes (ControlNet, AnimateDiff, IPAdapter) optimized for this fork.
-- **LLM Support:** Native support for Large Language Models (LLaMA, Phi-3, etc.) and multi-modal workflows.
-- **API and Configuration:** Enhanced API endpoints and extensive configuration options via CLI args, env vars, and config files.
-- **High Bit Depth and HDR Media:** Save and load 16-bit PNG, 32-bit EXR, 10-bit AVIF, and HDR images and videos in supported formats.
-- **Tests:** Automated test suite ensuring stability for new features.
+- **Install instead of assembling.** Install ComfyUI with `pip` or `uv` from our package index. Install supported custom nodes and acceleration extensions as packages too.
+- **Put more GPUs to work.** Integrated tensor, pipeline, and sequence parallelism can accelerate supported models or fit models that exceed one GPU’s memory. No special workflow node is required. See [multi-GPU inference](docs/distributed.md) for supported models and hardware.
+- **Spend less time reloading models.** Improved DynamicVRAM handling reuses resident models across prompts and keeps compatible LoRA-patched weights resident when they fit. Host-memory budgets account for container limits.
+- **Turn workflows into commands.** Run workflow files, URLs, or templates without starting a server. Inspect each workflow’s parameters with `--help`, override prompts and seeds, and use `--all` to install missing nodes and download known models.
+- **Build with ComfyUI as a library.** Execute workflows and stream previews through an async Python client, with optional process isolation. See [embedding](docs/embedded.md).
+- **Scale beyond one worker.** Separate the frontend from RabbitMQ workers to process independent workflows across machines. Use the same API and workflow format.
+- **Bring your existing workflows and nodes.** The compatibility layer loads ordinary ecosystem nodes; the package facade makes supported nodes installable through a Python index.
+- **Create more than standard images.** Work with high-bit-depth images, HDR media, native language-model workflows, and raster/SVG conversion. These complement the model and media capabilities inherited from upstream.
+- **Deploy tested builds.** Published CUDA and ROCm images reuse the exact images validated by the hardware test suites.
+
+See [the fork’s differences from upstream](docs/differences.md) for details.
 
 ## Install
 
@@ -59,11 +60,11 @@ comfyui --help
 comfyui serve --guess-settings
 ```
 
-For Windows + ROCm, macOS, Linux + CUDA, Linux + ROCm, and lesser-known ROCm builds, see [Installation & Getting Started](docs/installing.md).
+For macOS, Linux CUDA, AMD ROCm, and Intel XPU setup, see [Installation & Getting Started](docs/installing.md).
 
 ### Using ComfyUI as a Library
 
-ComfyUI can run embedded inside your own Python application. No server is started, no subprocesses are used. Use the `Comfy` async context manager to execute workflows directly:
+ComfyUI can run embedded inside your own Python application. No web server is required; configurations that need isolation can use a subprocess. Use the `Comfy` async context manager to execute workflows directly:
 
 ```python
 from comfy.client.embedded_comfy_client import Comfy
@@ -88,8 +89,9 @@ Full documentation is available in [docs/index.md](docs/index.md).
 - [Troubleshooting](docs/troubleshooting.md)
 
 ### Features & Workflows
+- [Run workflows from the CLI](docs/workflows.md)
 - [Large Language Models](docs/llm.md)
-- [Other Features](docs/other_features.md) (SVG)
+- [Media Features](docs/other_features.md)
 
 ### Extending ComfyUI
 - [Custom Nodes](docs/custom_nodes.md) (Installing & Authoring)
@@ -98,7 +100,8 @@ Full documentation is available in [docs/index.md](docs/index.md).
 - [API Usage](docs/api.md) (REST, WebSocket)
 
 ### Deployment
-- [Distributed / Multi-GPU](docs/distributed.md)
+- [Multi-GPU inference](docs/distributed.md)
+- [Worker queues](docs/workers.md)
 - [Docker & Containers](docs/docker.md)
 
 ### Development
