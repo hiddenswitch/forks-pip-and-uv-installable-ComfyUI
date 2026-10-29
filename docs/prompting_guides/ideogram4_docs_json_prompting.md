@@ -2,7 +2,14 @@
 
 Vendored snapshot from: https://docs.ideogram.ai/using-ideogram/getting-started/prompting-guide/4.-json-prompting-ideogram-4.0.md
 
-Fetched: 2026-10-02
+Fetched: 2026-10-02. Schema and usage guidance updated: 2026-10-29.
+
+The [current JSON guide](https://docs.ideogram.ai/prompting/json-prompting.md)
+covers hosted 4.0 and 4.5. Select the model explicitly, paste JSON without
+Markdown fences, and disable Magic Prompt to avoid expansion. Valid JSON normally
+passes through unless expansion is explicitly enabled; invalid JSON can fall
+back to plain text. Hosted 4.5 accepts up to 10,000 characters. Local 4.0 users
+should follow the [native verifier and schema](ideogram4_prompting.md).
 
 ---
 
@@ -14,10 +21,10 @@ Fetched: 2026-10-02
 
 Ideogram 4.0 was trained **exclusively on structured JSON captions**. Natural language prompts still work well — but providing a JSON object that follows the caption schema gives you capabilities that go far beyond what natural language can express:
 
-* **Exact color control**: Specify up to 16 hex colors for the whole image, and up to 5 per individual element.
-* **Bounding-box layout**: Place any element precisely within the frame using normalized coordinates.
+* **Color direction**: Specify up to 16 hex colors for the whole image, and up to 5 per individual element; these do not lock output pixels.
+* **Bounding-box layout**: Request element positions using normalized coordinates and inspect the generated placement.
 * **Precise text placement**: Define each piece of in-image text as its own element with its own position and styling.
-* **Consistent, repeatable outputs**: Two runs from the same JSON prompt stay close to each other in composition — useful for design workflows.
+* **Explicit composition**: Separate fields make layouts easier to describe and revise; identical JSON does not guarantee identical output.
 
 {% hint style="info" %}
 You don't have to write JSON yourself. **Magic Prompt** can automatically expand a plain-text description into a full structured JSON caption, giving you JSON-quality results from a casual prompt. See [Using Magic Prompt](https://docs.ideogram.ai/using-ideogram/getting-started/prompting-guide/7-creative-tools-in-ideogram/using-magic-prompt.md) for more.
@@ -39,7 +46,7 @@ A valid Ideogram 4.0 JSON caption has three top-level fields:
 
 | Field                          | Required             | Description                                                |
 | ------------------------------ | -------------------- | ---------------------------------------------------------- |
-| `high_level_description`       | Strongly recommended | One or two sentences summarizing the full image            |
+| `high_level_description`       | Required | One or two sentences summarizing the full image            |
 | `style_description`            | Optional             | Controls visual style, lighting, medium, and color palette |
 | `compositional_deconstruction` | **Required**         | Defines the background and all individual elements         |
 
@@ -62,7 +69,7 @@ Controls the visual style, lighting, medium, and color palette. It must contain 
 
 The fields `aesthetics`, `lighting`, and `medium` are also required when `style_description` is present. `color_palette` is optional.
 
-**Key order matters** and depends on which style type you use:
+The native 4.0 verifier expects the order below. The current hosted app accepts reordered keys inside blocks and normalizes them; keep top-level fields in schema order.
 
 | Caption type | Required key order                                               |
 | ------------ | ---------------------------------------------------------------- |
@@ -76,7 +83,7 @@ The fields `aesthetics`, `lighting`, and `medium` are also required when `style_
 | `photo`         | string          | Camera/lens details for photos (e.g. `"35mm, f/1.4, bokeh"`). Use this **or** `art_style`, not both.                |
 | `medium`        | string          | Medium type: `"photograph"`, `"illustration"`, `"3d_render"`, `"painting"`, `"graphic_design"`, etc.                |
 | `art_style`     | string          | Art style for non-photo work (e.g. `"flat vector illustration, bold outlines"`). Use this **or** `photo`, not both. |
-| `color_palette` | list of strings | Hex color codes that steer the image's dominant colors. Up to 16 entries. **Must be uppercase** `#RRGGBB`.          |
+| `color_palette` | list of strings | Up to 16 six-digit hex colors. Uppercase is compatible with the native examples; the current public schema also accepts lowercase. |
 
 ***
 
@@ -132,7 +139,7 @@ Bounding boxes are optional for every element — if you omit them, the model wi
 
 * Include **background colors** in the palette if you want to control the overall tone
 * Include **contrast pairs** — both highlight and shadow colors — for more controlled lighting
-* Use **uppercase hex only**: `#RRGGBB`, not `#rgb` or lowercase
+* Use full six-digit hex values, such as `#FFD700`; three-digit shorthand is not supported.
 
 ***
 
@@ -316,4 +323,4 @@ The upstream snapshot includes only the tail of this example; use one of the com
 {% endtab %}
 {% endtabs %}
 
-The plain-text version produced a strong result — but notice what the JSON version guarantees that the plain-text version doesn't: every element landed exactly where it was told to. The title sits in its own zone at the top, the bird has bounded space that no text can bleed into, the Latin name, caption, card number, and footer each occupy a dedicated region. Run the plain-text prompt ten times and the layout will drift. Run the JSON prompt ten times and the structure holds. That's the practical case for JSON — not quality, but **repeatability and compositional control**.
+These historical examples illustrate separate layout regions. JSON provides explicit composition instructions, not guaranteed placement, spelling, colors or repeatability; inspect each result.

@@ -1,6 +1,8 @@
 # Using ComfyUI as a Library
 
-ComfyUI can be used as an embedded library inside your own Python application. No server process is started — it runs the workflow engine directly in your process.
+ComfyUI can run workflows as a library without starting an HTTP server. The
+default executor uses a thread; when global configuration requires isolation,
+the client can select a subprocess instead.
 
 See the [README](../README.md) for installation and getting started.
 
@@ -91,7 +93,8 @@ path = asyncio.run(run_example())
 print(path)
 ```
 
-Models referenced in the workflow are downloaded automatically.
+Registered, accessible models referenced in the workflow can be downloaded
+automatically. Unknown filenames need a local model or a registered source.
 
 ## Building Workflows Programmatically
 
@@ -183,6 +186,10 @@ This is useful for batch-converting saved UI workflows to API format, or for ins
 ## Streaming Progress and Previews
 
 Use `queue_with_progress` to receive preview images during inference:
+
+Progress callbacks currently work with the thread executor. The process-executor
+path does not forward them, so do not rely on preview/progress events when using
+process isolation. Final workflow results remain available.
 
 ```python
 import copy
@@ -290,54 +297,45 @@ workflow_dir = Path("./my_workflows")
 async with Comfy(configuration=config) as client:
     for workflow_path in sorted(workflow_dir.glob("*.json")):
         workflow = json.loads(workflow_path.read_text())
-        prompt = Prompt.validate(workflow)
-        outputs = await client.queue_prompt(prompt)
+        outputs = await client.queue_prompt(workflow)
         print(f"{workflow_path.name}: {outputs}")
 ```
 
 ## Headless Workflow Execution with `run-workflow`
 
-The `run-workflow` subcommand executes workflows and exits without starting the web server. Both API-format and UI-format workflow files are accepted. Outputs are printed as JSON to stdout, and application logging goes to stderr.
+See [headless workflows](workflows.md) for CLI execution, workflow-specific help,
+parameter overrides, JSON output, and dependency preparation.
 
-**Run a single workflow file:**
+## Client lifetime and isolation
 
-```bash
-comfyui run-workflow my_workflow.json
+Keep one `Comfy` client open across related prompts to reuse eligible resident
+weights and caches. The default thread path serializes execution even if its
+executor has multiple workers. It shares the host process's global library state
+and does not replace the host's CUDA allocator.
+
+The client can select `ProcessPoolExecutor` when configuration differs from
+already initialized global state. To request isolation explicitly:
+
+```python
+from comfy.client.embedded_comfy_client import Comfy
+from comfy.distributed.process_pool_executor import ProcessPoolExecutor
+
+
+async def run_isolated(workflow):
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        async with Comfy(executor=executor) as client:
+            return await client.queue_prompt(workflow)
 ```
 
-**Run multiple workflow files:**
+Call this from an application with a guarded `if __name__ == "__main__":` entry
+point so child processes can import it safely. Workers are reused across prompts;
+process isolation does not mean a new process per workflow. Global configuration
+changes can recycle an owned executor. An externally supplied executor remains
+the caller's responsibility and is not automatically replaced.
 
-```bash
-comfyui run-workflow workflow1.json workflow2.json
-```
-
-**Read workflows from stdin (use `-`):**
-
-```bash
-cat my_workflow.json | comfyui run-workflow -
-```
-
-**Pipe a literal JSON workflow:**
-
-```bash
-echo '{"1":{"class_type":"CheckpointLoaderSimple","inputs":{"ckpt_name":"v1-5-pruned-emaonly.safetensors"}}}' | comfyui run-workflow -
-```
-
-The input stream supports concatenated JSON objects — multiple `{}{}{}` objects in sequence will each be executed as a separate workflow. Each workflow's outputs are printed as a single JSON line to stdout.
-
-**Override prompt text, seed, or steps:**
-
-```bash
-comfyui run-workflow my_workflow.json --prompt "a cat on the moon" --steps 20 --seed 42
-```
-
-Combine with performance flags:
-
-```bash
-comfyui run-workflow my_workflow.json --guess-settings
-```
-
-Run `comfyui run-workflow --help` for the full list of options.
+Exiting the client waits for pending work and cleans up its resources. Closing the
+process executor ends its workers; that is the boundary that releases their process
+state. For per-test isolation, create and close an executor per test.
 
 ## Adding Known Models for Automatic Download
 
@@ -381,7 +379,10 @@ The first argument is the folder name (matching ComfyUI's model directory struct
 
 ### How Model Downloads Work
 
-When a workflow references a model filename, ComfyUI checks the known models registry. If the file isn't found locally, it downloads from Hugging Face using `hf_hub_download`. Files are stored in the **Hugging Face cache** (`~/.cache/huggingface/hub/` by default) and symlinked into the appropriate model directory.
+When a workflow references a registered model filename, ComfyUI resolves local
+files and downloads missing Hugging Face files through `hf_hub_download`.
+The Hugging Face cache is used by default; model lookup can return a cached path
+without requiring a separate copy in each workspace.
 
 To use traditional flat file downloads instead of the Hugging Face cache, pass `--force-hf-local-dir-mode` at startup. This saves files directly to `models/huggingface/<repo_id>/`.
 
@@ -400,7 +401,8 @@ export HF_TOKEN=hf_your_token_here
 hf auth login
 ```
 
-ComfyUI passes `token=True` to `hf_hub_download`, which automatically uses the `HF_TOKEN` environment variable or the token stored by `hf auth login`.
+The downloader uses Hugging Face credentials from the environment or stored login.
+Access still depends on the repository's approval and license requirements.
 
 ### Disabling Automatic Downloads
 

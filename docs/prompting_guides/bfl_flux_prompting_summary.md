@@ -1,5 +1,18 @@
 # FLUX Prompting Guide
 
+Reviewed: 2026-10-29. Choose a version before following the examples:
+
+- [FLUX 3 Image](flux3_prompting.md): current BFL general prompting pages.
+- FLUX.1: [basics snapshot](bfl_flux_prompting_t2i_fundamentals.md),
+  [Kontext editing](bfl_flux_prompting_kontext_i2i.md), and the
+  [official FLUX.1 dev card](https://huggingface.co/black-forest-labs/FLUX.1-dev).
+- [FLUX.2](bfl_flux2_prompting.md) and [Klein](bfl_flux2_klein_prompting.md):
+  retain their family-specific recipes.
+
+The historical overview below predates FLUX 3. Its moving upstream navigation
+links now lead to FLUX 3 documentation and should not be read as FLUX.1/2 API
+contracts. Use the local version links above for the older snapshots.
+
 Vendored snapshot from: https://docs.bfl.ml/guides/prompting_summary
 
 Fetched: 2026-06-03
@@ -20,7 +33,7 @@ Welcome to the official **FLUX** Prompting Guide. Whether you're just getting st
   <img src="https://cdn.sanity.io/images/2gpum2i6/production/055402a70efb2876f1f70549374d7a37d71918f7-1504x1008.png" alt="A cinematic long shot with the camera positioned half underwater and half above the surface, showing a whale diving in the open ocean" />
 </Frame>
 
-This guide covers prompting for the entire FLUX model family — FLUX.1, FLUX.1 Kontext and FLUX.2. Where behavior differs meaningfully between models, we'll call it out explicitly.
+This historical snapshot covers FLUX.1, FLUX.1 Kontext and FLUX.2. It does not cover FLUX 3.
 
 If you're still choosing a model, see [Which Model to Choose?](https://docs.bfl.ml/flux_2/flux2_overview#which-model-to-choose) in the FLUX.2 overview.
 

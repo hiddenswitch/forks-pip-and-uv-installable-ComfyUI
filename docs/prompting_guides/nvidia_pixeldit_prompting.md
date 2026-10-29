@@ -1,7 +1,7 @@
 # PixelDiT prompting (NVIDIA)
 
 Fetched 2026-10-19 from:
-1. https://github.com/NVlabs/PixelDiT/blob/main/t2i/README.md (f7d7c35), its `t2i/inference.py`,
+1. https://github.com/NVlabs/PixelDiT/blob/f7d7c35/t2i/README.md, its `t2i/inference.py`,
    `t2i/configs/PixelDiT_1024px_pixel_diffusion_stage3.yaml` and `t2i/prompts.txt`
 2. https://arxiv.org/abs/2511.20645 (PixelDiT: Pixel Diffusion Transformers for Image Generation, CVPR 2026)
 3. https://arxiv.org/abs/2410.10629 (Sana, whose text-encoder and caption recipe PixelDiT's T2I configs follow)
@@ -9,6 +9,10 @@ Fetched 2026-10-19 from:
 
 NVIDIA publishes no separate prompting guide for PixelDiT. What determines how it reads a prompt is the text encoder
 setup, the system prompt it was trained behind, and the captions it was trained on, all below.
+
+Reviewed: 2026-10-29. The moving `main/t2i/README.md` URL now returns 404;
+the pinned source above remains available. This recipe describes PixelDiT-T2I
+v1, not PixelDiT2 or the separate [PiD decoder](https://github.com/nv-tlabs/PiD).
 
 ## Model
 

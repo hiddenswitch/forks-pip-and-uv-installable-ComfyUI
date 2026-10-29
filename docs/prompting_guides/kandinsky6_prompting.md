@@ -1,6 +1,6 @@
 # Kandinsky 6.0 Video prompting
 
-Official sources, checked 2026-10-14:
+Official sources, checked 2026-10-29:
 
 - [Text-to-audio-video prompt expansion](https://github.com/kandinskylab/kandinsky-6/blob/main/comfyui/kandinsky6/beautifier_prompts/t2av_system.txt)
 - [Image-to-audio-video prompt expansion](https://github.com/kandinskylab/kandinsky-6/blob/main/comfyui/kandinsky6/beautifier_prompts/i2av_system.txt)

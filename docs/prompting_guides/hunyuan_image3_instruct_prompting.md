@@ -1,6 +1,6 @@
 # HunyuanImage 3.0 Instruct prompting references
 
-Official sources, checked 2026-10-14:
+Official sources, checked 2026-10-29:
 
 - [Tencent's Instruct usage and examples](https://github.com/Tencent-Hunyuan/HunyuanImage-3.0#hunyuanimage-30-instruct-instruction-reasoning-and-image-to-image-generation-including-editing-and-multi-image-fusion)
 - [Official Instruct model card](https://huggingface.co/tencent/HunyuanImage-3.0-Instruct)
@@ -24,3 +24,7 @@ Tencent's example combines the logo from the first image with the material from
 the second. Base-model DeepSeek prompt enhancement is a separate facility:
 Instruct performs its own enhancement. Keep this distinction when selecting
 between a supplied caption and automatic rewriting.
+
+Tencent also publishes [Instruct-Distil](https://huggingface.co/tencent/HunyuanImage-3.0-Instruct-Distil):
+its recommended sampling count is eight steps, with the other recommended
+Instruct parameters unchanged. The ordinary Instruct example uses 50 steps.

@@ -1,5 +1,19 @@
 # Wan text-to-video/image-to-video prompt guide
 
+Reviewed: 2026-10-29. The [current guide](https://www.alibabacloud.com/help/en/model-studio/text-to-video-prompt)
+adds hosted Wan 3.0/2.7 reference conventions: number `Image 1`, `Image 2`, and
+`Video 1` separately by media type and upload order. Wan 2.6's `character1`
+notation is version-specific. The live guide also distinguishes sound-capable
+versions and multi-shot versions; those capabilities must not be assumed for
+local Wan 2.1/2.2. For image-to-video, let the image supply appearance and focus
+the prompt on motion and camera movement. For multi-speaker audio, use stable
+speaker identifiers and quote each speaker's lines.
+
+The complete earlier snapshot below retains its examples. Its hosted model IDs,
+API URLs and capability statements belong to that snapshot; consult the live
+page for newer APIs and the [native family references](model_coverage.md#video)
+for local workflows.
+
 Vendored snapshot from: https://www.alibabacloud.com/help/en/model-studio/text-to-video-prompt
 
 Fetched: 2026-06-03

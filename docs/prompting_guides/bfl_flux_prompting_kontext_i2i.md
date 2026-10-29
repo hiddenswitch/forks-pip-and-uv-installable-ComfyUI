@@ -1,5 +1,12 @@
 # FLUX Image Editing Prompting
 
+Reviewed: 2026-10-29. This preserves the earlier FLUX.1 Kontext / FLUX.2 editing
+snapshot. The general `prompting_editing_overview` source now describes FLUX 3.
+For Kontext use the [dedicated official editing page](https://docs.bfl.ml/kontext/kontext_image_editing.md)
+and [Kontext dev card](https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev).
+For FLUX 3 use [its guide](flux3_prompting.md). Keep each model's reference-image
+and request-field contract separate.
+
 Vendored snapshot from: https://docs.bfl.ml/guides/prompting_editing_overview
 
 Fetched: 2026-06-03

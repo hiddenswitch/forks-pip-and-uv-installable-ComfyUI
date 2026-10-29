@@ -1,5 +1,17 @@
 # Qwen Image 2.1 prompting guide
 
+Updated: 2026-10-29. [Qwen Image 2.1 Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo)
+now supports generation and editing in eight denoising steps using its supplied
+sampling schedule. The 40-step advice below is for the original 2.1 checkpoint;
+do not transfer that schedule to Turbo. Hosted Pro and Turbo APIs are also
+linked in the [current author README](https://github.com/QwenLM/Qwen-Image-2.1).
+Prompt rewriting remains a separate stage; the retained rewriting instructions
+below have not changed. The README snapshot predates the Turbo release.
+
+Editing uses a separate [official Edit enhancer system prompt and contract](qwen_image_2_1_edit_prompting.md).
+The complete system-prompt snapshot below is **T2I only**; its English-caption
+instructions do not replace the Edit enhancer's language and image-role rules.
+
 Vendored snapshot, complete, with source links made absolute, of:
 1. https://github.com/QwenLM/Qwen-Image-2.1/blob/main/README.md
 2. https://github.com/QwenLM/Qwen-Image-2.1/blob/main/prompt_rewrite/README.md

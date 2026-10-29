@@ -17,7 +17,11 @@ source .venv/bin/activate
 comfyui serve --guess-settings
 ```
 
-For NVIDIA extension wheels, install the matching facade variant, for example:
+### Optional accelerator extensions
+
+The base installation does not require SageAttention or FlashAttention. Install
+extensions only when your workflow needs them and matching wheels exist for your
+Python, Torch, CUDA, and operating system. For a compatible CUDA 13.0 environment:
 
 ```console
 uv pip install --extra-index-url https://nodes.appmana.com/simple/cu130/ sageattention flash-attn
@@ -102,6 +106,25 @@ uv pip install --upgrade --extra-index-url https://nodes.appmana.com/simple/ com
 Keep accelerator-specific Torch packages pinned when upgrading the application
 so uv cannot replace a tested CUDA, XPU, or TheRock stack.
 
+## Reuse an existing workspace
+
+Keep an existing compatible environment rather than recreating it to match an
+example's Python version. Package metadata permits Python >=3.10, but dependency
+and accelerator wheels can narrow that range. See [compatibility](compatibility.md)
+for the configured test stacks.
+
+Point the installed application at your existing models, inputs, outputs, and
+custom-node directory:
+
+```console
+comfyui serve --cwd /path/to/ComfyUI
+```
+
+Alternatively, use `--extra-model-paths-config` or `--add-model-folder-path` to
+share model directories. Upstream-style source workspaces may receive missing
+package marker files from the [workspace compatibility layer](custom_node_reference.md#existing-workspace-imports).
+Do not modify `PYTHONPATH` to select between competing installations.
+
 ## Memory and performance
 
 DynamicVRAM is the normal memory-management path. It accounts for all selected
@@ -112,5 +135,5 @@ compatibility escape hatch and is not required for ordinary constrained runs.
 On NVIDIA Ampere and newer, `--fast cublas_ops` and SageAttention may improve
 sampling.
 
-See [configuration](configuration.md), [distributed inference](distributed.md),
+See [workflows](workflows.md), [configuration](configuration.md), [distributed inference](distributed.md),
 and [troubleshooting](troubleshooting.md) for configuration and usage details.

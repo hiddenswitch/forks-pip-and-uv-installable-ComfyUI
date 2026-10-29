@@ -1,10 +1,10 @@
 # Ideogram 4.5 prompting guide (Ideogram docs)
 
-Vendored snapshot of the Prompting section of https://docs.ideogram.ai (index: https://docs.ideogram.ai/llms.txt): Prompting Basics, Prompt Structure, Text in Images, JSON Prompting, Refine and Iterate, Fix Common Problems and the Vocabulary Reference with its five subpages. The pages are concatenated verbatim in index order from their `.md` endpoints; each page's source URL precedes it.
+Vendored snapshot of the Prompting section of https://docs.ideogram.ai (index: https://docs.ideogram.ai/llms.txt): Prompting Basics, Prompt Structure, Text in Images, JSON Prompting, Refine and Iterate, Fix Common Problems and the Vocabulary Reference with its five subpages. Pages retain their source URLs and examples, with dated editorial corrections for changed guidance.
 
-Fetched: 2026-10-05
+Fetched: 2026-10-05. Reviewed and corrected: 2026-10-29.
 
-Ideogram publishes one guide for Ideogram 4.5, 4.0 and 3.0; there is no separate 4.5 guide. Ideogram 4.5 is API-only at this snapshot (see `ideogram4_5_api.md` and `ideogram4_5_precise_edit_api.md`).
+Ideogram publishes one guide for the hosted 4.5, 4.0 and 3.0 Image app models. See [generation API](ideogram4_5_api.md), [Precise Edit](ideogram4_5_precise_edit_api.md), and the distinct [native 4.0 schema](ideogram4_prompting.md).
 
 ---
 
@@ -20,7 +20,7 @@ A prompt is the text you give Ideogram to describe the image you want. It can be
 
 ## How Ideogram reads a prompt
 
-Ideogram reads your words literally and tries to show every one of them. It does not guess at what you meant the way a person would.
+Prompts guide the image; individual details can still be omitted or misinterpreted.
 
 > A tall man in a red coat walking through a snowy forest.
 
@@ -39,11 +39,11 @@ You can write in any language. English gives the most reliable results, most of 
 
 ## Plain language or JSON
 
-Ideogram 4.5 and 4.0 accept either a plain-language prompt or a structured JSON prompt. Plain language is the place to start, and it is all Ideogram 3.0 accepts. JSON lets you set exact layout, text placement and hex colors when a sentence can't pin them down. See [JSON Prompting](https://docs.ideogram.ai/prompting/json-prompting.md).
+Ideogram 4.5 and 4.0 accept plain language or JSON. Start with plain language for 3.0. [JSON](https://docs.ideogram.ai/prompting/json-prompting.md) specifies regions and palettes; it does not guarantee their reproduction.
 
 ## Magic Prompt
 
-Magic Prompt rewrites and expands a short prompt before Ideogram generates the image. On Ideogram 4.5 and 4.0 it turns your plain text into a structured JSON prompt, so you get much of the control of JSON without writing it. Turn it off when you want Ideogram to keep your exact wording. On every Ideogram model it's an on/off toggle. See the [Magic Prompt setting](https://docs.ideogram.ai/create/image-settings.md#magic-prompt) for where to find it.
+Magic Prompt expands descriptions. Disable it to compare your own wording; availability depends on the model and task. In hosted 4.5, reference-based edits hide this control. See the [setting](https://docs.ideogram.ai/create/image-settings.md#magic-prompt).
 
 ## Start here
 
@@ -242,7 +242,7 @@ Give each block its own words, style and place. Describe them in reading order, 
 
 > A vintage jazz poster. At the top, the headline "BLUE NOTE SESSIONS" in large gold serif capitals. Below the trumpeter, "Live jazz every Saturday night" in off-white italic serif. At the bottom, "THE VELVET ROOM" in small gold sans-serif capitals.
 
-Plain text gets you close, but the layout can shift from one run to the next. When each line must land in an exact spot, use a JSON prompt. On Ideogram 4.5 and 4.0, each text element gets its own `text`, `desc` (how it looks), `color_palette` and `bbox`. See [JSON Prompting](https://docs.ideogram.ai/prompting/json-prompting.md) for the format and a full poster example.
+JSON gives each text element separate wording, styling and placement instructions. Inspect spelling and placement after generation; use editable text layers when exact typography is required. See [JSON Prompting](https://docs.ideogram.ai/prompting/json-prompting.md).
 
 ## Limits
 
@@ -268,7 +268,7 @@ Once you have an image you like, **Layerize text** in Studio turns its text into
 
 # JSON Prompting
 
-Use a structured JSON prompt with Ideogram 4.5 and 4.0 to control exact text placement, layout and colors.
+Use JSON to describe separate regions, text and palette instructions.
 
 Ideogram 4.5 and 4.0 accept a plain-language prompt or a structured JSON prompt. Both models use the same JSON format. Ideogram 4.0 was trained on captions in this format, so a JSON prompt speaks to the model in its own terms.
 
@@ -277,7 +277,7 @@ Plain language works well for most images. JSON adds control that plain language
 * **Color control.** Up to 16 hex colors for the whole image and up to 5 for each element. They steer the colors strongly but don't lock every pixel.
 * **Layout.** Place any element in the frame with a bounding box.
 * **Text placement.** Each piece of text is its own element with its own position and style.
-* **Repeatable results.** Runs from the same JSON prompt keep close to the same layout.
+* **Explicit regions.** Layout instructions remain inspectable across iterations; results can vary.
 
 ## When to use JSON
 
@@ -331,7 +331,7 @@ Every field is optional. Use `photo` for photographs, or `art_style` for illustr
 | `photo`         | string          | Camera and lens, for example `"35mm, f/1.4, bokeh"`. Use this or `art_style`, not both.                     |
 | `medium`        | string          | Free text, for example `"photograph"`, `"illustration"`, `"3D render"`, `"painting"`, `"graphic design"`    |
 | `art_style`     | string          | For non-photo work, for example `"flat vector illustration, bold outlines"`. Use this or `photo`, not both. |
-| `color_palette` | list of strings | Up to 16 hex colors that steer the main colors. Uppercase `#RRGGBB` only.                                   |
+| `color_palette` | list of strings | Up to 16 six-digit hex colors; uppercase or lowercase. |
 
 ### `compositional_deconstruction`
 
@@ -350,7 +350,7 @@ Each element is an object (`"obj"`) or text (`"text"`):
 | `bbox`          | list of 4 integers | Position as `[y_min, x_min, y_max, x_max]`. Optional.            |
 | `desc`          | string             | A detailed description of the element                            |
 | `text`          | string             | Text elements only: the exact words to render                    |
-| `color_palette` | list of strings    | Up to 5 uppercase `#RRGGBB` colors for this element. Optional.   |
+| `color_palette` | list of strings    | Up to 5 six-digit hex colors for this element. Optional. |
 
 {% hint style="info" %}
 Ideogram puts the keys inside each block in the order the model expects, so you don't need to. Keep the three top-level fields in the order shown in the schema table.
@@ -364,7 +364,7 @@ Coordinates run from 0 to 1000 on each axis, with `[0, 0]` at the top-left corne
 
 * Add the background colors to the palette if you want to set the overall tone.
 * Add both highlight and shadow colors for more control over lighting.
-* Write hex codes in uppercase `#RRGGBB`, never `#rgb` or lowercase.
+* Use six-digit hex values; shorthand is unsupported.
 
 ## Example: no bounding boxes
 
@@ -470,7 +470,7 @@ Your first image is a draft. Small, deliberate changes to the prompt, or a quick
 
 ## Change one thing at a time
 
-Change a single word or phrase per round, so you can see what each change did. Fix the [seed](https://docs.ideogram.ai/create/image-settings.md#seed) and turn Magic Prompt off while you do this: with the same seed and settings, the only thing that moves is your wording.
+Change one phrase per round while holding model, seed and settings fixed. Disable Magic Prompt where available. This reduces confounding changes without guaranteeing pixel-identical output.
 
 > **Start:** "A black cat sitting on a windowsill during a storm"
 >
@@ -535,8 +535,8 @@ Rewording isn't always the fastest fix. Once you have an image you mostly like, 
 | Fix a small area (a hand, a face, a word of text) | **Select area** in Studio (paid plans), then describe what should be there                   |
 | Show more of the scene or change the shape        | **Reframe** in Studio, or **Extend** (paid plans)                                            |
 | Turn a short idea into a full prompt              | Write a few words and let [Magic Prompt](https://docs.ideogram.ai/create/image-settings.md#magic-prompt) expand them |
-| Keep your exact wording                           | Turn Magic Prompt off                                                                        |
-| Control the layout exactly                        | Write a [JSON prompt](https://docs.ideogram.ai/prompting/json-prompting.md)                                          |
+| Avoid prompt expansion                            | Turn Magic Prompt off where available |
+| Specify separate layout regions                   | Write a [JSON prompt](https://docs.ideogram.ai/prompting/json-prompting.md), then inspect the result |
 
 If something keeps going wrong, check [Fix Common Problems](https://docs.ideogram.ai/prompting/fix-common-problems.md).
 
@@ -563,7 +563,7 @@ Each problem below lists the usual cause and the fix. If you're exploring rather
 
 Then check the rest of the prompt for anything that hints at the unwanted item. If Magic Prompt added it, turn [Magic Prompt](https://docs.ideogram.ai/create/image-settings.md#magic-prompt) off; it can also help in the other direction, since its rewrite often turns a negative into a positive.
 
-On Ideogram 4.5 and 4.0, rephrasing is the only option. On Ideogram 3.0 you can also list what to avoid in the [Negative prompt](https://docs.ideogram.ai/create/image-settings.md#negative-prompt) setting.
+Hosted 4.5 and 4.0 have no separate negative-prompt field. Rephrase or edit a selected region. Hosted 3.0 also offers a [negative prompt](https://docs.ideogram.ai/create/image-settings.md#negative-prompt).
 
 ## Extra objects, people or text appear
 
@@ -593,7 +593,7 @@ On Ideogram 4.5 and 4.0, rephrasing is the only option. On Ideogram 3.0 you can 
 * For a full figure, describe what's near the feet (shoes, the sidewalk). For a close-up, describe the face and upper body only.
 * Make the setting the main subject for a wider shot; make the person the main subject for a tighter one.
 * Pick an aspect ratio that suits the subject, or use **Reframe** or **Extend** (paid) in Studio on an image you already have.
-* For exact placement on 4.5 or 4.0, use a [JSON prompt](https://docs.ideogram.ai/prompting/json-prompting.md).
+* For explicit placement instructions on 4.5 or 4.0, use a [JSON prompt](https://docs.ideogram.ai/prompting/json-prompting.md) and inspect the result.
 
 ## Ideogram ignores part of your prompt
 
@@ -619,7 +619,7 @@ On Ideogram 4.5 and 4.0, rephrasing is the only option. On Ideogram 3.0 you can 
 >
 > **Instead of** "a beautiful dress", **try** "a red satin evening gown with intricate lace details"
 
-On 4.5 and 4.0, set style and color in the prompt; you can give exact hex colors in a [JSON prompt](https://docs.ideogram.ai/prompting/json-prompting.md). On Ideogram 3.0 you can also use style presets, style reference images and color palettes.
+On 4.5 and 4.0, describe style and color in the prompt; JSON palettes steer colors without locking pixels. Ideogram 3.0 also supports style presets, style references and palettes.
 
 ## The emotion or idea doesn't come through
 
@@ -732,6 +732,10 @@ When using angle or point-of-view terms in your prompts, make sure the other det
 > For the complete documentation index, see [llms.txt](https://docs.ideogram.ai/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://docs.ideogram.ai/prompting/vocabulary/describing-age-and-life-stage.md).
 
 # Describing Age and Life Stage
+
+These are optional appearance descriptions, not traits implied by an age group.
+Specify the appearance you want; the example age ranges do not ensure exact
+ages in generated images.
 
 When prompting for people, describing age clearly can shape the outcome just as much as physical features or clothing. However, many AIs don’t reliably interpret numeric ages (e.g., “a 7-year-old girl”) with visual accuracy. Instead of specifying numbers, it’s more effective to use descriptive, life stage–based terms. This appendix breaks those terms into two parts per group: age terms and modifiers to help communicate the age and physical traits more accurately.
 
@@ -909,7 +913,7 @@ Name the tone directly rather than relying on a nationality or ethnicity to impl
 
 # Memory Colors for Naming Color Nuances
 
-When describing colors in a prompt, using specific, visually grounded references is much more effective than generic terms like “red” or “green.” Since Ideogram doesn’t understand numerical color codes (like RGB or hex) unless you use [JSON prompting](https://docs.ideogram.ai/prompting/json-prompting.md) on Ideogram 4.5 or 4.0, or a Custom [Color palette](https://docs.ideogram.ai/create/image-settings.md#color-palette) on 3.0, using familiar, real-world references — often called *memory colors* — helps convey a more accurate color nuance. These references evoke a mental image based on shared visual experience, such as “cherry red” or “sky blue.”
+Use familiar color names and identify which object receives each color. For structured palette requests, see [JSON prompting](https://docs.ideogram.ai/prompting/json-prompting.md) or 3.0's [palette setting](https://docs.ideogram.ai/create/image-settings.md#color-palette). Both color names and palettes guide the result; inspect exported colors when precision matters.
 
 The list below groups memory-based color terms by base color. Each one can help you fine-tune your prompt and get closer to the exact hue you’re aiming for.
 

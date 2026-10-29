@@ -2,7 +2,7 @@
 
 Vendored snapshot from: https://developer.ideogram.ai/api-reference/images/precise-edit/ideogram-4-5.md
 
-Fetched: 2026-10-05
+Fetched: 2026-10-05. Request/response guidance updated: 2026-10-29.
 
 ---
 
@@ -15,8 +15,9 @@ Fetched: 2026-10-05
 POST https://api.ideogram.ai/v2/image/precise-edit/ideogram-4-5
 Content-Type: multipart/form-data
 
-Edit an image with Ideogram 4.5 and get the result back at that image's
-exact width and height. Upload the image as `image` using
+Edit an image with Ideogram 4.5. Whole-image editing is bounded to 4,194,304
+pixels; large inputs are resized. A context-window edit preserves the original
+canvas dimensions. Upload the image as `image` using
 `multipart/form-data`, with optional `reference_images` and a `mask`.
 Returns results directly by default; set `async` or supply a
 `webhook_url` to get a `generation_id` and poll
@@ -39,9 +40,10 @@ Reference: https://developer.ideogram.ai/api-reference/images/precise-edit/ideog
 This endpoint expects a multipart form with multiple files.
 
 - `prompt` (string, required) — The edit instruction, in natural language or as a structured JSON prompt. Natural language is automatically converted into a structured prompt; valid structured JSON is used as is.
-- `image` (file, required) — The image to edit (max 25MB; JPEG, PNG, or WEBP). Multipart requests only. The output always matches this image's width and height, and pixels the edit did not meaningfully change are copied exactly from it. Images too large for the model are scaled down, keeping their proportions, and returned as rendered. Images with an aspect ratio outside 1:6 to 6:1 are rejected.
-- `reference_images` (files, optional) — Optional images to guide the edit (max 4, max 25MB each; JPEG, PNG, or WEBP). They are never edited themselves; only `image` is. Multipart requests only. A request with a `mask` can include at most three, because the mask takes up one reference slot.
-- `mask` (file, optional) — An optional mask that limits the edit to part of `image` (max 25MB; JPEG, PNG, or WEBP). Multipart requests only. Black marks the area to edit and white the area to keep; values in between are rounded to the nearer of the two. The mask must have the same width and height as `image` and contain both black and white areas. A masked request can include at most three `reference_images`.
+- `image` (file, required) — JPEG, PNG or WEBP, up to 50 MB and 67,108,864 pixels. Whole-image output is resized when it exceeds the model's 4,194,304-pixel editing limit.
+- `reference_images` (files, optional) — Up to four JPEG/PNG/WEBP references, each up to 50 MB. A mask consumes one slot, leaving three references.
+- `mask` (file, optional) — Up to 50 MB, matching the input dimensions. Black selects edits, white preserves content; intermediate values round to either. Include both regions.
+- `context_window` (string, optional) — `none` edits the whole image. `auto` requires a mask and selects its context; an oversized mask falls back to resized whole-image editing. Explicit `y_min,x_min,y_max,x_max` uses original pixel coordinates and exclusive maxima. The region must contain the mask, have sides of at least 256 pixels, aspect ratio 1:6–6:1 and area at most 4,194,304 pixels. See the [current endpoint](https://developer.ideogram.ai/api-reference/images/precise-edit/ideogram-4-5.md) for validation details.
 - `quality` (enum, optional) — The rendering quality to use. `very_low` is the fastest and cheapest, and `high` takes longer and is priced higher.
 - `seed` (integer, optional) — Random seed. Set for reproducible generation.
 - `num_images` (integer, optional) — The number of images to generate.
@@ -56,6 +58,7 @@ This endpoint expects a multipart form with multiple files.
 The edited images (synchronous requests), or an acknowledgement to poll with `GET /v2/generations/{generation_id}` (`async` requests).
 
 - `generation_id` (string, optional) — URL-safe base64 ID of the generation. Use it to poll `GET /v2/generations/{generation_id}`.
+- `generation_kind` (enum, required) — `sampling` or `workflow`.
 - `data` (list of GeneratedImageObject, optional) — The edited images, in generation order. Present only for synchronous requests (`async` omitted or false).
 - `seed` (integer, optional) — The seed that was used, including when you did not set one.
 
@@ -142,6 +145,7 @@ One generated output image.
 
 ```json
 {
+  "generation_kind": "sampling",
   "generation_id": "generation_id",
   "data": [
     {

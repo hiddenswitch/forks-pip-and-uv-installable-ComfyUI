@@ -123,8 +123,10 @@ class SaveConditioning(io.ComfyNode):
                 sd[k] = v
             elif isinstance(v, (list, tuple)) and all(isinstance(t, torch.Tensor) for t in v):
                 sd.update({f"{k}.{i}": t for i, t in enumerate(v)})
-            elif isinstance(v, (bool, int, float, str)):
-                values[k] = v
+            elif isinstance(v, (bool, int, float, str)) or (
+                isinstance(v, (list, tuple)) and all(isinstance(x, (bool, int, float, str)) for x in v)
+            ):
+                values[k] = list(v) if isinstance(v, tuple) else v
             elif v is not None:
                 raise ValueError(f"Conditioning option '{k}' ({type(v).__name__}) can't be saved.")
         full_output_folder, filename, counter, _, _ = folder_paths.get_save_image_path(filename_prefix, folder_paths.get_output_directory())

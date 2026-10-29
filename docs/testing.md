@@ -13,7 +13,9 @@ commit identity. Master additionally runs the installed-package smoke check.
 
 ## ProcessPoolExecutor for Isolation
 
-Use `ProcessPoolExecutor` to run each workflow in a subprocess. This ensures VRAM is fully released between runs and prevents state leakage between tests:
+Use `ProcessPoolExecutor` to isolate execution from the test process. Workers are
+reused within an executor; they are not recreated for every workflow. Create and
+close an executor per test to release worker process state between tests:
 
 ```python
 from comfy.client.embedded_comfy_client import Comfy
@@ -139,13 +141,12 @@ from PIL import Image
 @pytest.mark.asyncio
 async def test_image_matches_snapshot(client: Comfy, image_diff):
     workflow = json.loads(Path("workflows/sd15-basic-0.json").read_text())
-    prompt = Prompt.validate(workflow)
-
     # Pin the seed for deterministic output
     sampler_node_id = next(
-        key for key, value in prompt.items() if value.class_type == "KSampler"
+        key for key, value in workflow.items() if value["class_type"] == "KSampler"
     )
-    prompt[sampler_node_id].inputs["seed"] = 42
+    workflow[sampler_node_id]["inputs"]["seed"] = 42
+    prompt = Prompt.validate(workflow)
 
     outputs = await client.queue_prompt(prompt)
 
@@ -291,7 +292,7 @@ def _generate_config_params():
 )
 async def client(request):
     config = default_configuration()
-    config.disable_all_custom_nodes = True
+    config.disable_all_custom_nodes = False
     config.update(request.param)
     with ProcessPoolExecutor(max_workers=1) as executor:
         async with Comfy(configuration=config, executor=executor) as c:

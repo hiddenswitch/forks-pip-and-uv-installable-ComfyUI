@@ -1,4 +1,22 @@
-# LTX-2 README prompt section
+# LTX-2 family prompting
+
+Reviewed: 2026-10-29. The [current upstream README](https://github.com/Lightricks/LTX-2/blob/main/README.md)
+now recommends LTX-2.5. Its prompt advice remains a literal, chronological
+paragraph of at most 200 words, covering action, appearance, environment, camera
+and lighting. The [expanded prompt guide](https://ltx.io/blog/prompting-guide-for-ltx-2)
+has moved to `ltx.io`.
+
+LTX-2.5 requires its own component set, including the fine-tuned Gemma 4 12B
+encoder and projection (`gemma4-12b-ltx-v1`). Stock Gemma 4 and LTX-2.3's Gemma 3
+are not substitutes. Keep checkpoints, encoders and LoRAs matched to their
+release. DFR adds keyframe refinement; it does not define another prompt syntax.
+The public README was available; the LTX-2.5 raw model card required access.
+
+## LTX-2.3 snapshot
+
+The complete older snapshot below retains the 2.3 examples. For its current
+installation recipe see [the upstream 2.3 reference](https://github.com/Lightricks/LTX-2/blob/main/MODELS-LTX-2.3.md).
+Its component list and pipeline recommendations must not be applied to 2.5.
 
 Vendored snapshot from: https://github.com/Lightricks/LTX-2/blob/main/README.md
 
@@ -102,7 +120,7 @@ When writing prompts, focus on detailed, chronological descriptions of actions a
 - Describe lighting and colors
 - Note any changes or sudden events
 
-For additional guidance on writing a prompt please refer to <https://ltx.video/blog/how-to-prompt-for-ltx-2>
+For additional guidance on writing a prompt please refer to <https://ltx.io/blog/prompting-guide-for-ltx-2>
 
 ### Automatic Prompt Enhancement
 

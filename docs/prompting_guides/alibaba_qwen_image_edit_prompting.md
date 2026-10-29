@@ -1,5 +1,16 @@
 # Qwen Image Edit guide
 
+Reviewed: 2026-10-29. The [live Alibaba guide](https://www.alibabacloud.com/help/en/model-studio/qwen-image-edit-guide)
+now uses hosted Qwen Image 3.0 examples and documents 2.1 Pro/Turbo as well.
+It specifies one to three input images for 3.0, up to ten for 2.1, and no
+`negative_prompt` parameter for hosted 2.1. Image numbers follow input order;
+state each reference's role explicitly. Prompt rewriting is a separate option.
+
+The retained snapshot below describes earlier hosted versions. Its model IDs,
+limits and service URLs are historical; use the live API reference for new
+requests. For local 2.1 generation/editing use [the author guide](qwen_image_2_1_prompting.md).
+Hosted 3.0 availability does not establish local 3.0 support.
+
 Vendored snapshot from: https://www.alibabacloud.com/help/en/model-studio/qwen-image-edit-guide
 
 Fetched: 2026-06-03

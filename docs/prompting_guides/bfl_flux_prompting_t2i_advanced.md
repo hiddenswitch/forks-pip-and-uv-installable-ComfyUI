@@ -1,5 +1,13 @@
 # FLUX Prompt Reference
 
+Reviewed: 2026-10-29. Camera, lighting and composition vocabulary below is
+retained from the earlier snapshot. The [current reference](https://docs.bfl.ml/guides/prompting_unified_reference.md)
+also covers [FLUX 3](flux3_prompting.md). Its current FLUX.2 reference limits
+distinguish API requests (eight for max/pro/flex, four for Klein), Playground
+(up to ten), and dev inference (recommended six). Pro also limits combined
+input/output pixels. Check the selected endpoint; these are not universal
+local sampler limits.
+
 Vendored snapshot from: https://docs.bfl.ml/guides/prompting_unified_reference
 
 Fetched: 2026-06-03

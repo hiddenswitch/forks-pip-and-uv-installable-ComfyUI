@@ -1,5 +1,14 @@
 # FLUX.2 Prompting Guide
 
+Reviewed: 2026-10-29 against the [current FLUX.2 guide](https://docs.bfl.ml/guides/prompting_guide_flux2.md).
+Its prompting examples remain applicable. For reference counts, use the newer
+[model-specific reference](https://docs.bfl.ml/guides/prompting_unified_reference.md):
+max/pro/flex accept eight images per API request, Playground up to ten,
+Klein four, and dev inference recommends six. The older flex-ten shorthand
+below describes the earlier snapshot. Pro's combined input/output limit also
+affects the usable count. Hosted `prompt_upsampling` does not imply that a
+local workflow performs rewriting automatically.
+
 Vendored snapshot from: https://docs.bfl.ml/guides/prompting_guide_flux2
 
 Fetched: 2026-06-03

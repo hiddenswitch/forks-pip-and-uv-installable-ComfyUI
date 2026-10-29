@@ -1,5 +1,13 @@
 # How to JSON prompt for Ideogram 4.0 (Ideogram blog)
 
+Reviewed: 2026-10-29. This is a historical article, not the current API schema.
+Its always-AUTO Magic Prompt, style-code, negative-prompt and exact-output claims
+must not be transferred to today's hosted model or native ComfyUI inputs.
+Use the [current hosted guidance](ideogram4_5_prompting.md) and
+[native 4.0 schema](ideogram4_prompting.md). JSON regions and palettes are
+instructions, not guarantees of placement, color or seed reproducibility.
+The article's complete examples remain below; repository links are corrected.
+
 Vendored snapshot from: https://ideogram.ai/blog/ideogram-4-json-prompting/ (article body converted from HTML with html2text)
 
 Fetched: 2026-10-02
@@ -97,7 +105,7 @@ compositional_deconstruction | Background description plus an elements array. Th
   
 Key ordering matters
 
-The `style_description` fields must appear in a specific order — the model was trained that way. **Photography:** `aesthetics` → `lighting` → `photo` → `medium` → `color_palette`. **Illustration/design:** `aesthetics` → `lighting` → `medium` → `art_style` → `color_palette`. The open-source [CaptionVerifier](https://github.com/ideogram-oss/ideogram-4) catches ordering mistakes before you generate. 
+The `style_description` fields must appear in a specific order — the model was trained that way. **Photography:** `aesthetics` → `lighting` → `photo` → `medium` → `color_palette`. **Illustration/design:** `aesthetics` → `lighting` → `medium` → `art_style` → `color_palette`. The open-source [CaptionVerifier](https://github.com/ideogram-oss/ideogram4) catches ordering mistakes before you generate.
 
 ## Shifting from natural language to JSON
 
@@ -313,14 +321,14 @@ Self-hosted / local inference | JSON (Magic Prompt backend is separate)
   
 The tooling is open source
 
-The JSON schema, CaptionVerifier, and all three Magic Prompt backends are at [**github.com/ideogram-oss/ideogram4**](https://github.com/ideogram-oss/ideogram-4). The backends are swappable: hosted Ideogram API, Claude Opus/Sonnet via OpenRouter, and Gemini Flash-Lite. 
+The JSON schema, CaptionVerifier, and all three Magic Prompt backends are at [**github.com/ideogram-oss/ideogram4**](https://github.com/ideogram-oss/ideogram4). The backends are swappable: hosted Ideogram API, Claude Opus/Sonnet via OpenRouter, and Gemini Flash-Lite.
 
 ## What to try next
 
 The techniques in this guide compound. Start with a plain-language prompt and get something close. Add a `style_code` from that result to lock the look. Switch to JSON when you need exact colours or placed text. Most workflows land on a combination of all three. 
 
-  * **Generate at scale with the API.** Every technique here works over the API — batch runs, seed pinning, style code reuse across a full campaign. [See the generate endpoint.](https://developer.ideogram.ai/api-reference/api-reference/generate-v4)
-  * **Explore the open-source tooling.** CaptionVerifier and all three Magic Prompt backends are available at [github.com/ideogram-oss/ideogram4](https://github.com/ideogram-oss/ideogram-4) if you want to run them locally or swap in your own LLM backend. 
+  * **Generate with the API.** Consult the [current 4.0 endpoint](https://developer.ideogram.ai/v2/api-reference/images/generate/ideogram-4) for supported fields.
+  * **Explore the open-source tooling.** CaptionVerifier and Magic Prompt backends are available at [github.com/ideogram-oss/ideogram4](https://github.com/ideogram-oss/ideogram4) for local use.
 
 
 

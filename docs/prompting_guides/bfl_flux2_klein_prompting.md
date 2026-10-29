@@ -1,5 +1,14 @@
 # FLUX.2 Text to Image
 
+Reviewed: 2026-10-29. This source is the FLUX.2 family API page, not a dedicated
+Klein prompting handbook. Klein receives the supplied prompt without automatic
+expansion: write coherent prose with explicit lighting and scene details.
+See the [current family reference](https://docs.bfl.ml/guides/prompting_unified_reference.md)
+and [Klein 4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B).
+Base and distilled checkpoints require their own sampling settings. The hosted
+Klein limit is four references; max/pro/flex limits in this snapshot do not
+apply to Klein. [FLUX 3 Klein](flux3_prompting.md) is a separate generation.
+
 Vendored snapshot from: https://docs.bfl.ml/flux_2/flux2_text_to_image
 
 Fetched: 2026-06-03

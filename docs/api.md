@@ -1,157 +1,79 @@
-# Using ComfyUI as an API / Programmatically
+# Application integration
 
-There are multiple ways to use this ComfyUI package to run workflows programmatically:
+Choose [embedded execution](embedded.md) to run workflows inside a Python
+application without an HTTP server. Use a remote client when an existing ComfyUI
+server owns execution. For a shell script, start with [headless workflows](workflows.md).
 
-### Embedded
+## Remote Python client
 
-Start ComfyUI by creating an ordinary Python object. This does not create a web server. It runs ComfyUI as a library, like any other package you are familiar with:
-
-```python
-from comfy.client.embedded_comfy_client import Comfy
-
-async with Comfy() as client:
-    outputs = await client.queue_prompt(prompt)
-    save_image_node_id = next(key for key in prompt if prompt[key]["class_type"] == "SaveImage")
-    print(outputs[save_image_node_id]["images"][0]["abs_path"])
-```
-
-See [script_examples/basic_api_example.py](examples/script_examples/basic_api_example.py) for a complete example.
-
-Preview can be retrieved too:
+Install the [package](installing.md), start `comfyui serve`, and save a complete
+workflow to `workflow.json`. Both UI and API workflow formats are accepted by
+the fork's `/api/v1/prompts` endpoint.
 
 ```python
-prompt_dict = copy.deepcopy(_PROMPT_FROM_WEB_UI)
-prompt_dict["6"]["inputs"]["text"] = "masterpiece best quality man"
-...
-preview_frames = []
-async with Comfy() as client:
-    task = client.queue_with_progress(prompt)
-    async for notification in task.progress():
-        if notification.event == BinaryEventTypes.PREVIEW_IMAGE_WITH_METADATA:
-            image_data: PreviewImageWithMetadataMessage = notification.data
-            unencoded_preview, _ = image_data
-            
-            preview_frames.append(unencoded_preview.pil_image.copy())
-```
-
-See more in Colab: https://colab.research.google.com/drive/1Gd9F8iYRJW-LG8JLiwGTKLAcXLJ5eH78#scrollTo=mP_72JH6v1BK
-
-
-### Remote
-
-Visit the ComfyUI interface and design your workflow. You can export it using either **Save** (UI format) or **Save (API Format)**. Both formats are accepted — UI workflows are automatically converted to API format.
-
-You can use the built-in Python client library by installing this package without its dependencies.
-
-```shell
-uv pip install aiohttp
-uv pip install --no-deps --extra-index-url https://nodes.appmana.com/simple/ comfyui
-```
-
-Then the following idiomatic pattern is available:
-
-```python
+import asyncio
+import json
+from pathlib import Path
 from comfy.client.aio_client import AsyncRemoteComfyClient
 
-client = AsyncRemoteComfyClient(server_address="http://localhost:8188")
-png_image_bytes = await client.queue_prompt(prompt)
-with open("image.png", "wb") as f:
-    f.write(png_image_bytes)
+
+async def main():
+    workflow = json.loads(Path("workflow.json").read_text(encoding="utf-8"))
+    async with AsyncRemoteComfyClient("http://localhost:8188") as client:
+        result = await client.queue_prompt_api(workflow)
+        print(result.prompt_id)
+        print(result.urls)
+        print(result.outputs)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
-See [script_examples/remote_api_example.py](examples/script_examples/remote_api_example.py) for a complete example.
+The context manager closes the HTTP session. `queue_prompt_api()` returns a
+structured response; `queue_prompt()` instead requests PNG bytes. Use
+`queue_and_forget_prompt_api()` and `poll_prompt_until_done()` when submission and
+completion must be separate. Polling has a finite timeout; choose it for your job
+duration. Returned paths describe the server's filesystem, while URLs are intended
+for remote retrieval.
 
-##### REST API
+## REST
 
-First, install this package using the [Installation Instructions](installing.md). Then, run `comfyui`.
+Send the complete workflow JSON as the body, not a fragment with placeholder nodes:
 
-Visit the ComfyUI interface and design your workflow. Export it using either **Save** (UI format) or **Save (API Format)** — both are accepted.
-
-Then, send a request to `api/v1/prompts`. Here are some examples:
-
-**`curl`**:
-
-```shell
-curl -X POST "http://localhost:8188/api/v1/prompts" \
-     -H "Content-Type: application/json" \
-     -H "Accept: image/png" \
-     -o output.png \
-     -d '{
-       "prompt": {
-         # ... (include the rest of the workflow)
-       }
-     }'
+```console
+curl --fail-with-body http://localhost:8188/api/v1/prompts \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  --data-binary @workflow.json
 ```
 
-**Python**:
+For an image-producing workflow, request a PNG response:
 
-```python
-import requests
-
-url = "http://localhost:8188/api/v1/prompts"
-headers = {
-    "Content-Type": "application/json",
-    "Accept": "image/png"
-}
-workflow = {
-    "4": {
-        "inputs": {
-            "ckpt_name": "sd_xl_base_1.0.safetensors"
-        },
-        "class_type": "CheckpointLoaderSimple"
-    },
-    # ... (include the rest of the workflow)
-}
-
-payload = {"prompt": workflow}
-
-response = requests.post(url, json=payload, headers=headers)
+```console
+curl --fail-with-body http://localhost:8188/api/v1/prompts \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: image/png' \
+  --data-binary @workflow.json --output output.png
 ```
 
-**Javascript (Browser)**:
+`Prefer: respond-async` requests asynchronous submission. The response includes a
+prompt ID that can be polled at `/api/v1/prompts/{prompt_id}`. This fork's endpoint
+is distinct from the upstream-compatible `/prompt` route and its envelope.
 
-```javascript
-async function generateImage() {
-    const prompt = "a man walking on the beach";
-    const workflow = {
-        "4": {
-            "inputs": {
-                "ckpt_name": "sd_xl_base_1.0.safetensors"
-            },
-            "class_type": "CheckpointLoaderSimple"
-        },
-        // ... (include the rest of the workflow)
-    };
+## OpenAPI Spec for Vanilla API, Typed Clients
 
-    const response = await fetch('http://localhost:8188/api/v1/prompts', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'image/png'
-        },
-        body: JSON.stringify({prompt: workflow})
-    });
+[openapi.yaml](../openapi.yaml) is the canonical specification for both
+upstream-compatible routes and the fork's additional APIs. Generate typed clients
+from it and use its request/response schemas rather than private server internals.
 
-    const blob = await response.blob();
-    const imageUrl = URL.createObjectURL(blob);
-    const img = document.createElement('img');
-    img.src = imageUrl;
-    document.body.appendChild(img);
-}
+## Embedded
 
-generateImage().catch(console.error);
-```
+[Using ComfyUI as a library](embedded.md) covers client lifetime, progress,
+previews, workflow conversion, and execution isolation, with a complete workflow
+example.
 
-You can use the OpenAPI specification file to learn more about all the supported API methods.
+## RabbitMQ / AMQP Support
 
-### OpenAPI Spec for Vanilla API, Typed Clients
-
-Use a typed, generated API client for your programming language and access ComfyUI server remotely as an API.
-
-You can generate the client from [openapi.yaml](../openapi.yaml). The root
-spec is the canonical OpenAPI document for both upstream-compatible ComfyUI
-routes and this fork's additional REST APIs.
-
-### RabbitMQ / AMQP Support
-
-Submit jobs directly to a distributed work queue. This package supports AMQP message queues like RabbitMQ. You can submit workflows to the queue, including from the web using RabbitMQ's STOMP support, and receive realtime progress updates from multiple workers. See [distributed inference](distributed.md#distributed-prompt-queue) for the queue architecture.
+[Queue deployment](deployment.md) describes separate frontend and worker
+processes, broker configuration, and shared storage.

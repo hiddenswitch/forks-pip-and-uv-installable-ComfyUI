@@ -1,5 +1,10 @@
 # FLUX Style, Aesthetics & Text
 
+Reviewed: 2026-10-29. The examples below retain the earlier FLUX.1/2 snapshot.
+The [current style and text guide](https://docs.bfl.ml/guides/prompting_unified_style.md)
+now includes FLUX 3 Image layouts, reference ordering, and typography examples.
+See [FLUX 3](flux3_prompting.md) before transferring API or layout instructions.
+
 Vendored snapshot from: https://docs.bfl.ml/guides/prompting_unified_style
 
 Fetched: 2026-06-03

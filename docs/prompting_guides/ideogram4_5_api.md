@@ -2,7 +2,16 @@
 
 Vendored snapshots from: https://developer.ideogram.ai/ideogram-api/api-overview.md and https://developer.ideogram.ai/api-reference/images/generate/ideogram-4-5.md
 
-Fetched: 2026-10-02
+Fetched: 2026-10-02. API additions reviewed: 2026-10-29.
+
+The current v2 generation endpoint adds `background` (`transparent`, `opaque`,
+or `auto`) and a required response discriminator `generation_kind` (`sampling`
+or `workflow`). See the [live generation schema](https://developer.ideogram.ai/api-reference/images/generate/ideogram-4-5.md).
+For Precise Edit, large whole-image edits are resized; use the
+[context-window rules](ideogram4_5_precise_edit_api.md) when preserving the full
+input canvas. The historical overview's unrestricted same-size wording is not
+the endpoint's current contract. This is a hosted API reference, not evidence
+of a local 4.5 checkpoint.
 
 Ideogram 4.5 is API-only at this snapshot (rechecked 2026-10-05, when both pages were unchanged): Ideogram announced open weights as coming "soon" with no date, license or size, and nothing is published on Hugging Face (https://huggingface.co/ideogram-ai) or https://github.com/ideogram-oss. Its prompt is natural language or the Ideogram 4.0 structured JSON prompt, so the Ideogram 4 caption schema in `ideogram4_prompting.md` applies to it. The Precise Edit endpoint is vendored in `ideogram4_5_precise_edit_api.md`, and Ideogram's prompting guide, which covers 4.5, in `ideogram4_5_prompting.md`.
 
@@ -18,7 +27,7 @@ The Ideogram API brings Ideogram's image and video models into your product. Eve
 
 ## Ideogram 4.5: the most precise edit model
 
-Tell Ideogram 4.5 what to change and it leaves everything else alone. With [Precise Edit](https://developer.ideogram.ai/api-reference/images/precise-edit/ideogram-4-5), pixels the edit doesn't touch are copied exactly from your image, and the result comes back at your image's own width and height.
+Tell Ideogram 4.5 what to change. [Precise Edit](ideogram4_5_precise_edit_api.md) preserves unchanged regions subject to its context-window and output-size rules.
 
 #### Targeted edits
 

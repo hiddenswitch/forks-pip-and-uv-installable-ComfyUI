@@ -17,11 +17,12 @@ comfyui nodes list
 comfyui env
 ```
 
-In Python, pass a configuration directly; no setup call, subprocess, or
-`PYTHONPATH` modification is required:
+In Python, pass a configuration directly. The embedded client selects thread or
+process execution based on its global-state requirements; no `PYTHONPATH`
+modification is required:
 
 ```python
-from comfy import Comfy
+from comfy.client.embedded_comfy_client import Comfy
 from comfy.component_model.configuration import Configuration
 
 configuration = Configuration(cuda_device="0,1", tensor_parallel_size=2)
@@ -81,11 +82,13 @@ exclude custom-node import and checkpoint-load time.
 The embedded entry point and the server use the same configuration surface:
 
 ```python
-from comfy import Comfy
+from comfy.client.embedded_comfy_client import Comfy
 from comfy.component_model.configuration import Configuration
 
 app = Comfy(configuration=Configuration(guess_settings=True))
 ```
 
-Keep model paths, device choices, and feature flags in `Configuration` so an
-embedded run and a CLI run have identical behavior.
+Keep model paths, device choices, and feature flags in `Configuration`. CLI startup
+and an existing host process can initialize global state differently; see
+[embedded isolation](embedded.md#client-lifetime-and-isolation) for the execution
+boundary and allocator limitations.

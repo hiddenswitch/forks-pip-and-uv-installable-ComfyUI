@@ -10,6 +10,14 @@ Fetched: 2026-08-03
 
 # Video Generation
 
+Updated: 2026-10-29 against the [current MiniMax guide](https://platform.minimax.io/docs/guides/video-generation.md).
+The upstream page now also covers H3 Max, a fal post-trained variant with
+480P/768P output and 5–15-second clips. The table and examples below are H3's
+768P/2K, 4–15-second recipe. Hosted API limits and H3 Max availability do not
+establish matching controls in the local `MiniMaxH3` workflow.
+For reference generation, identify which ordered image supplies the subject,
+which supplies appearance, and which video or audio supplies motion or sound.
+
 > MiniMax's video model (MiniMax H3) enables efficient video content creation.
 
 MiniMax H3 is an open, general-purpose multimodal video model. It understands text, image, video, and audio inputs in a unified way, and supports video generation, reference-based creation, and video editing.
@@ -39,9 +47,9 @@ MiniMax H3 is an open, general-purpose multimodal video model. It understands te
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | **First/last-frame entry**  | Images: 0, 1, or 2; width/height in \[256, 5760]; aspect ratio (width/height) in 2:5 – 5:2                                                     |
 |                             | With no image input, this becomes Text-to-Video                                                                                                |
-| **Reference entry**         | Images: ≤ 9; width/height in \[256, 5760]                                                                                                      |
+| **Reference entry**         | Images: ≤ 9; width/height in \[256, 5760]; aspect ratio 2:5–5:2 |
 |                             | Videos: ≤ 3 clips; per-clip duration \[2, 15] s; total duration ≤ 15 s; width/height in \[256, 5760]; aspect ratio (width/height) in 2:5 – 5:2 |
-|                             | Audio: ≤ 3 clips; must be accompanied by an image or video input (cannot be sent alone); per-clip duration \[2, 15] s; total duration ≤ 15 s   |
+|                             | Audio: ≤ 3 clips; per-clip duration \[2, 15] s; total duration ≤ 15 s |
 |                             | Mixed input is capped at 12 files in total                                                                                                     |
 |                             | With no image, video, or audio input, this becomes Text-to-Video                                                                               |
 | **Supported input formats** | Video: H.264/AVC, H.265/HEVC; in-video audio: AAC, MP3                                                                                         |

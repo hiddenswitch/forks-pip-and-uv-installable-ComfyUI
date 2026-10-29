@@ -1,1829 +1,232 @@
-# ComfyUI — guide for art, image, and video work
+# ComfyUI for coding agents
 
-You're reading this because someone asked Claude (or another agent) to
-make a picture, video, edit, or restyle. This guide is the playbook.
-ComfyUI is the engine that makes those things; Claude's job is to drive
-it on the user's behalf — searching for the right ingredients, picking a
-recipe, grounding it in any reference the user supplied, running it,
-opening the result.
+Use this fork to generate and edit images, video, audio, and text with ComfyUI
+workflows from a terminal or Python application. It supplies the `comfyui` CLI,
+an embedded client, custom-node Python packages, model discovery, and supported
+multi-GPU execution. Deliver the requested artifacts and the settings needed to
+reproduce them. Do not substitute a workflow description for running the task.
 
-## What you (Claude) can do for the user
+## Read the relevant guides
 
-Anything below counts as "make me X" and routes through this guide:
+- [Installation and upgrades](docs/installing.md)
+- [Hardware compatibility](docs/compatibility.md)
+- [Workflows and headless execution](docs/workflows.md)
+- [Configuration](docs/configuration.md)
+- [Embedded Python](docs/embedded.md)
+- [Remote API](docs/api.md)
+- [Custom-node installation](docs/custom_nodes.md)
+- [Custom-node authoring](docs/custom_node_authoring.md)
+- [Package index hosting](docs/package_index.md)
+- [Model parallelism and memory](docs/distributed.md)
+- [Queue deployment](docs/deployment.md)
+- [Containers](docs/docker.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Vendor prompting guide index](docs/prompting_guides/README.md)
+- [Model-by-model prompting and input references](docs/prompting_guides/model_coverage.md)
 
-- "Make me a picture of …" — text-to-image. (`run-workflow image_flux2_text_to_image …`)
-- "Edit this photo to …" / "remove the background" / "put X in the style
-  of Y" — image edit with one or more reference images.
-- "Animate this still" / "make a 3-second clip of …" — image-to-video
-  or text-to-video.
-- "Make it look like Studio Ghibli / Pixar / a Renaissance painting" —
-  apply a **LoRA** (a small style pack). Find one with
-  `comfyui models search`, pass it via `--add-lora`.
-- "Use this workflow I found on civitai" — accept a `civitai://` /
-  `https://civitai.com/...` / `hf://` URL, run `--help` first to read
-  the author's notes, then `--all` to install + download + run.
-- "Generate 50 of these" — daemon mode, submit + poll.
+Read the applicable guide in full before relying on its instructions. Vendor
+snapshots retain their source material and attribution; they may describe hosted
+models or APIs, not installed ComfyUI nodes. Use their prompting guidance with
+the actual model and workflow you selected.
 
-The user usually does **not** know which model, which workflow, or which
-LoRA. Your job is to figure that out by *searching*, not guessing.
+## Establish the environment
 
-> **Whenever the next step uses a workflow, run `--help` on it first.**
-> `comfyui workflows run WORKFLOW_FILE_OR_URL --help` (or the equivalent
-> `comfyui run-workflow WORKFLOW_FILE_OR_URL --help`) **inspects the
-> actual workflow** and prints the per-workflow parameter table — the
-> prompts, dimensions, seed, LoRA strengths, etc. that *this specific*
-> workflow exposes — plus any author notes (`Note` / `MarkdownNote`
-> nodes) embedded in the file. The bare `comfyui run-workflow --help`
-> or `comfyui workflows run --help` (no workflow argument) only shows the
-> *generic* options; it cannot know your workflow's parameters until you
-> give it one. This works for bundled template names, local files,
-> civitai/HF URIs, https URLs, stdin (`-`), and PNGs with embedded
-> workflow JSON.
+Use an existing compatible environment and workspace when available. Inspect the
+installed `comfyui`, Python, Torch backend, accelerator, and available model files.
+Run `comfyui env` for an environment report. Do not delete or recreate an existing
+environment merely because its Python version differs from an example. The
+package metadata allows Python >=3.10; dependencies and extension wheels impose
+additional constraints. The compatibility guide describes configured CI stacks.
 
-`comfyui workflows run` and `comfyui run-workflow` are the same execution
-surface. They accept the same workflow positional, the same run options,
-the same dynamic per-workflow flags, and both support `--all` and
-`--dry-run`. Prefer `workflows run` in new shareable examples because it
-sits with the other workflow subcommands, but treat either spelling as
-equivalent.
+For a new Linux/macOS workspace with uv installed:
 
-For a supported diffusion transformer, keep the ordinary `UNETLoader` and
-select multiple devices at process startup, for example `--cuda-device 0,1`.
-Qwen Image (including Layered), MiniMax H3, and Flux2 Dev then use transparent
-exact PP; selecting one device keeps ordinary DynamicVRAM offloading. Flux2 Dev
-maps its eight double-stream and 48 single-stream blocks into one ordered stage
-space. HunyuanImage 3.0's `Load HunyuanImage 3.0 Model` node (the
-`comfyui-hunyuanimage3` facade package) splits its 32 MoE layers the same way;
-its bf16 checkpoint (150 GiB) needs eight 24 GB ranks. Stage placement
-uses DynamicVRAM's loaded-module geometry and per-device available-memory
-signal and may be asymmetric; there is no PP workflow node or byte-balance
-control. Injected pipeline operations select asynchronous CUDA peer copies
-when possible and can fall back to one process/rank per device using
-`torch.distributed` and NCCL. Their shared pending-intermediate contract keeps
-the payload and completion event alive while side-stream communication runs;
-the consuming compute stream waits only at the next stage boundary. Both
-providers use the same grouped DynamicVRAM pressure decisions and compose with
-the checkpoint's mixed-precision or quantized operations. Launching the same
-ordinary workflow with `torchrun` can place one stage/rank on each local or
-remote host and uses canonical `RANK`, `WORLD_SIZE`,
-`LOCAL_RANK`, `LOCAL_WORLD_SIZE`, `MASTER_ADDR`, and `MASTER_PORT`; use
-`--pipeline-parallel-size` only to override the inferred stage count. Krea 2,
-Ideogram 4, Flux2 Dev, MiniMax H3, Kandinsky 6 Pro, and HunyuanImage3 support TP with
-`--tensor-parallel-size 2` and an ordered two-device list. TP is injected by
-decorating the checkpoint's normal Comfy operations provider: QKV/gate-up use
-section-aware column-parallel linears, output/down use row-parallel linears, and
-NCCL reductions compose with quantized operations and per-rank DynamicVRAM. The
-ordinary and pipeline operations providers retain the unsharded module shape,
-and TP and PP use one model-input preparation/transport contract, so adding TP
-to a model does not fork or bypass its pipeline path. There is no TP or PP
-workflow node. TP currently requires the internal multiprocessing executor and
-GPUs on one host; external multi-host launch supports PP only. Model parallelism
-is separate from RabbitMQ prompt distribution. In a multi-host launch, rank zero collects each rank's local
-DynamicVRAM budget before partitioning; remote rank devices are never treated
-as locally queryable CUDA indices. See `docs/distributed.md` for the memory
-model and restrictions.
-
-## How the pieces fit
-
-ComfyUI is the runtime; the *content* lives in a public ecosystem:
-
-- **Base models** — the engine that turns prompts into pixels. Modern
-  picks: Flux.1 D / Flux.2 Klein for photorealistic + stylized,
-  Illustrious / Pony / SDXL for anime + character, Wan 2.x and LTX-2.3
-  for video, Z-Image Turbo for fast turbo runs. The official weights
-  live on **Hugging Face** (`hf://black-forest-labs/FLUX.1-dev`, …);
-  community remixes live on **Civitai**.
-- **Workflows** — the recipe (which loaders, samplers, schedulers, in
-  what order). Three sources, in order of authority:
-    1. **bundled templates** that ship with this fork — names like
-       `image_flux2_text_to_image`, `image_flux2_klein_9b_kv_image_edit`,
-       `video_ltx2_3_i2v`. Use these by default.
-    2. **comfy.org** official templates (e.g. `comfyui-org://t/<id>`).
-    3. **civitai community** workflows
-       (`civitai://m/<id>` / `civitai://v/<id>`). Lots of variety,
-       quality varies — `--help` first.
-- **LoRAs** — small (40–500 MB) style/character/concept packs that bolt
-  onto a base model. Civitai is the primary marketplace; trigger words
-  in the LoRA card matter and you must use them in the prompt.
-- **Reference images / videos** — the user's own photo, a Wikipedia
-  picture, a Civitai gallery image, anything reachable by URL or local
-  path. Any image-edit / image-to-video workflow takes one or more
-  via `--image` / `--video`.
-- **Custom nodes** — extra node types (LatentSync, IPAdapter,
-  ControlNet preprocessors, …). Installed via the pip facade with
-  `--all`; you rarely have to think about them.
-
-## Search first — never guess
-
-When the user asks for a style, character, concept, or workflow, your
-**first** action is a search, not a workflow run. Two commands cover
-it:
-
-```bash
-# Find the right LoRA / checkpoint / VAE / controlnet for a style or subject:
-comfyui models search "ghibli style" --kind lora --limit 5
-comfyui models search "renaissance painting" --kind lora --limit 5
-comfyui models search "pixar" --kind lora --limit 5
-
-# Find a ready-made workflow (someone else's recipe):
-comfyui workflows search "flux kontext" --limit 5
-comfyui workflows top --period Month --family flux --limit 10
-comfyui workflows top --period Month --family wan
+```console
+mkdir -p ComfyUI_Workspace
+cd ComfyUI_Workspace
+uv venv --python 3.12
+uv pip install --torch-backend=auto --extra-index-url https://nodes.appmana.com/simple/ comfyui
+source .venv/bin/activate
+comfyui env
 ```
 
-`models search` returns rows like:
+For Windows activation and AMD/Intel-specific installation, use the installation
+guide. Keep an existing accelerator stack pinned when adding packages. Extensions
+such as SageAttention, FlashAttention, Triton, or Nunchaku are optional and require
+matching hardware and wheels; do not install them indiscriminately. A virtual
+environment contains platform-specific binaries and is not a portable bundle for
+an arbitrary host.
 
-    (lora) civitai://v/2734259  V67 Ghibli Look                  by angelomaiota   ↓ 68
-        base: Flux.1 D
-        trigger: (studio ghibli:1.2), ghibli aesthetic, miyazaki style, …
+Reuse models with `--cwd`, `--extra-model-paths-config`, or
+`--add-model-folder-path checkpoints=/path/to/checkpoints`. For gated models,
+accept the publisher's terms and use `hf auth login` or `HF_TOKEN`. Keep credentials
+out of generated examples and reports.
 
-The URI pastes straight into `--add-lora`. The `base:` line tells you
-which base model the LoRA expects — match it to your workflow (Flux LoRA
-→ Flux workflow, SDXL LoRA → SDXL workflow). The `trigger:` line is
-mandatory wording the LoRA was trained on; **you must include the
-trigger words in the prompt** or the LoRA contributes nothing.
+## Choose and inspect a workflow
 
-Useful filters:
-
-| Flag | What it does |
-|---|---|
-| `--kind lora\|checkpoint\|embedding\|vae\|controlnet` | Narrow by asset type. |
-| `--base-model "Flux.1 D"` | Only LoRAs trained on this base (repeatable; csv ok). Common values: `"Flux.1 D"`, `"Flux.1 Klein"`, `"SDXL 1.0"`, `"SD 1.5"`, `"Pony"`, `"Illustrious"`, `"NoobAI"`, `"LTXV"`, `"LTXV 2.3"`, `"Wan Video 2.1"`. |
-| `--with-host civitai\|huggingface` | Restrict to one host. |
-| `--json` | Pipe into `jq` for ranking / programmatic picks. |
-
-## Worked examples (read these — they're the playbook)
-
-Each example shows the *full* sequence you should run when the user
-asks. Copy the pattern.
-
-### 1. "Make a Studio Ghibli / Miyazaki–style portrait of Harry Potter"
-
-```bash
-# Step 1 — find a Ghibli LoRA. Multiple base models will turn up; you
-#          want one whose `base:` matches a Flux workflow.
-comfyui models search "ghibli style" --kind lora --limit 5
-
-# Recent example output (rankings shift — re-run for current order):
-#   (lora) civitai://v/2769334  Cee_One's Ghibli-Esque Blend        base: Illustrious   ↓ 275
-#   (lora) civitai://v/2786125  Modern Ghibli Hires Style           base: Illustrious   ↓ 138
-#   (lora) civitai://v/2740724  RIP Weights Series - Pink Ghibli    base: Flux.1 D      ↓  44
-# Add `--base-model "Flux.1 D"` to filter to ones that match a Flux2 workflow.
-
-# Step 2 — pin the search to Flux.1 D and read trigger words from the
-#          top result. Trigger words are load-bearing — you must include
-#          them in the prompt or the LoRA contributes nothing.
-comfyui models search "ghibli" --kind lora --base-model "Flux.1 D" --json | \
-    jq '.[0] | {uri, title, base_model, trigger_words}'
-
-# Recent top hit (much more popular than the earlier "ghibli style" search):
-#   { "uri": "civitai://v/755852",
-#     "title": "Ghibli style Illustrious & Flux & PDXL",
-#     "base_model": "Flux.1 D",
-#     "trigger_words": ["ghiblistyle"] }
-
-# Step 3 — find a Harry Potter reference image. Wikipedia is the
-#          fastest grounding source; any direct image URL works.
-HP_REF="https://upload.wikimedia.org/wikipedia/en/d/d7/Harry_Potter_character_poster.jpg"
-
-# Step 4 — run a Flux.2 image-edit workflow with the LoRA + reference.
-#          Include the LoRA's trigger word(s) in the prompt verbatim.
-comfyui run-workflow image_flux2_klein_9b_kv_image_edit --all --novram \
-    --seed 42 \
-    --image "$HP_REF" \
-    --prompt "Restyle this portrait of Harry Potter as a Studio Ghibli
-              animated film key frame: ghiblistyle, soft watercolor
-              textures, pastel sky, gentle wind. Keep the round glasses,
-              the lightning-bolt scar, and the Gryffindor robe colors
-              recognizable." \
-    --add-lora civitai://v/755852:0.8
-
-# Step 5 — open the result for the user (skip on headless hosts).
-xdg-open output/*.png    # Linux desktop
-# open output/*.png      # macOS
-# start "" output\*.png  # Windows
+```console
+comfyui workflows list
+comfyui run-workflow workflow.json --help
+comfyui workflows params workflow.json --all
+comfyui models --help
 ```
 
-> **Civitai URI gotcha.** `civitai://v/<id>` is a *version* id (a single
-> file — pass it to `--add-lora`, `--checkpoint`, or
-> `--set <node>.inputs.<field>=<URI>`). `civitai://m/<id>` is a *model*
-> id (an uploaded **workflow**, valid as the `run-workflow` positional).
-> They are not interchangeable. `models search` returns `v/`; `workflows
-> search` returns `m/`. If you accidentally feed a `v/` URI to
-> `run-workflow` you'll see "Could not discover workflow parameters:
-> argument of type 'int' is not iterable" — that's the wrong-shape error.
+Start with a template or a known complete workflow for the requested model family.
+The runner accepts template names, UI/API JSON files, supported URIs, and stdin.
+Read author notes and inspect the discovered parameters before changing nodes.
+UI graphs are converted automatically; API graphs use node IDs with `class_type`
+and `inputs`. A loader node alone is not an executable image-generation workflow:
+include conditioning, sampling, decoding, and an output node as appropriate.
 
-This is the canonical pattern: **search → pick by base-model match →
-read trigger words → fetch reference → run with `--add-lora` and
-`--image` → open.** Re-use it for "Pixar style", "watercolor style",
-"in the style of Caravaggio", "as a Renaissance painting", etc. — only
-the search query and the trigger words change.
+Match the checkpoint/diffusion model, text encoder, VAE, LoRA, and conditioning
+nodes. For example, an SDXL LoRA belongs with an SDXL-compatible model, and a
+FLUX.1 LoRA is not interchangeable with FLUX.2 Klein. A downloaded file or registry
+search result is not evidence that a model architecture is supported locally.
 
-### 2. "Make a 3-second clip of a person dancing"
+## Prepare and run
 
-```bash
-# Search bundled templates first (the long tail of comfy.org hosts gets
-# noisier — `comfyui-org://t/api_*` templates require a paid API key
-# and don't run locally; ignore them).
-comfyui workflows list --format json | \
-    jq -r '.[] | select(.tags[]? | test("Image to Video|Text to Video"; "i")) | .template_id'
-
-# For text-to-video, LTX-2.3 is the default:
-comfyui run-workflow video_ltx2_3_t2v --all --guess-settings \
-    --prompt "A young woman in a yellow sundress spinning slowly on a
-              sunny rooftop, hair catching the wind, soft afternoon
-              light, shallow depth of field, smooth handheld camera." \
-    --seed 42 --width 768 --height 512
-
-# For image-to-video (animate a still), pass --image:
-comfyui run-workflow video_ltx2_3_i2v --all --guess-settings \
-    --image https://example.com/dancer.jpg \
-    --prompt "Camera pans slowly right while the dancer continues
-              the same motion. 3 seconds." \
-    --seed 42
-
-xdg-open output/*.mp4
+```console
+comfyui run-workflow workflow.json --dry-run
+comfyui run-workflow workflow.json --all --prompt "a small observatory in a snowy forest" --seed 42
 ```
 
-If the user wants a *talking-head* video (lip-sync to audio), search
-civitai for the workflow rather than reaching for a base template:
+`--dry-run` reports planned packages and model downloads without inference; remote
+metadata access can still occur. `--all` installs missing node packages and
+resolvable models. Honor the user's permissions for downloads and installations.
+Unknown nodes or missing filenames may require manual resolution. The facade
+can build missing registry packages locally, but cannot guarantee compatibility
+with every third-party repository.
 
-```bash
-comfyui workflows search "infinitetalk" --limit 5
-comfyui workflows search "latentsync" --limit 5
-# Then run --help on the chosen URI to read the author's notes.
+Override only inputs supported by the workflow. Common options include `--prompt`,
+`--negative-prompt`, `--seed`, `--steps`, `--width`, `--height`, `--cfg`, `--image`,
+`--video`, and `--audio`. Workflow help also exposes discovered flags. For an exact
+API node input, use `--set '6.inputs.text=a lighthouse at dusk'`, replacing `6`
+with the actual node ID. `--quantity` repeats jobs; `--batch-size` changes latent
+batch inputs and can require more memory.
+
+JSON results go to stdout and normal logs to stderr:
+
+```console
+comfyui run-workflow workflow.json --seed 42 > result.jsonl
 ```
 
-### 3. "Restyle this photo of my dog as a Renaissance oil painting"
+Read the returned output fields to locate artifacts. Check that the files exist
+and inspect the actual image, video, or audio before claiming success. Preserve
+the workflow, seed, model revisions, and overrides alongside the result. Do not
+infer success merely from a zero exit code or a preview image.
 
-```bash
-# Step 1 — search:
-comfyui models search "renaissance painting" --kind lora --limit 5
+## Prompt and iterate
 
-#   (lora) civitai://v/2820801  Renaissance 🔏                       base: Illustrious  ↓ 206
-#       trigger: CTTON_RnB, painterly texture, painterly
-#   (lora) civitai://v/2588340  LUTE - SDXL Medieval - Renaissance   base: SDXL 1.0    ↓  50
-#       trigger: playing lute,
+State the subject, action, composition, environment, lighting, material, and visual
+style in terms the selected model understands. Use the corresponding vendor guide
+for model-specific syntax. Do not automatically apply SD-style weighted tags or
+negative prompts to models trained for natural language instructions.
 
-# Step 2 — Flux2 doesn't have a renaissance LoRA in the top hits; pick
-#          the SDXL one and run an SDXL edit workflow instead, OR fall
-#          back to a strong text prompt without a LoRA:
+For image editing, identify what must change and what must remain: subject identity,
+pose, layout, palette, or background. Supply the reference through the workflow's
+image inputs and check how multiple reference slots are assigned. For video,
+describe temporal action and camera motion, and use the workflow's supported
+duration, frame count, and resolution. An image-to-video workflow needs its actual
+image input; a text prompt does not replace it.
 
-# Path A: SDXL with the LoRA (matches the LoRA's base):
-comfyui run-workflow image_sdxl_base_refiner_image_edit --all --novram \
-    --image /path/to/dog.jpg \
-    --prompt "An oil painting in the style of a Renaissance master.
-              CTTON_RnB, painterly texture. The subject is a small
-              brown dog with floppy ears, framed in three-quarter
-              portrait, warm chiaroscuro lighting, deep umber and
-              ochre palette." \
-    --add-lora civitai://v/2820801:0.85 --seed 42
+For pixel art, specify subject readability, silhouette, palette, and intended
+pixel scale. Inspect edges and the final displayed size. A prompt alone does not
+guarantee a consistent pixel grid; use a suitable workflow or post-processing when
+the user requires exact pixel dimensions or lattice alignment.
 
-# Path B: prompt-only on Flux (works surprisingly well on Flux2 dev):
-comfyui run-workflow image_flux2_klein_image_edit_9b_base --all \
-    --image /path/to/dog.jpg \
-    --prompt "Oil painting in the style of a Renaissance master:
-              chiaroscuro lighting, soft sfumato edges, deep umber and
-              ochre palette, the brown dog rendered with the same
-              dignity as a 16th-century portrait sitter." \
-    --seed 42
-```
+Generate a small initial sample, inspect it against the request, and vary one
+meaningful factor at a time. Keep seeds fixed when comparing prompt/settings
+changes. Do not report invented performance measurements or guaranteed quality.
 
-### 4. "Reproduce something I saw on Civitai"
+## Reuse execution state for batches
 
-Civitai posts often have generation parameters embedded; the workflow
-URL or the source PNG is enough:
-
-```bash
-# If they sent a civitai workflow URL:
-comfyui run-workflow civitai://m/<model-id> --help   # read author notes
-comfyui run-workflow civitai://m/<model-id> --all --guess-settings \
-    --prompt "..." --seed 42
-
-# If they sent a *source PNG* with embedded `parameters` text chunk
-# (A1111/Forge/Fooocus shape), the loader auto-translates it to a
-# generic ComfyUI graph and pulls the prompt/sampler/seed out of the
-# chunk. Just point at the PNG:
-comfyui run-workflow ./screenshot.png --all
-```
-
-## Inputs from anywhere
-
-Every `--image` / `--video` / `--audio` flag and every workflow URI
-positional accepts the same set of source forms. The downloader
-handles auth, caching, and PNG-embedded extraction transparently.
-
-| Source | Form | Notes |
-|---|---|---|
-| Direct HTTPS image / video URL | `https://example.com/foo.jpg` | Wikipedia, raw GitHub, Imgur direct (`i.imgur.com/<id>.png`), CDN URLs. |
-| Civitai gallery image | open the post in a browser → right-click "Copy image address" → paste the `https://image.civitai.com/...` URL. The civitai-flavored API token works for gated images too. |
-| Hugging Face file | `hf://owner/repo/path/to/file.png` | Uses `hf_hub_download` cache + `HF_TOKEN`. |
-| S3 object | `s3://bucket/key` | Uses your AWS creds. |
-| Local file | `/abs/path` or `./rel/path` | Use absolute when a workflow may move. |
-| stdin | `-` | `cat wf.json \| comfyui run-workflow -`. |
-| PNG with embedded workflow | `./screenshot.png` | A1111/Forge/Fooocus PNG → auto-translated to ComfyUI graph + extracted params. |
-
-For social-media images (Pinterest pin, Reddit post, Twitter/X
-status), don't try to download from the page URL — fetch the page,
-grab the `<meta property="og:image">` tag, and pass that URL. The
-WebFetch tool you have can do both steps.
-
-When the user pastes a *Civitai post link* (the page, not a direct
-image URL), the gallery API path is
-`https://civitai.com/api/v1/images?postId=<post-id>`; the response is
-a JSON array of image objects with a `url` field. Use it as
-`--image https://civitai.com/api/v1/images?postId=… | jq -r '.items[0].url'`
-when you need to script it.
-
----
-
-## Picking the right base model / workflow
-
-The defaults pick themselves once you know two things: VRAM, and
-whether the user brought a LoRA / reference. Pick a workflow whose base
-matches any LoRA the user supplies; otherwise default by VRAM:
-
-| Task | If VRAM ≥ 24 GB | Otherwise |
-|---|---|---|
-| Text-to-image | `image_flux2_text_to_image` (Flux.2 dev) | `image_flux2_klein_text_to_image` (Flux.2 klein 9B, fp8 mixed, `--novram`) |
-| Image edit / reference | `image_flux2_klein_image_edit_9b_base` | `image_flux2_klein_9b_kv_image_edit` (klein 9B KV, `--novram`) |
-| Text-to-video | `video_ltx2_3_t2v` (LTXV 2.3) | same |
-| Image-to-video | `video_ltx2_3_i2v` | same |
-| User brought an SDXL LoRA | SDXL workflow (`image_sdxl_base_refiner_text_to_image` or similar) | same |
-| User brought a Flux/Klein LoRA | matching klein/Flux2 workflow | same |
-
-Discover templates with `comfyui workflows list` (columns include
-inferred Task — `text-to-image`, `image-edit`, `text-to-video`,
-`image-to-video`, `audio`, or `other`) and
-`comfyui workflows show <name>` (prints a copy-pasteable invocation).
-The JSON output exposes `media_type` (`image` / `video` / `audio`) and
-`tags` (`"Text to Image"`, `"Image to Video"`, …) — filter on those:
-
-```bash
-# All image-edit templates:
-comfyui workflows list --format json | \
-    jq -r '.[] | select(.tags[]? == "Image Edit") | .template_id'
-
-# All video-output templates (text-to-video + image-to-video):
-comfyui workflows list --format json | \
-    jq -r '.[] | select(.tags[]? | test("to Video"; "i")) | .template_id'
-```
-
-## When to use the CLI vs code
-
-| User ask | What you do |
-|---|---|
-| Single image / video / edit | `comfyui workflows run <template-name>` with `--prompt`, `--image`, `--seed`, `--add-lora`, `--compile`. |
-| User hands you a workflow URL / civitai / HF link | **First** run `comfyui workflows run <URL> --help` to read the author's `MarkdownNote` instructions (download URLs, place-in hints, prompt examples), then run with `--all`. See §Running someone else's workflow. |
-| Repeated generations from the same workflow (including simple iteration, A/B prompts, batch prompts, CSV-driven runs, or batch edits) | Start the daemon once (`comfyui start`), submit jobs with `comfyui workflows submit` or the embedded client, and poll `comfyui jobs`. See §Repeated runs. |
-| Non-trivial graph editing (custom subgraphs, new node types) | Write Python importing `comfy.component_model.prompt_utils` and run embedded. |
-
-**You may read user-provided images, videos, and text and reason about
-their contents.** Use that to rewrite vague prompts into specific ones,
-to describe what to preserve vs change in an image edit, or to caption a
-reference image before generating a video. Ask if unsure what the user
-wants the output to depict.
-
----
-
-## Prerequisites (one-time)
-
-0. **uv / uvx.** `uv` ships `uvx` (one-shot tool runner) in the same
-   install.
-
-   First, check whether a usable venv already exists in the working
-   directory. **A venv only counts as "usable" if it satisfies the
-   current requirements exactly:** Python 3.13 with `comfyui` already
-   importable. The point of this guide is to run the *latest* ComfyUI:
-   upgrade usable current venvs in place, but recreate stale or broken
-   venvs. Never touch the system Python either way.
-
-   A venv counts as usable when **all** of these hold:
-
-   - `$VIRTUAL_ENV` is set, or `./.venv/` / `./venv/` exists with an
-     `activate` script.
-   - After sourcing it, `python --version` reports `Python 3.13.x`.
-   - After sourcing it, `python -c "import comfy"` exits 0.
-
-   If a venv exists but fails any of these checks, **delete it and
-   create a new one**. Don't try to upgrade an unusable venv in place.
-   For an on-disk `./.venv/` you discovered yourself, just `rm -rf .venv`
-   and recreate per step 1. If the venv is already active via
-   `$VIRTUAL_ENV` (the user's shell state), warn the user and ask before
-   deleting.
-
-   If a usable venv is found, `source .venv/bin/activate` (or the
-   equivalent for `venv/`) before doing anything else, then upgrade this
-   ComfyUI package in place so the venv is not stale:
-
-   ```bash
-   uv pip install --upgrade --torch-backend=auto \
-     --extra-index-url https://nodes.appmana.com/simple/ comfyui
-   ```
-
-   If no venv is present, install `uv` in the way that matches the
-   host. **Don't prompt the user** — detect the platform and run the
-   matching command yourself:
-
-   ```bash
-   # Linux / macOS (universal, no admin):
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-
-   # macOS (Homebrew, if already present):
-   brew install uv
-
-   # Windows (PowerShell — also invokable from bash/zsh via
-   # powershell.exe when you're in WSL or Git Bash):
-   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-   ```
-
-   Do **not** fall back to `pip install uv` / `pipx install uv`.
-   Assume the user's system Python is in some state they don't
-   understand and can't debug — wrong `python` vs `python3` on PATH,
-   half-configured site-packages, leftover distro packages, a
-   Homebrew/pyenv/conda layering mess. You won't be able to reason
-   about it either. The point of the install methods above is to get
-   `uv` on PATH without touching that Python; from there, `uv venv`
-   creates a fresh environment with its own managed interpreter, and
-   everything downstream runs inside that venv.
-   Full list (scoop, cargo, standalone, Docker) at
-   https://docs.astral.sh/uv/getting-started/installation/. After
-   install, source the shell hook the installer prints (or open a
-   new shell) so `uv` and `uvx` are on PATH.
-
-1. **Python / venv.** Use `uv` with a uv-managed Python 3.13. Reuse
-   the user's current `.venv` only if it passed the §0 usability check
-   (Python 3.13 + `import comfy` works); otherwise create a new one:
-   ```bash
-   uv venv --managed-python -p 3.13 && source .venv/bin/activate
-   ```
-   `--managed-python` forces uv's own interpreter (downloading 3.13 if
-   it isn't cached yet) and ignores whatever `python3` happens to be
-   on PATH. `-p 3.13` pins the version. Don't drop it: the system
-   `python3` may be 3.10/3.11/3.12, and the latest ComfyUI + torch
-   stack is targeted at 3.13.
-
-2. **ComfyUI itself + torch.** Install the `comfyui` package from the
-   appmana index (`--extra-index-url https://nodes.appmana.com/simple/`),
-   **not** plain PyPI — the index serves this fork, which ships features
-   (workflow URI loading, note URL extraction, foreign-format translation,
-   the pip facade, etc.) that the upstream PyPI `comfyui` placeholder
-   doesn't have. `--torch-backend=auto` picks the right CUDA / ROCm / MPS
-   wheel for the host (ROCm 7.2 is the default for AMD on Linux; works for
-   almost every AMD user):
-   ```bash
-   uv pip install --torch-backend=auto \
-     --extra-index-url https://nodes.appmana.com/simple/ comfyui
-   ```
-
-   **Older NVIDIA GPUs (Maxwell / Pascal / Volta — anything older than
-   Turing / RTX 20xx) need `--torch-backend=cu126`.** The current `auto`
-   default is the cu13x wheel, which only ships SASS for `sm_75 sm_80
-   sm_86 sm_90 sm_100 sm_120` and bundles a cuDNN that *refuses to
-   initialize* on devices with compute capability < 7.5. The cu126 wheel
-   still ships `sm_50 sm_60 sm_70 sm_75 sm_80 sm_86 sm_90` and an older
-   cuDNN, and runs on every Pascal/Volta card via NVIDIA's intra-major
-   forward-compat (an `sm_60` cubin executes on `sm_61` hardware, etc.).
-   Affected cards include GTX 9xx (Maxwell), GTX 10xx / Tesla P100 /
-   Quadro P-series (Pascal), and Tesla V100 / Titan V (Volta):
-   ```bash
-   uv pip install --torch-backend=cu126 \
-     --extra-index-url https://nodes.appmana.com/simple/ comfyui
-   ```
-   Symptom of the wrong wheel on these GPUs: `comfyui env check` itself
-   crashes with `RuntimeError: cuDNN version 91900 is not compatible
-   with devices with SM < 7.5`, or torch warns
-   `<your card> with CUDA capability sm_XX is not compatible with the
-   current PyTorch installation`.
-   Optional extras follow the usual syntax:
-   ```bash
-   # With dev tooling (pytest, lint, etc.):
-   uv pip install --torch-backend=auto \
-     --extra-index-url https://nodes.appmana.com/simple/ "comfyui[dev]"
-   ```
-
-   **CPU-only hosts use the same install command.** Don't pass
-   `--torch-backend=cpu`; let `auto` decide. On a host without an
-   NVIDIA / AMD / Intel / Apple accelerator, `auto` falls through to
-   the plain CPU wheel automatically. The CPU/GPU choice is a
-   *runtime* concern, not an install concern: switch on it with the
-   `--cpu` CLI flag (or `COMFYUI_CPU=1` env var) when running:
-   ```bash
-   comfyui --cpu env info               # forces CPU device
-   comfyui run-workflow <wf> --cpu …    # forces CPU sampling
-   ```
-   This keeps a single `.venv` portable across hosts (a laptop with no
-   GPU and a workstation with one can share the same install) — the
-   GPU wheel still loads fine when there's no GPU, and `--cpu` simply
-   tells the runtime to ignore it.
-
-3. **Triton** — install on Linux for CUDA or ROCm users:
-   ```bash
-   uv pip install triton
-   ```
-
-4. **SageAttention** — install for CUDA users (speeds up attention
-   substantially on Ada / Hopper / Ampere). **Install via the pip
-   facade** so the pre-built wheel resolves on both CUDA and ROCm
-   without compile errors:
-   ```bash
-   uv pip install --extra-index-url https://nodes.appmana.com/simple/ sageattention
-   ```
-
-5. **Enable guess-settings globally.** The `--guess-settings` flag
-   auto-detects the right VRAM mode, attention backend, precision, and
-   cache size for the host. Read from env so you don't have to pass it
-   every time:
-   ```bash
-   export COMFYUI_GUESS_SETTINGS=1          # recommended for every session
-   ```
-   Every CLI flag has a `COMFYUI_<FLAG>` env-var twin via Typer's
-   `auto_envvar_prefix="COMFYUI"`. Examples:
-   `COMFYUI_NOVRAM=1`, `COMFYUI_IMAGE=https://…`, `COMFYUI_SERVER=http://box:8188`.
-
-6. **Sanity-check the install** before your first real run:
-   ```bash
-   comfyui env check       # prints GPU, RAM, folder paths, symlink
-                            # capability, comfy_kitchen backend × dtype
-                            # support matrix, guess-settings decisions.
-   ```
-   If the matrix shows `triton` FAIL on fp8e4nv cells and your GPU is
-   Ampere (sm < 8.9), that's expected; the runtime auto-disables the
-   triton backend for you.
-
----
-
-## Acquiring models
-
-`--all` on `comfyui run-workflow` / `comfyui workflows run` is the normal
-surface. Discovery, registration, and download all happen as part of it.
-
-```bash
-comfyui run-workflow workflow.json --all
-comfyui workflows run workflow.json --all
-```
-
-What `--all` does, in order: install missing custom-node packages,
-**discover existing model files on the host** (the rest of this section),
-**classify and register** each one against ComfyUI's `folder_paths` index,
-then download whatever's still missing. Everything is in-memory — no
-symlink, hardlink, junction, or copy is ever made; the source files are
-never touched.
-
-The bulk of this section explains the discovery mechanism so you know how
-the find-don't-download behavior works and how to debug it when it misses
-something.
-
-To inspect the same host-model discovery facility directly, run:
-
-```bash
-comfyui models find-local
-```
-
-It prints scan backend summaries, classifiable `(kind, parent_dir)` groups,
-and the literal `--add-model-folder-path KIND=PATH` flags that would make
-the discovered folders visible to ComfyUI.
-
-### Stage 1 — HF-hosted resolution (`huggingface_hub`)
-
-A workflow's required filename is first checked against the local
-HuggingFace cache via:
+Pass several files to one runner invocation, or retain a single `Comfy` instance:
 
 ```python
-from huggingface_hub import hf_hub_download
-blob = hf_hub_download(repo_id, filename, local_files_only=True)
-# returns absolute path to the cached blob, or raises if not present
-```
-
-`huggingface_hub` already knows about every cache root the user could have
-configured: `$HF_HOME`, `~/.cache/huggingface/hub` (Linux/macOS),
-`%LOCALAPPDATA%\huggingface\hub` (Windows), and `XDG_CACHE_HOME`. ComfyUI
-**does not** add the HF cache as a `folder_paths` entry — the HF snapshot
-layout (`models--<org>--<repo>/snapshots/<rev>/...`, blob symlinks,
-config/tokenizer files) doesn't match a flat `checkpoints/` shape and
-mixing them confuses the loader. Resolution stays per-file via
-`hf_hub_download`; the returned absolute path is passed to the loader as-is.
-
-### Stage 2 — On-disk search (`comfy.cmd.model_search`)
-
-For files that aren't in the HF cache, `find_files()` queries the host's
-native indexer through proper Python bindings — never shell glue:
-
-| OS | Backend | Underlying API |
-|---|---|---|
-| macOS | `mdfind` (subprocess; same engine as `NSMetadataQuery`) | Spotlight |
-| Windows | `pywin32` → `ADODB.Connection` over `Search.CollatorDSO` | Windows Search |
-| Linux | `plocate` → `mlocate` → `locate` (subprocess; whichever is installed) | locate database |
-
-The query is a single SQL-shaped clause matching every default extension
-(`.safetensors`, `.ckpt`, `.pt`, `.gguf`, `.onnx` — `.bin` is excluded
-because cargo, gradle, browsers, and Unity all generate too many noise
-matches). Results come back in milliseconds when the index is warm.
-
-#### Walk fallback for indexer gaps
-
-Indexers don't see everything. Two common gaps:
-
-- **Windows secondary drives.** `Search.CollatorDSO` only sees what's been
-  added to the indexer's scope — by default, `%USERPROFILE%`, the Start
-  Menu, and offline files. Secondary fixed drives (D:\\, E:\\, NVMe vaults
-  where the multi-TB model collection lives) almost never make it in.
-- **Linux without `plocate`.** Ubuntu Server, Fedora minimal, most Docker
-  base images — no locate database at all. The query returns 0 rows and
-  every model on the system is invisible to Stage 2.
-
-In both cases, a depth-bounded `os.scandir` walk runs against a fixed root
-set under a **per-drive/per-root timeout** (default 30 s, override with
-`COMFYUI_SCAN_TIMEOUT=N`). Roots:
-
-| OS | Walked roots |
-|---|---|
-| Windows | every fixed drive returned by `GetDriveTypeW(... ) == DRIVE_FIXED` |
-| Linux (no locate) | `~`, `/opt`, `/srv`, `/mnt`, `/media/$USER` |
-| macOS | (locate is not used; Spotlight is always available) |
-
-Each walk:
-
-- caps depth at 6 from the root,
-- skips the usual noise (`$RECYCLE.BIN`, `System Volume Information`,
-  `Windows`, `Program Files`, `node_modules`, `.git`, `.cache`, `.cargo`,
-  `.gradle`, `.npm`, `venv`, `.venv`, `__pycache__`, …),
-- catches **only** `PermissionError` on `os.scandir` so system-protected
-  dirs are skipped silently while real errors surface,
-- emits a per-root summary line for the dry-run (matches found, time
-  elapsed, whether it hit the deadline).
-
-If a walk hits its timeout, the dry-run summary marks it `(timeout)`. The
-fix is either `--scan-timeout <N>` for that run, or
-`--add-model-folder-path KIND=PATH` to point the agent directly at the
-location, or pulling that drive into the OS index (Windows: Settings →
-Search → Searching Windows; Linux: install `plocate` and run
-`updatedb`).
-
-### Stage 3 — Classification (`comfy.cmd.model_classifier`)
-
-Each discovered path is mapped to a ComfyUI `folder_paths` kind plus the
-parent directory that should be registered. Three signals, in order:
-
-1. **Parent-directory name match** (high confidence). Walks `path.parents`
-   from the immediate parent outward, returning on the first segment that
-   matches the kind table. Excerpts:
-
-   | Parent dir name (case-insensitive) | → kind |
-   |---|---|
-   | `checkpoints`, `Stable-diffusion`, `stablediffusion`, `sdxl`, `sd` | `checkpoints` |
-   | `loras`, `Lora`, `lycoris` | `loras` |
-   | `vae`, `vaes` | `vae` |
-   | `clip_vision`, `clip-vision` | `clip_vision` |
-   | `controlnet`, `controlnets`, `t2i_adapter`, `diff_controlnet` | `controlnet` |
-   | `upscale_models`, `ESRGAN`, `RealESRGAN`, `swinir` | `upscale_models` |
-   | `embeddings`, `textual_inversion` | `embeddings` |
-   | `diffusion_models`, `unet`, `unet_models` | `diffusion_models` |
-   | `text_encoders`, `clip` | `text_encoders` |
-   | `style_models`, `hypernetworks`, `photomaker`, `audio_encoders`, … | (kind = dir name) |
-   | `ultralytics_bbox`, `bbox`, `adetailer` | `ultralytics_bbox` |
-   | `insightface`, `antelopev2`, `buffalo_l`, `buffalo_m`, `buffalo_s` | `insightface` |
-
-   The right-hand-side aliases cover A1111 / Forge / InvokeAI / ImpactPack
-   layouts so a neighbor `~/stable-diffusion-webui/models/Stable-diffusion/`
-   resolves into ComfyUI's `checkpoints` kind without renaming anything.
-
-2. **Filename-pattern match** (medium confidence). Used when no parent dir
-   in the chain hits the table:
-   - `*_lora*.safetensors` or `lora_*.safetensors` → `loras`
-   - `*vae*.safetensors` → `vae`
-   - `*yolov*.pt`, `*face*.pt`, `*hand*.pt`, `*person*.pt` → `ultralytics_bbox`
-   - `*.gguf` → `diffusion_models`
-
-3. **HF cache passthrough.** If any path segment matches
-   `models--<org>--<repo>` (the HF cache convention), the file is tagged
-   `is_hf_cache=True` and **not classified** — Stage 1 already handles those.
-
-Files that miss all three signals are reported as `unclassified` in the
-dry-run output and are not registered. They become visible to ComfyUI only
-if you point an `--add-model-folder-path` at them.
-
-### Stage 4 — Registration (`folder_paths.add_model_folder_path`)
-
-For each unique `(kind, parent_dir)` pair the classifier produced,
-ComfyUI calls:
-
-```python
-folder_paths.add_model_folder_path(kind, parent_dir)
-```
-
-This appends `parent_dir` to the runtime list of directories ComfyUI
-searches when a node asks for a file of that kind. ComfyUI's loader logic
-(`folder_paths.get_full_path`) iterates that list at lookup time and
-returns the absolute path of the first match. **The file is never
-moved, copied, or symlinked** — the registered dir lives wherever the
-user originally put it (HF cache, neighbor ComfyUI install, NAS mount,
-`~/Downloads`).
-
-Registration is per-process. To persist registrations across runs, write
-them to `extra_model_paths.yaml` (ComfyUI loads that file at startup) or
-use the `--add-model-folder-path` flag in your shell history / scripts.
-
-### Stage 5 — Download what's still unresolved
-
-After registration, `_download_workflow_models` walks the workflow's node
-inputs, looks each filename up via `folder_paths.get_full_path`, and only
-downloads the ones that still don't resolve. Found files are silently
-reused from wherever Stage 2 + 3 + 4 placed them.
-
-### `--dry-run`
-
-Prints the plan and exits without downloading or executing:
-
-```bash
-comfyui run-workflow workflow.json --all --dry-run
-comfyui workflows run workflow.json --all --dry-run
-```
-
-`--dry-run` implies `--all`, so the explicit `--all` is optional:
-
-```bash
-comfyui workflows run workflow.json --dry-run
-```
-
-Output lists custom-node packages that `--all` would install, groups
-discovered model files by `(kind, parent_dir)` with counts, lists the
-literal `--add-model-folder-path` entries that would be applied, lists
-the missing files that would be downloaded with their target folder,
-summarizes each backend (which indexer ran, how long, how many matches per
-walked drive, which hit the timeout), and shows free disk on the output
-volume. It uses the same local discovery implementation as
-`comfyui models find-local`, but registers the discovered folders
-in-memory before calculating which workflow models are still missing.
-It does not install custom nodes, download models, or execute the
-workflow. Errors — permission denied on a scan dir, missing pywin32 on
-Windows, an unresolvable filename — propagate as Python tracebacks.
-There are no confirmation prompts, ever.
-
-### `--add-model-folder-path` (escape hatch)
-
-Repeatable common arg on every subcommand. Format `KIND=PATH`. Use when
-discovery missed something — a NAS that isn't in the OS index, an unusual
-layout the classifier didn't recognize, or a path you want registered
-before discovery even runs.
-
-```bash
-comfyui run-workflow workflow.json --all \
-  --add-model-folder-path checkpoints=/mnt/cold-storage/sdxl \
-  --add-model-folder-path loras=/mnt/nas/loras
-
-comfyui serve --add-model-folder-path checkpoints=~/ComfyUI/models/checkpoints
-```
-
-Env-var form: `COMFYUI_ADD_MODEL_FOLDER_PATH="checkpoints=/mnt/nas/sdxl,loras=/mnt/nas/loras"`
-(`,` separates entries; if a path contains `,`, repeat the flag instead).
-Each occurrence is applied via `folder_paths.add_model_folder_path` at
-process start, before any node executes.
-
-### Inspecting state without `--all`
-
-```bash
-comfyui models ls --folder loras              # downloadable catalog entries
-comfyui models ls --local --folder loras      # files in registered loras dirs
-comfyui models paths --folder loras           # registered loras dirs
-comfyui models find-local                     # heuristic host scan/classification
-comfyui models from-workflow <ref> --dry-run  # what models a template needs
-```
-
-`models ls --local` and `models paths` don't run discovery — they just
-show the current `folder_paths` state. Use `models find-local` to inspect
-host-wide scan/classification without a workflow, and use
-`run-workflow --dry-run` or `workflows run --dry-run` when you want the
-full picture with discovery plus the workflow's missing-download plan.
-
----
-
-## Task 1 — Generate an image
-
-The default path. Use `--prompt` for text, `--seed` for determinism,
-`--novram` if VRAM-constrained.
-
-```bash
-# 24 GB+ host: Flux.2 dev
-comfyui run-workflow image_flux2_text_to_image --all --seed 42 \
-    --prompt "a ceramic teapot on a linen tablecloth, soft window light"
-
-# Smaller host: klein 9B with novram streaming
-comfyui run-workflow image_flux2_klein_text_to_image --all --novram \
-    --seed 42 --prompt "a ceramic teapot, studio lighting"
-```
-
-The workflow-specific help output (`comfyui workflows run <wf> --help`
-or `comfyui run-workflow <wf> --help`) lists every override (`--width`,
-`--height`, `--batch-size`, `--cfg`, `--sampler`, `--scheduler`,
-`--denoise`, `--checkpoint`, `--steps`, …). `--set
-node_id.inputs.field=value` lets you override anything not covered by a
-named flag (compound subgraph ids like `"75:72"` work).
-
----
-
-## Task 2 — Edit an image / condition on a reference
-
-When the user says "remove the hair from these two photos" or "put the
-man in image 1 wearing the outfit from image 2", it's an edit task. Use
-the KV variant (key-value caching across reference images is a big VRAM
-win for klein 9B):
-
-```bash
-comfyui run-workflow image_flux2_klein_9b_kv_image_edit --all --novram \
-    --seed 42 \
-    --prompt "Remove the hair from the subject. Keep the pose, lighting, and clothing." \
-    --image https://upload.wikimedia.org/wikipedia/commons/4/4d/Cat_November_2010-1a.jpg \
-    --image /path/to/second_reference.png
-```
-
-Multiple `--image` flags map to multiple `LoadImage*` nodes in the
-workflow, in order. File paths, `https://`, `hf://`, and `s3://` URIs
-all resolve.
-
-**Before writing the prompt, look at the images.** "Make this
-background coastal" is much better as "Replace the urban street with a
-coastal cliff at overcast sunset; keep the subject's framing and shirt
-exactly."
-
----
-
-## Task 3 — Text-to-video / Image-to-video
-
-```bash
-# Text-to-video (LTXV 2.3)
-comfyui run-workflow video_ltx2_3_t2v --all \
-    --prompt "A drone sweeps over a coastal cliff at overcast sunset, gulls overhead." \
-    --seed 42 --width 768 --height 512
-
-# Image-to-video: use an image as the first frame
-comfyui run-workflow video_ltx2_3_i2v --all \
-    --image https://example.com/first_frame.jpg \
-    --prompt "Camera slowly pans right over the scene for 3 seconds." \
-    --seed 42
-```
-
----
-
-## Task 4 — Using a LoRA
-
-`--add-lora NAME[:strength_model[:strength_clip]]` injects a `LoraLoader`
-(or `LoraLoaderModelOnly` when the workflow has no CLIP producer) right
-after the root loader — the *earliest* predecessor of the sampler — so
-the LoRA applies to the base weights before any existing LoRA or
-`ModelSamplingFlux` / `ModelSamplingSD3` patch in the workflow. Stack
-multiple LoRAs by repeating the flag:
-
-```bash
-comfyui run-workflow image_flux2_text_to_image --all --seed 42 \
-    --prompt "a ceramic teapot in the style of a studio ghibli key frame" \
-    --add-lora ghibli_style.safetensors:0.8 \
-    --add-lora crisp_lines.safetensors:0.4
-
-# URLs work (resolved by model_downloader):
-comfyui run-workflow image_flux2_text_to_image --all \
-    --prompt "..." \
-    --add-lora https://civitai.com/api/download/models/12345:0.7
-
-# HF repos:
-comfyui run-workflow image_flux2_text_to_image --all \
-    --prompt "..." \
-    --add-lora hf://owner/repo/my_lora.safetensors:0.6
-
-# Absolute path:
-comfyui run-workflow image_flux2_text_to_image --all \
-    --prompt "..." \
-    --add-lora /home/user/loras/mine.safetensors
-```
-
-Single trailing weight applies to both model and CLIP
-(`foo:0.8` → `strength_model=0.8 strength_clip=0.8`). Two trailing
-weights split them (`foo:0.8:0.4` → model 0.8, clip 0.4). Windows paths
-with colons are recognized and not misparsed.
-
-**Match the LoRA to the base model.** If the user hands you an SDXL
-LoRA, use an SDXL workflow; if they hand you a Flux LoRA, use a Flux
-workflow. LoRA files are not cross-compatible across base architectures.
-You can usually infer heritage from the filename (`sdxl_…`, `flux_…`,
-`klein_…`) or by inspecting the safetensors header.
-
----
-
-## Task 5 — Speed things up with `--compile`
-
-`--compile` adds a `TorchCompileModel` node at the *latest* point in the
-MODEL chain (right before the sampler, after every LoRA /
-ModelSampling* patch). First step takes 30 s – 2 min to trace, every
-subsequent step is 2–4× faster. Good for batch work, mediocre for a
-single image.
-
-```bash
-comfyui run-workflow image_flux2_text_to_image --all \
-    --prompt "..." --compile --add-lora style.safetensors:0.6
-```
-
-`--add-lora` and `--compile` compose. The compile wraps the final
-patched model so every LoRA is in the traced graph.
-
----
-
-## Task 6 — Running someone else's workflow (civitai / HF / URL)
-
-**Always run `--help` first.** When a user hands you a workflow URI, the
-first command you run is *not* `--all` — it's `--help`. The author's
-`Note` and `MarkdownNote` nodes are rendered as the first panels of the
-help output, with markdown headings, lists, and links rendered properly
-(each link prints as label + full URL on the next line so you can read
-the source even when stdout is captured to a log). Those notes tell you
-exactly which models the author intended, where to put them
-(`Place in: diffusion_models`), and frequently include example prompts
-or settings. Read them before generating.
-
-```bash
-# Step 1: Read the workflow's docs (no GPU work, no downloads).
-comfyui run-workflow civitai://m/2304098 --help
-
-# Step 2: Run it. --all auto-installs custom nodes and downloads models;
-#         --guess-settings picks the right VRAM mode for the host.
-comfyui run-workflow civitai://m/2304098 --all --guess-settings \
-    --prompt "..." --seed 42
-```
-
-### Recognized workflow URIs
-
-`run-workflow` accepts the same URI shapes as the embedded client:
-
-| Shape | Example | Notes |
-|---|---|---|
-| Bundled template name | `image_flux2_text_to_image` | Discover with `comfyui workflows list`. |
-| Local path | `~/wf.json` or `./wf.json` | UI- or API-format JSON. |
-| Civitai model id | `civitai://m/2304098` | Resolves to the model's latest version primary file. |
-| Civitai version id | `civitai://v/2521513` | Pin to a specific version. |
-| Civitai HTTPS URL | `https://civitai.com/models/<id>` | Auto-canonicalized to `civitai://m/<id>`; `?modelVersionId=<v>` becomes `civitai://v/<v>`. |
-| Civitai Red mirror | `civitai-red://m/<id>` | NSFW mirror; same shape as `civitai://`. |
-| Hugging Face | `hf://owner/repo/path` | Or `https://huggingface.co/owner/repo/{resolve,blob,raw}/<ref>/path`. |
-| Generic HTTPS | `https://gist.../wf.json` | Any URL that returns workflow JSON or a zip / PNG containing one. |
-| stdin | `-` | `cat wf.json \| comfyui run-workflow -`. |
-
-Civitai workflow uploads are typically zip archives containing one or
-more `.json` graphs (sometimes alongside `.png` screenshots with the
-graph embedded as a tEXt chunk). The loader transparently extracts the
-first workflow-shaped JSON, falls back to PNG-embedded graphs, and
-finally to A1111-style `.txt` parameter dumps inside the zip.
-
-### What `--all` does on a civitai workflow URI
-
-When the source is `civitai://...`, `--all` does three things in order:
-
-1. **Hydrates the model index from the author's profile.** Calls
-   `civitai_model_cache.prefetch_civitai_models_for_workflow_uri(uri)`
-   which looks up the workflow's creator and pulls all of that user's
-   other Civitai uploads (checkpoints, LoRAs, VAEs) into the lookup
-   table. A workflow that loads
-   `MyModel_v2.safetensors` from the same author resolves automatically.
-2. **Mines Note/MarkdownNote URLs.** Walks the workflow's note nodes,
-   extracts every markdown link `[label](url)` and bare URL whose path
-   ends in a model extension, attributes each to a folder via the
-   nearest `Place in:` hint, and registers it as a typed
-   `Downloadable`:
-   - `huggingface.co/owner/repo/(resolve\|blob\|raw)/ref/path` →
-     `HuggingFile` (uses `hf_hub_download` cache + `HF_TOKEN`).
-   - `civitai.com/api/download/models/<v>` → `FsspecFile("civitai://v/<v>")`
-     (uses the registered `civitai://` fsspec backend with
-     `CIVITAI_API_TOKEN` auth — early-access / NSFW gated downloads
-     work).
-   - Anything else → plain `UrlFile`.
-3. **Custom-node install path.** Tries
-   `nodes.appmana.com/simple/` first; for any package without a
-   pre-built wheel (most of the long tail), builds the facade wheel
-   *locally in-process* from the package's GitHub or GitLab archive
-   URL via `FacadeWheelBuilder`, then `pip install`s the local wheel.
-   The facade rename (`_appmana_facade_<name>`) and stub-shim still
-   apply, so ComfyUI's node loader picks up the package the same way
-   as a remotely-built wheel.
-
-Net effect: civitai workflows whose author documented dependencies in
-notes Just Work without code changes.
-
-### Authenticating against gated assets
-
-The Civitai and Hugging Face gating models are different — what you
-ask the user to do is different too.
-
-**Civitai needs an explicit API token.** Anything early-access /
-adult-rated / NSFW-mature / behind an "Add to Collection" wall returns
-401 without auth. There's no OAuth flow; the user has to create a key
-manually at <https://civitai.com/user/account> → **API Keys**, copy it
-once, and set `CIVITAI_API_TOKEN` in the env (or
-`CIVITAI_API_KEY` — both names work):
-
-```bash
-export CIVITAI_API_TOKEN=ci_xxxxxxxx       # Linux / macOS / WSL
-$env:CIVITAI_API_TOKEN = 'ci_xxxxxxxx'     # PowerShell
-setx CIVITAI_API_TOKEN ci_xxxxxxxx         # Windows persistent
-```
-
-If you're about to run anything with a `civitai://` or
-`https://civitai.com/...` URI and the token isn't set, **ask the user
-to create one before retrying** — quote the URL above so they don't
-have to search for it. The same token covers `civitai-red://` (the
-NSFW mirror) too.
-
-**Hugging Face does not need the user to make a token themselves.**
-For gated repos (Flux, Llama, etc.) the user runs `huggingface-cli
-login` once and follows the OAuth prompt — HF mints a token, stores
-it under `~/.cache/huggingface/token`, and every `hf://` /
-`huggingface.co` download (via `HuggingFile` / `hf_hub_download` /
-the `hf://` fsspec backend) reads it automatically. Don't tell the
-user to "create a Hugging Face token"; that's an extra step they
-don't have to take. The login flow is:
-
-```bash
-uv pip install huggingface-cli           # if not already installed
-huggingface-cli login                    # interactive: paste-or-OAuth
-```
-
-After login, also have the user click **"Agree to the terms"** on the
-gated repo's page (e.g. <https://huggingface.co/black-forest-labs/FLUX.1-dev>)
-while signed in — the token doesn't bypass the per-repo license click.
-You'll see a `GatedRepoError` from `hf_hub_download` if they skipped
-this step.
-
-### Foreign format auto-translation
-
-Some Civitai uploads are A1111/Forge `.txt` parameter dumps or Fooocus
-JSON presets rather than ComfyUI workflows. Those are translated to a
-generic ComfyUI checkpoint → LoRA chain → KSampler → VAEDecode →
-SaveImage graph automatically. The dump's prompt, negative prompt,
-sampler/scheduler, steps, CFG, seed, dimensions, model, and LoRAs
-(both `Lora hashes:` line entries and inline `<lora:name:weight>`
-tokens) all transfer.
-
-SwarmUI / InvokeAI / Krita-AI shapes are recognized but not
-translatable — those raise `UnsupportedWorkflowFormatError` (a subclass
-of `ApiValueError`) so the failure is clear instead of an opaque schema
-mismatch.
-
-### Discovering workflows and models
-
-The CLI talks to multiple hosts. Two surfaces:
-
-- `comfyui workflows search / top` — find **recipes** (workflow JSONs).
-- `comfyui models search` — find **building blocks** (LoRAs, checkpoints,
-  embeddings, VAEs, controlnets) ready to paste into `--add-lora`,
-  `--checkpoint`, or `--set <node>.inputs.<field>=<URI>`.
-
-```bash
-# Workflows: top 20 across every host (civitai + civitai-red + comfyui-org + huggingface).
-comfyui workflows top --limit 20
-
-# Workflows: just civitai, last 30 days, WAN family:
-comfyui workflows top --with-host civitai --period 30d --family wan --limit 10
-
-# Workflows: excluding NSFW mirrors:
-comfyui workflows top --without-host civitai-red,tensorart
-
-# Workflows: substring search across hosts:
-comfyui workflows search "flux kontext" --limit 10
-
-# Models: a Studio Ghibli LoRA (any base):
-comfyui models search "ghibli style" --kind lora --limit 5
-
-# Models: a LoRA pinned to a specific base for compatibility with your workflow:
-comfyui models search "ghibli" --kind lora --base-model "Flux.1 D" --limit 5
-
-# Models: top SDXL anime checkpoints:
-comfyui models search "anime" --kind checkpoint --base-model "SDXL 1.0" --limit 5
-
-# Models: JSON for programmatic picking:
-comfyui models search "renaissance" --kind lora --json | \
-    jq -r '.[] | select(.base_model=="Flux.1 D") | .uri'
-```
-
-`workflows top --family` accepts `wan`, `flux`, `sdxl`, `ltxv`.
-`--period` accepts `Day` / `Week` / `Month` / `Year` / `AllTime`, plus
-shorthands `30d` / `180d` / `360d`. `models search --base-model` is
-free-form on the Civitai side — common values include `"Flux.1 D"`,
-`"Flux.1 Klein"`, `"SDXL 1.0"`, `"SD 1.5"`, `"Pony"`, `"Illustrious"`,
-`"NoobAI"`, `"LTXV"`, `"LTXV 2.3"`, `"Wan Video 2.1"`, `"Anima"`. URIs
-returned by either command paste directly into `run-workflow`,
-`--add-lora`, etc.
-
----
-
-## Task 7 — Generate an image per row of a CSV
-
-For a bulk job, write an ad-hoc Python script using the embedded
-client. This is faster than spawning `comfyui run-workflow` per row
-because node modules import once.
-
-```python
-#!/usr/bin/env python
 import asyncio
-import csv
+import json
 from pathlib import Path
+from comfy.client.embedded_comfy_client import Comfy
 
-from comfy.cli_args_types import Configuration
-from comfy.entrypoints.workflow import run_workflows
-
-async def main():
-    rows = list(csv.DictReader(Path("prompts.csv").open()))
-    for i, row in enumerate(rows):
-        config = Configuration(
-            prompt=row["prompt"],
-            seed=int(row.get("seed", 42 + i)),
-            novram=True,                         # for klein 9B on <24 GB
-            output_directory=f"out/row_{i:04d}",
-            workflows=["image_flux2_klein_text_to_image"],
-        )
-        await run_workflows(config.workflows, configuration=config)
-
-asyncio.run(main())
-```
-
-Run with `python script.py` inside the same venv. Each call
-re-initializes model state between rows; for tight batches, use the
-daemon path (§Mass processing) instead so the model stays resident.
-
----
-
-## Repeated runs — daemon + submit + poll
-
-If you expect to run more than one generation from the same workflow,
-start the daemon once and submit jobs to it. This applies even for a
-small two- or three-try prompt iteration, not just bulk processing. The
-daemon keeps models resident and preserves runtime caches, so amortized
-per-job cost drops from "process start + model load + sample" to "submit
-+ sample"; for `--compile` workflows it also lets warmup and cached
-compiled kernels pay off across jobs.
-
-```bash
-# 1. Start the daemon (equivalent to `serve --daemon --guess-settings`):
-comfyui start
-comfyui logs -f &                # optional: stream logs
-
-# 2. Submit jobs:
-for prompt in "a cat" "a dog" "a fish"; do
-  comfyui workflows submit image_flux2_klein_text_to_image \
-      --prompt "$prompt" --seed 42
-done
-
-# 3. Watch the queue:
-comfyui jobs                     # list active jobs
-comfyui jobs --status pending    # filter
-comfyui jobs cancel <JOB_ID>     # cancel one (omit JOB_ID to interrupt
-                                 # the currently running job)
-
-# 4. When done:
-comfyui stop
-```
-
-`COMFYUI_SERVER=http://host:8188` points the client commands at a
-remote daemon. `workflows submit` now has full parity with
-`run-workflow`: the same `--prompt` / `--negative-prompt` /
-`--seed` / `--cfg` / `--sampler` / `--scheduler` / `--denoise` /
-`--width` / `--height` / `--batch-size` / `--checkpoint` / `--image` /
-`--video` / `--audio` / `--set` / `--add-lora` / `--compile` flags all
-apply to the workflow before it's POSTed to the daemon. One
-prompt-mutation pipeline, same semantics either way.
-
-### Python: tight loop against the daemon
-
-```python
-import asyncio, httpx
-from comfy.component_model.prompt_utils import add_loras, enable_compile
-from comfy.component_model.asyncio_files import load_workflow_json
-
-async def submit_one(client, workflow, prompt, extra_loras):
-    wf = load_workflow_json(workflow)       # local path, template name, or URI
-    wf = add_loras(wf, extra_loras)         # --add-lora
-    wf = enable_compile(wf)                 # --compile
-    # …plus any other prompt_utils mutation…
-    r = await client.post("http://localhost:8188/prompt",
-                           json={"prompt": wf, "client_id": "bulk"})
-    r.raise_for_status()
-    return r.json()["prompt_id"]
 
 async def main():
-    async with httpx.AsyncClient(timeout=None) as client:
-        ids = [await submit_one(client, "image_flux2_klein_text_to_image",
-                                p, ["style.safetensors:0.6"])
-               for p in PROMPTS]
-        # poll /history/<prompt_id> or `comfyui jobs` until done.
+    async with Comfy() as client:
+        for path in sorted(Path("workflows").glob("*.json")):
+            workflow = json.loads(path.read_text(encoding="utf-8"))
+            outputs = await client.queue_prompt(workflow)
+            print(path.name, outputs)
 
-asyncio.run(main())
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
----
+This allows eligible weights and execution caches to remain resident. Memory
+pressure, model changes, or configuration changes can still trigger unloading or
+worker replacement. The embedded client defaults to a thread executor; incompatible
+global configuration can require a subprocess. Progress streaming currently works
+on the thread path, not across the process-executor boundary. See the embedded
+guide for lifetime and configuration details.
 
-## Sharing workflows with others
+## Memory and multiple GPUs
 
-The best shareable unit of work is a single `uvx` one-liner a recipient
-can paste into any terminal. No venv, no prior `pip install`, no git
-clone. `uvx` pulls ComfyUI from the canonical git URL, resolves the
-right torch wheel for the recipient's GPU via `--torch-backend=auto`,
-runs the CLI once, and discards the ephemeral env on exit.
+Begin with hardware-aware defaults. Use `--reserve-vram` when sharing the GPU with
+other applications. `--novram` disables DynamicVRAM and smart memory management;
+it is an explicit fallback, not a prerequisite for every low-memory device.
+Compilation adds warmup and may not help a short run. Quantized storage does not
+guarantee a faster compute kernel or compatibility with every parallel mode.
 
-**One-time: install uv** (if the recipient doesn't already have it):
+Tensor parallelism splits supported model operations; pipeline parallelism mainly
+increases capacity; sequence parallelism splits supported attention workloads.
+Use the performance guide's family and hardware restrictions. Automatic selection
+does not promise a speedup. Queue workers increase independent-job throughput and
+require separate deployment/storage configuration.
 
-```bash
-# Linux / macOS:
-curl -LsSf https://astral.sh/uv/install.sh | sh
+## Finish with evidence
 
-# Windows (PowerShell):
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+Return the generated artifact paths or links and a concise explanation of what
+was produced. Include the final workflow and material settings needed to reproduce
+it. If execution failed, report the actual error and the missing dependency,
+model, access permission, or capacity constraint; do not present an unexecuted
+workflow as a completed generation.
 
-# macOS (Homebrew):
-brew install uv
+## Practical recipes
+
+### Restyle a portrait
+
+Find an image-edit workflow for a locally supported model. Save it as
+`portrait-edit.json` and inspect its inputs:
+
+```console
+comfyui workflows search "portrait image edit" --limit 5 --json
+comfyui run-workflow portrait-edit.json --help
+comfyui run-workflow portrait-edit.json --dry-run
+comfyui run-workflow portrait-edit.json --all --image portrait.png --prompt "Restyle this portrait as a Renaissance oil painting with soft window light and a muted earth palette. Preserve the person's identity, pose, and framing." --seed 42
 ```
 
-Full options (standalone binaries, pipx, scoop, …) at
-https://docs.astral.sh/uv/getting-started/installation/.
+The search is a discovery step; obtain the selected workflow before the commands
+that reference the local file. Inspect the result for identity and composition
+preservation. If using a style LoRA, search with `comfyui models search --help`
+and choose one that matches the edit model's architecture before adding it.
 
-**The shape of a shareable invocation:**
+### Animate a still
 
-```bash
-uvx --from comfyui --extra-index-url https://nodes.appmana.com/simple/ \
-    --torch-backend=auto \
-    comfyui workflows run <template-or-path-or-url> -a -g \
-    --prompt '…' [--negative-prompt '…'] [--seed N] \
-    [--add-lora <civitai-or-hf-or-path>:strength] …
+Choose an image-to-video workflow that fits the available memory, save it as
+`animate.json`, and inspect its frame-count, resolution, and motion controls:
+
+```console
+comfyui run-workflow animate.json --help
+comfyui run-workflow animate.json --all --image dancer.png --prompt "The dancer takes two graceful steps and turns, fabric following the motion. Locked camera, consistent lighting, stable background." --seed 42
 ```
 
-The `-a` flag is `--all` (auto-fetch every missing model); `-g` is
-`--guess-settings` (detect VRAM mode, attention backend, dtype). Both
-are what you want in a shared command, so recipients don't have to
-think about either.
-
-**Resolving every reference.** Different assets want different URI
-forms. Pick the form most likely to resolve on a recipient's host:
-
-| Asset | Use | Example |
-|---|---|---|
-| Bundled workflow template | template name | `image_flux2_text_to_image`, `image_anima_preview` |
-| Workflow JSON you authored | raw `https://…` URL (gist, repo, …) | `https://gist.githubusercontent.com/you/abc/raw/wf.json` |
-| Hugging Face model / LoRA | `hf://owner/repo/filename` | `hf://black-forest-labs/FLUX.1-dev/flux1-dev.safetensors` |
-| Civitai LoRA / checkpoint | Civitai download URL | `https://civitai.com/api/download/models/12345` |
-| S3 object | `s3://bucket/key` | `s3://mybucket/loras/style.safetensors` |
-| Local file (your testing only) | absolute path | `/home/you/loras/mine.safetensors` |
-
-Prefer `hf://` when a file lives on Hugging Face; the downloader uses
-the HF cache and authenticated mirrors. Reserve absolute paths for
-invocations that will never leave your machine; they fail on a
-recipient's host.
-
-**Use `comfyui models` to prep the share command.** For any workflow
-you plan to hand off, resolve each asset's canonical URL before
-pasting. `from-workflow --dry-run` writes found-locally paths to
-stdout and would-be-downloaded sources to stderr:
-
-```bash
-# What models does this build know how to download?
-comfyui models ls --folder checkpoints
-
-# What does this workflow load? Where does it come from?
-comfyui models from-workflow image_anima_preview --dry-run
-#   stdout → present locally (won't be re-fetched)
-#   stderr → will be fetched (these are the URLs your recipient needs)
-
-# If a stderr URL is a non-canonical mirror, replace it with the
-# canonical one (hf://, civitai download URL, official release tarball)
-# before sharing.
-
-# Where would each class of asset land on a recipient's machine?
-comfyui models paths --folder loras
-comfyui models paths --folder checkpoints
-
-# What model folders can this machine discover heuristically?
-comfyui models find-local
-```
-
-For a workflow that depends on a LoRA the template doesn't bundle, pass
-it explicitly with `--add-lora` so the shared command is
-self-contained. Always prefer a `hf://` or Civitai URL over a local
-path:
-
-```bash
-# Portable:
---add-lora https://civitai.com/api/download/models/987654:0.7
---add-lora hf://user/repo/style.safetensors:0.7
-
-# Not portable (works only on the author's machine):
---add-lora /home/me/loras/mine.safetensors
-```
-
-**UI-exported workflows (with subgraphs).** Convert to API JSON first,
-then host the JSON somewhere the recipient can fetch by URL (a gist,
-a repo, or any HTTP static host):
-
-```bash
-comfyui workflows convert my_wf.json -o my_wf_api.json
-# Share the raw URL as the first positional to `workflows run`:
-uvx --from comfyui --extra-index-url https://nodes.appmana.com/simple/ \
-    --torch-backend=auto \
-    comfyui workflows run https://gist.../raw/my_wf_api.json -a -g \
-    --prompt '…'
-```
-
-**Worked example: reproducing a Civitai image via the bundled
-`image_anima_preview` template** (Qwen-Image / WAI-Anima, parameters
-extracted from the source PNG's `parameters` text chunk):
-
-```bash
-# One-time:
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Generate:
-uvx --from comfyui --extra-index-url https://nodes.appmana.com/simple/ \
-    --torch-backend=auto \
-    comfyui workflows run image_anima_preview -a -g \
-    --prompt 'masterpiece, best quality, score_9, score_8, score_7, 1girl, solo, Hatsune Miku, maid uniform, apron, portrait, holding notebook covering face, holding, notebook, sketchbook writing text "WAI-ANIMA" and chibi' \
-    --negative-prompt 'worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, lowres, censor' \
-    --steps 30 --seed 1926981099 --cfg 5.0 \
-    --sampler euler_ancestral --scheduler normal \
-    --width 1024 --height 1344 --batch-size 1
-```
-
-**Do not add speedups by default.** The plain `uvx … --torch-backend=auto`
-invocation above is the right share command for almost everyone. Only
-reach for the pattern below when the user **specifically asks** for
-SageAttention (or a custom-node facade). Adding these to a generic
-share command just makes it fragile on hosts whose CUDA tag you
-don't know.
-
-**If the user does ask for SageAttention**: Triton (Linux CUDA/ROCm),
-SageAttention (CUDA), and every custom-node facade
-(comfyui-crystools, comfyui-inspire-pack, …) live on
-`https://nodes.appmana.com/simple/`, which has per-CUDA-version
-subdirectories (`/simple/cu130/`, `/simple/cu128/`, …). Automatic
-torch-backend resolution does not currently traverse those
-subdirectories reliably, so pin the CUDA version explicitly and
-point `--extra-index-url` at the matching subdirectory. Always pair
-SageAttention with Triton; SageAttention's kernels are compiled
-through Triton, so without it the attention backend silently falls
-back. Example, recipient on CUDA 13.0:
-
-```bash
-uvx --from comfyui --extra-index-url https://nodes.appmana.com/simple/ \
-    --torch-backend=cu130 \
-    --extra-index-url https://nodes.appmana.com/simple/cu130/ \
-    --with triton --with sageattention \
-    comfyui workflows run image_anima_preview -a -g \
-    --prompt '…' --seed 42 …
-```
-
-Match the CUDA tag to the recipient's driver (`nvidia-smi` shows it).
-If you don't know it, omit the `--with` flags and let
-`--torch-backend=auto` pick a plain wheel instead; a correct plain
-wheel beats a mismatched fast one. Same pattern for any custom-node
-facade the user asks for (`--with comfyui-inspire-pack`, …). Once the
-index's auto resolution covers these subdirectories, this pinning
-goes away and a single `--extra-index-url https://nodes.appmana.com/simple/`
-with `--torch-backend=auto` will subsume it.
-
----
-
-## Custom nodes — use the pip facade
-
-This section is authoritative for agents working in this repo. Upstream
-custom-node READMEs are useful for understanding node behavior and example
-workflows, but their install instructions do not override this process.
-Do not clone into `custom_nodes/`, run ComfyUI-Manager installs, or run
-ad-hoc package installs unless the facade path below cannot resolve the
-node and you have exhausted the documented fallback.
-
-When the user needs a custom node that isn't bundled (ComfyUI-Crystools,
-ComfyUI-Inspire-Pack, ComfyUI_IPAdapter_plus, etc.), don't clone into
-`custom_nodes/`. Install via the facade — it builds the wheel on demand,
-resolves declared requirements (including rewrites like
-`pynvml→nvidia-ml-py` and `opencv-python→opencv-contrib-python-headless`), and
-drops the node where ComfyUI expects it:
-
-```bash
-# Public index:
-uv pip install --extra-index-url https://nodes.appmana.com/simple/ \
-    comfyui-crystools comfyui-inspire-pack comfyui_ipadapter_plus
-
-# Or: extract what a specific workflow needs and install just that:
-uv pip install --extra-index-url https://nodes.appmana.com/simple/ \
-    -r <(comfyui workflows requirements image_flux2_klein_image_edit_9b_base)
-```
-
-If the user is air-gapped or running CI, host the facade yourself with
-`comfyui serve-pip --port 8190 --pip-facade-cache-prefix file:///srv/cache`
-and have `uv pip install` use `--extra-index-url http://host:8190/`.
-
-Inspect installed nodes with `comfyui nodes ls` or
-`comfyui nodes info <ClassName>`. The `SEARCH_ALIASES` field on each
-node (e.g. "lora", "load lora") is how the UI's search box works; if a
-user asks for "something that does X", grep those aliases.
-
----
-
-## Environment / diagnostics commands worth knowing
-
-- `comfyui env info` — platform, Python, device name + VRAM, folder paths.
-- `comfyui env check` — full integrity: package versions, torch CUDA/ROCm
-  alignment, comfy_kitchen backend × dtype × op PASS/FAIL matrix (shows
-  which fp8/fp4 kernels actually work on this GPU), folder paths with
-  file count / total size / symlink+hardlink counts and per-directory
-  symlink-creation probe, hardware-detected guess-settings decisions.
-- `comfyui env packages` — pip list, fast (no torch import).
-- `comfyui env paths` — just the folder-paths table.
-- `comfyui workflows requirements <wf>` — pip requirements for a workflow.
-- `comfyui workflows convert <ui.json> -o api.json` — convert a
-  UI-exported workflow into the API format that the server takes.
-- `comfyui workflows show <template>` — print a copy-pasteable
-  invocation command for a template (useful when you're unsure which
-  flags the template consumes).
-
-### Reading server logs
-
-When a daemon is running and you need to see what just happened — a job
-silently misbehaved, a custom node failed to register, a worker is
-stuck — use:
-
-```bash
-comfyui logs                                 # last ~1000 entries
-comfyui logs -f                              # stream (tail -f equivalent)
-comfyui logs --server http://remote:8188     # remote daemon
-```
-
-`comfyui logs` tries the live `/internal/logs/raw` HTTP endpoint first
-(an in-memory ring buffer of the last 1000 log records, populated by
-every `logger.*` call), and falls back to reading
-`~/.comfyui/comfyui.log` (only present when the server was started
-with `comfyui start --detach`). It's the right answer for both local
-and remote daemons.
-
-For programmatic access (no shelling out):
-
-| Method | Use when |
-|---|---|
-| `GET /internal/logs/raw` | Live server. JSON: `{entries: [{t, m}, ...], size: {cols, rows}}`. ~Last 1000. |
-| `GET /internal/logs` | Same buffer as a single concatenated string (timestamps + messages). |
-| `PATCH /internal/logs/subscribe` (websocket) | Real-time log stream. Body: `{clientId, enabled}`. |
-| Read `~/.comfyui/comfyui.log` | Daemonized server (started with `--detach`). Full history, not capped. |
-
-For *embedded* runs (no server, e.g. inside `comfyui run-workflow` or
-the embedded client), logs are emitted to stderr by Python's standard
-logging — capture with `logger = logging.getLogger("comfy.<pkg>")` +
-your own handler, or just read stderr.
-
----
-
-## Pitfalls
-
-1. **`--novram` is mandatory on 24 GB cards for klein 9B + qwen 8B text
-   encoder.** Default NORMAL_VRAM keeps both resident and OOMs at ~21 GiB.
-   `--novram` streams weights per-module; expect ~1 min runtime vs ~50 s
-   NORMAL_VRAM at full precision.
-
-2. **`COMFYUI_CUDA_ALLOC_CONF=expandable_segments:True`** — export it
-   when peak VRAM is right at the GPU cap. Reduces fragmentation OOMs.
-
-3. **Ampere + fp8_e4m3fn.** comfy_kitchen's triton kernel for this
-   dtype can't compile on sm < 8.9. The runtime auto-disables the
-   triton backend on those GPUs; there is nothing to do. Use
-   `--fp8_e5m2-unet` if you need fp8 storage (Ampere-supported).
-
-4. **`--guess-settings` after `--all`.** Always. `_install_workflow_requirements`
-   imports `model_management`, which latches its VRAM state at import.
-   This is handled now (see commit `7c489f5d`), but if you see
-   `vram_state = NORMAL_VRAM` in the log after passing `--novram`, your
-   CLI is out of date; update.
-
-5. **LoRA heritage**. A Flux LoRA in an SDXL workflow will patch
-   nothing (key mismatch) or patch wrong tensors and silently degrade
-   output. Match the base. If in doubt, run
-   `python -c "from safetensors.torch import load_file; print(list(load_file('x.safetensors').keys())[:5])"`
-   to inspect keys.
-
-6. **Subgraph node ids.** UI-exported workflows that contain subgraphs
-   keep `"75:72"`-style ids in API format. `--set 75:72.inputs.field=val`
-   works; `--set 75:110.inputs.field=val` may not if that inner node was
-   not preserved by the subgraph-to-API conversion. Check with
-   `comfyui workflows convert` + `jq 'keys'`.
-
----
-
-## Vendor prompting guides
-
-Vendored snapshots live in `docs/prompting_guides/README.md`. When a
-task uses one of these model families, read the matching local snapshot
-before rewriting the user's prompt — each documents its own prompt
-framework (Subject+Action+Style+Context, scene-first prose,
-Entity+Scene+Motion, etc.) and the schemas / length budgets / negative
-prompt conventions the encoder is trained for. WebFetch the original
-vendor source when freshness matters or the local snapshot notes a
-fetch failure.
-
-**Flux.1 / Flux.1 Kontext (Black Forest Labs)** — `docs.bfl.ml`
-
-- https://docs.bfl.ml/guides/prompting_summary — quick reference across the FLUX.1 family
-- https://docs.bfl.ml/guides/prompting_unified_basics — core framework for text-to-image; vendored as `docs/prompting_guides/bfl_flux_prompting_t2i_fundamentals.md`
-- https://docs.bfl.ml/guides/prompting_unified_style — lighting / color / atmosphere; vendored as `docs/prompting_guides/bfl_flux_prompting_t2i_essentials.md`
-- https://docs.bfl.ml/guides/prompting_unified_reference — layering, typography, photo controls; vendored as `docs/prompting_guides/bfl_flux_prompting_t2i_advanced.md`
-- https://docs.bfl.ml/guides/prompting_guide_t2i_negative — why FLUX.1 doesn't use negative prompts
-- https://docs.bfl.ml/guides/prompting_editing_overview — image-edit (Kontext / FLUX.2 editing) guidance; vendored as `docs/prompting_guides/bfl_flux_prompting_kontext_i2i.md`
-
-**Flux.2 (Black Forest Labs)** — `docs.bfl.ml`
-
-- https://docs.bfl.ml/guides/prompting_guide_flux2 — FLUX.2 [pro]/[max]/[dev], JSON schemas, hex colors, multi-reference roles
-- https://docs.bfl.ml/flux_2/flux2_text_to_image — FLUX.2 [klein] text-to-image, scene-first prose, structured prompting; vendored as `docs/prompting_guides/bfl_flux2_klein_prompting.md`
-
-**Ideogram 4 (Ideogram / Comfy-Org local template)**
-
-- https://huggingface.co/Comfy-Org/Ideogram-4 — local ComfyUI split model files for `image_ideogram4_t2i` (`ideogram4_fp8_scaled`, `ideogram4_unconditional_fp8_scaled`)
-- https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_ideogram4_t2i.json — bundled local workflow template; read its `MarkdownNote` before prompting
-- https://github.com/ideogram-oss/ideogram4/blob/main/docs/prompting.md — official Ideogram 4 prompting guide: structured JSON captions, schema/key-order rules, `V4_QUALITY_48`, magic prompt options, 0-1000 bounding boxes, and uppercase hex palettes; vendored as `docs/prompting_guides/ideogram4_prompting.md`
-- https://docs.ideogram.ai/using-ideogram/getting-started/prompting-guide/4.-json-prompting-ideogram-4.0 and https://ideogram.ai/blog/ideogram-4-json-prompting/ — Ideogram's own JSON prompting pages; vendored as `ideogram4_docs_json_prompting.md` and `ideogram4_blog_json_prompting.md`. Ideogram 4 is literal: name specific light sources, references and exact colours rather than mood words; keep 5 or fewer elements; include the background colour and a shadow and a highlight colour in `color_palette`.
-- https://github.com/ideogram-oss/ideogram4/blob/main/src/ideogram4/magic_prompt_system_prompts/v1.txt — the open magic-prompt system prompt, vendored as `ideogram4_magic_prompt_system_prompt_v1.md`: one coherent subject is one element with its parts in its `desc` (60-word cap), elements for scattered particles, crowds and other dense, hard-to-enumerate visuals omit `bbox`, `high_level_description` stays under 50 words, the ground is always `background`.
-- Prompting guide summary: Ideogram 4 is trained exclusively on structured JSON captions. Since the guide's 2026-06-30 revision, plain-text prompts "will not work and will likely trigger a safety warning"; expand them to JSON first (magic prompt). Three top-level keys in this order: `high_level_description` (strongly recommended), `style_description` (optional), `compositional_deconstruction` (required: `background`, then `elements`). `style_description` holds exactly one of `photo` or `art_style`, in the order `aesthetics, lighting, photo, medium, color_palette` or `aesthetics, lighting, medium, art_style, color_palette`; `color_palette` is optional, at most 16 uppercase `#RRGGBB`. Elements are `{"type":"obj","bbox","desc","color_palette"}` or `{"type":"text","bbox","text","desc","color_palette"}` in that key order; `bbox` is optional, four integers `[y_min, x_min, y_max, x_max]` on a 0-1000 grid over the image; an element palette holds at most 5 colours. The prompt is limited to 2048 tokens after the Qwen3-VL chat template. Serialize with `separators=(",", ":")` and `ensure_ascii=False`; `CaptionVerifier` (`src/ideogram4/caption_verifier.py`) checks all of this. It uses asymmetric CFG, where the unconditional pass is a separate model run on image tokens only; do not treat it as a normal negative-prompt workflow.
-- Skeleton in canonical order (non-photo branch):
-
-```json
-{"high_level_description":"…","style_description":{"aesthetics":"…","lighting":"…","medium":"…","art_style":"…","color_palette":["#RRGGBB"]},"compositional_deconstruction":{"background":"…","elements":[{"type":"obj","bbox":[100,200,900,800],"desc":"…","color_palette":["#RRGGBB"]},{"type":"text","bbox":[20,100,120,900],"text":"…","desc":"…"}]}}
-```
-
-- Pixel art, measured with `image_ideogram4_t2i` on the Quality preset (`last_steps=3`): `"medium":"illustration"` with `"art_style":"pixel art"` (the open magic prompt's mapping) draws smooth cartoons at 1024. `"medium":"pixel art"` draws pixel art, and an `art_style` that names the sprite's art-pixel size and its rendering (for example `"32x32 pixel art sprite, every art pixel a crisp square block of one flat colour, single-pixel dark outline, nearest-neighbor upscaled, no anti-aliasing, no dithering"`) gives the crispest, coarsest lattice: 50 cells across at 512 and 80 at 1024 for a centred single sprite.
-- **Ideogram 4.5** is API-only (`POST /v2/image/generate/ideogram-4-5` and `POST /v2/image/precise-edit/ideogram-4-5`, vendored as `ideogram4_5_api.md` and `ideogram4_5_precise_edit_api.md`); open weights are announced as coming "soon", so there is no local template, INT8 ConvRot file, `--add-lora` or tensor parallelism for it. Run it through the partner nodes `IdeogramTextToImageApi`, `IdeogramEditApi` (up to 5 images, the first is the one edited; reference them as `@Image1`…`@Image5`; `size` `source` keeps the input's size) and `IdeogramPreciseEditApi` (an image plus up to 4 reference images; untouched pixels are copied exactly and the output keeps the input's width and height). They bill a Comfy.org account: queue them from the UI, or pass `api_key_comfy_org` in the prompt request's `extra_data`. `--disable-partner-nodes` and `--offline` remove them. The nodes do not expose the API's `mask`. The bundled templates are `api_ideogram_v4_5_t2i`, `api_ideogram_v4_5_image_edit` (it captions `CreateBoundingBoxes` regions through `BuildJsonPromptIdeogram`, for example a box described "Change the color to blue") and `api_ideogram_v4_5_precise_image_edit`; read one with `comfyui workflows run <template> --help`.
-- Ideogram 4.5 prompting (https://docs.ideogram.ai/prompting/prompting, vendored as `ideogram4_5_prompting.md`, one guide for 4.5, 4.0 and 3.0): natural language or the Ideogram 4.0 JSON caption, up to 10,000 characters (very long JSON can lose its last elements). Write full sentences, put the main idea first, describe what can be seen, and say what you want rather than what you don't; there is no negative prompt and no weight syntax. Magic Prompt turns plain text into the JSON caption; with source images every mode rewrites the instruction into a structured edit prompt. For edits, name the change and what stays: "Change the shoes to slate-blue knit. Keep everything else exactly the same."
-
-**Wan 2.1 / 2.2 / 2.5 / 2.6 (Alibaba Tongyi Wanxiang)**
-
-- https://www.alibabacloud.com/help/en/model-studio/text-to-video-prompt — covers both text-to-video and image-to-video: Entity+Scene+Motion formula, aesthetic/style extensions, sound formula for 2.5/2.6, reference-to-video, multi-shot
-
-**MiniMax H3 (MiniMax / Comfy-Org)**
-
-- https://platform.minimax.io/docs/guides/video-generation — official H3 generation guide and limits, vendored as `docs/prompting_guides/minimax_h3_video_generation.md`: text-to-video prompts define the video's content and motion; place camera instructions such as `[pan]`, `[zoom]`, or `[static]` immediately after the description they control. H3 accepts 4-15 seconds and prompts up to 7,000 characters.
-- `comfyui workflows run video_minimax_h3_t2v --help` — the shipped local workflow's model-specific guide and canonical example prompt. Read it before writing an H3 prompt; it also documents the duration-to-frame alignment and native canvas limits.
-- For useful audiovisual results, follow the shipped prompt's structure in one detailed block: visual medium/style and overall look; scene overview with subject, setting, and action; a chronological or timestamped shot list; camera angle/movement and cut behavior; synchronized dialogue, ambience, sound effects, and music; then exclusions such as no text, subtitles, logos, or watermarks. Describe visible motion explicitly instead of relying on abstract mood words. For a continuous shot, use one camera instruction; for a multi-shot clip, make every cut and time interval explicit. H3 generates video and stereo audio jointly, so prompt the soundtrack rather than treating it as post-production.
-- The bundled workflow converts seconds to 24 fps and rounds upward to H3's valid `17k+5` frame grid. For example, `--float-duration 10` produces 243 frames (10.125 seconds), not exactly 240 frames. Keep comparisons on the same prompt, seed, duration, resolution, step count, and attention backend.
-
-**Qwen-Image / Qwen-Image-Edit (Alibaba)**
-
-- https://www.alibabacloud.com/help/en/model-studio/qwen-image-edit-guide — image-edit instruction examples, `prompt_extend` and `negative_prompt` semantics (API-reference-shaped, but authoritative for the edit template syntax)
-
-**Z-Image Turbo (Tongyi-MAI)**
-
-- https://huggingface.co/Tongyi-MAI/Z-Image-Turbo — prefers long detailed prompts; negative prompts unused (few-step distilled, no CFG); 512-token limit; recommends LLM-based prompt expansion
-
-**Kandinsky 6.0 Video (Kandinsky Lab)**
-
-- Read `docs/prompting_guides/kandinsky6_prompting.md`: official [text-to-video](https://github.com/kandinskylab/kandinsky-6/blob/main/comfyui/kandinsky6/beautifier_prompts/t2av_system.txt) and [image-to-video](https://github.com/kandinskylab/kandinsky-6/blob/main/comfyui/kandinsky6/beautifier_prompts/i2av_system.txt) expansion instructions. Preserve dialogue in `<S>…<E>` and end with `<AUDCAP>…<ENDAUDCAP>` for audio. Image-to-video uses the supplied image as its first-frame ground truth.
-
-**Hunyuan Image 3.0 / Instruct (Tencent)**
-
-- https://github.com/Tencent-Hunyuan/HunyuanImage-3.0/blob/main/Hunyuan-Image3.md — subject + environment + style + composition + lighting framework, DeepSeek-based enhancement system prompts, 8 worked examples
-
-- https://docs.qq.com/doc/DUVVadmhCdG9qRXBU — the actual Prompt Handbook linked by Tencent; separate from the GitHub guide snapshot above.
-- https://huggingface.co/tencent/HunyuanImage-3.0-Instruct and https://github.com/Tencent-Hunyuan/HunyuanImage-3.0/blob/main/hunyuan_image_3/system_prompt.py — Instruct examples and native system prompts. Read `docs/prompting_guides/hunyuan_image3_instruct_prompting.md` for direct-generation versus rewrite modes and ordered reference-image roles. Do not confuse base-model external DeepSeek enhancement with Instruct's own rewriting.
-
-**Hunyuan Video 1.5 (Tencent)**
-
-- https://github.com/Tencent-Hunyuan/HunyuanVideo-1.5/blob/main/assets/HunyuanVideo_1_5_Prompt_Handbook_EN.md — Subject + Motion + Scene + [Shot] + [Camera] + [Lighting] + [Style] + [Atmosphere] formula with advanced control examples
-
-**LTX-Video / LTXV 2 (Lightricks)**
-
-- https://github.com/Lightricks/LTX-Video/blob/main/README.md — "Prompt Engineering" section: under 200 words, chronological, literal, cinematographer mental model
-- https://github.com/Lightricks/LTX-2/blob/main/README.md — LTX-2: single-sentence action first, then movements, camera, environment, lighting; <200 words
-
-**PixelDiT (NVIDIA)**
-
-- https://github.com/NVlabs/PixelDiT/tree/main/t2i — read `docs/prompting_guides/nvidia_pixeldit_prompting.md`. There is no separate prompting guide: every prompt is encoded behind Sana's CHI system prompt (ComfyUI prepends it), the model reads 299 prompt tokens after it (longer prompts are cut), and it was trained on dense VLM captions (InternVL2-26B, VILA1.5-13B) chosen by CLIP score. Write literal, concrete descriptions: colours, shapes, sizes, textures and spatial relationships. `image_pixeldit_t2i` samples `er_sde`/`simple` 30 steps at CFG 4 with the template's negative prompt. NSCLv1: non-commercial research and evaluation only.
-
-**ChronoEdit (NVIDIA Toronto AI Lab — video editing)**
-
-- https://github.com/nv-tlabs/ChronoEdit/blob/main/docs/PROMPT_GUIDANCE.md — specificity-over-abstraction, camera vocabulary (Close-Up/Medium/Full/Three-Quarter/OTS), pose-preservation and local-edit structure-preservation directives
-
-**OmniGen2 (VectorSpaceLab)**
-
-- https://github.com/VectorSpaceLab/OmniGen2 — in-context template, single-image "maintaining her facial features" template, `image_guidance_scale` 1.2-2.0 edit vs 2.5-3.0 in-context, English-preferred
-
-**Chroma (lodestones — community Flux variant)**
-
-- https://huggingface.co/lodestones/Chroma1-HD — negative-prompt list, `guidance_scale` 3.0, tag-with-periods and escape-parens convention (see the original `lodestones/Chroma` card for the full tag-syntax rules)
-
-**Anima (circlestone-labs) — anime text-to-image**
-
-- https://huggingface.co/circlestone-labs/Anima — Danbooru tag syntax (lowercase, spaces not underscores), tag ordering (quality → character count → character → series → artist → general), `@artist_name` prefix, dataset tags, quality/safety scoring
-
-**NewBie-Image (NewBie-AI)**
-
-- https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1 — XML prompt schema (`<character_1><name><gender><appearance><clothing>…`), general tags for style/background/atmosphere/quality; also accepts natural-language and tag inputs
-
-**HuMo (Phantom-video) — audio-conditioned video**
-
-- https://github.com/Phantom-video/HuMo — `scale_a` audio guidance vs `scale_t` text guidance trade-off, TA vs TIA mode, 97-frame target, 30-40 steps
-
-**ACE-Step 1.5 (ACE Studios) — music generation**
-
-- https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Tutorial.md — structural tags `[Verse]`/`[Chorus]`/`[Bridge]`, vocal tags (`[raspy vocal]`, `[whispered]`), syllable-count control, `[instrumental]` token, parentheses for BGVs, case sensitivity
-
-*No substantive vendor prompting guide found for: Kandinsky 5 (ai-forever), LongCat-Video (Meituan), Ovis-Image (AIDC-AI), FireRed TTS, SDXL base. Skip linking until the vendors publish one.*
-
----
-
-## What you (Claude) are expected to do when given a media task
-
-The user said "run / generate / make me <something>"? That's a
-`comfyui workflows run` invocation (`comfyui run-workflow` is the exact
-legacy alias). Don't write Python, don't start the daemon, don't open the
-UI — `workflows run` is the verb. Reach for something else only when this
-guide explicitly tells you to (bulk processing → §Mass processing;
-non-trivial graph edits → embedded Python in §Task 7).
-
-1. **Sanity-check the environment** before doing anything that runs
-   code. If a venv is already activated (`$VIRTUAL_ENV` set) or
-   present in the working directory (`./.venv/`, `./venv/`), source
-   it and run:
-   ```bash
-   comfyui env check
-   ```
-   It prints torch + CUDA/ROCm alignment, GPU + VRAM, attention
-   backend × dtype support, and folder paths in one shot. If the
-   `comfyui` CLI is missing or `env check` reports broken state, fix
-   it before generating. If no venv exists yet, follow §Prerequisites
-   to create one.
-2. Read any images, videos, or text files the user hands you. Describe
-   what you see back to the user to confirm understanding before
-   generating — especially for edits, where what to *preserve* matters
-   as much as what to *change*.
-3. **If the user gave you a workflow URL** (civitai / Hugging Face /
-   gist / arbitrary URL), run `comfyui workflows run <URL> --help` first
-   and read the rendered author notes. Those notes carry the canonical
-   download URLs and place-in hints for every model — they're more
-   reliable than guessing from the workflow's filename inputs.
-4. **If the user asked for a style, character, or specific look** that
-   isn't a standard text-to-image render — Studio Ghibli, Pixar, a
-   particular celebrity, a Renaissance painting, anime, etc. — your
-   first move is `comfyui models search "<style>" --kind lora` (and
-   maybe `comfyui workflows search "<topic>"`). Pick a result whose
-   `base:` matches the workflow you'll run; copy its trigger words into
-   the prompt. See §"Search first" and §"Worked examples".
-5. Otherwise, pick the right workflow from the §Picking the right base
-   model / workflow table based on VRAM (visible in step 1's `env check`)
-   and task type.
-6. Check `comfyui workflows run <template> --dry-run` and ask before
-   triggering installs or large downloads. This is stronger than `models
-   from-workflow --dry-run` because it also shows missing custom-node
-   packages, runs host-wide local model discovery, and shows what `--all`
-   would download after discovered folders are registered.
-7. Rewrite the user's vague prompt into a specific one. For image
-   edits, include explicit "keep" clauses. If you applied a LoRA in
-   step 4, the LoRA's trigger words must appear in the prompt.
-8. Run with `comfyui workflows run <wf> --all --seed N`. Set
-   `CIVITAI_API_TOKEN` first if any input resolves through `civitai://`.
-   Open the result for the user if they're on an interactive desktop:
-   `open <path>` (macOS), `start "" "<path>"` (Windows),
-   `xdg-open <path>` (Linux desktop). Skip the open call on
-   headless / SSH / containers (no `$DISPLAY` / `$WAYLAND_DISPLAY` /
-   `$TERM_PROGRAM` / `$WT_SESSION`) and just print the absolute path
-   instead.
-9. If output is wrong, iterate on the prompt or add/remove a LoRA.
-   Don't loop infinitely — after 3 tries, ask the user.
-10. For any repeated same-workflow generation: daemon + submit. For
-    exotic graph edits: Python.
-
-## Tensor parallelism on multiple GPUs
-
-Tensor parallelism is transparent to the workflow: it does not require a
-special node or any workflow edits. Pass an ordered list of GPUs, set the
-tensor-parallel size to the number of listed devices, and use the
-multiprocessing distributed backend:
-
-```bash
-comfyui workflows run WORKFLOW_NAME_OR_PATH \
-  --cuda-device 0,1 \
-  --tensor-parallel-size 2 \
-  --distributed-executor-backend mp
-```
-
-For four GPUs, use `--cuda-device 0,1,2,3 --tensor-parallel-size 4`. To run
-the same workflow without tensor parallelism, select one GPU and use
-`--tensor-parallel-size 1`. Krea 2, Ideogram 4, Flux2 Dev, and MiniMax H3
-support this path.
-
-The following sampler-only results were measured on two NVLink-connected
-NVIDIA RTX A5000 24 GB GPUs using `--fast fp16_accumulation`:
-
-| Model | Resolution | Frames | Steps | Weights | Attention | TP=1 s/it | TP=2 s/it | Speedup |
-|---|---:|---:|---:|---|---|---:|---:|---:|
-| Krea 2 Turbo | 1024x1024 | — | 8 | INT8 ConvRot | SageAttention | 1.170 | 0.876 | 1.34x |
-| Ideogram 4 | 1024x1024 | — | 20 | INT8 ConvRot (conditional + unconditional) | SageAttention | 2.754 | 1.823 | 1.51x |
-| Flux2 Dev | 1024x1024 | — | 20 | Full INT8 ConvRot | SageAttention | 4.018 | 1.662 | 2.42x |
-| MiniMax H3 | 864x480 | 124 | 20 | Pruned INT8 ConvRot | SageAttention | 9.497 | 6.272 | 1.51x |
-
-## Benchmarking performance with OpenTelemetry
-
-Set `--otel-exporter-otlp-endpoint` to a `file://` URL containing the
-absolute path where ComfyUI should write the trace. Use a different path for
-each variant:
-
-```bash
-# TP=1
-comfyui workflows run WORKFLOW_NAME_OR_PATH \
-  --cuda-device 0 \
-  --tensor-parallel-size 1 \
-  --otel-exporter-otlp-endpoint file:///tmp/comfyui-tp1.jsonl
-
-# TP=2
-comfyui workflows run WORKFLOW_NAME_OR_PATH \
-  --cuda-device 0,1 \
-  --tensor-parallel-size 2 \
-  --distributed-executor-backend mp \
-  --otel-exporter-otlp-endpoint file:///tmp/comfyui-tp2.jsonl
-```
-
-The file contains one JSON span per line. Read the `Sampler Invoke` span to
-measure sampling performance:
-
-```bash
-jq -c 'select(.name == "Sampler Invoke") | .attributes' \
-  /tmp/comfyui-tp2.jsonl
-```
-
-Use `sampling.seconds_per_step` for s/it or
-`sampling.steps_per_second` for it/s. The span also records
-`sampling.elapsed_seconds`, `sampling.steps`, and `sampling.seed`.
-Keep the workflow, model files, seed, resolution, frames, steps, sampler,
-scheduler, attention backend, and fast/compilation settings identical between
-runs.
-
-## Troubleshooting quick table
-
-| Symptom | Fix |
-|---|---|
-| `ValueError: value_not_in_list: vae_name/lora_name/ckpt_name` | Value is a URI the validator accepts now; update the CLI (commits ≥ `d5f5abd7`). Or pre-download with `comfyui models download <uri>`. |
-| Out-of-memory / CUDA OOM mid-workflow | **Step 1:** add `--disable-smart-memory`. The scheduler defaults to keeping previous models co-resident and warm across prompts (see `comfy/cmd/execution.py:974`); disabling it forces `unload_all_models()` between runs and reclaims VRAM taken by stale residents. Latency cost is one cold model reload per prompt. **Step 2 (if still OOM):** add `--novram`. This streams weights module-by-module at sample time and implies `--disable-smart-memory`. Expect ~1 min vs ~50 s at NORMAL_VRAM on klein 9B. Only escalate to `--novram` after step 1 has failed — `--novram` adds per-module CPU↔GPU transfer on every step, which is a bigger hit than one cold reload. |
-| `FutureWarning: The pynvml package is deprecated` | Harmless noise from a transitive dep; the pip facade rewrites this to `nvidia-ml-py` automatically. |
-| `ModuleNotFoundError: webcolors` from Inspire-Pack | Inspire-Pack facade declares `webcolors` as an extra requirement; rebuild the facade wheel (`uv pip install -U --extra-index-url https://nodes.appmana.com/simple/ comfyui-inspire-pack`). |
-| Triton `fp8e4nv not supported` on Ampere | Auto-fixed at quant_ops import on sm < 8.9. If you still see it, run `comfyui env check` to confirm the triton backend is DISABLED. |
-| `UnsupportedWorkflowFormatError: workflow format 'swarmui'/'invokeai'/'krita-ai' is not a valid ComfyUI workflow` | The URL points at a non-ComfyUI workflow format. A1111/Forge `.txt` and Fooocus JSON auto-translate (lossy txt2img mapping); SwarmUI/InvokeAI/Krita-AI shapes have no equivalent and must be re-authored. Find a ComfyUI alternative with `comfyui workflows search "<topic>" --with-host civitai`. |
-| `401 Unauthorized` on a `civitai://` URI | Set `CIVITAI_API_TOKEN` in env. Get one at https://civitai.com/user/account → API Keys. The `civitai://` fsspec backend reads the same env var as `model_downloader`. |
-| Civitai workflow runs but a custom checkpoint is missing | Either (a) the workflow author forgot to put the model URL in their notes, or (b) the model is by a different author than the workflow. Run `comfyui workflows run <URI> --help` and read the author's note section — if it lists URLs, those are now resolved automatically; if it doesn't, search civitai for the filename and pass the resolved URL via `--add-lora` or `--set <node_id>.inputs.ckpt_name=<URL>`. |
-| Custom node package not on `nodes.appmana.com/simple/` | `_install_workflow_requirements` falls back to building the facade wheel locally via `FacadeWheelBuilder` against the package's GitHub or GitLab archive URL (resolved via comfy.org's API or comfyui-manager's extension-node-map). The package still gets the `_appmana_facade_<name>` rename + stub-shim, so node registration works the same. If you see "Could not locate repo URL for: foo", the package isn't in either source; only then file an issue or install from source manually. Upstream README clone/install steps are not a reason to skip the facade path. |
-
----
-
-## Catastrophic bugs — investigate, then route to the maintainer
-
-Most "errors" you'll see are *not* catastrophic — they're missing
-files. A workflow that fails because a checkpoint isn't in
-`models/checkpoints/`, or because a `LoadImage` references an image
-the user didn't pass, is a resolution problem. Fix it the way the
-rest of this guide already shows: run `comfyui workflows run <URI>
---help` to read the author's notes, pass `--all` to mine note URLs +
-the author's Civitai uploads, pass `--image <path-or-URL>` for
-references, or `--add-lora`/`--set` for missing files the workflow
-expected at fixed paths. **Don't escalate these.**
-
-A *catastrophic* bug looks different: a crash that isn't covered in
-the troubleshooting table, a node returning nonsense for inputs that
-look correct, image generation producing black or NaN output even
-though the model loaded, the same workflow producing wildly different
-outputs at the same seed. Those are real defects — the codebase is
-editable, so debug them.
-
-```bash
-# Clone into a workspace next to the user's venv (don't pollute their cwd)
-mkdir -p ~/comfyui-debug && cd ~/comfyui-debug
-git clone https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI.git
-cd pip-and-uv-installable-ComfyUI
-
-# Replace the pip-installed copy in the user's venv with an editable
-# checkout so your edits take effect on the next run with no reinstall.
-# Use the user's existing venv — don't create a new one.
-uv pip install -e . --reinstall-package comfyui
-
-# From here, re-run the failing workflow against the same venv.
-# Prints and ad-hoc changes are live.
-comfyui run-workflow <repro-args>
-```
-
-**What to investigate first:**
-
-- Add `print()` / `logger.warning()` in the suspected node (search by
-  `class_type` to find it: `grep -rn "class .*<ClassType>" comfy/ comfy_extras/`).
-- Diff against the last-known-good behavior: `git log -p -- <file>`,
-  or `git bisect run` if you can write a one-line repro script.
-- Run the relevant tests: `pytest tests/unit/test_<area>.py -x`.
-
-**When you find the root cause, route it to the maintainer.** Tell the
-user:
-
-> Join the Comfy-Org Discord at <https://discord.gg/sjscAyeTBs> and
-> ping `@doctorpangloss` with the following:
->
-> - One-sentence summary of the bug (what input → what wrong output).
-> - Minimal repro: workflow URI / template name + flags + seed.
-> - Versions: output of `comfyui env info` and `git rev-parse HEAD`
->   from the cloned repo.
-> - Your hypothesis about the root cause and which file/lines you
->   suspect (if you found anything in the editable checkout).
-> - Optional: a candidate patch as a diff (`git diff > fix.patch`).
-
-A good ping is one message with all five — not a slow back-and-forth.
-The maintainer reads enough Discord to triage but not to interrogate;
-make the issue actionable on first read.
+Set duration through the actual workflow's exposed controls rather than inventing
+a universal duration flag. Review the resulting clip for temporal consistency,
+motion, and the requested length; a single preview frame is insufficient.
+
+### Reproduce a community workflow
+
+Use `comfyui workflows search` to obtain a workflow URI, then pass that exact URI
+to `comfyui run-workflow URI --help`. Read the author notes, inspect model and node
+requirements with `--dry-run`, then run with `--all` when installation is authorized.
+A Civitai model-version URI identifies an asset and is not necessarily a workflow;
+use model assets with compatible loader or LoRA options. Preserve the original
+workflow and record changes to inputs, seeds, or model versions when reproducing it.

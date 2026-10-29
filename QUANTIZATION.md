@@ -121,7 +121,7 @@ state-dict saving writes quantized tensors, scales, and supported configuration.
 
 ## Fork loading behavior
 
-When `comfy_kitchen` is unavailable, ComfyUI disables FP8 and NVFP4 mixed-precision quantized layers and falls back to loading those weights in the normal compute dtype instead. This is the expected behavior on older torch builds such as the 2.2.x lane, where `comfy_kitchen` cannot provide its tensor subclass implementation.
+When `comfy_kitchen` is unavailable, ComfyUI disables FP8 and NVFP4 mixed-precision quantized layers and falls back to loading those weights in the normal compute dtype instead. This can increase memory use; it is not a guarantee that every quantized checkpoint works without its backend.
 
 Legacy foreign INT8 checkpoints are normalized on load (`comfy.utils.convert_old_quants`): `format: "int8"`, `format: "int8_convrot"`, formatless ComfyUI-INT8-Fast JSON, and bare int8 `.weight` plus `.weight_scale` all map to `format: "int8_tensorwise"`. `convrot` and `convrot_groupsize` are retained for checkpoints that carry them.
 
@@ -145,10 +145,9 @@ offline (DeepCompressor). Per-layer JSON: `{"format": "svdquant_w4a4",
 `{"format": "awq_w4a16", "group_size": 64}` for the AWQ layers. LoRA bake on
 these layers falls back to a dense patched weight (no requantization path).
 
-Caveats: the current comfy_kitchen CUDA kernels are tuned for Blackwell; on
-Ampere (sm_86) the w4a4 path runs but measures slower than the int8 w8a8 path,
-so on 30-series/A-series treat these formats as a 4x weight-memory feature
-rather than a speedup. Checkpoints in raw nunchaku packing (key names
+Caveats: kernel performance depends on GPU architecture and matrix shapes.
+Packed weight storage reduces weight memory but does not guarantee faster
+inference or a proportional reduction in total memory. Checkpoints in raw nunchaku packing (key names
 `qweight`/`wscales`/`proj_down`, nunchaku tile-swizzled int4 order, fused qkv
 projections, int32-packed AWQ weights) are not yet converted automatically;
 only kitchen-format serialization (the `weight*` suffixes above) loads today.

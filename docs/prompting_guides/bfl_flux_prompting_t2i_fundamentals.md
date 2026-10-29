@@ -1,5 +1,10 @@
 # FLUX Prompting Basics
 
+Reviewed: 2026-10-29. This is the earlier FLUX.1/2 snapshot. BFL's moving
+`prompting_unified_basics` page now describes FLUX 3 Image; use the
+[current FLUX 3 guide](flux3_prompting.md) for that model. In particular, API
+fields and automatic prompt expansion differ by generation and deployment.
+
 Vendored snapshot from: https://docs.bfl.ml/guides/prompting_unified_basics
 
 Fetched: 2026-06-03

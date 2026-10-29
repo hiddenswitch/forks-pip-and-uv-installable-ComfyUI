@@ -2,7 +2,7 @@
 
 Vendored snapshot from: https://huggingface.co/circlestone-labs/Anima
 
-Fetched: 2026-06-03
+Fetched: 2026-06-03. Prompting and variant guidance updated: 2026-10-29.
 
 ---
 
@@ -21,13 +21,13 @@ Anima is a 2 billion parameter text-to-image model created via a collaboration b
 
 It is trained on several million anime images and about 800k non-anime artistic images. No synthetic data was used for training. The knowledge cut-off date for the anime training data is September 2025.
 
-**NEW:** Try the [Turbo LoRA](https://civitai.com/models/2560840/anima-turbo-lora) for better stability and much faster generations.
-
 # Versions
 - Anima-Base
-  - The pretrained, unrefined base model. Maximum flexibility, diversity, and style adherence.
+  - The pretrained, unrefined base model. Maximum flexibility, diversity, and style adherence. Use Base for training LoRAs.
+- Anima-Aesthetic
+  - Aesthetic fine-tune. Omit `score_*` tags from both prompts; human quality tags are optional.
 - Anima-Turbo
-  - Coming soon.
+  - Released distilled variant: use CFG 1 and 8–12 steps. It favors speed and a stronger default style over Base's diversity.
 
 # Installing and running
 Workflow:
@@ -39,9 +39,10 @@ The model is natively supported in ComfyUI. The above image contains a workflow;
 
 ## Generation settings
 - Works at resolutions between 512^2 and 1536^2 pixels.
-- 30-50 steps, CFG 4-5.
+- Base: 30-50 steps, CFG 4-5. Turbo uses the separate settings above.
 - A variety of samplers work. Some of my favorites:
   - er_sde: neutral style, flat colors, sharp lines. I use this as a reasonable default.
+  - euler: also recommended by the author for Aesthetic and Turbo.
   - euler_a: Softer, thinner lines. Can sometimes tend towards a 2.5D look. CFG can be pushed a bit higher than other samplers without burning the image.
   - dpmpp_2m_sde_gpu: similar in style to er_sde but can produce more variety and be more "creative". Depending on the prompt it can get too wild sometimes.
 - If going for a more realistic / painterly look, the beta57 scheduler (ComfyUI RES4LYF custom node pack) can help make better textures, since it puts more emphasis on low-noise timesteps.
@@ -50,7 +51,7 @@ The model is natively supported in ComfyUI. The above image contains a workflow;
 The model is trained on Danbooru-style tags, natural language captions, and combinations of tags and captions.
 - Use lowercase for tags, and spaces instead of underscores. Score tags are the only tags that use underscores.
 - Recommended positive prefix: "masterpiece, best quality, score_7, safe, "
-- Recommended negative: "worst quality, low quality, score_1, score_2, score_3, artist name"
+- Recommended Base negative: "worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration"
 - When using a tag that is different between Danbooru and Gelbooru, prefer the Gelbooru version.
 - Prompt weighting works, but needs a weight higher than typically used for SDXL. Example: "(chibi:2)"
 
@@ -64,7 +65,7 @@ Human score based: masterpiece, best quality, good quality, normal quality, low 
 
 PonyV7 aesthetic model based: score_9, score_8, ..., score_1
 
-You can use either the human score quality tags, the aesthetic model tags, both together, or neither. All combinations work.
+For Base, you can use human quality tags, score tags, both, or neither. For Aesthetic, omit score tags from positive and negative prompts.
 
 ## Time period tags
 Specific year: year 2025, year 2024, ...
@@ -129,7 +130,7 @@ You may be interested in comparing Anima's outputs with other models. A ComfyUI 
 - [Example](https://civitai.com/models/2536147) of a style LoRA, with dataset and configs shared.
 
 # License
-This model is licensed under the CircleStone Labs Non-Commercial License. The model and derivatives are only usable for non-commercial purposes. Additionally, this model constitutes a "Derivative Model" of Cosmos-Predict2-2B-Text2Image, and therefore is subject to the [NVIDIA Open Model License Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/) insofar as it applies to Derivative Models.
+Consult the current [CircleStone Labs license](https://huggingface.co/circlestone-labs/Anima/blob/main/LICENSE.md) and the model card's distinction between model use and generated outputs. Anima also derives from Cosmos-Predict2-2B-Text2Image; the card links the applicable [NVIDIA license](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/).
 
 If you would like a commercial license, please email tdrussell@circlestone.ai
 

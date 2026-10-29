@@ -15,12 +15,16 @@ CLIPLoader → TextGenerate → downstream conditioning/video/image node
 
 `TextGenerate` accepts text and optional image, video, or audio inputs. Its
 controls include maximum length, sampling mode, thinking mode, and an optional
-model template. The node returns generated text and the updated conditioning
-object expected by the rest of the workflow. `TextGenerateLTX2Prompt` provides
+model template. The node returns generated text and a separate thinking-text
+output. `TextGenerateLTX2Prompt` provides
 the native prompt-enhancement path for LTX-2 workflows.
 
 Use the packaged workflow templates whenever possible; they already connect
 the correct CLIP loader and generation node for the model family.
+
+Read the checkpoint's [prompting and chat-template reference](prompting_guides/model_coverage.md#language-and-hosted-models).
+Prompt-enhancer fine-tunes need their own task prompts; loading a stock model
+with the same architecture does not reproduce the fine-tune's answer format.
 
 ## Models and memory
 
