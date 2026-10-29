@@ -86,21 +86,56 @@ For an externally launched PP process group, use canonical launcher values
 and Slurm aliases are also accepted. Model-parallel choices still come from
 `Configuration`/CLI; launcher variables identify the process.
 
-## Getting useful performance from multiple GPUs
+## Recorded performance
 
-Tensor parallelism shares supported model computations across GPUs, which can
-reduce generation time. Pipeline parallelism primarily helps fit larger models
-and reduce CPU offloading. Neither mode guarantees a speedup: model size,
-quantization, available VRAM, and communication bandwidth determine the result.
+These historical measurements use two NVLink-connected NVIDIA RTX A5000
+24 GiB GPUs; the baseline uses one of those GPUs. They are sampler averages
+or complete workflow timings as labeled, **not second-step timings**. GPU 0
+also served desktop graphics. Results describe the recorded checkpoint and
+workload, not a guarantee for every model variant or memory setting.
 
-Start with `comfyui env check` to inspect GPU connectivity. Compare the same
-workflow, checkpoint, precision, and sampling settings on one GPU and your
-chosen topology. Keep model loading separate from sampling when comparing
-latency. A fast interconnect helps; transfers through host memory can erase the
-benefit of additional GPUs.
+| Model / workload | GPU configuration | Mode | Attention | Measurement | One GPU | Two GPUs | Speedup |
+|---|---|---|---|---|---|---:|---:|---:|
+| Krea 2 Turbo, INT8 ConvRot, 1024², 8 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 1.170 | 0.876 | 1.34× |
+| Ideogram 4, INT8 ConvRot conditional + unconditional, 1024², 20 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 2.754 | 1.823 | 1.51× |
+| Flux2 Dev, full INT8 ConvRot, 1024², 20 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 4.018 | 1.662 | 2.42× |
+| MiniMax H3, pruned INT8 ConvRot, 864×480×124, 20 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | SageAttention | Mean sampler seconds/step | 9.497 | 6.272 | 1.51× |
+| HunyuanImage3 Instruct W4A8, fixed caption, 1024², 50 steps | 2 × RTX A5000 24 GiB, NVLink | EP + TP=2 | Comfy Kitchen INT8 | Complete sampler seconds | 316.99 | 201.00 | 1.58× |
+| Kandinsky 6 Pro distilled T2AV, 864×480×121, 10 steps | 2 × RTX A5000 24 GiB, NVLink | TP=2 | Not recorded in summary | Cold workflow seconds | 822.04 | 573.38 | 1.43× |
+| Kandinsky 6 Pro distilled I2AV | 2 × RTX A5000 24 GiB, NVLink | TP=2 | Not recorded in summary | Cold workflow seconds | 846.17 | 570.27 | 1.48× |
+| Kandinsky 6 Pro standard T2AV, generation without SR | 2 × RTX A5000 24 GiB, NVLink | TP=2 | Not recorded in summary | Cold workflow seconds | 7172.74 | 7817.27 | 0.92× |
+| Kandinsky 6 Pro standard I2AV, generation without SR | 2 × RTX A5000 24 GiB, NVLink | TP=2 | Not recorded in summary | Cold workflow seconds | 7391.41 | 8344.53 | 0.89× |
 
-For more independent jobs per second, use [worker queues](workers.md) instead
-of dividing one generation across devices.
+The first four rows were retained in [the earlier benchmark table](https://github.com/hiddenswitch/pip-and-uv-installable-ComfyUI/blob/94c047692aec7ebbdd2dca5b11309f3061f1031f/docs/distributed.md).
+The complete-run evidence is in
+[Hunyuan diffusion validation](../release-artifacts/hunyuan-diffusion-tp-fix-validation.json),
+[Kandinsky distilled T2AV](../release-artifacts/kandinsky-pro-distil-benchmark.json),
+[distilled I2AV](../release-artifacts/kandinsky6_pro_distilled_i2av-final-benchmark.json),
+[standard T2AV](../release-artifacts/kandinsky6_pro_standard_t2av-cold-validation.json),
+and [standard I2AV](../release-artifacts/kandinsky6_pro_standard_i2av-cold-validation.json).
+The complete-run rows each compare one cold process per configuration; the OS
+file cache was not flushed. Hunyuan and distilled Kandinsky reserve 2 GiB of
+extra VRAM headroom. Hunyuan W4A8 means 4-bit weights and 8-bit activations.
+Standard Kandinsky Pro was slower with TP=2 in these samples.
+
+The following PP measurements use the same 1024² HunyuanImage3 Instruct W4A8
+fixed-caption workflow reduced to two Euler steps, CFG 2.5, seed 1234. They time
+the **second completed step**, with the attention backend observed at runtime.
+
+| Model | GPU configuration | Mode / transport | Checkpoint storage | Attention | Step 2 (s) | it/s |
+|---|---|---|---|---|---:|---:|
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | Node-local disk | PyTorch SDPA | 4.937 | 0.203 |
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | SeaweedFS network mount | PyTorch SDPA | 18.323 | 0.055 |
+| HunyuanImage3 Instruct W4A8 | 2 × RTX 3090 24 GiB, one per host | PP=2, NCCL / USB4 ibverbs | Node-local disk | Comfy Kitchen INT8 (`--use-ck-attention`) | 4.687 | 0.213 |
+
+[Recorded PP evidence](../release-artifacts/hunyuan-pp2-usb4-validation.json)
+includes revisions and runtime details. Each row is one fresh process; the OS
+file cache was not flushed. The runs use different neighboring host pairs and
+have no matching single-GPU baseline, so they do not establish a PP speedup.
+Two-step output validates execution, not image quality. Separate 50-step
+fresh-process PP=2 runs with SDPA and native INT8 attention completed. Both saved
+images visually matched the fox, grass, golden light, and bokeh in the supplied
+caption; this is one seed per backend, not a general quality comparison.
 
 ## Memory and limitations
 
@@ -121,6 +156,55 @@ TP, PP, and sequence parallelism require the selected devices and process
 group to be visible to the chosen backend. If a mode cannot be constructed,
 ComfyUI reports the reason and does not silently change the requested topology.
 
-## Worker queues
+## Distributed prompt queue
 
-See [worker deployment](workers.md) to distribute independent workflows across machines.
+Prompt distribution is separate from model parallelism. A frontend serves the
+normal ComfyUI API and submits complete prompts to RabbitMQ; one or more workers
+consume those prompts and execute them. Websocket progress and results are
+forwarded through the frontend.
+
+Start RabbitMQ on a machine reachable by every frontend and worker. Use a
+dedicated account because RabbitMQ does not permit remote use of its default
+`guest` account:
+
+```console
+docker run --rm --name comfyui-rabbitmq -p 5672:5672 \
+  -e RABBITMQ_DEFAULT_USER=comfyui \
+  -e RABBITMQ_DEFAULT_PASS=change-me \
+  rabbitmq:4
+```
+
+Replace the example password in both the container configuration and connection
+URI. Start any number of workers with the same queue URI:
+
+```console
+comfyui worker \
+  --distributed-queue-connection-uri amqp://comfyui:change-me@10.1.0.100
+```
+
+All ordinary configuration options are available to a worker. For example, set
+its workspace and GPU selection normally:
+
+```console
+comfyui worker \
+  --cwd /mnt/comfy-shared \
+  --cuda-device 0 \
+  --distributed-queue-connection-uri amqp://comfyui:change-me@10.1.0.100
+```
+
+Start the API/frontend role with queue forwarding enabled:
+
+```console
+comfyui serve \
+  --listen 0.0.0.0 \
+  --cwd /mnt/comfy-shared \
+  --distributed-queue-connection-uri amqp://comfyui:change-me@10.1.0.100 \
+  --distributed-queue-frontend
+```
+
+Workers and frontends must see the same input and output contents. The paths do
+not need to be textually identical, but the frontend's input/output directories
+must expose the files referenced by workers. A shared `--cwd` is the simplest
+layout. Models may instead be stored locally on every worker or configured with
+`--extra-model-paths-config`; they do not need to be readable by a frontend that
+does not execute prompts.

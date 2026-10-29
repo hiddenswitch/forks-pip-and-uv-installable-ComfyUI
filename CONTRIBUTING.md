@@ -21,7 +21,7 @@ Have you identified a reproducible problem in ComfyUI? Do you have a feature req
 
 ### Look For an Existing Issue
 
-Before you create a new issue, please do a search in [open issues](https://github.com/hiddenswitch/forks-pip-and-uv-installable-ComfyUI/issues) to see if the issue or feature request has already been filed.
+Before you create a new issue, please do a search in [open issues](https://github.com/comfyanonymous/ComfyUI/issues) to see if the issue or feature request has already been filed.
 
 If you find your issue already exists, make relevant comments and add your [reaction](https://github.com/blog/2119-add-reactions-to-pull-requests-issues-and-comments). Use a reaction in place of a "+1" comment:
 
@@ -39,7 +39,3 @@ If you cannot find an existing issue that describes your bug or feature, create 
 ## Thank You
 
 Your contributions to open source, large or small, make great projects like this possible. Thank you for taking the time to contribute.
-
-## Development guides
-
-See [testing](docs/testing.md), [linting](docs/linting.md), and [upstream merge compatibility](docs/merging.md). Report fork-specific installation and runtime problems in this repository.

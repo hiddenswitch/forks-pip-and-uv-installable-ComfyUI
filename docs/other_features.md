@@ -1,26 +1,9 @@
-# Media and SVG workflows
+# SVG Conversion and String Saving
 
-## High-bit-depth images and HDR
+ComfyUI supports SVG conversion with vtracer and Skia, along with enhanced string-saving nodes.
 
-Use **Save Image (Advanced)** to select the output format and precision:
+![SVG Conversion Example](assets/svg_01.png)
 
-- PNG supports 8-bit and 16-bit output.
-- EXR supports 16-bit and 32-bit floating-point output, with explicit input color-space selection.
-- AVIF provides high-bit-depth and HDR output options.
+In this example, a raster image is converted to SVG, potentially modified, and then converted back to a raster image. The resulting image and SVG code can be saved.
 
-Match the input color-space setting to the actual image data. Selecting an HDR
-container does not by itself restore highlights missing from an SDR image.
-Use the image color-space and SDR-to-HDR nodes when a workflow needs conversion.
-Video nodes also expose codec, bit-depth, and color-space choices. Available
-encoders depend on the installed media libraries.
-
-These capabilities build on the media support shared with upstream ComfyUI.
-
-## Raster and SVG conversion
-
-Use `ImageToSVG` to vectorize an image and `SVGToImage` to rasterize SVG. Save
-the vector result or continue processing its raster representation.
-
-![SVG conversion example](assets/svg_01.png)
-
-Try the [SVG conversion workflow](../tests/inference/workflows/svg-0.json).
+You can try the [SVG Conversion Workflow](../tests/inference/workflows/svg-0.json) to explore these features.

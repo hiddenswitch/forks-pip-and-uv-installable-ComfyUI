@@ -9,16 +9,10 @@ def _source_root() -> Path:
     return Path(importlib.resources.files("comfy")).parent
 
 
-def _maintained_documents(docs_root):
-    yield from (p for p in docs_root.rglob("*.md") if "prompting_guides" not in p.parts)
-    for name in ("README.md", "CONTRIBUTING.md", "QUANTIZATION.md", "ci/README.md"):
-        yield docs_root.parent / name
-
-
 def test_maintained_docs_have_valid_local_links_and_no_deleted_pages():
     docs_root = _source_root() / "docs"
     deleted = {"lanpaint.md", "openapi_cleanup.md"}
-    for document in [*_maintained_documents(docs_root)]:
+    for document in docs_root.glob("*.md"):
         contents = document.read_text(encoding="utf-8")
         assert not any(name in contents for name in deleted)
         for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", contents):
@@ -36,7 +30,7 @@ def test_maintained_docs_use_uv_for_installation_examples():
 
 
 def test_distributed_docs_show_worker_and_frontend_startup():
-    contents = (_source_root() / "docs" / "workers.md").read_text(encoding="utf-8")
+    contents = (_source_root() / "docs" / "distributed.md").read_text(encoding="utf-8")
     assert "comfyui worker" in contents
     assert "comfyui serve" in contents
     assert "--distributed-queue-frontend" in contents

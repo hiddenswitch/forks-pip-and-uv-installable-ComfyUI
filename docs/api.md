@@ -2,10 +2,40 @@
 
 There are multiple ways to use this ComfyUI package to run workflows programmatically:
 
-## Embedded Python
+### Embedded
 
-Use the [embedded Python guide](embedded.md) to run workflows without a web
-server, build graphs, and stream progress from your application.
+Start ComfyUI by creating an ordinary Python object. This does not create a web server. It runs ComfyUI as a library, like any other package you are familiar with:
+
+```python
+from comfy.client.embedded_comfy_client import Comfy
+
+async with Comfy() as client:
+    outputs = await client.queue_prompt(prompt)
+    save_image_node_id = next(key for key in prompt if prompt[key]["class_type"] == "SaveImage")
+    print(outputs[save_image_node_id]["images"][0]["abs_path"])
+```
+
+See [script_examples/basic_api_example.py](examples/script_examples/basic_api_example.py) for a complete example.
+
+Preview can be retrieved too:
+
+```python
+prompt_dict = copy.deepcopy(_PROMPT_FROM_WEB_UI)
+prompt_dict["6"]["inputs"]["text"] = "masterpiece best quality man"
+...
+preview_frames = []
+async with Comfy() as client:
+    task = client.queue_with_progress(prompt)
+    async for notification in task.progress():
+        if notification.event == BinaryEventTypes.PREVIEW_IMAGE_WITH_METADATA:
+            image_data: PreviewImageWithMetadataMessage = notification.data
+            unencoded_preview, _ = image_data
+            
+            preview_frames.append(unencoded_preview.pil_image.copy())
+```
+
+See more in Colab: https://colab.research.google.com/drive/1Gd9F8iYRJW-LG8JLiwGTKLAcXLJ5eH78#scrollTo=mP_72JH6v1BK
+
 
 ### Remote
 
@@ -124,4 +154,4 @@ routes and this fork's additional REST APIs.
 
 ### RabbitMQ / AMQP Support
 
-Submit jobs directly to a distributed work queue. This package supports AMQP message queues like RabbitMQ. You can submit workflows to the queue, including from the web using RabbitMQ's STOMP support, and receive realtime progress updates from multiple workers. See [distributed inference](workers.md) for the queue architecture.
+Submit jobs directly to a distributed work queue. This package supports AMQP message queues like RabbitMQ. You can submit workflows to the queue, including from the web using RabbitMQ's STOMP support, and receive realtime progress updates from multiple workers. See [distributed inference](distributed.md#distributed-prompt-queue) for the queue architecture.
