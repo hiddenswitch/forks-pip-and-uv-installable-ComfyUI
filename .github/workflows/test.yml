@@ -79,7 +79,8 @@ jobs:
     environment: Testing
     name: Windows RTX 3090 Python 3.14 CUDA 13.0 PyTorch 2.14
     runs-on: [self-hosted, windows-cuda-3090-24gb]
-    timeout-minutes: 120
+    # Cold dependency setup plus serial process tests can exceed two hours.
+    timeout-minutes: 180
     container:
       image: harbor.appmana.com/appmana-shared/buildervscuda:windows-1.0.1-ltsc2022
     env:
