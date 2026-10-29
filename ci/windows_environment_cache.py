@@ -31,6 +31,8 @@ def cache_key(checkout):
 
 
 def restore(archive, root):
+    marker = root / ".comfy-environment-cache-hit"
+    marker.unlink(missing_ok=True)
     try:
         if not archive.is_file():
             return False
@@ -53,6 +55,7 @@ def restore(archive, root):
                 if destination.exists():
                     shutil.rmtree(destination)
                 (unpacked / name).rename(destination)
+        marker.touch()
         return True
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         logging.warning("Environment cache miss: %s", error)
@@ -93,9 +96,6 @@ def main():
     started = time.monotonic()
     if args.mode == "restore":
         hit = restore(archive, args.root)
-        if output := os.environ.get("GITHUB_OUTPUT"):
-            with open(output, "a", encoding="utf-8") as stream:
-                stream.write(f"hit={str(hit).lower()}\n")
         logging.info("Environment cache %s: %s", "hit" if hit else "miss", archive)
     else:
         save(archive, args.root)

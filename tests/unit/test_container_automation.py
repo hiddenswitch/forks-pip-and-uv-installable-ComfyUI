@@ -77,9 +77,9 @@ def test_windows_cached_environment_still_tests_the_current_checkout():
     by_name = {step["name"]: step for step in steps}
     for name in ("Create venv and install PyTorch", "Install locked dependencies",
                  "Install pinned stable-ABI CUDA extensions"):
-        assert by_name[name]["if"] == "steps.environment-cache.outputs.hit != 'true'"
+        assert "[ ! -f C:/.comfy-environment-cache-hit ] || exit 0" in by_name[name]["run"]
     checkout = by_name["Install current checkout into restored environment"]
-    assert checkout["if"] == "steps.environment-cache.outputs.hit == 'true'"
+    assert "if" not in checkout
     assert "--reinstall --no-deps ." in checkout["run"]
     assert steps.index(checkout) < steps.index(by_name["CUDA smoke"])
     assert steps.index(by_name["CUDA smoke"]) < steps.index(by_name["Save prepared Windows environment to SeaweedFS"])

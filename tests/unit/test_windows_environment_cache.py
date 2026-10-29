@@ -25,6 +25,7 @@ def test_restore_prepared_environment_onto_local_disk(tmp_path):
     assert (destination / "venv/Lib/site-packages/dependency.py").read_bytes() == b"prepared dependency"
     assert (destination / "ci-python/python.exe").read_bytes() == b"prepared dependency"
     assert not list(destination.glob("comfy-env-*"))
+    assert (destination / ".comfy-environment-cache-hit").is_file()
 
 
 @pytest.mark.parametrize("kind", ["missing", "corrupt", "incomplete", "traversal"])
@@ -32,6 +33,7 @@ def test_invalid_cache_keeps_existing_environment(tmp_path, kind):
     root = tmp_path / "local"
     root.mkdir()
     environment(root)
+    (root / ".comfy-environment-cache-hit").touch()
     archive = tmp_path / "environment.zip"
     if kind == "corrupt":
         archive.write_bytes(b"interrupted upload")
@@ -39,6 +41,7 @@ def test_invalid_cache_keeps_existing_environment(tmp_path, kind):
         with zipfile.ZipFile(archive, "w") as output:
             output.writestr("../outside" if kind == "traversal" else "venv/readme", b"bad cache")
     assert not cache.restore(archive, root)
+    assert not (root / ".comfy-environment-cache-hit").exists()
     assert (root / "venv/Scripts/python.exe").read_bytes() == b"prepared dependency"
     assert not (tmp_path / "outside").exists()
 
