@@ -11,6 +11,10 @@ Reference-image, segmentation, depth, restoration, and decoding models need inpu
 guidance even when they do not take a generative text prompt. Sources were reviewed
 on 2026-10-29; restricted sources are called out explicitly.
 
+For author-provided prompt rewriting, see the [complete enhancer audit](prompt_upsampling.md).
+It distinguishes actual upsamplers from encoder prefixes, captioners, evaluator
+prompts and input-only tasks, with a finding for every registration below.
+
 Access notes: SD 2.x, Lens, Mage-Flow and Wan Dancer author URLs returned 401.
 For the latter three, the public Comfy-Org cards provide the available workflow
 reference; this review does not claim to have read the restricted author cards.

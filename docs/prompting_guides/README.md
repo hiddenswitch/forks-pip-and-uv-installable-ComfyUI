@@ -8,6 +8,11 @@ native model registration to a vendored guide, author instructions, model card,
 or non-text input contract. It also links additional workflow families and
 hosted providers. A model card is explicitly distinguished from a handbook.
 
+The [official prompt-enhancement audit](prompt_upsampling.md) accounts for every
+native registration and the additional families below. It links author system
+prompts, embedded rewrite instructions and enhancer skills, distinguishes tasks
+and output formats, and records missing or restricted sources explicitly.
+
 Full audit: 2026-10-29. All existing guide sources were checked, including the
 multiple sources in composite guides. Changed guidance appears above retained
 historical snapshots or as dated corrections. Unchanged snapshots keep their

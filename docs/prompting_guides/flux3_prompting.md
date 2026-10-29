@@ -7,7 +7,7 @@ Quote lettering exactly and specify its location and appearance. For editing,
 identify the target, the change, and the details to preserve. With references,
 name each image by its position and explain what it contributes.
 
-For explicit composition, follow BFL's caption-and-element layout format:
+For explicit composition in bounding-box mode, follow BFL's caption-and-element layout format:
 each element has an `id`, `bbox`, and `desc`; the caption references its `<id>`.
 Boxes use `[top, left, bottom, right]` on a 0–1000 grid. Match the aspect ratio
 to the intended layout. This is distinct from Ideogram's JSON caption schema.
@@ -37,6 +37,13 @@ through enhancement and generation. The reference CLI applies enhancement by
 default; the Diffusers pipeline requires a separate enhancement call. A local
 workflow should include the matching enhancer or receive an already complete
 caption. Stock Qwen weights are not the fine-tuned upsampler.
+
+The public [upsampler system_prompts.json](https://huggingface.co/black-forest-labs/flux-3-image-klein-pup/blob/main/system_prompts.json)
+ships four variants: `t2i`, `i2i`, `t2i_bbox`, and `i2i_bbox`. Plain modes output
+prose without element IDs or boxes. Bounding-box T2I uses the `id`/`bbox`/`desc`
+layout above; bounding-box I2I instead uses `id`, `from`, `src_bbox`, `tgt_bbox`,
+and `desc`, with zero-based `ref_image_0` sources. Select the format expected by
+the workflow. See the [enhancer audit](prompt_upsampling.md#flux) for details.
 
 The [Klein guide](https://docs.bfl.ml/flux_3/flux3_image_klein.md) specifies
 16 steps/CFG 1 for Distilled and 50 steps/CFG 3.5 for Base. Klein's hosted API
