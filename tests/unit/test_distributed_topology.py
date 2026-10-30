@@ -44,6 +44,7 @@ def test_link_lookup_is_by_ordered_pair():
 
 
 @pytest.mark.skipif(not torch.cuda.is_available() or torch.cuda.device_count() < 2, reason="needs two CUDA devices")
+@pytest.mark.requires_accelerator
 def test_measure_device_links_on_real_devices():
     devices = topology.cuda_devices()[:2]
     links = topology.measure_device_links(devices, size_bytes=64 * 1024 * 1024, iterations=2)

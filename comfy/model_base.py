@@ -1731,10 +1731,13 @@ class Anima(BaseModel):
                 t5xxl_ids = t5xxl_ids.unsqueeze(0)
 
                 if torch.is_inference_mode_enabled():  # if not we are training
-                    cross_attn = self.diffusion_model.preprocess_text_embeds(cross_attn.to(device=device, dtype=self.get_dtype_inference()), t5xxl_ids.to(device=device), t5xxl_weights=t5xxl_weights.to(device=device, dtype=self.get_dtype_inference()))
+                    if t5xxl_weights is not None:
+                        t5xxl_weights = t5xxl_weights.to(device=device, dtype=self.get_dtype_inference())
+                    cross_attn = self.diffusion_model.preprocess_text_embeds(cross_attn.to(device=device, dtype=self.get_dtype_inference()), t5xxl_ids.to(device=device), t5xxl_weights=t5xxl_weights)
                 else:
                     out['t5xxl_ids'] = conds.CONDRegular(t5xxl_ids)
-                    out['t5xxl_weights'] = conds.CONDRegular(t5xxl_weights)
+                    if t5xxl_weights is not None:
+                        out['t5xxl_weights'] = conds.CONDRegular(t5xxl_weights)
 
             out['c_crossattn'] = conds.CONDRegular(cross_attn)
         return out

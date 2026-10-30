@@ -35,6 +35,8 @@ def _ancestors(prompt, outputs):
 
 
 @pytest.mark.inference
+@pytest.mark.requires_weights
+@pytest.mark.requires_accelerator
 @pytest.mark.asyncio
 async def test_qwen21_templates_generate_and_edit_rgba(has_gpu, client):
     if not has_gpu:

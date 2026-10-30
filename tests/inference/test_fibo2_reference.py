@@ -11,7 +11,11 @@ import os
 import pytest
 import torch
 
-pytestmark = pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA GPU")
+pytestmark = [
+    pytest.mark.requires_weights,
+    pytest.mark.requires_accelerator,
+    pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA GPU"),
+]
 
 REPO = "briaai/Fibo-2.0-dev"
 PROMPT = json.dumps({

@@ -191,3 +191,7 @@ uv.lock
 .comfy_environment
 .scratch/
 /previews/
+
+.coverage-results/
+.coverage
+.coverage.*

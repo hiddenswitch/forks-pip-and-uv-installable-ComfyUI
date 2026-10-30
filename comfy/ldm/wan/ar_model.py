@@ -183,6 +183,7 @@ class CausalWanModel(WanModel):
         Returns:
             flow_pred: [B, C_out, block_frames, H, W] flow prediction
         """
+        original_shape = x.shape
         x = common_dit.pad_to_patch_size(x, self.patch_size)
         bs, c, t, h, w = x.shape
 
@@ -220,7 +221,7 @@ class CausalWanModel(WanModel):
 
         # Unpatchify
         x = self.unpatchify(x, grid_sizes)
-        return x[:, :, :t, :h, :w]
+        return x[:, :, :original_shape[-3], :original_shape[-2], :original_shape[-1]]
 
     def init_kv_caches(self, batch_size, max_seq_len, device, dtype):
         """Create fresh KV caches for all layers."""

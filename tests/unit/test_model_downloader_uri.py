@@ -6,6 +6,9 @@ returning local file paths that work with downstream code.
 """
 import json
 import os
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from threading import Thread
 
 import pytest
 import requests
@@ -275,3 +278,83 @@ def test_huggingface_repo_list_with_no_cache(monkeypatch, tmp_path):
     )
 
     assert set(model_downloader.get_huggingface_repo_list()) == model_downloader.KNOWN_HUGGINGFACE_MODEL_REPOS
+
+
+@pytest.fixture
+def local_downloads(tmp_path, monkeypatch):
+    destination = tmp_path / "models"
+    destination.mkdir()
+    monkeypatch.setitem(
+        folder_paths.folder_names_and_paths,
+        "checkpoints",
+        FolderPathsTuple("checkpoints", [str(destination)], {".safetensors"}),
+    )
+    requested = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requested.append(self.path)
+            if self.path == "/redirect.safetensors":
+                self.send_response(302)
+                self.send_header("Location", "/200.safetensors")
+                self.end_headers()
+                return
+            status = int(Path(self.path).stem)
+            body = b"tiny model bytes" if status == 200 else b"error response"
+            self.send_response(status)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format, *args):
+            pass
+
+    with requests.Session() as session, ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
+        monkeypatch.setattr(model_downloader, "_session", session)
+        thread = Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01})
+        thread.start()
+        try:
+            yield f"http://127.0.0.1:{server.server_port}", destination, requested
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+            assert not thread.is_alive()
+
+
+@pytest.mark.parametrize("filename", ["200.safetensors", "redirect.safetensors"])
+def test_local_http_download_and_cache(local_downloads, filename):
+    base, destination, requested = local_downloads
+    result = get_or_download("checkpoints", f"{base}/{filename}")
+    assert Path(result) == destination / filename
+    assert Path(result).read_bytes() == b"tiny model bytes"
+    requests_before = list(requested)
+    assert get_or_download("checkpoints", f"{base}/{filename}") == result
+    assert requested == requests_before
+
+
+@pytest.mark.parametrize("status", [400, 401, 404, 500])
+def test_local_http_errors_do_not_cache_error_pages(local_downloads, status):
+    base, destination, requested = local_downloads
+    filename = f"{status}.safetensors"
+    with pytest.raises(requests.HTTPError) as error:
+        get_or_download("checkpoints", f"{base}/{filename}")
+    assert error.value.response.status_code == status
+    assert requested == [f"/{filename}"]
+    assert not (destination / filename).exists()
+
+
+def test_offline_http_does_not_contact_server(local_downloads):
+    base, destination, requested = local_downloads
+    assert get_or_download("checkpoints", f"{base}/200.safetensors", offline=True) is None
+    assert requested == []
+    assert list(destination.iterdir()) == []
+
+
+def test_file_uri_copies_local_bytes(local_downloads, tmp_path):
+    _, destination, requested = local_downloads
+    source = tmp_path / "local.safetensors"
+    source.write_bytes(b"local tensor fixture")
+    result = get_or_download("checkpoints", source.as_uri())
+    assert Path(result) == destination / source.name
+    assert Path(result).read_bytes() == source.read_bytes()
+    assert requested == []

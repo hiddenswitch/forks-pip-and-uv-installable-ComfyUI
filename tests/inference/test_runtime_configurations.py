@@ -97,6 +97,8 @@ def runtime_workflow(name, mode):
 
 
 @pytest.mark.inference
+@pytest.mark.requires_weights
+@pytest.mark.requires_accelerator
 @pytest.mark.asyncio
 @pytest.mark.parametrize("name,mode,changes", CASES, ids=[f"{name}-{mode}" for name, mode, _ in CASES])
 async def test_runtime_configuration(name, mode, changes, tmp_path, request):

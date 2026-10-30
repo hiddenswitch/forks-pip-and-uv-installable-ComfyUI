@@ -359,7 +359,7 @@ class OmniGen2Transformer2DModel(nn.Module):
         img_sizes = [(img.size(1), img.size(2)) for img in hidden_states]
         l_effective_img_len = [(H // p) * (W // p) for (H, W) in img_sizes]
 
-        if ref_image_hidden_states is not None:
+        if ref_image_hidden_states is not None and len(ref_image_hidden_states) > 0:
             ref_image_hidden_states = list(map(lambda ref: pad_to_patch_size(ref, (p, p)), ref_image_hidden_states))
             ref_img_sizes = [[(imgs.size(2), imgs.size(3)) if imgs is not None else None for imgs in ref_image_hidden_states]] * batch_size
             l_effective_ref_img_len = [[(ref_img_size[0] // p) * (ref_img_size[1] // p) for ref_img_size in _ref_img_sizes] if _ref_img_sizes is not None else [0] for _ref_img_sizes in ref_img_sizes]
@@ -368,7 +368,7 @@ class OmniGen2Transformer2DModel(nn.Module):
             l_effective_ref_img_len = [[0] for _ in range(batch_size)]
 
         flat_ref_img_hidden_states = None
-        if ref_image_hidden_states is not None:
+        if ref_image_hidden_states is not None and len(ref_image_hidden_states) > 0:
             imgs = []
             for ref_img in ref_image_hidden_states:
                 B, C, H, W = ref_img.size()

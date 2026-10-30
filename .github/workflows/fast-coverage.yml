@@ -1,0 +1,35 @@
+name: Fast CPU coverage
+on:
+  push:
+    branches: [develop, master]
+  workflow_dispatch:
+jobs:
+  coverage:
+    runs-on: [self-hosted, linux, X64, cpu]
+    timeout-minutes: 15
+    container:
+      image: archlinux:latest
+    steps:
+      - run: pacman -Syu --noconfirm git python uv zip tar zstd base-devel libxcb mesa
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v5
+        id: baseline
+        with:
+          path: .coverage-results/baseline/coverage.json
+          key: fast-cpu-v1-py3147-${{ hashFiles('ci/locks/pylock.linux-py314-cpu.toml', 'scripts/fast_coverage.py') }}
+      - run: |
+          uv venv --python 3.14.7 .venv
+          ci/install-locked.sh ci/locks/pylock.linux-py314-cpu.toml .venv/bin/python
+          if [ -f .coverage-results/baseline/coverage.json ]; then
+            .venv/bin/python scripts/fast_coverage.py --baseline .coverage-results/baseline/coverage.json
+          else
+            .venv/bin/python scripts/fast_coverage.py
+            mkdir -p .coverage-results/baseline
+            cp .coverage-results/fast/coverage.json .coverage-results/baseline/coverage.json
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fast-cpu-coverage
+          path: .coverage-results/fast/
+          include-hidden-files: true

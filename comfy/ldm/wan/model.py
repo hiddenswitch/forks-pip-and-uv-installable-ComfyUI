@@ -880,6 +880,7 @@ class VaceWanModel(WanModel):
 
         orig_shape = list(vace_context.shape)
         vace_context = vace_context.movedim(0, 1).reshape([-1] + orig_shape[2:])
+        vace_context = pad_to_patch_size(vace_context, self.patch_size)
         c = self.vace_patch_embedding(vace_context.float()).to(vace_context.dtype)
         c = c.flatten(2).transpose(1, 2)
         c = list(c.split(orig_shape[0], dim=0))

@@ -240,7 +240,7 @@ def comfy_background_server(tmp_path_factory) -> Generator[tuple[Configuration, 
     yield from comfy_background_server_from_config(configuration)
 
 
-def comfy_background_server_from_config(configuration: Configuration):
+def comfy_background_server_from_config(configuration: Configuration, server_module="tests.background_server"):
     with tempfile.NamedTemporaryFile(prefix="comfyui-test-server-", suffix=".pickle", delete=False) as config_file:
         pickle.dump(configuration, config_file)
         config_path = pathlib.Path(config_file.name)
@@ -249,7 +249,7 @@ def comfy_background_server_from_config(configuration: Configuration):
         [
             sys.executable,
             "-m",
-            "tests.background_server",
+            server_module,
             str(config_path),
         ]
     )

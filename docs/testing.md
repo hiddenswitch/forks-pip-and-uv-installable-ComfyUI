@@ -407,3 +407,170 @@ kernel is shut down afterward. No browser or notebook server is needed.
 without a file descriptor. Marked functions must be self-contained:
 JSON-serializable parametrization is supported, but host pytest fixtures are
 not passed into the kernel.
+
+
+## Fast CPU coverage
+
+Run `python scripts/fast_coverage.py` from the repository with development
+requirements installed (coverage.py 7.10 or newer). The reviewed test selection
+runs real graph execution, caching, validation, process pools, tiny model
+forwards and sampler loops without pretrained downloads. It uses CPU tensors,
+offline Hugging Face settings, a 30-second test timeout and a ten-minute budget
+for testing and reporting together. Timing and hardware tests are excluded.
+On POSIX, a timed-out command's process group is killed, including its workers
+and local servers. Remaining descendants are also killed when a command exits,
+including when pytest-timeout bypasses fixture teardown. Interrupted or timed-out
+runs cannot establish a baseline.
+This is a bounded subset, not the entire unit
+suite; all Python files in the seven shipped packages remain in the coverage
+denominator, including unimported namespace directories. The runner checks the
+report against the wheel's package inventory and fails if a source file is absent.
+
+Reports, raw process data (in `raw/`), JUnit results and HTML are written to
+`.coverage-results/fast/`. Worker coverage is checked before accepting a report.
+`--baseline previous/coverage.json` rejects lower statement or branch coverage.
+Reports record the Python, platform, key dependency versions and test selection;
+comparison rejects mismatches, empty measurements and failed test runs.
+
+`tests/fast_model_contracts.json` records a verified native forward contract for
+each supported model. Any newly recorded gap appears as a skip. Workflow inventory
+entries are not evidence of executing the named architecture. Real-weight,
+accelerator and external-service tests must retain separate reports; synthetic
+coverage does not establish image quality, kernel correctness or weight compatibility.
+
+The CPU CI job pins Python 3.14.7 and installs the CPU dependency lock. Its first
+successful run saves a baseline in the Actions cache. Later runs with the same
+lock and runner compare against that baseline; changing either establishes a
+new baseline. If the cache expires, the next successful run establishes another.
+Import-time definitions count as executed statements; coverage percentages do
+not measure model correctness.
+
+The fast runner also installs a test-only Python startup socket policy inherited
+by workers: DNS resolution and connections outside loopback fail immediately.
+Local HTTP fixtures remain usable. This policy is not enabled in normal runtime.
+A measurement regression test verifies separate parent, thread, spawned-worker and HTTP
+server bodies appear in combined coverage after normal shutdown. It also checks
+that the offline policy survives a fresh interpreter launch.
+
+The fast selection includes real HTTP server tests for disabled nodes,
+legacy-node replacement, and dynamically expanded graphs, plus execution error
+logging and job-history tests. Those server tests load native base/post-processing
+nodes, built-in replacement rules and the expansion test nodes; they do not scan
+unrelated extensions or installed custom-node entry points.
+Tiny native-attention forward contracts cover
+Qwen Image, Qwen Image 2.1, YuE2, Fibo2, Flux, Flux Schnell, Flux2 and MiniMax H3.
+PixArt Alpha/Sigma and Hunyuan DiT contracts also exercise size and text-mask
+conditioning. These fixtures use real CPU operations; no model forward or attention function
+is replaced with a no-op.
+
+Stable Diffusion contracts construct each registered wrapper with reduced UNet
+width and depth while retaining its text/ADM dimensions and conditioning policy.
+They check signature rejection, state-dict shape detection, real conditioned and
+unconditioned forwards, output shape/dtype/finiteness and repeatability. The fast
+suite also runs offline downloader URI, local-cache and error-path tests,
+cache-provider contracts and distributed worker/topology configuration tests.
+Loopback HTTP fixtures verify redirects, cached downloads and rejection of error
+responses before creating a model file; file-URI fixtures exercise local copying.
+SVD and SV3D cases use two frames and exercise temporal and image-only blending.
+SD3, Chroma and Flux inpainting contracts check odd latent dimensions and
+conditioning sensitivity; Flux inpainting also checks mask-channel construction.
+Hunyuan 3D contracts exercise point latents, image conditioning, CFG batches and
+the 2.1 mixture-of-experts path. Wan contracts cover text/image generation,
+control latents, camera adapters and per-frame timestep masks using small videos.
+Hunyuan image/video cases include ByT5 and vision conditioning, refiner latent
+packing, noise augmentation and the distilled model's next-timestep input.
+Negative controls verify that a constant model output and a missing expected
+execution error cause their corresponding checks to fail.
+CogVideoX cases exercise spatial and temporal patching, odd video dimensions,
+OFS embeddings and image-conditioning resize paths. Stable Audio cases include
+duration embeddings, text padding and local inpainting conditioning; Cascade
+cases use prior resizing, weighted image embeddings and repeated blocks.
+Cosmos cases cover both predictor generations, image masks, frame rates and
+per-frame timesteps; Predict2 also exercises odd spatial dimensions.
+Lumina and Z Image cases exercise odd sizes, learned padding and the pixel-space
+decoder. Ming Image adds multiple frames, direct context and reference frames.
+Lens checks multi-layer text features and verifies that masked tokens cannot
+change the generated tensor while unmasked conditioning can.
+HiDream exercises routed experts, multiple text layers and image conditioning.
+Kandinsky image/video cases verify output cropping after patch padding and
+video-frame replacement. OmniGen2 compares absent and empty references, then
+checks that multiple reference images change the result.
+Wan VACE tests use weighted control streams; causal Wan checks cache growth,
+reset and first-frame equivalence to uncached execution. FlowRVS and SCAIL cases
+exercise image/pose conditioning, multiple references and identity-mask streams.
+HuMo covers both input layouts with audio and reference frames; S2V checks audio,
+reference and control-video effects. WanDancer checks music strength and frame
+rates. Animate exercises native face/pose encoders; Animate2 compares cached and
+uncached pose execution, checks strength controls and rejects invalid frame counts.
+Mochi checks masked text conditioning; ACE-Step runs its native lyric encoder
+and verifies that lyric strength affects the output.
+Boogu exercises both transformer stages and multiple references; Joy Image and
+Mage-Flow cover reference conditioning, while Ernie Image checks text conditioning.
+PixelDiT and PiD use odd pixel dimensions, with PiD testing low-resolution
+conditioning and its missing-input error. TripoSplat checks packed point/camera
+latents and reference-image effects on both outputs.
+Krea2 checks reference timestep modes and malformed text features. MOSSImage and
+Flux3 compare precomputed conditioning with conditioning computed during each
+forward; Flux3 also exercises fused QKV and flow-map variants. Ideogram4 checks
+image-only conditioning and masked-token invariance. Anima runs its native text
+adapter and compares both preprocessing paths with optional token weights.
+MiniMax Music 3 retains native widths with two transformer blocks and checks
+conditioning crop/padding and overlapping-window averaging. LTXV checks guide
+attention strength, per-token denoising times and malformed keyframe positions.
+LTX audio/video exercises native text connectors, packed video/audio latents,
+separate denoising masks and reference-audio effects on both output streams.
+ACE-Step 1.5 checks null conditioning, reference tokenization and explicit audio
+codes with odd sequence lengths. Depth Anything 3 uses its native small DINO
+backbone and verifies depth, confidence, sky and exported feature outputs.
+RT-DETR retains its native backbone and decoder, with a smaller evaluation grid;
+it checks image sensitivity, batched detections and output-coordinate scaling.
+SeedVR2 retains its 32-block layout at reduced width, checks odd temporal
+patching, conditioning-latent sensitivity and positive/negative batch ordering,
+and verifies errors for absent or mismatched conditioning latents.
+SAM3 and SAM3.1 exercise detection, text-conditioned masks and output resizing
+with a reduced vision backbone. HiDream-O1 compares cold and cached language/vision
+conditioning, including reference images. SenseNova compares precomputed and
+deferred prefixes, reference-image conditioning and odd-size pixel outputs.
+
+### Extending coverage
+
+The model contracts exercise representative configurations, not every model
+branch. Use the HTML report's missing branches to choose further cases:
+
+- Prioritize `comfy/model_patcher.py`, `comfy/model_management.py` and `comfy/sd.py`:
+  use tiny CPU modules and temporary checkpoints to test patch restoration,
+  load/unload transitions, missing tensors and dtype handling before adding
+  device-dependent cases.
+- Exercise `comfy/component_model/workflow_convert.py` with small UI graphs:
+  nested subgraphs, missing links, malformed widgets and output selection.
+  Test `comfy/samplers.py` orchestration with a deterministic denoiser, including
+  CFG batches, cancellation and callbacks; integrator-only tests do not cover it.
+- Extend checkpoint detection tests with incomplete signatures and packed weight
+  layouts for more families. Qwen Image 2.1 already checks every required key
+  and packed/fused layouts; YuE2 checks incomplete signatures. Shape-only fixtures
+  cannot establish that a real checkpoint loads correctly.
+- Add small native encoder/decoder and tokenizer round trips, more sampler
+  schedules, and video-tracking state transitions. Perception forward contracts
+  currently establish image detection/depth behavior, not tracking correctness.
+- Exercise API validation and provider error handling against loopback services,
+  including interrupted responses and retries. Keep live provider tests separate.
+- Test quantized kernels, offloading and distributed collectives on their required
+  devices. CPU configuration checks do not prove multi-device numerical parity.
+
+Real-weight tests in `tests/inference/` carry `requires_weights` and
+`requires_accelerator` markers. To collect only its lightweight inventory check:
+
+```shell
+pytest --collect-only -m "not requires_weights and not requires_accelerator" tests/inference
+```
+
+When running pretrained inference on suitable hardware, keep its coverage data
+in a separate directory and context. Never combine these shards into the fast
+CPU baseline:
+
+```shell
+mkdir -p .coverage-results/real-weights
+COVERAGE_FILE=.coverage-results/real-weights/.coverage coverage run --context=real-weights -m pytest -m requires_weights tests/inference
+COVERAGE_FILE=.coverage-results/real-weights/.coverage coverage combine --keep
+COVERAGE_FILE=.coverage-results/real-weights/.coverage coverage json -o .coverage-results/real-weights/coverage.json
+```

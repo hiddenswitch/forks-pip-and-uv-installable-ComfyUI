@@ -6,9 +6,8 @@ from comfy import supported_models
 from . import workflows
 
 
-# This is representative inference coverage for supported loader/model-family
-# surfaces. Some supported classes are architecture variants that intentionally
-# map to a shared workflow fixture; new classes still need an explicit entry.
+# Workflow inventory only: shared fixtures do not establish execution coverage
+# for the named model. Runtime coverage is measured separately with coverage.py.
 SUPPORTED_MODEL_WORKFLOW_COVERAGE = {
     "LotusD": ("flux-controlnet-1.json",),
     "Stable_Zero123": ("flux-redux-0.json",),
@@ -122,13 +121,13 @@ SUPPORTED_MODEL_WORKFLOW_COVERAGE = {
 }
 
 
-def test_supported_models_have_inference_workflow_coverage():
+def test_supported_models_have_workflow_inventory_entries():
     supported_model_names = {model.__name__ for model in supported_models.models}
 
     missing = supported_model_names - SUPPORTED_MODEL_WORKFLOW_COVERAGE.keys()
     extra = SUPPORTED_MODEL_WORKFLOW_COVERAGE.keys() - supported_model_names
 
-    assert not missing, f"supported model classes without inference coverage: {sorted(missing)}"
+    assert not missing, f"supported model classes without workflow inventory entries: {sorted(missing)}"
     assert not extra, f"coverage entries for unknown supported model classes: {sorted(extra)}"
 
     workflow_files = {

@@ -440,6 +440,7 @@ class Kandinsky5(nn.Module):
         freqs_text = self.rope_encode_1d(context.shape[1], device=x.device, dtype=x.dtype, transformer_options=transformer_options)
 
         out = self.forward_orig(x, timestep, context, y, freqs, freqs_text, transformer_options=transformer_options, **kwargs)
+        out = out[:, :, :t_len, :h, :w]
         if original_dims == 4:
             out = out.squeeze(2)
         return out

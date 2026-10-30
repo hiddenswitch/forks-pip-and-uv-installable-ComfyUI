@@ -49,18 +49,8 @@ def _wait_for_history(base_url: str, prompt_id: str) -> dict:
     raise AssertionError(f"prompt {prompt_id} did not finish")
 
 
-# The execution testing pack's nodes, loaded by the server as a custom node folder.
-_TESTING_PACK_SHIM = """from tests.inference.testing_pack.specific_tests import TestDisabledNode, TestExpandsToDisabledNode
-
-NODE_CLASS_MAPPINGS = {
-    "TestDisabledNode": TestDisabledNode,
-    "TestExpandsToDisabledNode": TestExpandsToDisabledNode,
-}
-"""
-
-
 @contextmanager
-def _running_server(tmp_path: Path, disabled_node: str, testing_nodes: bool = False) -> Iterator[str]:
+def _running_server(tmp_path: Path, disabled_node: str) -> Iterator[str]:
     config_path = tmp_path / "disabled_nodes.yaml"
     config_path.write_text(f"disabled_nodes:\n  - {disabled_node}\n", encoding="utf-8")
     configuration = default_configuration()
@@ -72,20 +62,9 @@ def _running_server(tmp_path: Path, disabled_node: str, testing_nodes: bool = Fa
     configuration.output_directory = str(tmp_path / "output")
     configuration.temp_directory = str(tmp_path)
     configuration.disabled_nodes_config = str(config_path)
-    if testing_nodes:
-        pack_path = tmp_path / "testing_nodes" / "custom_nodes" / "testing_pack_shim"
-        pack_path.mkdir(parents=True)
-        (pack_path / "__init__.py").write_text(_TESTING_PACK_SHIM, encoding="utf-8")
-        extra_model_paths = tmp_path / "extra_model_paths.yaml"
-        extra_model_paths.write_text(
-            f"testing_nodes:\n  base_path: {json.dumps(str(tmp_path / 'testing_nodes'))}\n  custom_nodes: custom_nodes\n",
-            encoding="utf-8",
-        )
-        configuration.extra_model_paths_config = [str(extra_model_paths)]
-    else:
-        configuration.disable_all_custom_nodes = True
+    configuration.disable_all_custom_nodes = True
 
-    server = comfy_background_server_from_config(configuration)
+    server = comfy_background_server_from_config(configuration, server_module="tests.fast_server")
     next(server)
     try:
         yield f"http://{configuration.listen}:{configuration.port}"
@@ -114,7 +93,7 @@ def test_disabled_old_id_forwards_and_executes_allowed_target(tmp_path: Path) ->
 
     # When
     with _running_server(tmp_path, "ImageBatch") as base_url:
-        object_info = _get_json(f"{base_url}/object_info")
+        object_info = _get_json(f"{base_url}/object_info/ImageBatch")
         status, response = _post_prompt(base_url, prompt)
         history = _wait_for_history(base_url, response["prompt_id"])
 
@@ -132,7 +111,7 @@ def test_replacement_pointing_to_disabled_target_is_refused(tmp_path: Path) -> N
 
     # When
     with _running_server(tmp_path, "ConditioningAverage") as base_url:
-        object_info = _get_json(f"{base_url}/object_info")
+        object_info = _get_json(f"{base_url}/object_info/ConditioningAverage")
         status, response = _post_prompt(base_url, prompt)
 
     # Then
@@ -148,13 +127,14 @@ def test_disabled_node_cannot_be_reached_through_expansion(tmp_path: Path) -> No
     prompt = {"1": {"class_type": "TestExpandsToDisabledNode", "inputs": {}}}
 
     # When
-    with _running_server(tmp_path, "TestDisabledNode", testing_nodes=True) as base_url:
-        object_info = _get_json(f"{base_url}/object_info")
+    with _running_server(tmp_path, "TestDisabledNode") as base_url:
+        object_info = _get_json(f"{base_url}/object_info/TestExpandsToDisabledNode")
+        disabled_info = _get_json(f"{base_url}/object_info/TestDisabledNode")
         status, response = _post_prompt(base_url, prompt)
         history = _wait_for_history(base_url, response["prompt_id"])
 
     # Then
     assert "TestExpandsToDisabledNode" in object_info
-    assert "TestDisabledNode" not in object_info
+    assert "TestDisabledNode" not in disabled_info
     assert status == 200
     assert history["status"]["status_str"] == "error"

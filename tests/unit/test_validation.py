@@ -7,6 +7,7 @@ from pytest_mock import MockerFixture
 
 from comfy.cli_args import args
 from comfy.cmd.execution import validate_prompt
+from comfy.execution_context import current_execution_context
 from comfy.nodes_context import get_nodes
 from comfy_extras.nodes.nodes_logic import SwitchNode
 
@@ -76,7 +77,8 @@ known_models: ContextVar[list[str]] = ContextVar('known_models', default=[])
 
 
 @pytest.fixture
-def mock_nodes(mocker: MockerFixture):
+def mock_nodes(mocker: MockerFixture, monkeypatch):
+    monkeypatch.setitem(current_execution_context().configuration, "disable_all_custom_nodes", True)
     nodes = get_nodes()
     class MockCheckpointLoaderSimple:
         @staticmethod

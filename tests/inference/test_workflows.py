@@ -150,6 +150,8 @@ def _replace_remote_media_inputs(workflow: dict) -> None:
 
 
 @pytest.mark.inference
+@pytest.mark.requires_weights
+@pytest.mark.requires_accelerator
 @pytest.mark.asyncio
 @pytest.mark.parametrize("workflow_name, workflow_file", _prepare_for_workflows().items())
 async def test_workflow(workflow_name: str, workflow_file: Traversable, has_gpu: bool, client: Comfy):

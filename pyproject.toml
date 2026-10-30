@@ -169,7 +169,7 @@ dev = [
     "testcontainers[rabbitmq]",
     "mypy>=1.6.0",
     "freezegun",
-    "coverage",
+    "coverage>=7.10",
     "datamodel-code-generator>=0.59",
     "pylint",
     "astroid",
@@ -204,6 +204,10 @@ timeout = 300
 timeout_method = "thread"
 faulthandler_timeout = 600
 markers = [
+    "requires_weights: loads pretrained weights",
+    "requires_network: contacts external services",
+    "requires_accelerator: requires accelerator hardware",
+    "timing: wall-clock performance assertion",
     "server_process: tests which start a child process or a ComfyUI server",
     "ipython(capture_fd_output=True): run a self-contained test function in a fresh IPython kernel",
 ]
@@ -343,3 +347,16 @@ enable = [
     "cuda-alloc-conf-default-broken",  # W9108 — tests/merge_hygiene_checker.py
     "workflow-cache-contains-ui-format", # W9109 — tests/merge_hygiene_checker.py
 ]
+
+[tool.coverage.run]
+branch = true
+source = ["comfy", "comfy_execution", "comfy_extras", "comfy_api", "comfy_api_nodes", "comfy_config", "comfy_compatibility"]
+concurrency = ["thread", "multiprocessing"]
+patch = ["subprocess", "_exit"]
+parallel = true
+sigterm = true
+relative_files = true
+
+[tool.coverage.report]
+show_missing = true
+include_namespace_packages = true

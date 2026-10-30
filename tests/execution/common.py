@@ -123,6 +123,7 @@ async def client_fixture(self, request=None):
     from ..inference.testing_pack import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
 
     configuration = default_configuration()
+    configuration.disable_all_custom_nodes = True
     if request is not None and "extra_args" in request.param:
         configuration.update(request.param["extra_args"])
 

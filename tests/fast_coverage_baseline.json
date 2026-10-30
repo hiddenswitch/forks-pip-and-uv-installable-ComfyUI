@@ -1,0 +1,32 @@
+{
+  "environment": {
+    "python": "3.12.12",
+    "platform": "Linux",
+    "machine": "x86_64",
+    "packages": {
+      "coverage": "7.14.0",
+      "pytest": "9.0.3",
+      "pytest-timeout": "2.4.0",
+      "torch": "2.13.0",
+      "numpy": "2.2.6"
+    },
+    "selection": "618e2523b8fe35ac646bc499509d7c545584beaaf74d105d284f21804ae4b201"
+  },
+  "test_exit_code": 0,
+  "totals": {
+    "covered_lines": 67711,
+    "num_statements": 179604,
+    "percent_covered": 32.21784776902887,
+    "percent_covered_display": "32",
+    "missing_lines": 111893,
+    "excluded_lines": 395,
+    "percent_statements_covered": 37.700162579898,
+    "percent_statements_covered_display": "38",
+    "num_branches": 48996,
+    "num_partial_branches": 2603,
+    "covered_branches": 5939,
+    "missing_branches": 43057,
+    "percent_branches_covered": 12.12139766511552,
+    "percent_branches_covered_display": "12"
+  }
+}

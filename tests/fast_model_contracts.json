@@ -1,0 +1,547 @@
+{
+  "LotusD": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "LotusD"
+    }
+  },
+  "Stable_Zero123": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "Stable_Zero123"
+    }
+  },
+  "SD15_instructpix2pix": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SD15_instructpix2pix"
+    }
+  },
+  "SD15": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SD15"
+    }
+  },
+  "SD20": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SD20"
+    }
+  },
+  "SD21UnclipL": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SD21UnclipL"
+    }
+  },
+  "SD21UnclipH": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SD21UnclipH"
+    }
+  },
+  "SDXL_instructpix2pix": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SDXL_instructpix2pix"
+    }
+  },
+  "SDXLRefiner": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SDXLRefiner"
+    }
+  },
+  "SDXL": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SDXL"
+    }
+  },
+  "SSD1B": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SSD1B"
+    }
+  },
+  "KOALA_700M": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "KOALA_700M"
+    }
+  },
+  "KOALA_1B": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "KOALA_1B"
+    }
+  },
+  "Segmind_Vega": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "Segmind_Vega"
+    }
+  },
+  "SD_X4Upscaler": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SD_X4Upscaler"
+    }
+  },
+  "Stable_Cascade_C": {
+    "test": "tests.fast_cascade_cases:stable_cascade",
+    "kwargs": {
+      "model_name": "Stable_Cascade_C"
+    }
+  },
+  "Stable_Cascade_B": {
+    "test": "tests.fast_cascade_cases:stable_cascade",
+    "kwargs": {
+      "model_name": "Stable_Cascade_B"
+    }
+  },
+  "SV3D_u": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SV3D_u"
+    }
+  },
+  "SV3D_p": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SV3D_p"
+    }
+  },
+  "SD3": {
+    "test": "tests.fast_dit_cases:forward_contract",
+    "kwargs": {
+      "model_name": "SD3"
+    }
+  },
+  "StableAudio": {
+    "test": "tests.fast_audio_cases:stable_audio",
+    "kwargs": {
+      "model_name": "StableAudio"
+    }
+  },
+  "StableAudio3": {
+    "test": "tests.fast_audio_cases:stable_audio",
+    "kwargs": {
+      "model_name": "StableAudio3"
+    }
+  },
+  "AuraFlow": {
+    "test": "tests.fast_dit_cases:forward_contract",
+    "kwargs": {
+      "model_name": "AuraFlow"
+    }
+  },
+  "PixArtAlpha": {
+    "test": "tests.fast_model_cases:image_dit",
+    "kwargs": {
+      "model_name": "PixArtAlpha"
+    }
+  },
+  "PixArtSigma": {
+    "test": "tests.fast_model_cases:image_dit",
+    "kwargs": {
+      "model_name": "PixArtSigma"
+    }
+  },
+  "HunyuanDiT": {
+    "test": "tests.fast_model_cases:image_dit",
+    "kwargs": {
+      "model_name": "HunyuanDiT"
+    }
+  },
+  "HunyuanDiT1": {
+    "test": "tests.fast_model_cases:image_dit",
+    "kwargs": {
+      "model_name": "HunyuanDiT1"
+    }
+  },
+  "FluxInpaint": {
+    "test": "tests.fast_dit_cases:forward_contract",
+    "kwargs": {
+      "model_name": "FluxInpaint"
+    }
+  },
+  "Flux": {
+    "test": "tests.fast_model_cases:flux"
+  },
+  "LongCatImage": {
+    "test": "tests.fast_dit_cases:forward_contract",
+    "kwargs": {
+      "model_name": "LongCatImage"
+    }
+  },
+  "FluxSchnell": {
+    "test": "tests.fast_model_cases:flux_schnell"
+  },
+  "GenmoMochi": {
+    "test": "tests.fast_multimodal_cases:mochi"
+  },
+  "LTXV": {
+    "test": "tests.fast_ltx_cases:ltx_video"
+  },
+  "LTXAV": {
+    "test": "tests.fast_ltx_cases:ltx_audio_video"
+  },
+  "MiniMaxH3": {
+    "test": "tests.fast_model_cases:minimax_h3"
+  },
+  "MiniMaxMusic3": {
+    "test": "tests.fast_audio_cases:minimax_music3"
+  },
+  "HunyuanVideo15_SR_Distilled": {
+    "test": "tests.fast_hunyuan_cases:hunyuan_video",
+    "kwargs": {
+      "model_name": "HunyuanVideo15_SR_Distilled"
+    }
+  },
+  "HunyuanVideo15": {
+    "test": "tests.fast_hunyuan_cases:hunyuan_video",
+    "kwargs": {
+      "model_name": "HunyuanVideo15"
+    }
+  },
+  "HunyuanImage21Refiner": {
+    "test": "tests.fast_hunyuan_cases:hunyuan_video",
+    "kwargs": {
+      "model_name": "HunyuanImage21Refiner"
+    }
+  },
+  "HunyuanImage21": {
+    "test": "tests.fast_hunyuan_cases:hunyuan_video",
+    "kwargs": {
+      "model_name": "HunyuanImage21"
+    }
+  },
+  "HunyuanVideoSkyreelsI2V": {
+    "test": "tests.fast_hunyuan_cases:hunyuan_video",
+    "kwargs": {
+      "model_name": "HunyuanVideoSkyreelsI2V"
+    }
+  },
+  "HunyuanVideoI2V": {
+    "test": "tests.fast_hunyuan_cases:hunyuan_video",
+    "kwargs": {
+      "model_name": "HunyuanVideoI2V"
+    }
+  },
+  "HunyuanVideo": {
+    "test": "tests.fast_hunyuan_cases:hunyuan_video",
+    "kwargs": {
+      "model_name": "HunyuanVideo"
+    }
+  },
+  "CosmosT2V": {
+    "test": "tests.fast_cosmos_cases:cosmos",
+    "kwargs": {
+      "model_name": "CosmosT2V"
+    }
+  },
+  "CosmosI2V": {
+    "test": "tests.fast_cosmos_cases:cosmos",
+    "kwargs": {
+      "model_name": "CosmosI2V"
+    }
+  },
+  "CosmosT2IPredict2": {
+    "test": "tests.fast_cosmos_cases:cosmos",
+    "kwargs": {
+      "model_name": "CosmosT2IPredict2"
+    }
+  },
+  "CosmosI2VPredict2": {
+    "test": "tests.fast_cosmos_cases:cosmos",
+    "kwargs": {
+      "model_name": "CosmosI2VPredict2"
+    }
+  },
+  "ZImagePixelSpace": {
+    "test": "tests.fast_lumina_cases:lumina",
+    "kwargs": {
+      "model_name": "ZImagePixelSpace"
+    }
+  },
+  "ZImage": {
+    "test": "tests.fast_lumina_cases:lumina",
+    "kwargs": {
+      "model_name": "ZImage"
+    }
+  },
+  "Lumina2": {
+    "test": "tests.fast_lumina_cases:lumina",
+    "kwargs": {
+      "model_name": "Lumina2"
+    }
+  },
+  "Lens": {
+    "test": "tests.fast_lens_cases:lens"
+  },
+  "WAN22_T2V": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN22_T2V"
+    }
+  },
+  "WAN21_CausalAR_T2V": {
+    "test": "tests.fast_wan_cases:wan_causal"
+  },
+  "WAN21_T2V": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN21_T2V"
+    }
+  },
+  "WAN21_I2V": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN21_I2V"
+    }
+  },
+  "WAN21_FunControl2V": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN21_FunControl2V"
+    }
+  },
+  "WAN21_Vace": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN21_Vace"
+    }
+  },
+  "WAN21_Camera": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN21_Camera"
+    }
+  },
+  "WAN22_Camera": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN22_Camera"
+    }
+  },
+  "WAN22_S2V": {
+    "test": "tests.fast_wan_cases:wan_s2v"
+  },
+  "WAN21_HuMo": {
+    "test": "tests.fast_wan_cases:wan_humo"
+  },
+  "WAN22_Animate": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN22_Animate"
+    }
+  },
+  "WAN_Animate2": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN_Animate2"
+    }
+  },
+  "WAN21_FlowRVS": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN21_FlowRVS"
+    }
+  },
+  "WAN21_SCAIL": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN21_SCAIL"
+    }
+  },
+  "WAN21_SCAIL2": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN21_SCAIL2"
+    }
+  },
+  "WAN22_WanDancer": {
+    "test": "tests.fast_wan_cases:wan_video",
+    "kwargs": {
+      "model_name": "WAN22_WanDancer"
+    }
+  },
+  "Hunyuan3Dv2mini": {
+    "test": "tests.fast_3d_cases:hunyuan_3d",
+    "kwargs": {
+      "model_name": "Hunyuan3Dv2mini"
+    }
+  },
+  "Hunyuan3Dv2": {
+    "test": "tests.fast_3d_cases:hunyuan_3d",
+    "kwargs": {
+      "model_name": "Hunyuan3Dv2"
+    }
+  },
+  "Hunyuan3Dv2_1": {
+    "test": "tests.fast_3d_cases:hunyuan_3d",
+    "kwargs": {
+      "model_name": "Hunyuan3Dv2_1"
+    }
+  },
+  "HiDream": {
+    "test": "tests.fast_multimodal_cases:hidream"
+  },
+  "HiDreamO1": {
+    "test": "tests.fast_pixel_language_cases:hidream_o1"
+  },
+  "SenseNovaU15": {
+    "test": "tests.fast_pixel_language_cases:sensenova"
+  },
+  "Chroma": {
+    "test": "tests.fast_dit_cases:forward_contract",
+    "kwargs": {
+      "model_name": "Chroma"
+    }
+  },
+  "ChromaRadiance": {
+    "test": "tests.fast_dit_cases:forward_contract",
+    "kwargs": {
+      "model_name": "ChromaRadiance"
+    }
+  },
+  "ACEStep": {
+    "test": "tests.fast_audio_cases:ace_step"
+  },
+  "ACEStep15": {
+    "test": "tests.fast_audio_cases:ace_step15"
+  },
+  "Omnigen2": {
+    "test": "tests.fast_multimodal_cases:omnigen"
+  },
+  "MingImage": {
+    "test": "tests.fast_lumina_cases:lumina",
+    "kwargs": {
+      "model_name": "MingImage"
+    }
+  },
+  "QwenImage21": {
+    "test": "tests.unit.test_release_models:test_qwen_image21_forward_keeps_odd_latent_shape"
+  },
+  "YuE2": {
+    "test": "tests.unit.test_release_models:test_yue2_forward_preserves_chunked_audio_layout"
+  },
+  "QwenImage": {
+    "test": "tests.fast_model_cases:qwen_image"
+  },
+  "JoyImage": {
+    "test": "tests.fast_image_cases:image_transformer",
+    "kwargs": {
+      "model_name": "JoyImage"
+    }
+  },
+  "Ideogram4": {
+    "test": "tests.fast_image_cases:ideogram4"
+  },
+  "Boogu": {
+    "test": "tests.fast_multimodal_cases:omnigen",
+    "kwargs": {
+      "model_name": "Boogu"
+    }
+  },
+  "MageFlow": {
+    "test": "tests.fast_image_cases:image_transformer",
+    "kwargs": {
+      "model_name": "MageFlow"
+    }
+  },
+  "Krea2": {
+    "test": "tests.fast_image_cases:krea2"
+  },
+  "MOSSImage": {
+    "test": "tests.fast_image_cases:moss_image"
+  },
+  "Fibo2": {
+    "test": "tests.unit.test_fast_model_contracts:fibo2_forward_contract"
+  },
+  "Flux3": {
+    "test": "tests.fast_image_cases:flux3"
+  },
+  "Flux2": {
+    "test": "tests.fast_model_cases:flux2"
+  },
+  "Kandinsky5Image": {
+    "test": "tests.fast_multimodal_cases:kandinsky",
+    "kwargs": {
+      "model_name": "Kandinsky5Image"
+    }
+  },
+  "Kandinsky5": {
+    "test": "tests.fast_multimodal_cases:kandinsky",
+    "kwargs": {
+      "model_name": "Kandinsky5"
+    }
+  },
+  "Anima": {
+    "test": "tests.fast_cosmos_cases:anima"
+  },
+  "RT_DETR_v4": {
+    "test": "tests.fast_perception_cases:rtdetr_v4"
+  },
+  "DepthAnything3": {
+    "test": "tests.fast_perception_cases:depth_anything3"
+  },
+  "ErnieImage": {
+    "test": "tests.fast_image_cases:image_transformer",
+    "kwargs": {
+      "model_name": "ErnieImage"
+    }
+  },
+  "SAM3": {
+    "test": "tests.fast_perception_cases:sam3",
+    "kwargs": {"model_name": "SAM3"}
+  },
+  "SAM31": {
+    "test": "tests.fast_perception_cases:sam3",
+    "kwargs": {"model_name": "SAM31"}
+  },
+  "PixelDiTT2I": {
+    "test": "tests.fast_pixel_cases:pixel_transformer",
+    "kwargs": {
+      "model_name": "PixelDiTT2I"
+    }
+  },
+  "PiD": {
+    "test": "tests.fast_pixel_cases:pixel_transformer",
+    "kwargs": {
+      "model_name": "PiD"
+    }
+  },
+  "TripoSplat": {
+    "test": "tests.fast_3d_cases:triposplat"
+  },
+  "CogVideoX_Inpaint": {
+    "test": "tests.fast_cogvideo_cases:cogvideo",
+    "kwargs": {
+      "model_name": "CogVideoX_Inpaint"
+    }
+  },
+  "CogVideoX_I2V": {
+    "test": "tests.fast_cogvideo_cases:cogvideo",
+    "kwargs": {
+      "model_name": "CogVideoX_I2V"
+    }
+  },
+  "CogVideoX_T2V": {
+    "test": "tests.fast_cogvideo_cases:cogvideo",
+    "kwargs": {
+      "model_name": "CogVideoX_T2V"
+    }
+  },
+  "SVD_img2vid": {
+    "test": "tests.fast_model_cases:stable_diffusion",
+    "kwargs": {
+      "model_name": "SVD_img2vid"
+    }
+  },
+  "SeedVR2": {
+    "test": "tests.fast_seedvr_cases:seedvr2"
+  }
+}

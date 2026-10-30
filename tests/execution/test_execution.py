@@ -360,6 +360,7 @@ class TestExecution:
         else:
             assert result.did_run(test_node), "The execution should have been re-run"
 
+    @pytest.mark.timing
     async def test_parallel_sleep_nodes(self, client: ComfyClient, builder: GraphBuilder, skip_timing_checks):
         # Warmup execution to ensure server is fully initialized
         await run_warmup(client)
@@ -390,6 +391,7 @@ class TestExecution:
         assert result.did_run(sleep_node2), "Sleep node 2 should have run"
         assert result.did_run(sleep_node3), "Sleep node 3 should have run"
 
+    @pytest.mark.timing
     async def test_parallel_sleep_expansion(self, client: ComfyClient, builder: GraphBuilder, skip_timing_checks):
         # Warmup execution to ensure server is fully initialized
         await run_warmup(client)
@@ -594,13 +596,8 @@ class TestExecution:
         input1 = g.node("StubImage", content="BLACK", height=512, width=512, batch_size=1)
         _output1 = g.node("SaveImage", images=input1.out(0))
 
-        # Run with empty partial execution list
-        try:
-            _result = await client.run(g, partial_execution_targets=[])
-            # Should get an error because no outputs are selected
-            assert False, "Should have raised an error for empty partial execution list"
-        except Exception:
-            pass  # Expected behavior
+        with pytest.raises(ValueError):
+            await client.run(g, partial_execution_targets=[])
 
     async def test_cached_outputs_without_client_id(self, client: ComfyClient, builder: GraphBuilder):
         g = builder

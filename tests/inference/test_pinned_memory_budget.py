@@ -170,6 +170,8 @@ def _systemd_scope_available():
 
 
 @pytest.mark.inference
+@pytest.mark.requires_weights
+@pytest.mark.requires_accelerator
 @pytest.mark.parametrize("mode", ["dynamic", "legacy"])
 def test_pins_stay_within_budget_under_cgroup_memory_max(mode, tmp_path, has_gpu):
     import torch

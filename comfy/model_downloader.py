@@ -402,6 +402,7 @@ def get_or_download(
                         else:
                             try:
                                 with _session.get(url, stream=True, allow_redirects=True) as response:
+                                    response.raise_for_status()
                                     total_size = int(response.headers.get("content-length", 0))
                                     progress_bar = ProgressBar(total=total_size)
                                     with open(destination_with_filename, "wb") as file:
