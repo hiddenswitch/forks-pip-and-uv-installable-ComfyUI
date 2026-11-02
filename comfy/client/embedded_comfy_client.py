@@ -168,7 +168,7 @@ async def ___execute_prompt(
             raise exc_info
 
 
-def _cleanup(invalidate_nodes=True):
+def _cleanup(invalidate_nodes=True, unload_models=True):
     from ..cmd.execution import PromptExecutor
     from ..nodes_context import invalidate
     try:
@@ -178,7 +178,8 @@ def _cleanup(invalidate_nodes=True):
     except (LookupError, AttributeError):
         pass
     from .. import model_management
-    model_management.unload_all_models()
+    if unload_models:
+        model_management.unload_all_models()
     gc.collect()
     try:
         model_management.soft_empty_cache()
@@ -407,8 +408,9 @@ class Comfy:
     def history(self) -> History:
         return self._history
 
-    async def clear_cache(self):
-        await get_event_loop().run_in_executor(self._executor, _cleanup, False)
+    async def clear_cache(self, *, unload_models=True):
+        """Clear request/node caches, optionally retaining resident model weights."""
+        await get_event_loop().run_in_executor(self._executor, _cleanup, False, unload_models)
 
     @property
     def fingerprint(self) -> tuple:
