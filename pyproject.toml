@@ -115,7 +115,6 @@ dependencies = [
     "openai",
     "anthropic",
     "pydantic-ai-slim[openai,anthropic,google]>=0.0.36; python_version>='3.11'",
-    "google-generativeai",
     "humanize",
     "jax",
     "colour",
@@ -156,6 +155,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.optional-dependencies]
+google-legacy = ["google-generativeai"]
 notebook-tests = ["ipykernel", "jupyter-client"]
 dev = [
     "pytest",
