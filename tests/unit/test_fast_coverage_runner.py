@@ -87,7 +87,7 @@ def test_expired_budget_does_not_launch_command(monkeypatch):
         pytest.fail("An expired budget must not start another process")
 
     monkeypatch.setattr(runner.subprocess, "Popen", unexpected_launch)
-    with pytest.raises(TimeoutError, match="ten-minute budget"):
+    with pytest.raises(TimeoutError, match="time budget"):
         runner.run_command([], env={}, deadline=time.monotonic() - 1)
 
 

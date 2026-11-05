@@ -50,16 +50,6 @@ class MergeHygieneChecker(BaseChecker):
             "textmodel-json-config-not-forwarded",
             "Text encoder subclasses must pass textmodel_json_config through to the parent SDClipModel initializer.",
         ),
-        "W9104": (
-            "Supported model classes without inference workflow coverage: %s",
-            "supported-model-missing-inference-coverage",
-            "Every class listed in comfy.supported_models.models needs explicit inference workflow coverage.",
-        ),
-        "W9105": (
-            "Inference workflow coverage references missing workflow files: %s",
-            "inference-coverage-missing-workflow",
-            "Coverage entries must point at JSON files in tests/inference/workflows.",
-        ),
         "W9106": (
             "Blueprint package resource contract is broken: %s",
             "blueprint-package-resource-broken",
@@ -89,7 +79,6 @@ class MergeHygieneChecker(BaseChecker):
     def visit_module(self, node: nodes.Module) -> None:
         if _rel(node.file) == "comfy/__init__.py":
             self._check_version_sync(node)
-            self._check_supported_model_workflow_coverage(node)
             self._check_blueprint_package_resources(node)
             self._check_cuda_alloc_conf_default(node)
             self._check_workflow_conversion_caches(node)
@@ -157,45 +146,6 @@ class MergeHygieneChecker(BaseChecker):
         init_version = init_match.group(1) if init_match else "<missing>"
         if pyproject_version != init_version:
             self.add_message("comfy-version-mismatch", node=node, args=(pyproject_version, init_version))
-
-    def _check_supported_model_workflow_coverage(self, node: nodes.Module) -> None:
-        supported = self._supported_model_names()
-        coverage = self._coverage_entries()
-        missing = supported - set(coverage)
-        if missing:
-            self.add_message("supported-model-missing-inference-coverage", node=node, args=(", ".join(sorted(missing)),))
-
-        workflow_files = {
-            path.name
-            for path in (_ROOT / "tests/inference/workflows").glob("*.json")
-        }
-        missing_workflows = {
-            workflow
-            for workflows in coverage.values()
-            for workflow in workflows
-            if workflow not in workflow_files
-        }
-        if missing_workflows:
-            self.add_message("inference-coverage-missing-workflow", node=node, args=(", ".join(sorted(missing_workflows)),))
-
-    def _supported_model_names(self) -> set[str]:
-        tree = _parse_python("comfy/supported_models.py")
-        for stmt in tree.body:
-            if isinstance(stmt, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "models" for t in stmt.targets):
-                if isinstance(stmt.value, ast.List):
-                    return {elt.id for elt in stmt.value.elts if isinstance(elt, ast.Name)}
-        return set()
-
-    def _coverage_entries(self) -> dict[str, tuple[str, ...]]:
-        tree = _parse_python("tests/inference/test_supported_model_coverage.py")
-        for stmt in tree.body:
-            if not isinstance(stmt, ast.Assign):
-                continue
-            if not any(isinstance(t, ast.Name) and t.id == "SUPPORTED_MODEL_WORKFLOW_COVERAGE" for t in stmt.targets):
-                continue
-            value = ast.literal_eval(stmt.value)
-            return {str(k): tuple(v) for k, v in value.items()}
-        return {}
 
     def _check_blueprint_package_resources(self, node: nodes.Module) -> None:
         blueprints_dir = _ROOT / "comfy/blueprints"

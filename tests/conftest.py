@@ -58,6 +58,11 @@ def requires_serial_process_group(fixture_names) -> bool:
     return not _SERIAL_PROCESS_FIXTURES.isdisjoint(fixture_names)
 
 
+def pytest_addoption(parser):
+    parser.addoption("--weights", choices=("real", "mini"), default="real",
+                     help="Run inference workflows on real weights, or on miniature random checkpoints for numerical smoke coverage")
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_pyfunc_call(pyfuncitem):
     marker = pyfuncitem.get_closest_marker("ipython")

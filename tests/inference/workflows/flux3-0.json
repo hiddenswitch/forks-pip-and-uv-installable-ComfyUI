@@ -11,7 +11,7 @@
   },
   "2": {
     "inputs": {
-      "clip_name": "qwen3vl_4b_int8_convrot.safetensors",
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
       "type": "flux3",
       "device": "default"
     },

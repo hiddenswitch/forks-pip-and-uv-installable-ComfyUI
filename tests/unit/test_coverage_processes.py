@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from coverage import CoverageData
+
 
 def test_parent_thread_spawn_and_server_coverage(tmp_path):
     unimported = tmp_path / "namespace" / "unimported.py"
@@ -54,6 +56,7 @@ if __name__ == "__main__":
 ''')
     config = tmp_path / "coverage.ini"
     config.write_text(f"""[run]
+context = ${{COMFYUI_COVERAGE_CONTEXT-}}
 branch = true
 source = {tmp_path}
 concurrency = thread,multiprocessing
@@ -64,7 +67,8 @@ data_file = {tmp_path / '.coverage'}
 [report]
 include_namespace_packages = true
 """)
-    env = dict(os.environ, COVERAGE_RCFILE=str(config), COVERAGE_FILE=str(tmp_path / ".coverage"))
+    env = dict(os.environ, COVERAGE_RCFILE=str(config), COVERAGE_FILE=str(tmp_path / ".coverage"),
+               COMFYUI_COVERAGE_CONTEXT="unit")
     # The nested measurement must start from this configuration, independently
     # of any collector measuring pytest itself.
     for key in list(env):
@@ -76,6 +80,9 @@ include_namespace_packages = true
         assert result.returncode == 0, result.stdout + result.stderr
     coverage("run", str(probe))
     coverage("combine")
+    data = CoverageData(basename=str(tmp_path / ".coverage"))
+    data.read()
+    assert data.measured_contexts() == {"unit"}
     report = tmp_path / "report.json"
     coverage("json", "-o", str(report))
     files = json.loads(report.read_text())["files"]

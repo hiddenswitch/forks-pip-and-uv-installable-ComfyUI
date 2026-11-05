@@ -27,9 +27,10 @@ def test_flux3_detection_and_packaged_text_encoder():
 
 def test_flux3_int8_models_are_discoverable():
     files = {str(model): model for model in KNOWN_UNET_MODELS.data}
-    for name in ('flux3_image_klein_int8_convrot.safetensors', 'flux3_image_klein_sd_int8_convrot.safetensors'):
-        assert files[name].repo_id == 'black-forest-labs/flux-3-image-klein-comfy'
-        assert files[name].revision == '849a7a417c54120ac12f249da656b84ec05fd7eb'
+    assert files['flux3_image_klein_int8_convrot.safetensors'].repo_id == 'black-forest-labs/flux-3-image-klein-comfy'
+    assert files['flux3_image_klein_int8_convrot.safetensors'].revision == '849a7a417c54120ac12f249da656b84ec05fd7eb'
+    assert files['flux3_image_klein_sd_int8_convrot.safetensors'].repo_id == 'KoalaNation/FLUX-3-KLEIN-MODELS'
+    assert files['flux3_image_klein_sd_int8_convrot.safetensors'].revision == 'f291e17070a0894d238901fcf2a9b7cd68193014'
 
 
 def test_flux3_template_models_are_discoverable():

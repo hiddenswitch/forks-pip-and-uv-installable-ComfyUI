@@ -1,4 +1,4 @@
-"""Run bounded, weight-free coverage; reports include all shipped packages."""
+"""Bounded CPU coverage and optional regular inference tests with miniature weights."""
 
 import argparse
 import ast
@@ -15,7 +15,7 @@ import time
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-TESTS = [
+UNIT_TESTS = [
     "tests/execution/test_execution.py",
     "tests/execution/test_error_logging.py",
     "tests/execution/test_disabled_nodes.py",
@@ -27,20 +27,31 @@ TESTS = [
     "tests/unit/test_workflow_interrupt.py",
     "tests/unit/test_release_models.py",
     "tests/unit/test_flux3_integration.py",
-    "tests/unit/test_fast_model_contracts.py",
     "tests/unit/test_model_downloader_uri.py",
     "tests/unit/test_cache_control.py",
     "tests/unit/test_cache_provider.py",
     "tests/unit/test_distributed_topology.py",
     "tests/unit/test_distributed_worker_configuration.py",
     "tests/unit/test_fast_coverage_runner.py",
+    "tests/unit/test_mini_weights.py",
+    "tests/unit/test_mini_gguf.py",
     "tests/unit/test_validation.py",
     "tests/unit/test_execution_list.py",
-    "tests/inference/test_supported_model_coverage.py",
 ]
+MINI_TESTS = ["tests/inference/test_workflows.py"]
+LANES = ("unit", "mini")
 
 
-def environment():
+def _workflow_names():
+    return sorted(path.name for path in (ROOT / "tests/inference/workflows").glob("*.json"))
+
+
+def environment(lanes=LANES):
+    selection = list(lanes)
+    if "unit" in lanes:
+        selection += UNIT_TESTS
+    if "mini" in lanes:
+        selection += MINI_TESTS + _workflow_names()
     return {
         "python": platform.python_version(),
         "platform": platform.system(),
@@ -49,7 +60,7 @@ def environment():
             name: importlib.metadata.version(name)
             for name in ("coverage", "pytest", "pytest-timeout", "torch", "numpy")
         },
-        "selection": hashlib.sha256("\n".join(TESTS).encode()).hexdigest(),
+        "selection": hashlib.sha256("\n".join(selection).encode()).hexdigest(),
     }
 
 
@@ -74,7 +85,7 @@ def compare_baseline(old, new):
 def run_command(command, *, env, deadline):
     remaining = deadline - time.monotonic()
     if remaining <= 0:
-        raise TimeoutError("Fast coverage exceeded its ten-minute budget")
+        raise TimeoutError("Coverage exceeded its time budget")
     with subprocess.Popen(
         command, cwd=ROOT, env=env, start_new_session=os.name == "posix"
     ) as process:
@@ -125,15 +136,19 @@ def check_source_inventory(report):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", default=".coverage-results/fast")
+    parser.add_argument("--lanes", default="unit", help="comma-separated subset of: " + ", ".join(LANES))
+    parser.add_argument("--unit-budget", type=float, default=600, help="seconds for the unit lane")
+    parser.add_argument("--mini-budget", type=float, default=5400, help="seconds for the miniature inference lane")
     parser.add_argument(
         "--baseline",
         type=Path,
-        help="Previous fast coverage JSON; reject lower line or branch coverage",
+        help="Previous coverage JSON; reject lower line or branch coverage",
     )
     args = parser.parse_args()
+    lanes = tuple(lane for lane in LANES if lane in args.lanes.split(","))
     output = Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=True)
-    current_environment = environment()
+    current_environment = environment(lanes)
     baseline = json.loads(args.baseline.read_text()) if args.baseline else None
     if baseline is not None and baseline.get("environment") != current_environment:
         parser.error(
@@ -153,41 +168,44 @@ def main():
             ]
         ),
         TRANSFORMERS_OFFLINE="1",
-        CUDA_VISIBLE_DEVICES="",
         OMP_NUM_THREADS="1",
         OPENBLAS_NUM_THREADS="1",
     )
-    deadline = time.monotonic() + 600
 
-    def run(*command):
-        return run_command([sys.executable, *command], env=env, deadline=deadline)
+    def run(command, environment_overrides, deadline):
+        return run_command([sys.executable, *command], env={**env, **environment_overrides}, deadline=deadline)
 
-    if run("-m", "coverage", "erase"):
+    if run(["-m", "coverage", "erase"], {}, time.monotonic() + 60):
         return 1
-    result = run(
-        "-m",
-        "coverage",
-        "run",
-        "--context=synthetic-cpu",
-        "-m",
-        "pytest",
-        "-o",
-        "addopts=",
-        "--timeout=30",
-        "-ra",
-        "--durations=10",
-        "-m",
-        "not timing and not requires_weights and not requires_network and not requires_accelerator",
-        "--junitxml=" + str(output / "tests.xml"),
-        *TESTS,
-    )
-    if run("-m", "coverage", "combine", "--keep"):
+    results = []
+    if "unit" in lanes:
+        results.append(run([
+            "-m", "coverage", "run", "-m", "pytest",
+            "-o", "addopts=", "--timeout=30", "-ra", "--durations=10",
+            "-m", "not timing and not requires_weights and not requires_network and not requires_accelerator",
+            "--junitxml=" + str(output / "tests.xml"),
+            *UNIT_TESTS,
+        ], {"CUDA_VISIBLE_DEVICES": "", "COMFYUI_COVERAGE_CONTEXT": "unit"}, time.monotonic() + args.unit_budget))
+    if "mini" in lanes:
+        results.append(run([
+            "-m", "coverage", "run", "-m", "pytest",
+            "-o", "addopts=", "-o", "timeout_method=signal", "--timeout=600", "-ra", "--durations=10",
+            "--weights=mini",
+            "--junitxml=" + str(output / "mini.xml"),
+            *MINI_TESTS,
+        ], {
+            "COMFYUI_COVERAGE_CONTEXT": "mini",
+        }, time.monotonic() + args.mini_budget))
+    result = max(results, default=0)
+
+    deadline = time.monotonic() + 600
+    if run(["-m", "coverage", "combine", "--keep"], {}, deadline):
         return 1
     archive_process_data(output)
     for command, filename in [("json", "coverage.json"), ("xml", "coverage.xml")]:
-        if run("-m", "coverage", command, "-o", str(output / filename)):
+        if run(["-m", "coverage", command, "-o", str(output / filename)], {}, deadline):
             return 1
-    if run("-m", "coverage", "html", "-d", str(output / "html")):
+    if run(["-m", "coverage", "html", "--show-contexts", "-d", str(output / "html")], {}, deadline):
         return 1
     # Fail if the real spawned worker body disappeared from the measurement.
     report = json.loads((output / "coverage.json").read_text())

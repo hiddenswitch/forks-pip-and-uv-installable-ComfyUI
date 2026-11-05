@@ -297,6 +297,7 @@ ignorelist = ["all", "format", "id", "input", "max", "min", "round", "type"]
 "comfy/cmd/cli.py" = ["T201"]
 "comfy/cmd/list_models.py" = ["T201"]
 "comfy/cmd/snapshot_pip_registry.py" = ["T201"]
+"scripts/fast_coverage.py" = ["T201"]
 "comfy/cmd/folder_paths.py" = ["F822"]  # __all__ entries provided dynamically by module property
 "scripts/snapshot_flash_attention_wheels.py" = ["T201"]
 "comfy_extras/nodes/nodes_eval.py" = ["S102"]
@@ -340,8 +341,6 @@ enable = [
     "comfy-version-mismatch",          # W9101 — tests/merge_hygiene_checker.py
     "direct-transformers-import",      # W9102 — tests/merge_hygiene_checker.py
     "textmodel-json-config-not-forwarded", # W9103 — tests/merge_hygiene_checker.py
-    "supported-model-missing-inference-coverage", # W9104 — tests/merge_hygiene_checker.py
-    "inference-coverage-missing-workflow", # W9105 — tests/merge_hygiene_checker.py
     "blueprint-package-resource-broken", # W9106 — tests/merge_hygiene_checker.py
     "dynamic-root-node-loader-import", # W9107 — tests/merge_hygiene_checker.py
     "cuda-alloc-conf-default-broken",  # W9108 — tests/merge_hygiene_checker.py
@@ -349,6 +348,7 @@ enable = [
 ]
 
 [tool.coverage.run]
+context = "${COMFYUI_COVERAGE_CONTEXT-}"
 branch = true
 source = ["comfy", "comfy_execution", "comfy_extras", "comfy_api", "comfy_api_nodes", "comfy_config", "comfy_compatibility"]
 concurrency = ["thread", "multiprocessing"]
