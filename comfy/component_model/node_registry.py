@@ -250,6 +250,13 @@ CUSTOM_NODE_REGISTRY: list[CustomNodeSpec] = [
         needs_submodules=True,
     ),
     CustomNodeSpec(
+        node_id="ComfyUI_Fill-Nodes",
+        repo_url="https://github.com/filliptm/ComfyUI_Fill-Nodes",
+        display_name="ComfyUI_Fill-Nodes",
+        xfail=True,
+        xfail_reason="API-based nodes require anthropic/openai API keys",
+    ),
+    CustomNodeSpec(
         node_id="ComfyUI_Fill-ChatterBox",
         repo_url="https://github.com/filliptm/ComfyUI_Fill-ChatterBox",
         display_name="ComfyUI_Fill-ChatterBox",
