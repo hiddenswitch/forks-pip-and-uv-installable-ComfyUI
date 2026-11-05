@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 def is_equal(x, y):
+    if x is y:
+        return True
     if torch.is_tensor(x) and torch.is_tensor(y):
         return torch.equal(x, y)
     elif isinstance(x, dict) and isinstance(y, dict):
@@ -46,6 +48,8 @@ class CONDRegular:
         return True
 
     def concat(self, others):
+        if len(others) == 0:
+            return self.cond
         conds = [self.cond]
         for x in others:
             conds.append(x.cond)
@@ -84,6 +88,8 @@ class CONDCrossAttn(CONDRegular):
         return True
 
     def concat(self, others):
+        if len(others) == 0:
+            return self.cond
         conds = [self.cond]
         crossattn_max_len = self.cond.shape[1]
         for x in others:
@@ -147,6 +153,8 @@ class CONDList(CONDRegular):
         return True
 
     def concat(self, others):
+        if len(others) == 0:
+            return list(self.cond)
         out = []
         for i in range(len(self.cond)):
             o = [self.cond[i]]

@@ -2317,18 +2317,26 @@ class ModelPatcherDynamic(ModelPatcher):
             dynamic_units = list(dynamic_units)
             last_dynamic_units = list(last_dynamic_units)
             loading_by_module = {entry[-2]: entry for entry in loading}
+
+            def unit_loading(units, loading):
+                for unit in units:
+                    unit_modules = unit if isinstance(unit, (list, tuple)) else (unit,)
+                    # VBAR is a bump allocator, so loading a CombinedLinear's members back to
+                    # back in member order is what makes their weights consecutive.
+                    modules = []
+                    for root in unit_modules:
+                        for module in root.modules():
+                            if module not in loading_by_module or module in modules:
+                                continue
+                            group = getattr(module, "_combined_linear", None)
+                            modules.extend(group.linears if group is not None else (module,))
+                    for index, module in enumerate(modules):
+                        loading.append((*loading_by_module.pop(module), unit if index == len(modules) - 1 else None))
+
             loading = []
-            for unit in dynamic_units:
-                unit_modules = unit if isinstance(unit, (list, tuple)) else (unit,)
-                modules = [module for root in unit_modules for module in root.modules() if module in loading_by_module]
-                for index, module in enumerate(modules):
-                    loading.append((*loading_by_module.pop(module), unit if index == len(modules) - 1 else None))
+            unit_loading(dynamic_units, loading)
             last_loading = []
-            for unit in last_dynamic_units:
-                unit_modules = unit if isinstance(unit, (list, tuple)) else (unit,)
-                modules = [module for root in unit_modules for module in root.modules() if module in loading_by_module]
-                for index, module in enumerate(modules):
-                    last_loading.append((*loading_by_module.pop(module), unit if index == len(modules) - 1 else None))
+            unit_loading(last_dynamic_units, last_loading)
             loading.extend((*entry, None) for entry in loading_by_module.values())
             loading.extend(last_loading)
             v_block = None
@@ -2660,6 +2668,10 @@ class ModelPatcherDynamic(ModelPatcher):
         with self.use_ejected(skip_and_inject_on_exit_only=True):
             current_weight_patches_uuid = getattr(self.model, "current_weight_patches_uuid", None)
             dirty = current_weight_patches_uuid is not None and (current_weight_patches_uuid != self.patches_uuid)
+            if dirty:
+                # Baked LoRA changes the source bytes cached in the host weight buffers.
+                model_management.sync_all_offload_streams()
+                self.unpin_all_weights()
 
             self.unpatch_model(self.offload_device, unpatch_weights=False)
             self.patch_model(load_weights=False)

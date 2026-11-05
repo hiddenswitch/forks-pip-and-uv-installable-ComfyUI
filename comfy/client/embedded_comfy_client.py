@@ -161,7 +161,7 @@ async def ___execute_prompt(
 
             await prompt_executor.execute_async(prompt_mut, prompt_id, {"client_id": client_id},
                                                 execute_outputs=validation_tuple.good_output_node_ids)
-            return prompt_executor.outputs_ui
+            return prompt_executor.history_result
         except Exception as exc_info:
             span.set_status(Status(StatusCode.ERROR))
             span.record_exception(exc_info)
@@ -641,17 +641,18 @@ class Comfy:
         try:
             if isinstance(self._executor, ContextVarExecutor):
                 async with self._in_process_execution_lock:
-                    outputs = await run_prompt_in_executor()
+                    history_result = await run_prompt_in_executor()
             else:
-                outputs = await run_prompt_in_executor()
+                history_result = await run_prompt_in_executor()
 
+            outputs = history_result["outputs"]
             fut = concurrent.futures.Future()
             try:
                 outputs_copy = copy.deepcopy(outputs)
             except Exception:
                 outputs_copy = outputs
             fut.set_result(TaskInvocation(prompt_id, outputs_copy, ExecutionStatus('success', True, [])))
-            self._history.put(QueueItem(queue_tuple=QueueTuple(float(self._task_count), prompt_id, prompt, ExtraData(), [], {}), completed=fut), outputs, ExecutionStatus('success', True, []))
+            self._history.put(QueueItem(queue_tuple=QueueTuple(float(self._task_count), prompt_id, prompt, ExtraData(), [], {}), completed=fut), outputs, ExecutionStatus('success', True, []), meta=history_result["meta"])
             return outputs
         except Exception as exc_info:
             fut = concurrent.futures.Future()

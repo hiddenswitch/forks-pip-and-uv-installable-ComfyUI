@@ -1,3 +1,4 @@
+import ctypes
 import operator
 import os
 import sys
@@ -5,7 +6,6 @@ import tempfile
 import uuid
 
 if os.name == "nt":
-    import ctypes
     import msvcrt
     from ctypes import wintypes
 
@@ -15,6 +15,11 @@ if os.name == "nt":
     _kernel32.DeviceIoControl.restype = wintypes.BOOL
     _kernel32.SetFileInformationByHandle.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
     _kernel32.SetFileInformationByHandle.restype = wintypes.BOOL
+elif sys.platform == "linux":
+    # os.memfd_create is missing from Pythons built against glibc < 2.27.
+    _libc = ctypes.CDLL(None, use_errno=True)
+    _libc.memfd_create.argtypes = [ctypes.c_char_p, ctypes.c_uint]
+    _libc.memfd_create.restype = ctypes.c_int
 
 
 def create_anonymous_file(size=0):
@@ -36,20 +41,11 @@ def create_anonymous_file(size=0):
         file = open(path, "x+b", buffering=0,
                     opener=lambda path, mode: os.open(path, mode | flags, 0o600))
     elif sys.platform == "linux":
-        def _open_memfd(name, mode):
-            if hasattr(os, "memfd_create"):
-                return os.memfd_create(name, os.MFD_CLOEXEC)
-            import ctypes
-            libc = ctypes.CDLL(None, use_errno=True)
-            libc.memfd_create.argtypes = [ctypes.c_char_p, ctypes.c_uint]
-            libc.memfd_create.restype = ctypes.c_int
-            fd = libc.memfd_create(os.fsencode(name), 1)
-            if fd < 0:
-                err = ctypes.get_errno()
-                raise OSError(err, os.strerror(err), name)
-            return fd
-
-        file = open("aimdo", "w+b", buffering=0, opener=_open_memfd)
+        fd = _libc.memfd_create(b"aimdo", 1)  # MFD_CLOEXEC
+        if fd < 0:
+            errno = ctypes.get_errno()
+            raise OSError(errno, os.strerror(errno))
+        file = open(fd, "w+b", buffering=0)
     else:
         raise NotImplementedError("anonymous files require Linux or Windows")
 

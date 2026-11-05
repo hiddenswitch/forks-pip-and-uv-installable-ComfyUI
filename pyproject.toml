@@ -20,10 +20,10 @@ classifiers = [
 
 dependencies = [
     # todo: it looks like there are breaking frontend package changes, so this really does need to be pinned?
-    "comfyui-frontend-package==1.57.4",
-    "comfyui-workflow-templates==0.11.97",
-    "comfyui-embedded-docs==0.5.15",
-    "comfy-kitchen==0.2.40",
+    "comfyui-frontend-package==1.58.5",
+    "comfyui-workflow-templates==0.11.102",
+    "comfyui-embedded-docs==0.5.16",
+    "comfy-kitchen==0.2.41",
     "comfy-aimdo==0.6.0",
     # todo: what should this really be? what's the idea?
     "comfyui_manager>=4.2.2,<5",

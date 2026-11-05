@@ -18,7 +18,6 @@ from importlib.resources import files
 from pathlib import Path
 
 import pytest
-from packaging.version import Version
 
 from comfy.cli_args_types import Configuration
 from comfy.entrypoints.workflow import _apply_overrides
@@ -273,9 +272,10 @@ def test_h3_acceleration_profile_uses_diffusers_base_schedule_and_allows_overrid
 
 def test_bundled_workflow_catalog_turbo_detection_is_complete():
     cache_root = Path(__file__).parent / "playwright_cache"
-    template_dir = max(
-        (path for path in cache_root.iterdir() if path.is_dir()),
-        key=lambda path: Version(path.name.split("+", 1)[0]),
+    # This exact catalog has the expectations below; another test may be filling a newer cache.
+    template_dir = cache_root / (
+        "1.57.4+t-core=0.3.387+-json=0.1.122+-media-api=0.3.84+-media-assets-01=0.1.48"
+        "+-media-assets-02=0.1.23+-media-image=0.3.160+-media-other=0.3.229+-media-video=0.3.101"
     )
     detected = {}
     for path in template_dir.glob("*.json"):

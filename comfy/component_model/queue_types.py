@@ -88,6 +88,7 @@ class Flags(TypedDict, total=False):
 class HistoryEntry(TypedDict):
     prompt: QueueTuple
     outputs: dict
+    meta: NotRequired[dict]
     status: NotRequired[ExecutionStatusAsDict]
 
 

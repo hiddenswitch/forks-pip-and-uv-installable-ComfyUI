@@ -297,3 +297,11 @@ def test_start_runs_the_host_off_the_event_loop(monkeypatch):
         loop.run_until_complete(asyncio.wait_for(_until(lambda: agent_host._host.started), 5))
     finally:
         loop.close()
+
+
+@pytest.mark.parametrize("eps", [{}, {"v9": FakeHost}])
+def test_the_install_hint_upgrades_agent(monkeypatch, caplog, eps):
+    _entry_points(monkeypatch, eps)
+    with caplog.at_level(logging.WARNING):
+        agent_host.load()
+    assert any("pip install -U comfy-agent" in r.getMessage() for r in caplog.records)

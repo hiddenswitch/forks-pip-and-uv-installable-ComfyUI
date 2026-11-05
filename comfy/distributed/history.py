@@ -13,10 +13,11 @@ class History:
         self.history: typing.OrderedDict[str, HistoryEntry] = collections.OrderedDict()
         self.maximum_history_size = maximum_history_size
 
-    def put(self, queue_item: QueueItem, outputs: dict, status: ExecutionStatus):
+    def put(self, queue_item: QueueItem, outputs: dict, status: ExecutionStatus, meta: dict | None = None):
         self.history[queue_item.prompt_id] = HistoryEntry(prompt=queue_item.queue_tuple,
                                                           outputs=outputs,
-                                                          status=ExecutionStatus(*status).as_dict())
+                                                          status=ExecutionStatus(*status).as_dict(),
+                                                          meta={} if meta is None else meta)
 
     def copy(self, prompt_id: typing.Optional[str | int] = None, max_items: typing.Optional[int] = None,
              offset: typing.Optional[int] = None) -> dict[str, HistoryEntry]:

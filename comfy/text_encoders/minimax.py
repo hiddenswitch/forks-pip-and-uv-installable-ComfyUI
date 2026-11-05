@@ -23,7 +23,7 @@ import math
 
 import torch
 import torch.nn.functional as F
-from .. import sd1_clip
+from .. import ops, sd1_clip
 from .qwen3vl import Qwen3VL, Qwen3VLSDTokenizer
 
 VISION_START = 151652
@@ -40,6 +40,9 @@ MINIMAX_EXTRA_TOKENS = {
 }
 QWEN_IMAGE_MEAN = [0.5, 0.5, 0.5]
 QWEN_IMAGE_STD = [0.5, 0.5, 0.5]
+# p-h3-image: Qwen3-VL-4B hidden states read by the text connector, the last one normed
+PH3_IMAGE_HIDDEN_STATES = [13, 19, 25, 31, 36]
+PH3_IMAGE_TEXT_DIM = 5120
 
 
 def process_video_block(frames, patch_size=16, temporal_patch_size=2, merge_size=2,
@@ -109,13 +112,45 @@ class MiniMaxQwen3VL(Qwen3VL):
                                dtype=dtype, embeds_info=embeds_info, **kwargs)
 
 
+class TextConnector(torch.nn.Module):
+    def __init__(self, in_channels, out_channels, dtype=None, device=None, operations=None):
+        super().__init__()
+        self.input_mean = torch.nn.Parameter(torch.empty(in_channels, dtype=dtype, device=device))
+        self.input_std = torch.nn.Parameter(torch.empty(in_channels, dtype=dtype, device=device))
+        self.proj = operations.Linear(in_channels, out_channels, bias=False, dtype=dtype, device=device)
+        self.output_mean = torch.nn.Parameter(torch.empty(out_channels, dtype=dtype, device=device))
+        self.output_std = torch.nn.Parameter(torch.empty(out_channels, dtype=dtype, device=device))
+        self.sink_embedding = torch.nn.Parameter(torch.empty(out_channels, dtype=dtype, device=device))
+
+    def forward(self, hidden_states):
+        # [B, layers, T, C] -> [B, T, layers * C] standardized, projected and rescaled; the first token is replaced by the sink
+        x = hidden_states.movedim(1, 2).flatten(2)
+        x = (x - ops.cast_to_input(self.input_mean, x)) / ops.cast_to_input(self.input_std, x)
+        x = self.proj(x)
+        x = torch.addcmul(ops.cast_to_input(self.output_mean, x), x, ops.cast_to_input(self.output_std, x))
+        sink = ops.cast_to_input(self.sink_embedding, x).expand(x.shape[0], 1, -1)
+        return torch.cat([sink, x[:, 1:]], dim=1)
+
+
+class PH3ImageQwen3VL(MiniMaxQwen3VL):
+    model_type = "qwen3vl_4b"
+
+    def __init__(self, config_dict, dtype, device, operations):
+        super().__init__(config_dict, dtype, device, operations)
+        # float32 and never quantized: the mixed-precision ops of a quantized file would load it at the compute dtype
+        self.text_connector = TextConnector(len(PH3_IMAGE_HIDDEN_STATES) * self.model.config.hidden_size, PH3_IMAGE_TEXT_DIM,
+                                            dtype=torch.float32, device=device, operations=ops.manual_cast)
+
+    def forward(self, *args, **kwargs):
+        x, hidden_states = super().forward(*args, **kwargs)
+        return x, self.text_connector(hidden_states)
+
+
 class MiniMaxH3ClipModel(sd1_clip.SDClipModel):
-    def __init__(self, device="cpu", layer="last", layer_idx=None, dtype=None, model_options={}, textmodel_json_config=None):
-        if textmodel_json_config is None:
-            textmodel_json_config = {}
-        super().__init__(device=device, layer="last", layer_idx=None, textmodel_json_config=textmodel_json_config,
+    def __init__(self, device="cpu", layer="last", layer_idx=None, dtype=None, model_options={}, textmodel_json_config=None, model_class=MiniMaxQwen3VL):
+        super().__init__(device=device, layer=layer, layer_idx=None, textmodel_json_config={} if textmodel_json_config is None else textmodel_json_config,
                          dtype=dtype, special_tokens={"pad": 151643}, layer_norm_hidden_state=False,
-                         model_class=MiniMaxQwen3VL, enable_attention_masks=False,
+                         model_class=model_class, enable_attention_masks=False,
                          return_attention_masks=False, model_options=model_options)
 
     def encode_token_weights(self, token_weight_pairs):
@@ -128,11 +163,22 @@ class MiniMaxH3ClipModel(sd1_clip.SDClipModel):
         return out
 
 
+class PH3ImageClipModel(MiniMaxH3ClipModel):
+    def __init__(self, device="cpu", dtype=None, model_options={}, textmodel_json_config=None):
+        super().__init__(device=device, layer=PH3_IMAGE_HIDDEN_STATES, dtype=dtype, model_class=PH3ImageQwen3VL, model_options=model_options, textmodel_json_config=textmodel_json_config)
+
+
 class MiniMaxH3TEModel(sd1_clip.SD1ClipModel):
     def __init__(self, device="cpu", dtype=None, model_options={}, textmodel_json_config=None):
         super().__init__(device=device, dtype=dtype, name="qwen3vl_32b",
                          clip_model=MiniMaxH3ClipModel, model_options=model_options,
                          textmodel_json_config=textmodel_json_config)
+
+
+class PH3ImageTEModel(sd1_clip.SD1ClipModel):
+    def __init__(self, device="cpu", dtype=None, model_options={}, textmodel_json_config=None):
+        super().__init__(device=device, dtype=dtype, name="qwen3vl_4b",
+                         clip_model=PH3ImageClipModel, model_options=model_options, textmodel_json_config=textmodel_json_config)
 
 
 class MiniMaxQwenSDTokenizer(Qwen3VLSDTokenizer):
@@ -161,7 +207,7 @@ class MiniMaxH3Tokenizer(sd1_clip.SD1Tokenizer):
         def add_text(s):
             if not s:
                 return
-            token_batches = self.qwen3vl_32b.tokenize_with_weights(
+            token_batches = getattr(self, self.clip).tokenize_with_weights(
                 s,
                 return_word_ids=False,
                 disable_weights=True,
@@ -208,14 +254,17 @@ class MiniMaxH3Tokenizer(sd1_clip.SD1Tokenizer):
             entries.append((151643, 1.0))
         if return_word_ids:
             entries = [t + (0,) for t in entries]
-        return {"qwen3vl_32b": [entries]}
-
-    def untokenize(self, token_weight_pair):
-        return self.qwen3vl_32b.untokenize(token_weight_pair)
+        return {self.clip: [entries]}
 
 
-def te(dtype_llama=None, llama_quantization_metadata=None, **kwargs):
-    class MiniMaxH3TEModel_(MiniMaxH3TEModel):
+class PH3ImageTokenizer(MiniMaxH3Tokenizer):
+    def __init__(self, embedding_directory=None, tokenizer_data={}):
+        tokenizer = lambda *a, **kw: Qwen3VLSDTokenizer(*a, **kw, embedding_size=2560, embedding_key="qwen3vl_4b")
+        sd1_clip.SD1Tokenizer.__init__(self, embedding_directory=embedding_directory, tokenizer_data=tokenizer_data, name="qwen3vl_4b", tokenizer=tokenizer)
+
+
+def te(dtype_llama=None, llama_quantization_metadata=None, te_model=MiniMaxH3TEModel, **kwargs):
+    class MiniMaxH3TEModel_(te_model):
         def __init__(self, device="cpu", dtype=None, model_options={}, textmodel_json_config=None):
             if dtype_llama is not None:
                 dtype = dtype_llama

@@ -609,6 +609,38 @@ class TestExecution:
 
         assert output.id in result.outputs
 
+    async def test_cached_output_meta_names_its_own_node(self, client: ComfyClient, builder: GraphBuilder):
+        """Two identical previews share a cache entry; each must keep its own meta in the job detail."""
+        g = builder
+        image = g.node("StubImage", content="BLACK", height=32, width=32, batch_size=1)
+        first = g.node("PreviewImage", images=image.out(0))
+        second = g.node("PreviewImage", images=image.out(0))
+
+        result = await client.run(g)
+        job = await client.get_job(result.get_prompt_id())
+
+        meta = job['execution_meta']
+        for node in (first, second):
+            assert meta[node.id]['node_id'] == node.id
+            assert meta[node.id]['display_node'] == node.id
+
+    async def test_expanded_output_meta_names_its_display_node(self, client: ComfyClient, builder: GraphBuilder):
+        """An output from an expanded node is shown on the node that expanded it."""
+        g = builder
+        expander = g.node("TestExecutedNodeIdsExpander", value="expanded-child")
+
+        result = await client.run(g)
+        job = await client.get_job(result.get_prompt_id())
+
+        expanded = {k: v for k, v in job['execution_meta'].items() if k != expander.id}
+        assert len(expanded) == 1
+        node_id, meta = next(iter(expanded.items()))
+        assert meta['node_id'] == node_id
+        assert meta['display_node'] == expander.id
+        assert meta['parent_node'] == expander.id
+        assert meta['real_node_id'] == expander.id
+        assert node_id in job['outputs']
+
     async def _create_history_item(self, client, builder):
         g = GraphBuilder(prefix="offset_test")
         input_node = g.node(

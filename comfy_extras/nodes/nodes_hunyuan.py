@@ -19,6 +19,7 @@ from comfy.model_downloader import get_filename_list_with_downloadable, get_full
 from comfy import utils
 
 from .nodes_latent_upscaler import LatentUpscaleModelLoader  # noqa: F401 — upstream compat
+from comfy.ldm.minimax.latent_upscaler import MiniMaxH3LatentUpscaler
 
 class CLIPTextEncodeHunyuanDiT(io.ComfyNode):
     @classmethod
@@ -230,6 +231,19 @@ class LatentUpscaleModelLoader1(io.ComfyNode):
         elif "post_upsample_res_blocks.0.conv2.bias" in sd:
             config = json.loads(metadata["config"])
             model = LatentUpsampler.from_config(config, operations=ops.disable_weight_init).to(dtype=model_management.vae_dtype(allowed_dtypes=[torch.bfloat16, torch.float32]))
+            model_management.archive_model_dtypes(model)
+            model_patcher = comfy_model_patcher.CoreModelPatcher(model, load_device=model_management.get_torch_device(), offload_device=model_management.unet_offload_device(), fast_disk=fast_disk)
+            model.load_state_dict(sd, assign=model_patcher.is_dynamic())
+            model = model_patcher
+        elif "in_blocks.0.emb_layers.1.weight" in sd and "conv_in.weight" in sd and "in_blocks.1.dwconv.weight" in sd:
+            model = MiniMaxH3LatentUpscaler(
+                in_channels=sd["conv_in.weight"].shape[1],
+                channels=sd["conv_in.weight"].shape[0],
+                in_blocks=len({k.split(".")[1] for k in sd if k.startswith("in_blocks.") and ".in_layers." in k}),
+                out_blocks=len({k.split(".")[1] for k in sd if k.startswith("out_blocks.") and ".in_layers." in k}),
+                temporal_kernel=sd["in_blocks.1.dwconv.weight"].shape[2],
+                dtype=model_management.vae_dtype(allowed_dtypes=[torch.float16, torch.bfloat16, torch.float32]),
+                operations=ops.disable_weight_init)
             model_management.archive_model_dtypes(model)
             model_patcher = comfy_model_patcher.CoreModelPatcher(model, load_device=model_management.get_torch_device(), offload_device=model_management.unet_offload_device(), fast_disk=fast_disk)
             model.load_state_dict(sd, assign=model_patcher.is_dynamic())
