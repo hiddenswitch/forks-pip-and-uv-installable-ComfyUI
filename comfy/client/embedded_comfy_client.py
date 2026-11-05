@@ -175,6 +175,7 @@ def _cleanup(invalidate_nodes=True, unload_models=True):
         prompt_executor: PromptExecutor = _prompt_executor.executor
         # this should clear all references to output tensors and make it easier to collect back the memory
         prompt_executor.reset()
+        prompt_executor.history_result = None
     except (LookupError, AttributeError):
         pass
     from .. import model_management
@@ -409,7 +410,11 @@ class Comfy:
         return self._history
 
     async def clear_cache(self, *, unload_models=True):
-        """Clear request/node caches, optionally retaining resident model weights."""
+        """Clear request/node caches and, by default, unload models.
+
+        With unload_models=False, caller-owned models remain resident. Models
+        owned only by cleared node caches can still be garbage-collected.
+        """
         await get_event_loop().run_in_executor(self._executor, _cleanup, False, unload_models)
 
     @property
