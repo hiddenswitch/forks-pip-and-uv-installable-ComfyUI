@@ -315,15 +315,19 @@ class TestExecution:
         mix1 = g.node("TestLazyMixImages", image1=input1.out(0), image2=input2.out(0), mask=mask.out(0))
         mix2 = g.node("TestLazyMixImages", image1=input1.out(0), image2=input3.out(0), mask=mask.out(0))
         # We have multiple outputs. The first is invalid, but the second is valid
-        g.node("SaveImage", images=mix1.out(0))
-        g.node("SaveImage", images=mix2.out(0))
+        invalid_output = g.node("SaveImage", images=mix1.out(0))
+        valid_output = g.node("SaveImage", images=mix2.out(0))
         g.remove_node("removeme")
 
-        await client.run(g)
+        result = await client.run(g)
+        assert result.get_images(invalid_output) == []
+        assert len(result.get_images(valid_output)) == 1
 
         # Add back in the missing node to make sure the error doesn't break the server
         input2 = g.node("StubImage", id="removeme", content="WHITE", height=512, width=512, batch_size=1)
-        await client.run(g)
+        result = await client.run(g)
+        assert len(result.get_images(invalid_output)) == 1
+        assert len(result.get_images(valid_output)) == 1
 
     async def test_output_reuse(self, client: ComfyClient, builder: GraphBuilder):
         g = builder
