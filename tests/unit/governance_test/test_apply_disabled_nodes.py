@@ -3,14 +3,11 @@ import logging
 from pathlib import Path
 
 import pytest
-import torch
 
 from comfy.app import governance
-from comfy.cli_args import args, default_configuration
+from comfy.cli_args import default_configuration
 
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 from comfy.app.node_replace_manager import NodeReplaceManager  # noqa: E402
 from comfy.cmd import execution, folder_paths  # noqa: E402

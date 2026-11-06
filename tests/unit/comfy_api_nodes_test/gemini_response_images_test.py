@@ -2,13 +2,9 @@ import asyncio
 import base64
 from io import BytesIO
 
-import torch
 from PIL import Image
 
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 from comfy_api_nodes.apis.gemini import (  # noqa: E402
     GeminiCandidate,

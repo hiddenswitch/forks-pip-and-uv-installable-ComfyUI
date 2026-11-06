@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from requests.exceptions import HTTPError
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, patch
 
 from comfy.app.frontend_management import (
     FrontendManager,
@@ -329,115 +329,20 @@ def test_init_frontend_fallback_on_error():
     mock_check.assert_called_once()
 
 
-@pytest.mark.skip(reason="version detection not applicable in this fork")
-def test_get_frontend_version():
-    # Arrange
-    expected_version = "1.25.0"
-    mock_requirements_content = """torch
-torchsde
-comfyui-frontend-package==1.25.0
-other-package==1.0.0
-numpy"""
-
-    # Act
-    with patch("builtins.open", mock_open(read_data=mock_requirements_content)):
-        version = FrontendManager.get_required_frontend_version()
-
-    # Assert
-    assert version == expected_version
+@pytest.mark.parametrize('method,package', [
+    ('get_required_frontend_version', 'comfyui_frontend_package'),
+    ('get_installed_templates_version', 'comfyui-workflow-templates'),
+])
+def test_versions_come_from_installed_package_metadata(method, package):
+    with patch('comfy.app.frontend_management.importlib.metadata.version', return_value='1.25.0') as version:
+        assert getattr(FrontendManager, method)() == '1.25.0'
+    version.assert_called_once_with(package)
 
 
-@pytest.mark.skip(reason="version detection not applicable in this fork")
-def test_get_frontend_version_invalid_semver():
-    # Arrange
-    mock_requirements_content = """torch
-torchsde
-comfyui-frontend-package==1.29.3.75
-other-package==1.0.0
-numpy"""
-
-    # Act
-    with patch("builtins.open", mock_open(read_data=mock_requirements_content)):
-        version = FrontendManager.get_required_frontend_version()
-
-    # Assert
-    assert version is None
-
-
-@pytest.mark.skip(reason="version detection not applicable in this fork")
-def test_get_templates_version():
-    # Arrange
-    expected_version = "0.1.41"
-    mock_requirements_content = """torch
-torchsde
-comfyui-frontend-package==1.25.0
-comfyui-workflow-templates==0.1.41
-other-package==1.0.0
-numpy"""
-
-    # Act
-    with patch("builtins.open", mock_open(read_data=mock_requirements_content)):
-        version = FrontendManager.get_required_templates_version()
-
-    # Assert
-    assert version == expected_version
-
-
-@pytest.mark.skip(reason="version detection not applicable in this fork")
-def test_get_templates_version_not_found():
-    # Arrange
-    mock_requirements_content = """torch
-torchsde
-comfyui-frontend-package==1.25.0
-other-package==1.0.0
-numpy"""
-
-    # Act
-    with patch("builtins.open", mock_open(read_data=mock_requirements_content)):
-        version = FrontendManager.get_required_templates_version()
-
-    # Assert
-    assert version is None
-
-
-@pytest.mark.skip(reason="version detection not applicable in this fork")
-def test_get_templates_version_invalid_semver():
-    # Arrange
-    mock_requirements_content = """torch
-torchsde
-comfyui-workflow-templates==1.0.0.beta
-other-package==1.0.0
-numpy"""
-
-    # Act
-    with patch("builtins.open", mock_open(read_data=mock_requirements_content)):
-        version = FrontendManager.get_required_templates_version()
-
-    # Assert
-    assert version is None
-
-
-@pytest.mark.skip(reason="version detection not applicable in this fork")
-def test_get_installed_templates_version():
-    # Arrange
-    expected_version = "0.1.40"
-
-    # Act
-    with patch("comfy.app.frontend_management.version", return_value=expected_version):
-        version = FrontendManager.get_installed_templates_version()
-
-    # Assert
-    assert version == expected_version
-
-
-@pytest.mark.skip(reason="version detection not applicable in this fork")
-def test_get_installed_templates_version_not_installed():
-    # Act
-    with patch("comfy.app.frontend_management.version", side_effect=Exception("Package not found")):
-        version = FrontendManager.get_installed_templates_version()
-
-    # Assert
-    assert version is None
+def test_missing_templates_package_returns_empty_version():
+    from importlib.metadata import PackageNotFoundError
+    with patch('comfy.app.frontend_management.importlib.metadata.version', side_effect=PackageNotFoundError):
+        assert FrontendManager.get_installed_templates_version() == ''
 
 
 def test_template_asset_map_skips_missing_assets():

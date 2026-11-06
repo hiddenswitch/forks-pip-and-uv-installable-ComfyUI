@@ -4,10 +4,7 @@ from unittest.mock import MagicMock, patch
 import torch
 import torch.nn as nn
 
-from comfy.cli_args import args as cli_args
 
-if not torch.cuda.is_available():
-    cli_args.cpu = True
 
 import comfy.ldm.seedvr.vae as seedvr_vae_mod  # noqa: E402
 import comfy.sd as sd_mod  # noqa: E402

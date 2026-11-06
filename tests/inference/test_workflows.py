@@ -1,5 +1,6 @@
 import atexit
 import asyncio
+import contextlib
 import importlib.resources
 import json
 import logging
@@ -10,6 +11,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator
 
 import psutil
+from PIL import Image
 import torch
 
 try:
@@ -117,6 +119,10 @@ def _generate_config_params():
     yield {
         "use_pytorch_cross_attention": True,
         "fast": {PerformanceFeature.CublasOps, PerformanceFeature.Fp16Accumulation},
+        # Keep the model-coverage baseline independent of the host's GPU count.
+        # Pipeline execution has its own tests; CFG workflows may still replicate
+        # models across devices through their explicit MultiGPU nodes.
+        "pipeline_parallel_size": 1,
     }
 
 
@@ -127,6 +133,10 @@ def workflow_process(tmp_path_factory, request):
     benchmark_path = tmp_path_factory.mktemp("benchmark") / "steps.jsonl"
     initializer = _initialize_mini_worker if request.config.getoption("--weights") == "mini" else _initialize_worker
     with ProcessPoolExecutor(max_workers=1, initializer=initializer, initargs=(str(benchmark_path),)) as executor:
+        device = executor.submit(_worker_device).result(timeout=90)
+        expected = request.config.getoption("--expected-device")
+        if expected is not None:
+            assert device == expected, f"Inference worker selected {device}, expected {expected}"
         yield executor, benchmark_path, request.param
 
 
@@ -163,12 +173,19 @@ def _initialize_worker(benchmark_path: str):
     install_benchmark(benchmark_path)
 
 
+def _worker_device():
+    from comfy import model_management
+    return model_management.get_torch_device().type
+
+
 def _initialize_mini_worker(benchmark_path: str):
     global _mini_loaded
     from comfy import model_management
+    from tests.mini_downloads import miniature_downloads
     device = model_management.get_torch_device()
-    context = miniature_models(initialization_device=device if device.type == "cuda" else "cpu")
-    _mini_loaded = context.__enter__()
+    context = contextlib.ExitStack()
+    context.enter_context(miniature_downloads(Path(benchmark_path).parent.parent))
+    _mini_loaded = context.enter_context(miniature_models(initialization_device=device if device.type == "cuda" else "cpu"))
     atexit.register(context.__exit__, None, None, None)
     _initialize_worker(benchmark_path)
 
@@ -187,7 +204,7 @@ def _prepare_for_workflows():
     return [pytest.param(f.name, f, id=f.name) for f in files]
 
 
-def _replace_remote_media_inputs(workflow: dict) -> None:
+def _replace_remote_media_inputs(workflow: dict, image_path=_LOCAL_TEST_IMAGE) -> None:
     for node in workflow.values():
         if not isinstance(node, dict):
             continue
@@ -196,7 +213,7 @@ def _replace_remote_media_inputs(workflow: dict) -> None:
             continue
         value = inputs.get("value")
         if isinstance(value, str) and value.startswith(("http://", "https://")):
-            inputs["value"] = _LOCAL_TEST_IMAGE
+            inputs["value"] = image_path
 
 
 @pytest.mark.inference
@@ -204,20 +221,32 @@ def _replace_remote_media_inputs(workflow: dict) -> None:
 @pytest.mark.requires_accelerator
 @pytest.mark.asyncio
 @pytest.mark.parametrize("workflow_name, workflow_file", _prepare_for_workflows())
-async def test_workflow(workflow_name: str, workflow_file: Traversable, has_gpu: bool, client: Comfy, request):
+async def test_workflow(workflow_name: str, workflow_file: Traversable, has_gpu: bool, client: Comfy, request, tmp_path):
     if not has_gpu:
         pytest.skip("requires gpu")
 
     workflow = json.loads(workflow_file.read_text(encoding="utf8"))
 
-    _replace_remote_media_inputs(workflow)
+    image_path = _LOCAL_TEST_IMAGE
+    if request.config.getoption("--weights") == "mini":
+        image_path = str(tmp_path / "input.png")
+        with Image.open(Path(__file__).parents[1] / 'custom_nodes/test_data/president_official_portrait_hires2-1-1024x1024.jpg') as image:
+            image.thumbnail((128, 128))
+            image.save(image_path)
+    _replace_remote_media_inputs(workflow, image_path)
     workflow = prepare_benchmark_prompt(workflow)
     if request.config.getoption("--weights") == "mini":
         for node in workflow.values():
             inputs = node.get('inputs', {})
             if isinstance(inputs.get('max_new_tokens'), int):
                 inputs['max_new_tokens'] = min(8, inputs['max_new_tokens'])
-            if 'Latent' in node.get('class_type', ''):
+            if node.get('class_type') == 'ImagePadForOutpaint':
+                for key in ('left', 'top', 'right', 'bottom', 'feathering'):
+                    if isinstance(inputs.get(key), int):
+                        inputs[key] = min(16, inputs[key])
+            if node.get('class_type') == 'ImageScaleToTotalPixels':
+                inputs['megapixels'] = min(inputs['megapixels'], 128 * 128 / 1e6)
+            if 'Latent' in node.get('class_type', '') or node.get('class_type') == 'ImageScale':
                 for key in ('width', 'height'):
                     value = node.get('inputs', {}).get(key)
                     if isinstance(value, int):
@@ -245,7 +274,9 @@ async def test_workflow(workflow_name: str, workflow_file: Traversable, has_gpu:
         duration = end_time - start_time
         ram_gb = monitor.peak_cpu_ram / (1024 ** 3)
         vram_gb = monitor.peak_gpu_vram / (1024 ** 3)
-        logger.info(f"Test {workflow_name} with client {client} took {duration:.4f}s | Peak RAM: {ram_gb:.2f} GB | Peak VRAM: {vram_gb:.2f} GB")
+        request.node.user_properties.append(("peak_process_tree_rss_gib", ram_gb))
+        vram = f"{vram_gb:.2f} GiB" if monitor._pynvml_available else "not measured"
+        logger.info(f"Test {workflow_name} with client {client} took {duration:.4f}s | Peak RSS: {ram_gb:.2f} GiB | Peak VRAM: {vram}")
 
     if any(v.class_type == "SaveImage" for v in prompt.values()):
         save_image_node_id = next(key for key in prompt if prompt[key].class_type == "SaveImage")

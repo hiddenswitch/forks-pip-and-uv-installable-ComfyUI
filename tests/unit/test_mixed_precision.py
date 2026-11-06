@@ -9,13 +9,6 @@ import torch
 from comfy.cli_args_types import Configuration
 
 
-def has_gpu():
-    return torch.cuda.is_available()
-
-from comfy.cli_args import args
-if not has_gpu():
-    args.cpu = True
-
 from comfy import model_management
 from comfy import ops
 from comfy import utils

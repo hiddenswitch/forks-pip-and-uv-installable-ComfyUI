@@ -1221,3 +1221,32 @@ def test_a_ranks_receive_buffers_hold_one_shape_across_tensor_sets():
     buffers.get(denoising, allocate)
     buffers.get(_schema(4).tensors, allocate)
     assert buffers.retained_bytes() == 4 * 8 * 4 + 4 * 4 * 4
+
+
+@pytest.mark.parametrize('requested_stages', [None, 2])
+def test_klein_geometry_uses_ordinary_loader_unless_pipeline_explicit(tmp_path, monkeypatch, requested_stages):
+    from safetensors.torch import save_file
+    from comfy.cli_args_types import Configuration
+    from comfy.execution_context import context_configuration
+    from comfy.pipeline_parallel import loader
+
+    # Native Flux2 checkpoint, with a smaller block layout than Dev. Detection and
+    # stage planning run unchanged; only the available device inventory is supplied.
+    model = Flux(in_channels=128, out_channels=128, vec_in_dim=None, context_in_dim=8,
+                 hidden_size=128, mlp_ratio=3, num_heads=1, depth=2, depth_single_blocks=2,
+                 axes_dim=[32, 32, 32, 32], theta=2000, patch_size=1, qkv_bias=False,
+                 guidance_embed=False, txt_ids_dims=[3], global_modulation=True, ops_bias=False, mlp_silu_act=True,
+                 dtype=torch.float32, device='cpu', operations=comfy_ops.disable_weight_init)
+    path = tmp_path / 'klein-layout.safetensors'
+    save_file(model.state_dict(), path)
+    devices = [torch.device('cuda:0'), torch.device('cuda:1')]
+    monkeypatch.setattr(model_management, 'get_torch_device', lambda: devices[0])
+    monkeypatch.setattr(model_management, 'get_all_torch_devices', lambda: devices)
+    configuration = Configuration(pipeline_parallel_size=requested_stages)
+    coordinator = types.SimpleNamespace(budgets=lambda devices: None)
+    with context_configuration(configuration):
+        if requested_stages is None:
+            assert loader.try_load_diffusion_model_pipeline(path, memory_coordinator=coordinator) is None
+        else:
+            with pytest.raises(ValueError, match='currently supports Flux2 Dev'):
+                loader.try_load_diffusion_model_pipeline(path, memory_coordinator=coordinator)

@@ -1,10 +1,7 @@
 import torch
 import torch.nn as nn
 
-from comfy.cli_args import args as cli_args
 
-if not torch.cuda.is_available():
-    cli_args.cpu = True
 
 import comfy.sd
 import comfy.supported_models

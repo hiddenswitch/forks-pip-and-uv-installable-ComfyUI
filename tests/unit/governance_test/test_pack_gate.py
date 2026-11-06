@@ -9,15 +9,12 @@ import subprocess
 import sys
 
 import pytest
-import torch
 
 from comfy.app import governance
-from comfy.cli_args import args, default_configuration
+from comfy.cli_args import default_configuration
 from comfy.execution_context import context_configuration
 
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 from comfy.cmd import folder_paths  # noqa: E402
 from comfy.nodes.package import import_all_nodes_in_workspace  # noqa: E402

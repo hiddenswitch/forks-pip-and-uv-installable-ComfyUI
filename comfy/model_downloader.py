@@ -16,7 +16,7 @@ from typing import List, Optional, Final, Set
 import requests
 import requests_cache
 import tqdm
-from huggingface_hub import dump_environment_info, hf_hub_download, scan_cache_dir, snapshot_download, HfFileSystem, CacheNotFound
+from huggingface_hub import hf_hub_download, scan_cache_dir, snapshot_download, HfFileSystem, CacheNotFound
 from huggingface_hub.utils import GatedRepoError, LocalEntryNotFoundError, LocalTokenNotFoundError
 from requests import Session
 from safetensors import safe_open
@@ -266,13 +266,7 @@ def get_or_download(
                             except IOError as exc_info:
                                 logger.error(f"cannot reach huggingface {known_file.repo_id}/{known_file.filename}", exc_info=exc_info)
                             except Exception as exc_info:
-                                logger.error(f"an exception occurred while downloading {known_file.repo_id}/{known_file.filename}. hf_hub_download kwargs={hf_hub_download_kwargs}", exc_info=exc_info)
-                                dump_environment_info()
-                                for key, value in os.environ.items():
-                                    if key.startswith("HF_"):
-                                        if key == "HF_TOKEN":
-                                            value = "*****"
-                                        logger.error("%s=%s", key, value)
+                                logger.error(f"an exception occurred while downloading {known_file.repo_id}/{known_file.filename}", exc_info=exc_info)
 
                     if path is not None and known_file.convert_to_16_bit and file_size is not None and file_size != 0:
                         tensors = {}
@@ -967,9 +961,9 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/Mage-Flow", "diffusion_models/mage_flow_edit_turbo_int8_convrot.safetensors"),
     HuggingFile("ByteDance/Hyper-SD", "Hyper-SDXL-1step-Unet-Comfyui.fp16.safetensors"),
     HuggingFile("black-forest-labs/FLUX.1-schnell", "flux1-schnell.safetensors", alternate_filenames=("main/flux1-schnell.safetensors",)),
-    HuggingFile("black-forest-labs/FLUX.1-dev", "flux1-dev.safetensors", alternate_filenames=("main/flux1-dev.safetensors",)),
-    HuggingFile("black-forest-labs/FLUX.1-Fill-dev", "flux1-fill-dev.safetensors", alternate_filenames=("main/flux1-fill-dev.safetensors",)),
-    HuggingFile("black-forest-labs/FLUX.1-Canny-dev", "flux1-canny-dev.safetensors", alternate_filenames=("main/flux1-canny-dev.safetensors",)),
+    HuggingFile("Comfy-Org/Flux-1-Dev", "flux1-dev.safetensors", alternate_filenames=("main/flux1-dev.safetensors",)),
+    HuggingFile("Comfy-Org/Flux-1-Dev", "split_files/diffusion_models/flux1-fill-dev.safetensors", alternate_filenames=("main/flux1-fill-dev.safetensors",)),
+    HuggingFile("Comfy-Org/Flux-1-Dev", "split_files/diffusion_models/flux1-canny-dev.safetensors", alternate_filenames=("main/flux1-canny-dev.safetensors",)),
     HuggingFile("black-forest-labs/FLUX.1-Depth-dev", "flux1-depth-dev.safetensors", alternate_filenames=("main/flux1-depth-dev.safetensors",)),
     HuggingFile("black-forest-labs/FLUX.1-Kontext-dev", "flux1-kontext-dev.safetensors"),
     HuggingFile("Kijai/flux-fp8", "flux1-dev-fp8.safetensors"),
@@ -1114,8 +1108,7 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_sft_bf16.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=10164655808),
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_base_int8_convrot_attn.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=5413698958),
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_sft_int8_convrot_attn.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=5413698958),
-    # briaai/Fibo-2.0-dev 5306044 transformer, its two diffusers shards as one file (gated, non-commercial licence: a private repository)
-    HuggingFile("appmana/Fibo-2.0-ComfyUI", "diffusion_models/fibo2_dev_bf16.safetensors", revision="e51ce9667827b30d3c31290f57b81a0626910596", size=16254770194),
+    HuggingFile("Comfy-Org/Fibo-2.0", "diffusion_models/fibo2_dev_bf16.safetensors", revision="4742d4bec410034142c8e65559e5f00c6f29eccb", size=16452934194),
     HuggingFile("Comfy-Org/Fibo-2.0", "diffusion_models/fibo2_dev_int8_convrot.safetensors", revision="b2bffaf57d48825a6989b986f24d5cfb8c71231b", size=8408562474),
     HuggingFile("Comfy-Org/Fibo-2.0", "diffusion_models/fibo2_edit_turbo_int8_convrot.safetensors", revision="b2bffaf57d48825a6989b986f24d5cfb8c71231b", size=8408562474),
     HuggingFile("black-forest-labs/FLUX.2-klein-4b-fp8", "flux-2-klein-4b-fp8.safetensors"),
@@ -1393,7 +1386,7 @@ KNOWN_CLIP_MODELS: Final[KnownDownloadables] = KnownDownloadables([
 ], folder_names=["clip", "text_encoders"])
 
 KNOWN_STYLE_MODELS: Final[KnownDownloadables] = KnownDownloadables([
-    HuggingFile("black-forest-labs/FLUX.1-Redux-dev", "flux1-redux-dev.safetensors", alternate_filenames=("main/flux1-redux-dev.safetensors",)),
+    HuggingFile("Comfy-Org/Flux-1-Redux-Dev", "flux1-redux-dev.safetensors", alternate_filenames=("main/flux1-redux-dev.safetensors",)),
 ], folder_name="style_models")
 
 # WanVideoWrapper (Kijai) -- MMAudio models (Ovi audio generation)
@@ -1668,7 +1661,7 @@ KNOWN_FLASHVSR_MODELS: Final[KnownDownloadables] = KnownDownloadables([
 # FLUX -- Black Forest Labs models. ``.sft`` is a synonym for safetensors that
 # the FLUX repos use; workflows reference both forms.
 KNOWN_FLUX_CHECKPOINTS: Final[KnownDownloadables] = KnownDownloadables([
-    HuggingFile("black-forest-labs/FLUX.1-dev", "flux1-dev.safetensors",
+    HuggingFile("Comfy-Org/Flux-1-Dev", "flux1-dev.safetensors",
                 alternate_filenames=("flux1-dev.sft",)),
     HuggingFile("black-forest-labs/FLUX.1-schnell", "flux1-schnell.safetensors",
                 alternate_filenames=("flux1-schnell.sft",)),
@@ -1770,12 +1763,12 @@ KNOWN_UPSCALERS_EXT: Final[KnownDownloadables] = KnownDownloadables([
 
 # Official FLUX ControlNets (Canny / Depth) by Black Forest Labs.
 KNOWN_FLUX_CONTROLNETS: Final[KnownDownloadables] = KnownDownloadables([
-    HuggingFile("black-forest-labs/FLUX.1-Canny-dev", "flux1-canny-dev.safetensors"),
+    HuggingFile("Comfy-Org/Flux-1-Dev", "split_files/diffusion_models/flux1-canny-dev.safetensors"),
     HuggingFile("Comfy-Org/flux1-canny-dev_lora", "flux1-canny-dev-lora.safetensors"),
     HuggingFile("comfyanonymous/flux_dev_scaled_fp8_test", "flux1-canny-dev-fp8.safetensors",
                 alternate_filenames=("flux1-canny-dev-fp8.sft",)),
     HuggingFile("black-forest-labs/FLUX.1-Depth-dev", "flux1-depth-dev.safetensors"),
-    HuggingFile("black-forest-labs/FLUX.1-Fill-dev", "flux1-fill-dev.safetensors"),
+    HuggingFile("Comfy-Org/Flux-1-Dev", "split_files/diffusion_models/flux1-fill-dev.safetensors"),
 ], folder_name="diffusion_models")
 
 # Lightricks LTX-2 19B distilled — the official LTX-2 release files.

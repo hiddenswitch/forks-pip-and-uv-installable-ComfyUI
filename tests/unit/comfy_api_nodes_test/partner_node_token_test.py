@@ -7,14 +7,10 @@ from io import BytesIO
 from types import SimpleNamespace
 
 import pytest
-import torch
 from aiohttp import web
 
 from comfy.execution_context import current_execution_context
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 from comfy_api_nodes.util import _helpers
 from comfy_api_nodes.util.client import ApiEndpoint, sync_op_raw

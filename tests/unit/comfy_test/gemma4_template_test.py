@@ -1,12 +1,8 @@
 """Gemma4 chat template regression tests."""
 
 import pytest
-import torch
 
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 import comfy.text_encoders.gemma4 as gemma4  # noqa: E402
 

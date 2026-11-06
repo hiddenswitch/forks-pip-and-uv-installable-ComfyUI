@@ -3,11 +3,8 @@ import os
 import torch
 from PIL import Image
 
-from comfy.cli_args import args as cli_args
 from comfy.cmd import folder_paths
 
-if not torch.cuda.is_available():
-    cli_args.cpu = True
 
 from comfy_extras.nodes.nodes_bounding_boxes import CreateBoundingBoxes  # noqa: E402
 

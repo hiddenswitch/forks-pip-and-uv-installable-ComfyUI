@@ -1,8 +1,7 @@
 """SaveImageAdvanced writes a content-addressed preview next to each EXR when assets are on."""
 
-import sys
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -13,17 +12,8 @@ from comfy.execution_context import current_execution_context
 from comfy.cmd import folder_paths
 from comfy_execution.preview_tonemap import linear_to_preview
 
-previous_nodes = sys.modules.get("nodes")
-previous_server = sys.modules.get("server")
-sys.modules["nodes"] = MagicMock(MAX_RESOLUTION=16384)
-sys.modules["server"] = MagicMock()
-from comfy_extras.nodes import nodes_images  # noqa: E402
-from comfy_extras.nodes.nodes_images import SaveImageAdvanced  # noqa: E402
-for name, previous in (("nodes", previous_nodes), ("server", previous_server)):
-    if previous is None:
-        sys.modules.pop(name)
-    else:
-        sys.modules[name] = previous
+from comfy_extras.nodes import nodes_images
+from comfy_extras.nodes.nodes_images import SaveImageAdvanced
 
 
 @pytest.fixture
