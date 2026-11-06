@@ -1,17 +1,12 @@
 import time
-from typing import Any, AsyncGenerator
 
 import numpy as np
 import pytest
 from pytest import fixture
 
-from comfy.cli_args import default_configuration
-from comfy.client.embedded_comfy_client import Comfy
-from comfy.execution_context import context_add_custom_nodes
-from comfy.nodes.package_typing import ExportedNodes
 from comfy_execution.graph_utils import GraphBuilder
 from .test_execution import run_warmup
-from .common import _ProgressHandler, ComfyClient, client_fixture
+from .common import ComfyClient, client_fixture
 
 
 @pytest.mark.execution
@@ -192,11 +187,9 @@ class TestAsyncNodes:
         timeout_node = g.node("TestAsyncTimeout", value=image.out(0), timeout=0.5, operation_time=2.0)
         g.node("SaveImage", images=timeout_node.out(0))
 
-        try:
+        with pytest.raises(Exception, match="(?i)timeout") as error:
             await client.run(g)
-            assert False, "Should have raised a timeout error"
-        except Exception as e:
-            assert 'timeout' in str(e).lower(), f"Expected timeout error, got: {e}"
+        assert error.value.args[0]['node_id'] == timeout_node.id
 
     async def test_concurrent_async_error_recovery(self, client: ComfyClient, builder: GraphBuilder):
         """Test that workflow can recover after async errors."""
@@ -207,10 +200,9 @@ class TestAsyncNodes:
         error_node = g.node("TestAsyncError", value=image.out(0), error_after=0.1)
         g.node("SaveImage", images=error_node.out(0))
 
-        try:
+        with pytest.raises(Exception) as error:
             await client.run(g)
-        except Exception:
-            pass  # Expected
+        assert error.value.args[0]['node_id'] == error_node.id
 
         # Second run should succeed
         g2 = GraphBuilder(prefix="recovery_test")
@@ -350,12 +342,6 @@ class TestAsyncNodes:
         # Should be cached but not error due to resource conflicts
         for node in resource_nodes:
             assert not result2.did_run(node), "Should be cached"
-
-    async def test_async_cancellation(self, client: ComfyClient, builder: GraphBuilder):
-        """Test cancellation of async operations."""
-        # This would require implementing cancellation in the client
-        # For now, we'll test that long-running async operations can be interrupted
-        pass  # TODO: Implement when cancellation API is available
 
     async def test_mixed_sync_async_execution(self, client: ComfyClient, builder: GraphBuilder):
         """Test workflows with both sync and async nodes."""

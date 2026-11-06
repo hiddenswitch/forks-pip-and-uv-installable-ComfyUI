@@ -627,10 +627,15 @@ class TestMapWidgets:
             "system_prompt": "system default",
         }
 
-    def test_dict_widgets_passthrough(self):
-        """Ensure convert_ui_to_api handles dict widgets_values."""
-        # Tested at integration level – _map_widgets only handles lists.
-        pass
+    def test_dict_widgets_passthrough(self, _with_test_nodes):
+        workflow = {
+            "nodes": [{"id": 1, "type": "EmptyLatentImage", "mode": 0,
+                       "inputs": [], "outputs": [],
+                       "widgets_values": {"width": 768, "height": 384, "batch_size": 2}}],
+            "links": [],
+        }
+        result = convert_ui_to_api(workflow)
+        assert result["1"]["inputs"] == {"width": 768, "height": 384, "batch_size": 2}
 
     def test_list_value_wrapped(self):
         """List widget values must be wrapped as {'__value__': ...}."""

@@ -2,10 +2,6 @@ from types import SimpleNamespace
 
 import torch
 
-from comfy.cli_args import args
-
-args.cpu = True
-
 from comfy import model_base, model_detection
 from comfy import latent_formats
 from comfy import sample

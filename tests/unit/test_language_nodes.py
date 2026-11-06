@@ -1,6 +1,5 @@
 import io
 import os
-import tempfile
 from unittest.mock import patch, Mock
 
 import pytest
@@ -21,9 +20,9 @@ def save_string_node():
 
 
 @pytest.fixture
-def mock_get_save_path(save_string_node):
+def mock_get_save_path(save_string_node, tmp_path):
     with patch.object(save_string_node, 'get_save_path') as mock_method:
-        mock_method.return_value = (tempfile.gettempdir(), "test", 0, "", "test")
+        mock_method.return_value = (str(tmp_path), "test", 0, "", "test")
         yield mock_method
 
 
@@ -34,7 +33,7 @@ def test_save_string_single(save_string_node, mock_get_save_path):
     assert result == {"ui": {"string": [test_string]}}
     mock_get_save_path.assert_called_once_with("test_prefix")
 
-    saved_file_path = os.path.join(tempfile.gettempdir(), "test_00000.txt")
+    saved_file_path = os.path.join(mock_get_save_path.return_value[0], "test_00000.txt")
     assert os.path.exists(saved_file_path)
     with open(saved_file_path, "r") as f:
         assert f.read() == test_string
@@ -48,7 +47,7 @@ def test_save_string_list(save_string_node, mock_get_save_path):
     mock_get_save_path.assert_called_once_with("test_prefix")
 
     for i, test_string in enumerate(test_strings):
-        saved_file_path = os.path.join(tempfile.gettempdir(), f"test_00000_{i:02d}.txt")
+        saved_file_path = os.path.join(mock_get_save_path.return_value[0], f"test_00000_{i:02d}.txt")
         assert os.path.exists(saved_file_path)
         with open(saved_file_path, "r") as f:
             assert f.read() == test_string
@@ -61,7 +60,7 @@ def test_save_string_default_extension(save_string_node, mock_get_save_path):
     assert result == {"ui": {"string": [test_string]}}
     mock_get_save_path.assert_called_once_with("test_prefix")
 
-    saved_file_path = os.path.join(tempfile.gettempdir(), "test_00000.txt")
+    saved_file_path = os.path.join(mock_get_save_path.return_value[0], "test_00000.txt")
     assert os.path.exists(saved_file_path)
     with open(saved_file_path, "r") as f:
         assert f.read() == test_string

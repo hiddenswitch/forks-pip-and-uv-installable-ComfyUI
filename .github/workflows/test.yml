@@ -258,7 +258,7 @@ jobs:
           COMFYUI_UNIT_DISABLE_CUSTOM_NODES: "1"
         run: |
           .venv/bin/python -m pytest -v \
-            tests/unit/test_cli_args_types_sync.py \
+            tests/unit/test_cli.py \
             tests/unit/test_comfy_instance.py \
             tests/unit/test_guess_settings.py \
             tests/unit/test_torchvision_compat.py \

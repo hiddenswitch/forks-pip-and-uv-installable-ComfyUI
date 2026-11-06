@@ -1,4 +1,3 @@
-import pytest
 import torch
 
 from comfy_extras.nodes.nodes_images import ImageStitch
@@ -147,7 +146,6 @@ class TestImageStitch:
         spacing_region = result_black[0][:, :, 32:48, :]
         assert torch.all(spacing_region <= 0.1)  # Should be close to black
 
-    @pytest.mark.skip()
     def test_odd_spacing_width_made_even(self):
         """Test that odd spacing widths are made even"""
         node = ImageStitch()
@@ -171,7 +169,6 @@ class TestImageStitch:
         # Should match larger batch size
         assert result[0].shape == (2, 32, 64, 3)
 
-    @pytest.mark.skip()
     def test_channel_matching_rgb_to_rgba(self):
         """Test that channel differences are handled (RGB + alpha)"""
         node = ImageStitch()
@@ -183,7 +180,6 @@ class TestImageStitch:
         # Should have 4 channels (RGBA)
         assert result[0].shape[-1] == 4
 
-    @pytest.mark.skip()
     def test_channel_matching_rgba_to_rgb(self):
         """Test that channel differences are handled (RGBA + RGB)"""
         node = ImageStitch()
@@ -217,9 +213,9 @@ class TestImageStitch:
 
         for direction in directions:
             result = node.stitch(image1, direction, False, 0, "white", image2)
-            assert result[0].shape == (1, 32, 64, 3) if direction in ["right", "left"] else (1, 64, 32, 3)
+            expected_shape = (1, 32, 64, 3) if direction in ["right", "left"] else (1, 64, 32, 3)
+            assert result[0].shape == expected_shape
 
-    @pytest.mark.skip()
     def test_batch_size_channel_spacing_integration(self):
         """Test integration of batch matching, channel matching, size matching, and spacings"""
         node = ImageStitch()

@@ -75,4 +75,4 @@ jobs:
           COMFYUI_UNIT_DISABLE_CUSTOM_NODES: "1"
         run: |
           .venv/bin/python -c "from comfy.cli_args_types import Configuration; from comfy.client.embedded_comfy_client import Comfy; client = Comfy(configuration=Configuration()); assert client is not None"
-          .venv/bin/python -m pytest -q tests/unit/test_comfy_instance.py tests/unit/test_cli_args_types_sync.py tests/issues/test_67_ipython_faulthandler.py
+          .venv/bin/python -m pytest -q tests/unit/test_comfy_instance.py tests/unit/test_cli.py tests/issues/test_67_ipython_faulthandler.py
