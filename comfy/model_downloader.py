@@ -962,8 +962,8 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("ByteDance/Hyper-SD", "Hyper-SDXL-1step-Unet-Comfyui.fp16.safetensors"),
     HuggingFile("black-forest-labs/FLUX.1-schnell", "flux1-schnell.safetensors", alternate_filenames=("main/flux1-schnell.safetensors",)),
     HuggingFile("Comfy-Org/Flux-1-Dev", "flux1-dev.safetensors", alternate_filenames=("main/flux1-dev.safetensors",)),
-    HuggingFile("black-forest-labs/FLUX.1-Fill-dev", "flux1-fill-dev.safetensors", alternate_filenames=("main/flux1-fill-dev.safetensors",)),
-    HuggingFile("black-forest-labs/FLUX.1-Canny-dev", "flux1-canny-dev.safetensors", alternate_filenames=("main/flux1-canny-dev.safetensors",)),
+    HuggingFile("Comfy-Org/Flux-1-Dev", "split_files/diffusion_models/flux1-fill-dev.safetensors", alternate_filenames=("main/flux1-fill-dev.safetensors",)),
+    HuggingFile("Comfy-Org/Flux-1-Dev", "split_files/diffusion_models/flux1-canny-dev.safetensors", alternate_filenames=("main/flux1-canny-dev.safetensors",)),
     HuggingFile("black-forest-labs/FLUX.1-Depth-dev", "flux1-depth-dev.safetensors", alternate_filenames=("main/flux1-depth-dev.safetensors",)),
     HuggingFile("black-forest-labs/FLUX.1-Kontext-dev", "flux1-kontext-dev.safetensors"),
     HuggingFile("Kijai/flux-fp8", "flux1-dev-fp8.safetensors"),
@@ -1386,7 +1386,7 @@ KNOWN_CLIP_MODELS: Final[KnownDownloadables] = KnownDownloadables([
 ], folder_names=["clip", "text_encoders"])
 
 KNOWN_STYLE_MODELS: Final[KnownDownloadables] = KnownDownloadables([
-    HuggingFile("black-forest-labs/FLUX.1-Redux-dev", "flux1-redux-dev.safetensors", alternate_filenames=("main/flux1-redux-dev.safetensors",)),
+    HuggingFile("Comfy-Org/Flux-1-Redux-Dev", "flux1-redux-dev.safetensors", alternate_filenames=("main/flux1-redux-dev.safetensors",)),
 ], folder_name="style_models")
 
 # WanVideoWrapper (Kijai) -- MMAudio models (Ovi audio generation)
@@ -1763,12 +1763,12 @@ KNOWN_UPSCALERS_EXT: Final[KnownDownloadables] = KnownDownloadables([
 
 # Official FLUX ControlNets (Canny / Depth) by Black Forest Labs.
 KNOWN_FLUX_CONTROLNETS: Final[KnownDownloadables] = KnownDownloadables([
-    HuggingFile("black-forest-labs/FLUX.1-Canny-dev", "flux1-canny-dev.safetensors"),
+    HuggingFile("Comfy-Org/Flux-1-Dev", "split_files/diffusion_models/flux1-canny-dev.safetensors"),
     HuggingFile("Comfy-Org/flux1-canny-dev_lora", "flux1-canny-dev-lora.safetensors"),
     HuggingFile("comfyanonymous/flux_dev_scaled_fp8_test", "flux1-canny-dev-fp8.safetensors",
                 alternate_filenames=("flux1-canny-dev-fp8.sft",)),
     HuggingFile("black-forest-labs/FLUX.1-Depth-dev", "flux1-depth-dev.safetensors"),
-    HuggingFile("black-forest-labs/FLUX.1-Fill-dev", "flux1-fill-dev.safetensors"),
+    HuggingFile("Comfy-Org/Flux-1-Dev", "split_files/diffusion_models/flux1-fill-dev.safetensors"),
 ], folder_name="diffusion_models")
 
 # Lightricks LTX-2 19B distilled — the official LTX-2 release files.

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator
 
 import psutil
+from PIL import Image
 import torch
 
 try:
@@ -203,7 +204,7 @@ def _prepare_for_workflows():
     return [pytest.param(f.name, f, id=f.name) for f in files]
 
 
-def _replace_remote_media_inputs(workflow: dict) -> None:
+def _replace_remote_media_inputs(workflow: dict, image_path=_LOCAL_TEST_IMAGE) -> None:
     for node in workflow.values():
         if not isinstance(node, dict):
             continue
@@ -212,7 +213,7 @@ def _replace_remote_media_inputs(workflow: dict) -> None:
             continue
         value = inputs.get("value")
         if isinstance(value, str) and value.startswith(("http://", "https://")):
-            inputs["value"] = _LOCAL_TEST_IMAGE
+            inputs["value"] = image_path
 
 
 @pytest.mark.inference
@@ -220,20 +221,32 @@ def _replace_remote_media_inputs(workflow: dict) -> None:
 @pytest.mark.requires_accelerator
 @pytest.mark.asyncio
 @pytest.mark.parametrize("workflow_name, workflow_file", _prepare_for_workflows())
-async def test_workflow(workflow_name: str, workflow_file: Traversable, has_gpu: bool, client: Comfy, request):
+async def test_workflow(workflow_name: str, workflow_file: Traversable, has_gpu: bool, client: Comfy, request, tmp_path):
     if not has_gpu:
         pytest.skip("requires gpu")
 
     workflow = json.loads(workflow_file.read_text(encoding="utf8"))
 
-    _replace_remote_media_inputs(workflow)
+    image_path = _LOCAL_TEST_IMAGE
+    if request.config.getoption("--weights") == "mini":
+        image_path = str(tmp_path / "input.png")
+        with Image.open(Path(__file__).parents[1] / 'custom_nodes/test_data/president_official_portrait_hires2-1-1024x1024.jpg') as image:
+            image.thumbnail((128, 128))
+            image.save(image_path)
+    _replace_remote_media_inputs(workflow, image_path)
     workflow = prepare_benchmark_prompt(workflow)
     if request.config.getoption("--weights") == "mini":
         for node in workflow.values():
             inputs = node.get('inputs', {})
             if isinstance(inputs.get('max_new_tokens'), int):
                 inputs['max_new_tokens'] = min(8, inputs['max_new_tokens'])
-            if 'Latent' in node.get('class_type', ''):
+            if node.get('class_type') == 'ImagePadForOutpaint':
+                for key in ('left', 'top', 'right', 'bottom', 'feathering'):
+                    if isinstance(inputs.get(key), int):
+                        inputs[key] = min(16, inputs[key])
+            if node.get('class_type') == 'ImageScaleToTotalPixels':
+                inputs['megapixels'] = min(inputs['megapixels'], 128 * 128 / 1e6)
+            if 'Latent' in node.get('class_type', '') or node.get('class_type') == 'ImageScale':
                 for key in ('width', 'height'):
                     value = node.get('inputs', {}).get(key)
                     if isinstance(value, int):
