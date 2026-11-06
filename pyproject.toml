@@ -70,7 +70,7 @@ dependencies = [
     "lazy_loader>=0.3",
     "can_ada",
     "fsspec",
-    "s3fs",
+    "s3fs>=2026.7.0",
     "yt-dlp",
     "natsort",
     # Many community custom nodes (ComfyUI-Inspire-Pack, others) import
