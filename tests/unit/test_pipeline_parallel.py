@@ -1232,10 +1232,10 @@ def test_klein_geometry_uses_ordinary_loader_unless_pipeline_explicit(tmp_path, 
 
     # Native Flux2 checkpoint, with a smaller block layout than Dev. Detection and
     # stage planning run unchanged; only the available device inventory is supplied.
-    model = Flux(in_channels=4, out_channels=4, vec_in_dim=None, context_in_dim=8,
-                 hidden_size=128, mlp_ratio=2, num_heads=1, depth=2, depth_single_blocks=2,
+    model = Flux(in_channels=128, out_channels=128, vec_in_dim=None, context_in_dim=8,
+                 hidden_size=128, mlp_ratio=3, num_heads=1, depth=2, depth_single_blocks=2,
                  axes_dim=[32, 32, 32, 32], theta=2000, patch_size=1, qkv_bias=False,
-                 guidance_embed=False, txt_ids_dims=[3], global_modulation=True,
+                 guidance_embed=False, txt_ids_dims=[3], global_modulation=True, ops_bias=False, mlp_silu_act=True,
                  dtype=torch.float32, device='cpu', operations=comfy_ops.disable_weight_init)
     path = tmp_path / 'klein-layout.safetensors'
     save_file(model.state_dict(), path)

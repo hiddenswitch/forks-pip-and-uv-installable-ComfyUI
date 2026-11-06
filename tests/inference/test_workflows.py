@@ -118,6 +118,10 @@ def _generate_config_params():
     yield {
         "use_pytorch_cross_attention": True,
         "fast": {PerformanceFeature.CublasOps, PerformanceFeature.Fp16Accumulation},
+        # Keep the model-coverage baseline independent of the host's GPU count.
+        # Pipeline execution has its own tests; CFG workflows may still replicate
+        # models across devices through their explicit MultiGPU nodes.
+        "pipeline_parallel_size": 1,
     }
 
 
