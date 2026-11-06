@@ -101,7 +101,7 @@ if _DIFFUSERS_IMPORT_ERROR is None:
             # weights are patched, ready to go, inner model will be correctly deleted at the end of sampling
             model_size = model.model_size()
 
-            model_too_large = model_size * 2 > get_free_memory(torch.cpu)
+            model_too_large = model_size * 2 > get_free_memory(torch.device("cpu"))
             low_vram_state = vram_state in (VRAMState.LOW_VRAM,)
             is_cuda_device = load_device.type == 'cuda'
 

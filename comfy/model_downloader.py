@@ -961,7 +961,7 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/Mage-Flow", "diffusion_models/mage_flow_edit_turbo_int8_convrot.safetensors"),
     HuggingFile("ByteDance/Hyper-SD", "Hyper-SDXL-1step-Unet-Comfyui.fp16.safetensors"),
     HuggingFile("black-forest-labs/FLUX.1-schnell", "flux1-schnell.safetensors", alternate_filenames=("main/flux1-schnell.safetensors",)),
-    HuggingFile("black-forest-labs/FLUX.1-dev", "flux1-dev.safetensors", alternate_filenames=("main/flux1-dev.safetensors",)),
+    HuggingFile("Comfy-Org/Flux-1-Dev", "flux1-dev.safetensors", alternate_filenames=("main/flux1-dev.safetensors",)),
     HuggingFile("black-forest-labs/FLUX.1-Fill-dev", "flux1-fill-dev.safetensors", alternate_filenames=("main/flux1-fill-dev.safetensors",)),
     HuggingFile("black-forest-labs/FLUX.1-Canny-dev", "flux1-canny-dev.safetensors", alternate_filenames=("main/flux1-canny-dev.safetensors",)),
     HuggingFile("black-forest-labs/FLUX.1-Depth-dev", "flux1-depth-dev.safetensors", alternate_filenames=("main/flux1-depth-dev.safetensors",)),
@@ -1109,7 +1109,7 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_base_int8_convrot_attn.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=5413698958),
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_sft_int8_convrot_attn.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=5413698958),
     # briaai/Fibo-2.0-dev 5306044 transformer, its two diffusers shards as one file (gated, non-commercial licence: a private repository)
-    HuggingFile("appmana/Fibo-2.0-ComfyUI", "diffusion_models/fibo2_dev_bf16.safetensors", revision="e51ce9667827b30d3c31290f57b81a0626910596", size=16254770194),
+    HuggingFile("Comfy-Org/Fibo-2.0", "diffusion_models/fibo2_dev_bf16.safetensors", revision="4742d4bec410034142c8e65559e5f00c6f29eccb", size=16452934194),
     HuggingFile("Comfy-Org/Fibo-2.0", "diffusion_models/fibo2_dev_int8_convrot.safetensors", revision="b2bffaf57d48825a6989b986f24d5cfb8c71231b", size=8408562474),
     HuggingFile("Comfy-Org/Fibo-2.0", "diffusion_models/fibo2_edit_turbo_int8_convrot.safetensors", revision="b2bffaf57d48825a6989b986f24d5cfb8c71231b", size=8408562474),
     HuggingFile("black-forest-labs/FLUX.2-klein-4b-fp8", "flux-2-klein-4b-fp8.safetensors"),
@@ -1662,7 +1662,7 @@ KNOWN_FLASHVSR_MODELS: Final[KnownDownloadables] = KnownDownloadables([
 # FLUX -- Black Forest Labs models. ``.sft`` is a synonym for safetensors that
 # the FLUX repos use; workflows reference both forms.
 KNOWN_FLUX_CHECKPOINTS: Final[KnownDownloadables] = KnownDownloadables([
-    HuggingFile("black-forest-labs/FLUX.1-dev", "flux1-dev.safetensors",
+    HuggingFile("Comfy-Org/Flux-1-Dev", "flux1-dev.safetensors",
                 alternate_filenames=("flux1-dev.sft",)),
     HuggingFile("black-forest-labs/FLUX.1-schnell", "flux1-schnell.safetensors",
                 alternate_filenames=("flux1-schnell.sft",)),
