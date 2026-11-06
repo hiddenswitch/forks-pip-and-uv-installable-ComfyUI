@@ -387,6 +387,7 @@ def test_seedvr2_plan(plan, slices, compiled, offload):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="the buffered convs run fp16 on CUDA")
+@torch.inference_mode()
 def test_seedvr2_slice_length_does_not_change_the_result():
     """The caches carry a causal stage across slices and GroupNorm is per frame, so how many frames run
     at once leaves only fp16 rounding: three summed taps round differently from one conv."""
