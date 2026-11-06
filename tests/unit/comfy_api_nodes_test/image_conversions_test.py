@@ -4,10 +4,7 @@ import pytest
 import torch
 from PIL import Image
 
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 from comfy_api_nodes.util.conversions import (  # noqa: E402
     downscale_image_tensor_by_max_sides,

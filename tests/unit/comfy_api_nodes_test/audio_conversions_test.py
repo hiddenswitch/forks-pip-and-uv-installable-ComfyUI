@@ -5,10 +5,7 @@ import numpy as np
 import pytest
 import torch
 
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 from comfy_api_nodes.util.conversions import audio_input_to_mp3  # noqa: E402
 

@@ -8,11 +8,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from comfy.cli_args import args as cli_args
 from comfy.ldm.seedvr.constants import SEEDVR2_LATENT_CHANNELS
 
-if not torch.cuda.is_available():
-    cli_args.cpu = True
 
 
 _SENTINEL = object()

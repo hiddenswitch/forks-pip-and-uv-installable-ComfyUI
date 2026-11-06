@@ -1,9 +1,6 @@
 import torch
 
-from comfy.cli_args import args as cli_args
 
-if not torch.cuda.is_available():
-    cli_args.cpu = True
 
 from comfy.nodes import base_nodes as nodes  # noqa: E402
 

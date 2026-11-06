@@ -11,10 +11,7 @@ from contextlib import contextmanager
 import pytest
 import torch
 
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 import comfy.ldm.seedvr.model as seedvr_model  # noqa: E402
 import comfy.ldm.seedvr.vae as vae_mod  # noqa: E402

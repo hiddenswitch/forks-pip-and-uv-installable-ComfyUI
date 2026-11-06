@@ -11,14 +11,9 @@ The workflow loads:
 import pytest
 import torch
 
-from comfy.cli_args import args
 
-# Ensure CPU mode for testing without GPU
-if not torch.cuda.is_available():
-    args.cpu = True
 
-import comfy.sd
-from comfy.sd import detect_te_model, TEModel, load_text_encoder_state_dicts, CLIPType
+from comfy.sd import detect_te_model, TEModel
 
 
 class TestLTX2TEModelDetection:
@@ -100,7 +95,6 @@ class TestLTX2ModelLoading:
 
     def test_ltxav_te_model_load_sd_routing_logic(self):
         """Test that LTXAVTEModel.load_sd routing logic is correct."""
-        from comfy.text_encoders.lt import LTXAVTEModel
 
         # Test the routing condition itself
         # The load_sd method checks: "model.layers.47.self_attn.q_norm.weight" in sd
@@ -145,7 +139,6 @@ class TestSpieceTokenizer:
 
     def test_spiece_tokenizer_from_bytes(self):
         """Test that SPieceTokenizer can be initialized from serialized bytes."""
-        from comfy.text_encoders.spiece_tokenizer import SPieceTokenizer
 
         # We need actual serialized model bytes to test this properly
         # Skip if no sentencepiece model available
@@ -153,7 +146,6 @@ class TestSpieceTokenizer:
 
     def test_spiece_tokenizer_serialize_roundtrip(self):
         """Test tokenizer serialization roundtrip."""
-        from comfy.text_encoders.spiece_tokenizer import SPieceTokenizer
 
         # Skip if no model available
         pytest.skip("Requires actual sentencepiece model for full test")

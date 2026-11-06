@@ -3,12 +3,9 @@ import inspect
 import sys
 from unittest.mock import MagicMock, patch
 
-import torch
 
 from comfy.cli_args import args as cli_args
 
-if not torch.cuda.is_available():
-    cli_args.cpu = True
 
 
 def test_seedvr_node_signature_matches_schema():

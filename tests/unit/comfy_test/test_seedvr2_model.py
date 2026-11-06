@@ -8,10 +8,7 @@ import pytest
 import torch
 from torch import nn
 
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 import comfy  # noqa: E402
 import comfy.latent_formats  # noqa: E402

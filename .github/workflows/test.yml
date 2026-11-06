@@ -80,7 +80,7 @@ jobs:
         run: .venv/bin/python -m pytest -v -s --timeout=900 tests/custom_nodes/test_installed_node_registration.py
       - name: XPU unit tests
         run: |
-          .venv/bin/python -m pytest -v -rs --junitxml=xpu-tests.xml --timeout=900 tests/unit
+          .venv/bin/python -m pytest -v -rs --expected-device=xpu --junitxml=xpu-tests.xml --timeout=900 tests/unit
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -265,7 +265,7 @@ jobs:
             tests/unit/test_transformers_compat.py
       - name: Miniature model inference on MPS
         run: |
-          .venv/bin/python -m pytest -v -rs --timeout=900 --weights mini \
+          .venv/bin/python -m pytest -v -rs --timeout=900 --weights mini --expected-device=mps \
             --junitxml=mps-inference.xml tests/inference/test_workflows.py
       - uses: actions/upload-artifact@v7
         if: always()
