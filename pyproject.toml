@@ -57,7 +57,7 @@ dependencies = [
     "scipy>=1.11.4",
     "simpleeval>=1.0.3",
     "tqdm",
-    "protobuf>=3.20.0",
+    "protobuf>=7.36.1",
     "psutil",
     "ConfigArgParse>=1.7.1",
     # OpenTelemetry's aio-pika instrumentation currently supports aio-pika 7-9.
@@ -115,7 +115,6 @@ dependencies = [
     "openai",
     "anthropic",
     "pydantic-ai-slim[openai,anthropic,google]>=0.0.36; python_version>='3.11'",
-    "google-generativeai",
     "humanize",
     "jax",
     "colour",

@@ -9,6 +9,13 @@ fi
 lock_file=$1
 python=$2
 
+# uv requires reliable file locking and atomic directory creation. Runner-wide
+# caches mounted over network filesystems do not provide those guarantees.
+# Keep this install's cache on local temporary storage and remove it on exit.
+UV_CACHE_DIR=$(mktemp -d /tmp/comfyui-uv.XXXXXXXX)
+export UV_CACHE_DIR
+trap 'rm -rf "$UV_CACHE_DIR"' EXIT HUP INT TERM
+
 # The pinned VideoHelperSuite checkout uses setuptools without declaring a
 # build-system requirement. Keep builds non-isolated (important for Torch
 # extension packages), but provide the exact setuptools version present in all

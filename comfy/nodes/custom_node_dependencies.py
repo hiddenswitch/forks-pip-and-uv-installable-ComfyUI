@@ -29,7 +29,6 @@ CUSTOM_NODE_RUNTIME_DEPS: dict[str, list[str]] = {
     # gguf ships with this fork (pyproject.toml); never reinstall it from node deps
     "ComfyUI-GGUF": [],
     "ComfyUI_UltimateSDUpscale": [],
-    "ComfyUI_Fill-Nodes": ["anthropic", "openai", "google-generativeai"],
     "ComfyUI_Fill-ChatterBox": [],
     "ComfyUI-KJNodes": [],
     "ComfyUI-NormalCrafterWrapper": [],

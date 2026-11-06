@@ -722,34 +722,11 @@ wheels = [
 ]
 
 [[packages]]
-name = "google-ai-generativelanguage"
-version = "0.6.15"
-sdist = { url = "https://files.pythonhosted.org/packages/11/d1/48fe5d7a43d278e9f6b5ada810b0a3530bbeac7ed7fcbcd366f932f05316/google_ai_generativelanguage-0.6.15.tar.gz", upload-time = 2025-01-13T21:50:47Z, size = 1375443, hashes = { sha256 = "8f6d9dc4c12b065fe2d0289026171acea5183ebf2d0b11cefe12f3821e159ec3" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/7c/a3/67b8a6ff5001a1d8864922f2d6488dc2a14367ceb651bc3f09a947f2f306/google_ai_generativelanguage-0.6.15-py3-none-any.whl", upload-time = 2025-01-13T21:50:44Z, size = 1327356, hashes = { sha256 = "5a03ef86377aa184ffef3662ca28f19eeee158733e45d7947982eb953c6ebb6c" } }]
-
-[[packages]]
-name = "google-api-core"
-version = "2.33.0"
-sdist = { url = "https://files.pythonhosted.org/packages/87/62/8fb1fb647d2788c950d69d6a769cd9d55c918ac1fc57be2f90b7e4029787/google_api_core-2.33.0.tar.gz", upload-time = 2026-07-22T16:28:28Z, size = 181607, hashes = { sha256 = "3a36bcc3e319783f4c97da41f6f45ea6ffcaa55848e341de16e09cb70243c2bb" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/89/31/5056a347bb934ea04583c8b27916ef1501729c72638629545bce26ff4223/google_api_core-2.33.0-py3-none-any.whl", upload-time = 2026-07-22T16:28:22Z, size = 176462, hashes = { sha256 = "a2e22a0c1d0f03eafff1858b38cf46f832d5902b0c052235bf0ab8402929fbdc" } }]
-
-[[packages]]
-name = "google-api-python-client"
-version = "2.200.0"
-sdist = { url = "https://files.pythonhosted.org/packages/fd/e5/12024a0ae2fd39a54ff47a3868c47344ffff4ff1cd5edf4dff523c1a9fc1/google_api_python_client-2.200.0.tar.gz", upload-time = 2026-09-01T00:04:25Z, size = 15488849, hashes = { sha256 = "82aa18b851328ea04867fd51c5a0c8da2e1b86ec45ce08487e902e7726d4ee50" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/13/5a/5242d5a8a6077ae73bd8a2bd7e3161f2aab476f0868fb6f85cf88b1c8835/google_api_python_client-2.200.0-py3-none-any.whl", upload-time = 2026-09-01T00:04:22Z, size = 16082149, hashes = { sha256 = "c0c2c4072a110b7fcc30ac151744d4410cddaba99c53cb4e815463308952b638" } }]
-
-[[packages]]
 name = "google-auth"
 version = "2.58.0"
+marker = "python_full_version >= '3.11'"
 sdist = { url = "https://files.pythonhosted.org/packages/ac/ca/f398a483ce5aad18ca2f735646e45ccee2439bd94a41a4ad0cfa646bd495/google_auth-2.58.0.tar.gz", upload-time = 2026-09-09T20:49:38Z, size = 380018, hashes = { sha256 = "55e30cf15e737de92c5323d78cda8a83fcd57e7ffbaf900c4600039fd60a80fd" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/59/13/477d90d09591b3938b45c4e11f4d8a51291682112cb5efcac961e815d562/google_auth-2.58.0-py3-none-any.whl", upload-time = 2026-09-09T20:49:33Z, size = 262404, hashes = { sha256 = "8a9c4645bb4c8e91668fb1934b95ae6a8687084232753639220ba9bf04a1610d" } }]
-
-[[packages]]
-name = "google-auth-httplib2"
-version = "0.4.2"
-sdist = { url = "https://files.pythonhosted.org/packages/d4/74/0c8177b73734dfbd89420c162ac8754257fa0f9007fb49569493d83a17db/google_auth_httplib2-0.4.2.tar.gz", upload-time = 2026-08-25T19:18:24Z, size = 11211, hashes = { sha256 = "916225a6367e613c9af44d83f41688a599d3f687777846b8b91bec65085ed1f1" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/20/33/e697a69f13bfd448d33a374231b89cbbb203dedfb4aae9d26126be6f6c72/google_auth_httplib2-0.4.2-py3-none-any.whl", upload-time = 2026-08-24T21:55:05Z, size = 9529, hashes = { sha256 = "4298dd6b1415972d0c464b7177e6a69a595e7aec5b972222ecdca342f6009647" } }]
 
 [[packages]]
 name = "google-genai"
@@ -757,11 +734,6 @@ version = "2.23.0"
 marker = "python_full_version >= '3.11'"
 sdist = { url = "https://files.pythonhosted.org/packages/ae/9a/db14adffb0144584889e05f433a4e8ce540f9ed2928ed8b23cc65ab96178/google_genai-2.23.0.tar.gz", upload-time = 2026-09-10T22:55:31Z, size = 686707, hashes = { sha256 = "1ceebffdcd2af30c039a922ba05de61cd4054bb61c94be7649c4bf9ff8b33c5f" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/7f/b0/f6bc58a6a7c8ad7ad2b6a36b0bf4732b3504dd7d48c6674f848304548869/google_genai-2.23.0-py3-none-any.whl", upload-time = 2026-09-10T22:55:29Z, size = 1093785, hashes = { sha256 = "1e63211d44d188b8069c2b354d92b9bde25c1e821513fdbe1948b7c0d9f6b922" } }]
-
-[[packages]]
-name = "google-generativeai"
-version = "0.8.6"
-wheels = [{ url = "https://files.pythonhosted.org/packages/97/0f/ef33b5bb71437966590c6297104c81051feae95d54b11ece08533ef937d3/google_generativeai-0.8.6-py3-none-any.whl", upload-time = 2025-12-16T17:53:58Z, size = 155098, hashes = { sha256 = "37a0eaaa95e5bbf888828e20a4a1b2c196cc9527d194706e58a68ff388aeb0fa" } }]
 
 [[packages]]
 name = "googleapis-common-protos"
@@ -785,14 +757,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/41/63/e876e789525063c
 [[packages]]
 name = "grpcio"
 version = "1.83.1"
+marker = "python_full_version < '3.13'"
 sdist = { url = "https://files.pythonhosted.org/packages/e2/b1/46539f5050d7c316a13396d185451f95084a74ddc68b12d818595bef0377/grpcio-1.83.1.tar.gz", upload-time = 2026-08-28T07:09:11Z, size = 13445033, hashes = { sha256 = "9cee6fcbf2eb57c4b49451787bfa87be8efc1ca02a0b327dd4b54d44502e362b" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/bc/19/9fc702e31a631262d7a752fa699f6022821e707fefc8bff49b1550a57729/grpcio-1.83.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", upload-time = 2026-08-28T07:08:15Z, size = 7040936, hashes = { sha256 = "72578aa07a4008f17521ef52debcc3acfd1e2c5426243bc3ffb56a38bfe610b7" } }]
-
-[[packages]]
-name = "grpcio-status"
-version = "1.71.2"
-sdist = { url = "https://files.pythonhosted.org/packages/fd/d1/b6e9877fedae3add1afdeae1f89d1927d296da9cf977eca0eb08fb8a460e/grpcio_status-1.71.2.tar.gz", upload-time = 2025-06-28T04:24:05Z, size = 13677, hashes = { sha256 = "c7a97e176df71cdc2c179cd1847d7fc86cca5832ad12e9798d7fed6b7a1aab50" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/67/58/317b0134129b556a93a3b0afe00ee675b5657f0155509e22fcb853bafe2d/grpcio_status-1.71.2-py3-none-any.whl", upload-time = 2025-06-28T04:23:42Z, size = 14424, hashes = { sha256 = "803c98cb6a8b7dc6dbb785b1111aed739f241ab5e9da0bba96888aa74704cfd3" } }]
 
 [[packages]]
 name = "h11"
@@ -830,12 +797,6 @@ version = "2.12.0"
 marker = "sys_platform != 'emscripten'"
 sdist = { url = "https://files.pythonhosted.org/packages/be/ad/f4f0e57345f1870f3e8cb624e058d7eca6e5a27d33bcc3311d9b618734cd/httpcore2-2.12.0.tar.gz", upload-time = 2026-08-18T13:22:08Z, size = 67548, hashes = { sha256 = "9293522bba0aa7c4c8e9e3f040c16575bd8868e155a77fa30c7a9085a5eae648" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/d2/74/d370e55600d9bcfa0d9794b0166126d49291a3d2b20c268fc98c453a4948/httpcore2-2.12.0-py3-none-any.whl", upload-time = 2026-08-18T13:22:05Z, size = 83074, hashes = { sha256 = "7e04258ce01013d7d615e5b910a3b27fac937d7a95038227e79652b4ba3b4ceb" } }]
-
-[[packages]]
-name = "httplib2"
-version = "0.32.0"
-sdist = { url = "https://files.pythonhosted.org/packages/84/f5/ccf58de92d61e3ad921119668f54ed36ca1d0cf5dcc5c1657dfb164fd78b/httplib2-0.32.0.tar.gz", upload-time = 2026-06-26T10:13:56Z, size = 254283, hashes = { sha256 = "48a0ef30a42db65d8f3399045e1d09ab0ba66e3b9efc360d07f80ea55d286025" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/33/a0/550eec327e5f5c7b732531c489f5307efec41f047b0d703bd4ca1e5ad2db/httplib2-0.32.0-py3-none-any.whl", upload-time = 2026-06-26T10:13:54Z, size = 93148, hashes = { sha256 = "dc6705cacdf3fb0a2aba7629fa33c90fd93e30035db0c157325826be177e4816" } }]
 
 [[packages]]
 name = "httpx"
@@ -1605,18 +1566,12 @@ wheels = [
 ]
 
 [[packages]]
-name = "proto-plus"
-version = "1.28.2"
-sdist = { url = "https://files.pythonhosted.org/packages/73/3e/29e0d6a2c5adde6ab5772253fd16ab346324026b89a66e354689c86d0584/proto_plus-1.28.2.tar.gz", upload-time = 2026-07-22T16:28:29Z, size = 58063, hashes = { sha256 = "26d843eb99c1e32fdf1d20ff0faae56607f7748fe774acf9ecd5cfe6c6472501" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/9d/84/4e9a53a062d4073c74897a6bd20fff74d55307341b3e85c081002462b3ef/proto_plus-1.28.2-py3-none-any.whl", upload-time = 2026-07-22T16:28:24Z, size = 50693, hashes = { sha256 = "b874236fcac2358f601e4330bcb76cb8b89c851303ccf4078408b3d4774d1c52" } }]
-
-[[packages]]
 name = "protobuf"
-version = "5.29.6"
-sdist = { url = "https://files.pythonhosted.org/packages/7e/57/394a763c103e0edf87f0938dafcd918d53b4c011dfc5c8ae80f3b0452dbb/protobuf-5.29.6.tar.gz", upload-time = 2026-02-04T22:54:40Z, size = 425623, hashes = { sha256 = "da9ee6a5424b6b30fd5e45c5ea663aef540ca95f9ad99d1e887e819cdf9b8723" } }
+version = "7.36.2"
+sdist = { url = "https://files.pythonhosted.org/packages/d9/89/5b8517baa72f84a67b8a307ba953c91057af618bf40bf676f3c03551f8f0/protobuf-7.36.2.tar.gz", upload-time = 2026-09-17T20:07:59Z, size = 512737, hashes = { sha256 = "497d0463ff3316681da6c0b9e8d06cb465d61abce00b613ab42226175644d1bb" } }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/dd/cadd6ec43069247d91f6345fa7a0d2858bef6af366dbd7ba8f05d2c77d3b/protobuf-5.29.6-cp38-abi3-manylinux2014_x86_64.whl", upload-time = 2026-02-04T22:54:32Z, size = 320478, hashes = { sha256 = "e3387f44798ac1106af0233c04fb8abf543772ff241169946f698b3a9a3d3ab9" } },
-    { url = "https://files.pythonhosted.org/packages/5a/cb/e3065b447186cb70aa65acc70c86baf482d82bf75625bf5a2c4f6919c6a3/protobuf-5.29.6-py3-none-any.whl", upload-time = 2026-02-04T22:54:39Z, size = 173126, hashes = { sha256 = "6b9edb641441b2da9fa8f428760fc136a49cf97a52076010cf22a2ff73438a86" } },
+    { url = "https://files.pythonhosted.org/packages/db/f3/3996583dd2906297a637af12114deddf7658af6e683fedb83be061983fb5/protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl", upload-time = 2026-09-17T20:07:54Z, size = 343223, hashes = { sha256 = "89f23aa53c24553a2416fd4fd1ec06f74fa42b14b546d8883128813f775bbfd2" } },
+    { url = "https://files.pythonhosted.org/packages/e4/04/d52c7016b04b6c5108f26691f9d33ec82a9b65d041f1a9c771137693d618/protobuf-7.36.2-py3-none-any.whl", upload-time = 2026-09-17T20:07:58Z, size = 179806, hashes = { sha256 = "bdb3a345d48db958e6ce1f18e508beb0cc981d64f24088427549c866cd039f1e" } },
 ]
 
 [[packages]]
@@ -1634,12 +1589,14 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/e0/a9/023730ba63db1e4
 [[packages]]
 name = "pyasn1"
 version = "0.6.4"
+marker = "python_full_version >= '3.11'"
 sdist = { url = "https://files.pythonhosted.org/packages/a4/9a/23310166d960def5897e91fe20e5b724601b02a22e84ba1f94232c0b7f67/pyasn1-0.6.4.tar.gz", upload-time = 2026-07-09T01:12:33Z, size = 151262, hashes = { sha256 = "9c447d8431c947fe4c8febc4ed9e760bc29011a5b01e5c74b67025bd9fb8ce81" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/9a/3b/6163796d69c3977d1e4287bea4a6979161cbbdd170ebb430511e8e1999ce/pyasn1-0.6.4-py3-none-any.whl", upload-time = 2026-07-09T01:12:32Z, size = 84410, hashes = { sha256 = "deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b" } }]
 
 [[packages]]
 name = "pyasn1-modules"
 version = "0.4.2"
+marker = "python_full_version >= '3.11'"
 sdist = { url = "https://files.pythonhosted.org/packages/e9/e6/78ebbb10a8c8e4b61a59249394a4a594c1a7af95593dc933a349c8d00964/pyasn1_modules-0.4.2.tar.gz", upload-time = 2025-03-28T02:41:22Z, size = 307892, hashes = { sha256 = "677091de870a80aae844b1ca6134f54652fa2c8c5a52aa396440ac3106e941e6" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/47/8d/d529b5d697919ba8c11ad626e835d4039be708a35b0d22de83a269a6682c/pyasn1_modules-0.4.2-py3-none-any.whl", upload-time = 2025-03-28T02:41:19Z, size = 181259, hashes = { sha256 = "29253a9207ce32b64c3ac6600edc75368f98473906e8fd1043bd6b5b1de2c14a" } }]
 
@@ -2241,12 +2198,6 @@ name = "unpaddedbase64"
 version = "2.1.0"
 sdist = { url = "https://files.pythonhosted.org/packages/4d/f8/114266b21a7a9e3d09b352bb63c9d61d918bb7aa35d08c722793bfbfd28f/unpaddedbase64-2.1.0.tar.gz", upload-time = 2021-03-09T11:35:47Z, size = 5621, hashes = { sha256 = "7273c60c089de39d90f5d6d4a7883a79e319dc9d9b1c8924a7fab96178a5f005" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/4c/a7/563b2d8fb7edc07320bf69ac6a7eedcd7a1a9d663a6bb90a4d9bd2eda5f7/unpaddedbase64-2.1.0-py3-none-any.whl", upload-time = 2021-03-09T11:35:46Z, size = 6083, hashes = { sha256 = "485eff129c30175d2cd6f0cd8d2310dff51e666f7f36175f738d75dfdbd0b1c6" } }]
-
-[[packages]]
-name = "uritemplate"
-version = "4.2.0"
-sdist = { url = "https://files.pythonhosted.org/packages/98/60/f174043244c5306c9988380d2cb10009f91563fc4b31293d27e17201af56/uritemplate-4.2.0.tar.gz", upload-time = 2025-06-02T15:12:06Z, size = 33267, hashes = { sha256 = "480c2ed180878955863323eea31b0ede668795de182617fef9c6ca09e6ec9d0e" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/a9/99/3ae339466c9183ea5b8ae87b34c0b897eda475d2aec2307cae60e5cd4f29/uritemplate-4.2.0-py3-none-any.whl", upload-time = 2025-06-02T15:12:03Z, size = 11488, hashes = { sha256 = "962201ba1c4edcab02e60f9a0d3821e82dfc5d2d6662a21abd533879bdb8a686" } }]
 
 [[packages]]
 name = "url-normalize"
