@@ -1108,7 +1108,6 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_sft_bf16.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=10164655808),
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_base_int8_convrot_attn.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=5413698958),
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_sft_int8_convrot_attn.safetensors", revision="9df12d99a97c9818afc555125829f9ed40b87b24", size=5413698958),
-    # briaai/Fibo-2.0-dev 5306044 transformer, its two diffusers shards as one file (gated, non-commercial licence: a private repository)
     HuggingFile("Comfy-Org/Fibo-2.0", "diffusion_models/fibo2_dev_bf16.safetensors", revision="4742d4bec410034142c8e65559e5f00c6f29eccb", size=16452934194),
     HuggingFile("Comfy-Org/Fibo-2.0", "diffusion_models/fibo2_dev_int8_convrot.safetensors", revision="b2bffaf57d48825a6989b986f24d5cfb8c71231b", size=8408562474),
     HuggingFile("Comfy-Org/Fibo-2.0", "diffusion_models/fibo2_edit_turbo_int8_convrot.safetensors", revision="b2bffaf57d48825a6989b986f24d5cfb8c71231b", size=8408562474),
