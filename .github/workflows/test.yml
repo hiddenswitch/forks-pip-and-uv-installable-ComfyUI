@@ -275,7 +275,7 @@ jobs:
           export COMFYUI_TEST_GGML_LIBRARY="$(brew --prefix ggml)/lib/libggml-base.dylib"
           test -f "$COMFYUI_TEST_GGML_LIBRARY"
           df -h .
-          .venv/bin/python -m pytest -vv -rs --durations=15 --timeout=900 --weights mini --expected-device=mps -k "$MODEL_FILTER" \
+          .venv/bin/python -m pytest -vv -rs --capture=tee-sys --durations=15 --timeout=900 --weights mini --expected-device=mps -k "$MODEL_FILTER" \
             --junitxml=mps-inference.xml tests/inference/test_workflows.py
       - uses: actions/upload-artifact@v7
         if: always()
