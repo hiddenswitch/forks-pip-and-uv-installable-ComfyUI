@@ -20,7 +20,7 @@ on:
     branches: [develop]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.backend || 'all' }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.backend || 'all' }}-${{ inputs.model_filter && github.run_id || 'full' }}
   cancel-in-progress: true
 
 env:
