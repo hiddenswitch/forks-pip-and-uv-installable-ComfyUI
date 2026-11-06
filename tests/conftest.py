@@ -409,16 +409,6 @@ def use_temporary_input_directory(tmp_path: pathlib.Path):
     folder_paths.set_input_directory(orig_dir)
 
 
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    outcome = yield
-    report = outcome.get_result()
-    report.sections = [
-        (name, content) for name, content in report.sections
-        if "stderr" not in name.lower()
-    ]
-
-
 current_test_name = ContextVar('current_test_name', default=None)
 
 

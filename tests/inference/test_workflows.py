@@ -248,7 +248,9 @@ async def test_workflow(workflow_name: str, workflow_file: Traversable, has_gpu:
         duration = end_time - start_time
         ram_gb = monitor.peak_cpu_ram / (1024 ** 3)
         vram_gb = monitor.peak_gpu_vram / (1024 ** 3)
-        logger.info(f"Test {workflow_name} with client {client} took {duration:.4f}s | Peak RAM: {ram_gb:.2f} GB | Peak VRAM: {vram_gb:.2f} GB")
+        request.node.user_properties.append(("peak_process_tree_rss_gib", ram_gb))
+        vram = f"{vram_gb:.2f} GiB" if monitor._pynvml_available else "not measured"
+        logger.info(f"Test {workflow_name} with client {client} took {duration:.4f}s | Peak RSS: {ram_gb:.2f} GiB | Peak VRAM: {vram}")
 
     if any(v.class_type == "SaveImage" for v in prompt.values()):
         save_image_node_id = next(key for key in prompt if prompt[key].class_type == "SaveImage")

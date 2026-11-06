@@ -3,16 +3,22 @@ name: Python Validation
 
 on:
   workflow_dispatch:
+    inputs:
+      suite:
+        description: Test suite to run
+        type: choice
+        default: all
+        options: [all, unit, browser]
   push:
     branches: [develop, master]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.suite || 'all' }}
   cancel-in-progress: true
 
 jobs:
   full:
-    if: github.ref_name == 'develop' || github.event_name == 'workflow_dispatch'
+    if: github.ref_name == 'develop' || (github.event_name == 'workflow_dispatch' && inputs.suite != 'browser')
     name: Full suite — Arch Python / PyTorch 2.14 CPU
     runs-on: [self-hosted, linux, X64, cpu]
     timeout-minutes: 60
@@ -55,7 +61,7 @@ jobs:
         run: .venv/bin/python -m pytest -v -rs --timeout=180 tests/execution
 
   browser:
-    if: github.ref_name == 'develop' || github.event_name == 'workflow_dispatch'
+    if: github.ref_name == 'develop' || (github.event_name == 'workflow_dispatch' && inputs.suite != 'unit')
     name: Frontend workflow conversion parity
     runs-on: [self-hosted, linux, X64, cpu]
     timeout-minutes: 30
@@ -64,7 +70,7 @@ jobs:
       options: --shm-size=2g
     steps:
       - name: Install system dependencies
-        run: apt-get update && apt-get install -y git ca-certificates libgl1 libglib2.0-0 libsndfile1 libxcb1
+        run: apt-get update && apt-get install -y git ca-certificates build-essential libgl1 libglib2.0-0 libsndfile1 libxcb1
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Install locked dependencies and Chromium

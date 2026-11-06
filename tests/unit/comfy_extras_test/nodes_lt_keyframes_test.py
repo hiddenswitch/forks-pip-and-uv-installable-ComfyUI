@@ -5,7 +5,6 @@ They cover keyframe placement, conditioning metadata, guide conversion, and free
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
@@ -54,29 +53,6 @@ def _keyframe_idxs_at(starts, tokens_per_frame=1):
         coords[0, 2, i, 1] = 1.0
     return coords
 
-
-@contextmanager
-def _stub_get_keyframe_idxs(idxs, num_guide_frames):
-    original = keyframes.get_keyframe_idxs
-    keyframes.get_keyframe_idxs = lambda cond, shape=None: (idxs, num_guide_frames)
-    try:
-        yield
-    finally:
-        keyframes.get_keyframe_idxs = original
-
-
-@contextmanager
-def _stub_keyframe_coords():
-    original = keyframes.LTXVAddGeneratedKeyframes.keyframe_coords
-
-    def _fake(cls, latent, frame_index, scale_factors):
-        return torch.zeros((latent.shape[0], 3, latent.shape[3] * latent.shape[4], 2))
-
-    keyframes.LTXVAddGeneratedKeyframes.keyframe_coords = classmethod(_fake)
-    try:
-        yield
-    finally:
-        keyframes.LTXVAddGeneratedKeyframes.keyframe_coords = original
 
 
 class TestPlacementHelpers:
@@ -311,25 +287,23 @@ class TestAddGeneratedKeyframes:
             )
 
     def test_execute_appends_zero_keyframes_on_t(self):
-        with _stub_keyframe_coords():
-            _positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(), _cond(), _vae(), _empty_121()
-            )
+        _positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(), _cond(), _vae(), _empty_121()
+        )
         assert out["samples"].shape == (1, 2, 21, 2, 1)
         assert out["noise_mask"].shape[2] == 21
         assert torch.all(out["noise_mask"][:, :, 16:21] == 1.0)
 
     def test_execute_copies_nearest_frames_from_longer_video(self):
         video = {"samples": torch.arange(1 * 2 * 16 * 2 * 1, dtype=torch.float32).reshape(1, 2, 16, 2, 1)}
-        with _stub_keyframe_coords():
-            _positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(),
-                _cond(),
-                _vae(),
-                _empty_121(),
-                frame_indices="24,48,72,96,120",
-                keyframes=video,
-            )
+        _positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(),
+            _cond(),
+            _vae(),
+            _empty_121(),
+            frame_indices="24,48,72,96,120",
+            keyframes=video,
+        )
         assert out["samples"].shape[2] == 21
         stacked = out["samples"][:, :, 16:21]
         source = video["samples"]
@@ -338,36 +312,33 @@ class TestAddGeneratedKeyframes:
 
     def test_execute_keeps_stacked_keyframes_when_t_equals_count(self):
         stacked = {"samples": torch.arange(1 * 2 * 5 * 2 * 1, dtype=torch.float32).reshape(1, 2, 5, 2, 1)}
-        with _stub_keyframe_coords():
-            _positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(),
-                _cond(),
-                _vae(),
-                _empty_121(),
-                frame_indices="24,48,72,96,120",
-                keyframes=stacked,
-            )
+        _positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(),
+            _cond(),
+            _vae(),
+            _empty_121(),
+            frame_indices="24,48,72,96,120",
+            keyframes=stacked,
+        )
         assert out["samples"].shape[2] == 21
         assert torch.equal(out["samples"][:, :, 16:21], stacked["samples"])
 
     def test_execute_reshapes_batched_single_frame_keyframes(self):
         batched = {"samples": _zeros((5, 2, 1, 2, 1))}
-        with _stub_keyframe_coords():
-            _positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(),
-                _cond(),
-                _vae(),
-                _empty_121(),
-                frame_indices="24,48,72,96,120",
-                keyframes=batched,
-            )
+        _positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(),
+            _cond(),
+            _vae(),
+            _empty_121(),
+            frame_indices="24,48,72,96,120",
+            keyframes=batched,
+        )
         assert out["samples"].shape[2] == 21
 
     def test_execute_records_density_slots_and_canvas_length(self):
-        with _stub_keyframe_coords():
-            positive, _negative, _out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(), _cond(), _vae(), _empty_121()
-            )
+        positive, _negative, _out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(), _cond(), _vae(), _empty_121()
+        )
         record = positive[0][1]["generated_keyframes"]
         assert record["frame_indices"] == [24, 48, 72, 96, 120]
         assert record["num_pixel_frames"] == 121
@@ -381,10 +352,9 @@ class TestAddGeneratedKeyframes:
 
     def test_execute_copies_from_video_using_auto_slots(self):
         video = {"samples": torch.arange(1 * 2 * 16 * 2 * 1, dtype=torch.float32).reshape(1, 2, 16, 2, 1)}
-        with _stub_keyframe_coords():
-            _positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(), _cond(), _vae(), _empty_121(), keyframes=video
-            )
+        _positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(), _cond(), _vae(), _empty_121(), keyframes=video
+        )
         stacked = out["samples"][:, :, 16:21]
         source = video["samples"]
         assert torch.equal(stacked[:, :, 0:1], source[:, :, 3:4])
@@ -396,10 +366,9 @@ class TestAddGeneratedKeyframes:
             "generated_keyframe_indices": [24, 48, 72, 96, 120],
             "generated_keyframe_num_frames": 121,
         }
-        with _stub_keyframe_coords():
-            positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(), _cond(), _vae(), _empty_121(), keyframes=stacked
-            )
+        positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(), _cond(), _vae(), _empty_121(), keyframes=stacked
+        )
         assert torch.equal(out["samples"][:, :, 16:21], stacked["samples"])
         assert positive[0][1]["generated_keyframes"]["frame_indices"] == [24, 48, 72, 96, 120]
 
@@ -408,10 +377,9 @@ class TestAddGeneratedKeyframes:
             "samples": _zeros((1, 2, 16, 2, 1)),
             "noise_mask": _mask((1, 1, 16, 1, 1), occupied={15}),
         }
-        with _stub_keyframe_coords():
-            positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(), _cond(), _vae(), latent
-            )
+        positive, _negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(), _cond(), _vae(), latent
+        )
         indices = positive[0][1]["generated_keyframes"]["frame_indices"]
         assert 120 not in indices
         assert indices == [24, 48, 72, 96]
@@ -425,10 +393,9 @@ class TestAddGeneratedKeyframes:
         }
         latent = _empty_241()
         latent["noise_mask"] = _mask((1, 1, 31, 1, 1), occupied={0})
-        with _stub_keyframe_coords():
-            positive, _negative, _out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(), _cond(), _vae(), latent, keyframes=stacked
-            )
+        positive, _negative, _out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(), _cond(), _vae(), latent, keyframes=stacked
+        )
         indices = positive[0][1]["generated_keyframes"]["frame_indices"]
         assert indices != [24, 48, 72, 96, 120]
         assert indices == [24, 48, 72, 96, 120, 144, 168, 192, 216, 240]
@@ -438,11 +405,10 @@ class TestAddGeneratedKeyframes:
             "samples": _zeros((1, 2, 36, 2, 1)),
             "noise_mask": _mask((1, 1, 36, 1, 1), occupied={0}),
         }
-        idxs = _keyframe_idxs_at([48, 96, 144, 192, 240])
-        with _stub_keyframe_coords(), _stub_get_keyframe_idxs(idxs, 5):
-            positive, _negative, _out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(), _cond(), _vae(), latent
-            )
+        idxs = _keyframe_idxs_at([48, 96, 144, 192, 240], tokens_per_frame=2)
+        positive, _negative, _out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(keyframe_idxs=idxs), _cond(keyframe_idxs=idxs), _vae(), latent
+        )
         assert positive[0][1]["generated_keyframes"]["frame_indices"] == [24, 72, 120, 168, 216]
 
     def test_execute_rejects_occupied_manual_indices(self):
@@ -495,13 +461,12 @@ class TestAddGeneratedKeyframes:
 
     def test_execute_grows_existing_generated_block(self):
         latent = _empty_121()
-        with _stub_keyframe_coords():
-            positive, negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                _cond(), _cond(), _vae(), latent, frame_indices="24,48"
-            )
-            positive, negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
-                positive, negative, _vae(), out, frame_indices="72,96"
-            )
+        positive, negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            _cond(), _cond(), _vae(), latent, frame_indices="24,48"
+        )
+        positive, negative, out = keyframes.LTXVAddGeneratedKeyframes.execute(
+            positive, negative, _vae(), out, frame_indices="72,96"
+        )
         record = positive[0][1]["generated_keyframes"]
         assert record["frame_indices"] == [24, 48, 72, 96]
         assert record["num_keyframes"] == 4
