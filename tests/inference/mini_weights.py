@@ -146,7 +146,12 @@ def miniature_transformers(loaded, width, depth, initialization_device):
 def _smaller(config, width, depth, alignment=1):
     _original_counts = (config.get("n_double_layers", 0), config.get("n_layers", 0))
     config = config.copy()
-    for key in ('depth', 'depth_single_blocks', 'num_layers', 'num_single_layers', 'num_double_stream_layers', 'num_refiner_layers', 'num_blocks', 'n_layers', 'n_double_layers', 'num_hidden_layers', 'num_text_blocks', 'num_visual_blocks', 'layers', 'patch_depth', 'pixel_depth', 'vace_layers'):
+    depth_keys = ('depth', 'depth_single_blocks', 'num_layers', 'num_single_layers', 'num_double_stream_layers', 'num_refiner_layers', 'num_blocks', 'n_layers', 'n_double_layers', 'num_hidden_layers', 'num_text_blocks', 'num_visual_blocks', 'layers', 'patch_depth', 'pixel_depth', 'vace_layers')
+    if config.get('pipeline_stage') is not None:
+        # The native partition plan owns original block indices. Reduce widths
+        # while retaining those indices, so every stage executes its real blocks.
+        depth = max([depth, *(config[key] for key in depth_keys if isinstance(config.get(key), int))])
+    for key in depth_keys:
         if isinstance(config.get(key), int):
             config[key] = min(depth, config[key])
     for key in ('transformer_depth', 'transformer_depth_output'):
