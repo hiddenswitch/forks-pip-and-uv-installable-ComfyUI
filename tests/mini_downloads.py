@@ -184,6 +184,7 @@ def miniature_downloads(root):
     Unsupported large formats fail before transfer instead of filling the disk.
     """
     from huggingface_hub import constants, file_download
+    from huggingface_hub.utils._http import http_stream_backoff
 
     root = Path(root).resolve()
     cache = root / 'mini_hub'
@@ -211,24 +212,32 @@ def miniature_downloads(root):
         if size is None:
             raise ValueError(f'Missing checkpoint size: {filename}')
         temporary = destination.with_name(destination.name + '.' + uuid.uuid4().hex + '.mini')
+        resolved_url = httpx.URL(values['url_to_download'])
+        origin = (resolved_url.scheme, resolved_url.host, resolved_url.port)
         try:
-            with httpx.Client(follow_redirects=True, timeout=60) as client:
-                def read_range(offset, length):
-                    headers = {**values['headers'], 'Range': f'bytes={offset}-{offset + length - 1}'}
-                    with client.stream('GET', values['url_to_download'], headers=headers) as response:
-                        response.raise_for_status()
-                        if response.status_code != 206 or response.headers.get('Content-Range') != f'bytes {offset}-{offset + length - 1}/{size}':
-                            raise ValueError(f'Server did not honor checkpoint range for {filename}')
-                        data = bytearray()
-                        for chunk in response.iter_bytes():
-                            data.extend(chunk)
-                            if len(data) > length:
-                                raise ValueError('Checkpoint range exceeded requested size')
-                        if len(data) != length:
-                            raise ValueError('Truncated checkpoint range')
-                        return bytes(data)
-                with temporary.open('wb') as output:
-                    describe(read_range, output, size)
+            def read_range(offset, length):
+                nonlocal resolved_url
+                url = resolved_url
+                headers = {**values['headers'], 'Range': f'bytes={offset}-{offset + length - 1}'}
+                if (url.scheme, url.host, url.port) != origin:
+                    headers = {k: v for k, v in headers.items() if k.lower() != 'authorization'}
+                with http_stream_backoff('GET', str(url), headers=headers, follow_redirects=True, timeout=60) as response:
+                    response.raise_for_status()
+                    if response.status_code != 206 or response.headers.get('Content-Range') != f'bytes {offset}-{offset + length - 1}/{size}':
+                        raise ValueError(f'Server did not honor checkpoint range for {filename}')
+                    # Resolve the Hub redirect once, then read ranges directly
+                    # from storage rather than charging every buffer to Hub quotas.
+                    resolved_url = response.url
+                    data = bytearray()
+                    for chunk in response.iter_bytes():
+                        data.extend(chunk)
+                        if len(data) > length:
+                            raise ValueError('Checkpoint range exceeded requested size')
+                    if len(data) != length:
+                        raise ValueError('Truncated checkpoint range')
+                    return bytes(data)
+            with temporary.open('wb') as output:
+                describe(read_range, output, size)
             os.replace(temporary, destination)
         finally:
             temporary.unlink(missing_ok=True)

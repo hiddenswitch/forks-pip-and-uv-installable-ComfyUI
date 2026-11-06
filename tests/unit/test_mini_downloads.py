@@ -1,6 +1,4 @@
 """Sparse transport must preserve native checkpoint metadata and required buffers."""
-import functools
-
 import httpx
 import pytest
 import torch
@@ -12,15 +10,20 @@ from tests.mini_downloads import miniature_downloads
 
 
 @pytest.mark.parametrize('honor_range', [True, False])
-def test_sparse_hub_download_preserves_buffers_and_restores_transport(tmp_path, monkeypatch, honor_range):
+def test_sparse_hub_download_preserves_buffers_and_restores_transport(tmp_path, monkeypatch, honor_range, request):
     source = tmp_path / 'source.safetensors'
     buffers = {'scale': torch.tensor(0.125), 'tokens': torch.arange(16, dtype=torch.int32)}
     save_file({'weight': torch.zeros(1024, 1024), **buffers}, str(source), metadata={'architecture': 'test'})
     size = source.stat().st_size
     transferred = []
+    resolutions = []
 
     def serve(request):
-        assert request.headers['authorization'] == 'Bearer test-token'
+        if request.url.host == 'checkpoint.test':
+            assert request.headers['authorization'] == 'Bearer test-token'
+            resolutions.append(request.url)
+            return httpx.Response(302, headers={'Location': 'https://storage.test/weights'})
+        assert 'authorization' not in request.headers
         start, end = map(int, request.headers['range'].removeprefix('bytes=').split('-'))
         if not honor_range:
             return httpx.Response(200)
@@ -30,7 +33,10 @@ def test_sparse_hub_download_preserves_buffers_and_restores_transport(tmp_path, 
         transferred.append(len(payload))
         return httpx.Response(206, content=payload, headers={'Content-Range': f'bytes {start}-{end}/{size}'})
 
-    monkeypatch.setattr(httpx, 'Client', functools.partial(httpx.Client, transport=httpx.MockTransport(serve)))
+    from huggingface_hub.utils import _http
+    client = httpx.Client(transport=httpx.MockTransport(serve), follow_redirects=True)
+    request.addfinalizer(client.close)
+    monkeypatch.setattr(_http, 'get_session', lambda: client)
     original = file_download._download_to_tmp_and_move
     cache = constants.HF_HUB_CACHE
     destination = tmp_path / 'download.safetensors'
@@ -57,6 +63,7 @@ def test_sparse_hub_download_preserves_buffers_and_restores_transport(tmp_path, 
                 file_download._download_to_tmp_and_move(**{**kwargs, 'destination_path': tmp_path.parent / 'real-cache'})
     assert file_download._download_to_tmp_and_move is original
     assert constants.HF_HUB_CACHE == cache
+    assert len(resolutions) == 1
     assert not list(tmp_path.glob('*.mini'))
 
 
