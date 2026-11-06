@@ -265,6 +265,11 @@ jobs:
             tests/unit/test_transformers_compat.py
       - name: Miniature model inference on MPS
         run: |
+          brew install llama.cpp
+          GGML_LIBRARY=$(rg --files "$(brew --prefix llama.cpp)" | rg '/libggml-base\.dylib$' | head -1)
+          test -n "$GGML_LIBRARY"
+          export COMFYUI_TEST_GGML_LIBRARY="$GGML_LIBRARY"
+          df -h .
           .venv/bin/python -m pytest -v -rs --timeout=900 --weights mini --expected-device=mps \
             --junitxml=mps-inference.xml tests/inference/test_workflows.py
       - uses: actions/upload-artifact@v7

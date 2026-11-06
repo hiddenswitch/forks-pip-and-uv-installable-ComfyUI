@@ -1,5 +1,6 @@
 import atexit
 import asyncio
+import contextlib
 import importlib.resources
 import json
 import logging
@@ -166,9 +167,11 @@ def _initialize_worker(benchmark_path: str):
 def _initialize_mini_worker(benchmark_path: str):
     global _mini_loaded
     from comfy import model_management
+    from tests.mini_downloads import miniature_downloads
     device = model_management.get_torch_device()
-    context = miniature_models(initialization_device=device if device.type == "cuda" else "cpu")
-    _mini_loaded = context.__enter__()
+    context = contextlib.ExitStack()
+    context.enter_context(miniature_downloads(Path(benchmark_path).parent.parent))
+    _mini_loaded = context.enter_context(miniature_models(initialization_device=device if device.type == "cuda" else "cpu"))
     atexit.register(context.__exit__, None, None, None)
     _initialize_worker(benchmark_path)
 
