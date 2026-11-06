@@ -29,6 +29,7 @@ UNIT_TESTS = [
     "tests/unit/test_flux3_integration.py",
     "tests/unit/test_model_downloader_uri.py",
     "tests/unit/test_cache_control.py",
+    "tests/unit/test_embedded_client_cleanup.py",
     "tests/unit/test_cache_provider.py",
     "tests/unit/test_distributed_topology.py",
     "tests/unit/test_distributed_worker_configuration.py",

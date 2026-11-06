@@ -12,11 +12,16 @@ jobs:
     steps:
       - run: pacman -Syu --noconfirm git python uv zip tar zstd base-devel libxcb mesa
       - uses: actions/checkout@v7
+      - name: Compute baseline cache key in the job container
+        id: baseline-key
+        run: |
+          digest=$(sha256sum ci/locks/pylock.linux-py314-cpu.toml scripts/fast_coverage.py | sha256sum | cut -d ' ' -f 1)
+          echo "key=unit-cpu-v1-py3147-${digest}" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v5
         id: baseline
         with:
           path: .coverage-results/baseline/coverage.json
-          key: unit-cpu-v1-py3147-${{ hashFiles('ci/locks/pylock.linux-py314-cpu.toml', 'scripts/fast_coverage.py') }}
+          key: ${{ steps.baseline-key.outputs.key }}
       - run: |
           uv venv --python 3.14.7 .venv
           ci/install-locked.sh ci/locks/pylock.linux-py314-cpu.toml .venv/bin/python
