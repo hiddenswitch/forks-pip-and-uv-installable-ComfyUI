@@ -51,6 +51,37 @@ jobs:
         env:
           COMFYUI_UNIT_DISABLE_CUSTOM_NODES: "1"
         run: .venv/bin/python -m pytest -v tests/unit --ignore=tests/unit/test_workflow_convert_playwright.py
+      - name: Execution tests
+        run: .venv/bin/python -m pytest -v -rs --timeout=180 tests/execution
+
+  browser:
+    if: github.ref_name == 'develop' || github.event_name == 'workflow_dispatch'
+    name: Frontend workflow conversion parity
+    runs-on: [self-hosted, linux, X64, cpu]
+    timeout-minutes: 30
+    container:
+      image: ubuntu:24.04
+      options: --shm-size=2g
+    steps:
+      - name: Install system dependencies
+        run: apt-get update && apt-get install -y git ca-certificates libgl1 libglib2.0-0 libsndfile1 libxcb1
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Install locked dependencies and Chromium
+        run: |
+          uv venv --python 3.14
+          ci/install-locked.sh ci/locks/pylock.linux-py314-cpu.toml .venv/bin/python
+          .venv/bin/python -m playwright install --with-deps chromium
+      - name: Compare Python conversion with the browser frontend
+        env:
+          COMFYUI_UNIT_DISABLE_CUSTOM_NODES: "1"
+        run: |
+          .venv/bin/python -m pytest -v -rs --timeout=180 --junitxml=browser-tests.xml tests/unit/test_workflow_convert_playwright.py
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: browser-parity-results
+          path: browser-tests.xml
 
   package-smoke:
     if: github.ref_name == 'master'

@@ -5,179 +5,25 @@ They cover keyframe placement, conditioning metadata, guide conversion, and free
 
 from __future__ import annotations
 
-import sys
 from contextlib import contextmanager
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 import torch
 
-mock_nodes = MagicMock()
-mock_nodes.MAX_RESOLUTION = 16384
-mock_server = MagicMock()
-
-
-def _conditioning_get_any_value(conditioning, key, default=None):
-    for t in conditioning:
-        if key in t[1]:
-            return t[1][key]
-    return default
-
-
-def _get_noise_mask(latent):
-    noise_mask = latent.get("noise_mask", None)
-    latent_image = latent["samples"]
-    if noise_mask is None:
-        batch_size, _, latent_length, _, _ = latent_image.shape
-        noise_mask = torch.ones(
-            (batch_size, 1, latent_length, 1, 1),
-            dtype=torch.float32,
-            device=latent_image.device,
-        )
-    else:
-        noise_mask = noise_mask.clone()
-    return noise_mask
-
-
-def _get_keyframe_idxs(cond, latent_shape=None):
-    keyframe_idxs = _conditioning_get_any_value(cond, "keyframe_idxs", None)
-    if keyframe_idxs is None:
-        return None, 0
-    if latent_shape is not None and len(latent_shape) == 5:
-        tokens_per_frame = latent_shape[-2] * latent_shape[-1]
-        num_keyframes = keyframe_idxs.shape[2] // tokens_per_frame
-        return keyframe_idxs, num_keyframes
-    return keyframe_idxs, 0
-
-
-def _append_guide_attention_entry(positive, negative, pre_filter_count, latent_shape, strength=1.0, attention_mask=None):
-    from comfy import node_helpers
-
-    new_entry = {
-        "pre_filter_count": pre_filter_count,
-        "strength": strength,
-        "pixel_mask": None,
-        "latent_shape": latent_shape,
-    }
-    results = []
-    for cond in (positive, negative):
-        existing = []
-        for t in cond:
-            found = t[1].get("guide_attention_entries", None)
-            if found is not None:
-                existing = found
-                break
-        results.append(
-            node_helpers.conditioning_set_values(cond, {"guide_attention_entries": [*existing, new_entry]})
-        )
-    return results[0], results[1]
-
-
-class _StubAddGuide:
-    calls = []
-
-    @classmethod
-    def append_keyframe(
-        cls,
-        positive,
-        negative,
-        frame_idx,
-        latent_image,
-        noise_mask,
-        guiding_latent,
-        strength,
-        scale_factors,
-        **kwargs,
-    ):
-        cls.calls.append({"method": "append_keyframe", "frame_idx": int(frame_idx), "strength": strength})
-        mask = torch.full(
-            (noise_mask.shape[0], 1, guiding_latent.shape[2], noise_mask.shape[3], noise_mask.shape[4]),
-            max(0.0, 1.0 - strength),
-            dtype=noise_mask.dtype,
-            device=noise_mask.device,
-        )
-        return (
-            positive,
-            negative,
-            torch.cat([latent_image, guiding_latent], dim=2),
-            torch.cat([noise_mask, mask], dim=2),
-        )
-
-    @classmethod
-    def execute(cls, positive, negative, vae, latent, image, frame_idx, strength, **kwargs):
-        cls.calls.append({"method": "execute", "frame_idx": int(frame_idx), "strength": strength, "image": image})
-        samples = latent["samples"]
-        out = latent.copy()
-        extra = torch.zeros(
-            (samples.shape[0], samples.shape[1], 1, samples.shape[3], samples.shape[4]),
-            dtype=samples.dtype,
-            device=samples.device,
-        )
-        out["samples"] = torch.cat([samples, extra], dim=2)
-        return _NodeOutput(positive, negative, out)
-
-
-class _NodeOutput:
-    def __init__(self, *args):
-        self.args = args
-
-    def __getitem__(self, index):
-        return self.args[index]
-
-
-_nodes_lt_stub = MagicMock()
-_nodes_lt_stub.conditioning_get_any_value = _conditioning_get_any_value
-_nodes_lt_stub.get_noise_mask = _get_noise_mask
-_nodes_lt_stub.get_keyframe_idxs = _get_keyframe_idxs
-_nodes_lt_stub._append_guide_attention_entry = _append_guide_attention_entry
-_nodes_lt_stub.LTXVAddGuide = _StubAddGuide
-
-def _import_keyframes_against_stub():
-    """Import the module under test with comfy_extras.nodes.nodes_lt stubbed, then put it back.
-
-    Only the stubbed keys are restored, not the whole of sys.modules: patch.dict
-    restores the entire dict on exit, which evicts every module imported inside the
-    block and forces a later re-import. Re-importing torch internals raises on
-    duplicate TORCH_LIBRARY registration, which broke running this file alongside
-    nodes_lt_test.py.
-    """
-    stubs = {
-        "nodes": mock_nodes,
-        "server": mock_server,
-        "comfy_extras.nodes.nodes_lt": _nodes_lt_stub,
-    }
-    saved = {name: sys.modules.get(name) for name in stubs}
-    sys.modules.update(stubs)
-    try:
-        import comfy_extras.nodes.nodes_lt_keyframes as module
-
-        return module
-    finally:
-        for name, original in saved.items():
-            if original is None:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = original
-        # The imported module stays bound to the stubs above, so drop it from the cache
-        # rather than let a later import pick up a stub-backed copy. The reference
-        # returned to this module keeps working.
-        sys.modules.pop("comfy_extras.nodes.nodes_lt_keyframes", None)
-
-
-keyframes = _import_keyframes_against_stub()
+from comfy_extras.nodes import nodes_lt_keyframes as keyframes
 
 
 def _zeros(shape):
     return torch.zeros(shape)
 
 
-def _empty_121():
-    return {"samples": _zeros((1, 2, 16, 2, 1))}
+def _empty_121(channels=2):
+    return {"samples": _zeros((1, channels, 16, 2, 1))}
 
 
-def _empty_241():
-    return {"samples": _zeros((1, 2, 31, 2, 1))}
+def _empty_241(channels=2):
+    return {"samples": _zeros((1, channels, 31, 2, 1))}
 
 
 def _cond(**extra):
@@ -775,7 +621,7 @@ class TestGeneratedKeyframesToGuides:
     def test_requires_recorded_indices(self):
         with pytest.raises(ValueError, match="does not carry generated keyframe positions"):
             keyframes.LTXVGeneratedKeyframesToGuides.execute(
-                _cond(), _cond(), _vae(), _empty_121(), {"samples": _zeros((1, 2, 5, 2, 1))}, 1.0
+                _cond(), _cond(), _vae(), _empty_121(128), {"samples": _zeros((1, 128, 5, 2, 1))}, 1.0
             )
 
     def test_rejects_unseparated_conditioning(self):
@@ -784,66 +630,65 @@ class TestGeneratedKeyframesToGuides:
                 _cond(generated_keyframes={"num_keyframes": 1}),
                 _cond(),
                 _vae(),
-                _empty_121(),
-                {"samples": _zeros((1, 2, 1, 2, 1)), "generated_keyframe_indices": [24]},
+                _empty_121(128),
+                {"samples": _zeros((1, 128, 1, 2, 1)), "generated_keyframe_indices": [24]},
                 1.0,
             )
 
     def test_rejects_non_video_and_batched_canvas(self):
-        kf = {"samples": _zeros((1, 2, 1, 2, 1)), "generated_keyframe_indices": [24]}
+        kf = {"samples": _zeros((1, 128, 1, 2, 1)), "generated_keyframe_indices": [24]}
         with pytest.raises(ValueError, match="plain video latent"):
             keyframes.LTXVGeneratedKeyframesToGuides.execute(
-                _cond(), _cond(), _vae(), {"samples": torch.zeros(1, 2, 16, 2)}, kf, 1.0
+                _cond(), _cond(), _vae(), {"samples": torch.zeros(1, 128, 16, 2)}, kf, 1.0
             )
         with pytest.raises(ValueError, match="batch size of 1"):
             keyframes.LTXVGeneratedKeyframesToGuides.execute(
-                _cond(), _cond(), _vae(), {"samples": _zeros((2, 2, 16, 2, 1))}, kf, 1.0
+                _cond(), _cond(), _vae(), {"samples": _zeros((2, 128, 16, 2, 1))}, kf, 1.0
             )
 
-    def test_pins_same_size_keyframes_via_append(self):
-        _StubAddGuide.calls.clear()
+    def test_pins_same_size_keyframes_via_append(self, mocker):
+        spy = mocker.spy(keyframes.LTXVAddGuide, 'append_keyframe')
         kf = {
-            "samples": _zeros((1, 2, 2, 2, 1)),
+            "samples": _zeros((1, 128, 2, 2, 1)),
             "generated_keyframe_indices": [24, 48],
             "generated_keyframe_num_frames": 121,
         }
         positive, negative, out = keyframes.LTXVGeneratedKeyframesToGuides.execute(
-            _cond(), _cond(), _vae(), _empty_121(), kf, 1.0
+            _cond(), _cond(), _vae(), _empty_121(128), kf, 1.0
         )
         assert out["samples"].shape[2] == 18
         assert torch.all(out["noise_mask"][:, :, 16:] == 0.0)
-        assert [call["frame_idx"] for call in _StubAddGuide.calls] == [24, 48]
-        assert all(call["method"] == "append_keyframe" for call in _StubAddGuide.calls)
+        assert [call.args[2] for call in spy.call_args_list] == [24, 48]
         entries = positive[0][1]["guide_attention_entries"]
         assert len(entries) == 2
 
-    def test_scales_indices_after_temporal_x2(self):
-        _StubAddGuide.calls.clear()
+    def test_scales_indices_after_temporal_x2(self, mocker):
+        spy = mocker.spy(keyframes.LTXVAddGuide, 'append_keyframe')
         kf = {
-            "samples": _zeros((1, 2, 2, 2, 1)),
+            "samples": _zeros((1, 128, 2, 2, 1)),
             "generated_keyframe_indices": [24, 120],
             "generated_keyframe_num_frames": 121,
         }
         keyframes.LTXVGeneratedKeyframesToGuides.execute(
-            _cond(), _cond(), _vae(), _empty_241(), kf, 1.0
+            _cond(), _cond(), _vae(), _empty_241(128), kf, 1.0
         )
-        assert [call["frame_idx"] for call in _StubAddGuide.calls] == [48, 240]
+        assert [call.args[2] for call in spy.call_args_list] == [48, 240]
 
-    def test_override_frame_indices(self):
-        _StubAddGuide.calls.clear()
+    def test_override_frame_indices(self, mocker):
+        spy = mocker.spy(keyframes.LTXVAddGuide, 'append_keyframe')
         kf = {
-            "samples": _zeros((1, 2, 2, 2, 1)),
+            "samples": _zeros((1, 128, 2, 2, 1)),
             "generated_keyframe_indices": [24, 48],
             "generated_keyframe_num_frames": 121,
         }
         keyframes.LTXVGeneratedKeyframesToGuides.execute(
-            _cond(), _cond(), _vae(), _empty_121(), kf, 0.5, override_frame_indices="32,96"
+            _cond(), _cond(), _vae(), _empty_121(128), kf, 0.5, override_frame_indices="32,96"
         )
-        assert [call["frame_idx"] for call in _StubAddGuide.calls] == [32, 96]
-        assert all(call["strength"] == 0.5 for call in _StubAddGuide.calls)
+        assert [call.args[2] for call in spy.call_args_list] == [32, 96]
+        assert all(call.args[6] == 0.5 for call in spy.call_args_list)
 
-    def test_resize_path_decodes_and_calls_add_guide(self):
-        _StubAddGuide.calls.clear()
+    def test_resize_path_decodes_and_calls_add_guide(self, mocker):
+        spy = mocker.spy(keyframes.LTXVAddGuide, 'execute')
         vae = _vae()
         decoded = []
 
@@ -852,38 +697,39 @@ class TestGeneratedKeyframesToGuides:
             return torch.zeros((samples.shape[0], 8, 8, 3))
 
         vae.decode = decode
+        vae.encode = lambda images: torch.zeros((1, 128, 1, 2, 1))
         kf = {
-            "samples": _zeros((1, 2, 2, 4, 4)),
+            "samples": _zeros((1, 128, 2, 4, 4)),
             "generated_keyframe_indices": [24, 48],
             "generated_keyframe_num_frames": 121,
         }
         _p, _n, out = keyframes.LTXVGeneratedKeyframesToGuides.execute(
-            _cond(), _cond(), vae, _empty_121(), kf, 1.0
+            _cond(), _cond(), vae, _empty_121(128), kf, 1.0
         )
-        assert decoded == [(2, 2, 1, 4, 4)]
-        assert [call["method"] for call in _StubAddGuide.calls] == ["execute", "execute"]
+        assert decoded == [(2, 128, 1, 4, 4)]
+        assert spy.call_count == 2
         assert out["samples"].shape[2] == 18
 
     def test_rejects_count_mismatch(self):
         kf = {
-            "samples": _zeros((1, 2, 2, 2, 1)),
+            "samples": _zeros((1, 128, 2, 2, 1)),
             "generated_keyframe_indices": [24],
             "generated_keyframe_num_frames": 121,
         }
         with pytest.raises(ValueError, match="2 keyframes for 1 recorded"):
             keyframes.LTXVGeneratedKeyframesToGuides.execute(
-                _cond(), _cond(), _vae(), _empty_121(), kf, 1.0
+                _cond(), _cond(), _vae(), _empty_121(128), kf, 1.0
             )
 
     def test_override_rejects_separator_only_indices(self):
         kf = {
-            "samples": _zeros((1, 2, 2, 2, 1)),
+            "samples": _zeros((1, 128, 2, 2, 1)),
             "generated_keyframe_indices": [24, 48],
             "generated_keyframe_num_frames": 121,
         }
         with pytest.raises(ValueError, match="is empty"):
             keyframes.LTXVGeneratedKeyframesToGuides.execute(
-                _cond(), _cond(), _vae(), _empty_121(), kf, 1.0, override_frame_indices=","
+                _cond(), _cond(), _vae(), _empty_121(128), kf, 1.0, override_frame_indices=","
             )
 
 

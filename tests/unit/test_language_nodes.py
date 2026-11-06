@@ -6,10 +6,10 @@ import pytest
 import torch
 from PIL import Image
 
-from comfy.language.language_types import LanguageModel, ProcessorResult
+from comfy.language.language_types import ProcessorResult
 from comfy.language.remote_model import RemoteLanguageModel
 from comfy_extras.nodes.nodes_language import SaveString
-from comfy_extras.nodes.nodes_language import TransformersLoader, OneShotInstructTokenize, TransformersGenerate, \
+from comfy_extras.nodes.nodes_language import OneShotInstructTokenize, TransformersGenerate, \
     PreviewString, OmitThink
 from comfy_extras.nodes.nodes_openai import OpenAILanguageModelLoader, DallEGenerate
 
@@ -73,16 +73,6 @@ def mock_openai_client():
         instance.chat.completions.create = Mock()
         instance.images.generate = Mock()
         yield instance
-
-@pytest.mark.skip("broken transformers")
-def test_transformers_loader(has_gpu):
-    if not has_gpu:
-        pytest.skip("requires GPU")
-    loader = TransformersLoader()
-    model, = loader.execute("microsoft/Phi-3-mini-4k-instruct", "")
-    assert isinstance(model, LanguageModel)
-    assert model.repo_id == "microsoft/Phi-3-mini-4k-instruct"
-
 
 def test_one_shot_instruct_tokenize(mocker):
     tokenize = OneShotInstructTokenize()
