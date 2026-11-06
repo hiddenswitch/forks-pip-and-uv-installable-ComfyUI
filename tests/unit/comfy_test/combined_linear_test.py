@@ -47,7 +47,15 @@ def test_cat_gathered_concatenates_rows_in_place(layout, kwargs):
     combined = comfy.memory_management.cat_gathered(views, gathered)
     assert tuple(combined.shape) == (sum(rows), 512)
     assert combined._qdata.data_ptr() == gathered.data_ptr()
-    assert torch.equal(combined.dequantize(), torch.cat([w.dequantize() for w in weights]))
+    # Packing must preserve every code and metadata tensor exactly. The inverse
+    # rotation uses floating-point matrix multiplication, whose rounding can
+    # differ when the batch contains all rows instead of one projection's rows.
+    inner_tensors, _ = combined.__tensor_flatten__()
+    for attr in inner_tensors:
+        values = [getattr(w, attr) for w in weights]
+        expected = torch.cat(values) if all(v.ndim > 0 and v.shape[0] == n for v, n in zip(values, rows)) else values[0]
+        assert torch.equal(getattr(combined, attr), expected)
+    torch.testing.assert_close(combined.dequantize(), torch.cat([w.dequantize() for w in weights]))
     # Laid out like one gathered weight of the summed rows, so optimize_for_gemv's storage contract holds.
     inner_tensors, _ = combined.__tensor_flatten__()
     like = comfy.memory_management.interpret_gathered_like([combined], gathered)[0]
