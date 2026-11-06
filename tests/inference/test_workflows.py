@@ -128,6 +128,10 @@ def workflow_process(tmp_path_factory, request):
     benchmark_path = tmp_path_factory.mktemp("benchmark") / "steps.jsonl"
     initializer = _initialize_mini_worker if request.config.getoption("--weights") == "mini" else _initialize_worker
     with ProcessPoolExecutor(max_workers=1, initializer=initializer, initargs=(str(benchmark_path),)) as executor:
+        device = executor.submit(_worker_device).result(timeout=90)
+        expected = request.config.getoption("--expected-device")
+        if expected is not None:
+            assert device == expected, f"Inference worker selected {device}, expected {expected}"
         yield executor, benchmark_path, request.param
 
 
@@ -162,6 +166,11 @@ def _initialize_worker(benchmark_path: str):
     # Workers are spawned, so models registered in the test process are registered again here.
     _register_workflow_models()
     install_benchmark(benchmark_path)
+
+
+def _worker_device():
+    from comfy import model_management
+    return model_management.get_torch_device().type
 
 
 def _initialize_mini_worker(benchmark_path: str):
