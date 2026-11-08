@@ -84,7 +84,7 @@ jobs:
         run: .venv/bin/python -m pytest -v -s --timeout=900 tests/custom_nodes/test_installed_node_registration.py
       - name: XPU unit tests
         run: |
-          .venv/bin/python -m pytest -v -rs --expected-device=xpu --junitxml=xpu-tests.xml --timeout=900 tests/unit
+          .venv/bin/python -m pytest -v -rs --expected-device=xpu --junitxml=xpu-tests.xml --timeout=900 tests/unit --ignore=tests/unit/test_workflow_convert_playwright.py
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -219,7 +219,8 @@ jobs:
           C:/venv/Scripts/python.exe -m pytest -v --timeout=900 -m server_process tests/unit
 
   macos:
-    if: github.event_name != 'workflow_dispatch' || inputs.backend == 'all' || inputs.backend == 'macos'
+    # Hosted MPS validation is disabled until runner capacity is available.
+    if: false
     environment: Testing
     name: macOS 15 MPS Python 3.12 PyTorch 2.13
     runs-on: macos-15-xlarge

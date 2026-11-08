@@ -21,20 +21,11 @@ def attention(q: Tensor, k: Tensor, v: Tensor, pe: Tensor, mask=None, transforme
 
 def rope(pos: Tensor, dim: int, theta: int) -> Tensor:
     assert dim % 2 == 0
-    if pos.device.type == "mps":
-        return _rope_cpu(pos, dim, theta)
     if not model_management.supports_fp64(pos.device):
-        return _rope(pos, dim, theta, torch.device("cpu"))
-    return _rope(pos, dim, theta, pos.device)
+        device = torch.device("cpu")
+    else:
+        device = pos.device
 
-
-@torch.compiler.disable
-def _rope_cpu(pos: Tensor, dim: int, theta: int) -> Tensor:
-    # PyTorch 2.13 Inductor can fuse CPU float64 work into an unsupported MPS kernel.
-    return _rope(pos, dim, theta, torch.device("cpu"))
-
-
-def _rope(pos: Tensor, dim: int, theta: int, device) -> Tensor:
     scale = torch.linspace(0, (dim - 2) / dim, steps=dim // 2, dtype=torch.float64, device=device)
     omega = 1.0 / (theta ** scale)
     out = torch.einsum("...n,d->...nd", pos.to(dtype=torch.float32, device=device), omega)
