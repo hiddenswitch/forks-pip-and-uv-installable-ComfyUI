@@ -13,7 +13,6 @@ from importlib import resources
 from comfy.execution_context import current_execution_context
 
 import pytest
-import torch
 from alembic import command
 from alembic.script import ScriptDirectory
 from sqlalchemy.engine import URL, make_url
@@ -21,10 +20,7 @@ from filelock import FileLock
 
 from comfy.cmd import folder_paths
 from comfy.app.database import db as db_module
-from comfy.cli_args import args as cli_args
 
-if not torch.cuda.is_available():
-    cli_args.cpu = True
 
 from comfy.cmd import main
 

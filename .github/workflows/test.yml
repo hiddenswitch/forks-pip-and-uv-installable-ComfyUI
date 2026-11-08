@@ -6,11 +6,21 @@ name: Backend Tests
 # backends that a hosted CPU runner cannot cover.
 on:
   workflow_dispatch:
+    inputs:
+      backend:
+        description: Backend to validate
+        type: choice
+        default: all
+        options: [all, intel, windows_nvidia, macos]
+      model_filter:
+        description: Optional pytest expression for targeted macOS model diagnostics
+        type: string
+        default: ""
   push:
     branches: [develop]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.backend || 'all' }}-${{ inputs.model_filter && github.run_id || 'full' }}
   cancel-in-progress: true
 
 env:
@@ -21,6 +31,7 @@ env:
 
 jobs:
   intel:
+    if: github.event_name != 'workflow_dispatch' || inputs.backend == 'all' || inputs.backend == 'intel'
     environment: Testing
     name: Python 3.14 PyTorch 2.14 XPU
     runs-on: [self-hosted, linux, X64, ipex-a380-6gb]
@@ -73,9 +84,15 @@ jobs:
         run: .venv/bin/python -m pytest -v -s --timeout=900 tests/custom_nodes/test_installed_node_registration.py
       - name: XPU unit tests
         run: |
-          .venv/bin/python -m pytest -v --timeout=900 tests/unit
+          .venv/bin/python -m pytest -v -rs --expected-device=xpu --junitxml=xpu-tests.xml --timeout=900 tests/unit --ignore=tests/unit/test_workflow_convert_playwright.py
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: xpu-test-results
+          path: xpu-tests.xml
 
   windows_nvidia:
+    if: github.event_name != 'workflow_dispatch' || inputs.backend == 'all' || inputs.backend == 'windows_nvidia'
     environment: Testing
     name: Windows RTX 3090 Python 3.14 CUDA 13.0 PyTorch 2.14
     runs-on: [self-hosted, windows-cuda-3090-24gb]
@@ -202,15 +219,17 @@ jobs:
           C:/venv/Scripts/python.exe -m pytest -v --timeout=900 -m server_process tests/unit
 
   macos:
-    if: github.repository == 'Comfy-Org/ComfyUI' || vars.ENABLE_MACOS_CI == 'true'
+    # Hosted MPS validation is disabled until runner capacity is available.
+    if: false
     environment: Testing
-    name: macOS 14 Python 3.12 PyTorch 2.13
-    runs-on: macos-14
-    timeout-minutes: 20
+    name: macOS 15 MPS Python 3.12 PyTorch 2.13
+    runs-on: macos-15-xlarge
+    timeout-minutes: 60
     env:
       # uv otherwise evaluates wheels against its generic macOS 13 floor.
       # PyTorch 2.13 and ONNX Runtime publish native macOS 14 arm64 wheels.
       MACOSX_DEPLOYMENT_TARGET: "14.0"
+      COMFYUI_UNIT_DISABLE_CUSTOM_NODES: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -224,16 +243,43 @@ jobs:
         run: |
           uv venv --python 3.12
           ci/install-locked.sh ci/locks/pylock.macos-py312.toml .venv/bin/python
+      - name: MPS execution smoke
+        run: |
+          .venv/bin/python - <<'PY'
+          import torch
+          from comfy.model_management import get_torch_device
+          print('torch', torch.__version__, 'device', get_torch_device())
+          assert torch.__version__.startswith('2.13.0')
+          assert torch.backends.mps.is_available()
+          assert get_torch_device().type == 'mps'
+          result = (torch.ones(16, device='mps') * 2).sum()
+          torch.mps.synchronize()
+          assert result.item() == 32
+          PY
       - name: Custom-node registration
         run: .venv/bin/python -m pytest -v -s --timeout=900 tests/custom_nodes/test_installed_node_registration.py
       - name: macOS smoke tests
         env:
           COMFYUI_UNIT_DISABLE_CUSTOM_NODES: "1"
         run: |
-          .venv/bin/python -c "import torch; print(torch.__version__); assert torch.__version__.startswith('2.13.0'); assert torch.backends.mps.is_built()"
           .venv/bin/python -m pytest -v \
-            tests/unit/test_cli_args_types_sync.py \
+            tests/unit/test_cli.py \
             tests/unit/test_comfy_instance.py \
             tests/unit/test_guess_settings.py \
             tests/unit/test_torchvision_compat.py \
             tests/unit/test_transformers_compat.py
+      - name: Miniature model inference on MPS
+        env:
+          MODEL_FILTER: ${{ inputs.model_filter || '' }}
+        run: |
+          brew install ggml
+          export COMFYUI_TEST_GGML_LIBRARY="$(brew --prefix ggml)/lib/libggml-base.dylib"
+          test -f "$COMFYUI_TEST_GGML_LIBRARY"
+          df -h .
+          .venv/bin/python -m pytest -vv -rs --capture=tee-sys --durations=15 --timeout=900 --weights mini --expected-device=mps -k "$MODEL_FILTER" \
+            --junitxml=mps-inference.xml tests/inference/test_workflows.py
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mps-inference-results
+          path: mps-inference.xml

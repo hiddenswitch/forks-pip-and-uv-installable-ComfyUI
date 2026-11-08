@@ -3,7 +3,6 @@ from __future__ import annotations
 import platform
 
 # noqa: E402
-from comfy.cmd.main_pre import args
 import os
 import re
 import uuid
@@ -166,7 +165,6 @@ async def test_string_enum_request_parameter():
     assert validated["2"].valid
 
 
-@pytest.mark.skip("issues")
 def test_hash_images():
     nt = HashImage.INPUT_TYPES()
     assert nt is not None

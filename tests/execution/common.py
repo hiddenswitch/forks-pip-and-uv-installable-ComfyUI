@@ -74,10 +74,12 @@ class ComfyClient:
                 node.inputs['filename_prefix'] = current_test_name.get()
 
         prompt_id = str(uuid.uuid4())
+        execution_error = None
         try:
             outputs = await self.embedded_client.queue_prompt(graph.finalize(), prompt_id=prompt_id, partial_execution_targets=partial_execution_targets)
         except (RuntimeError, DependencyCycleError) as exc_info:
             logger.warning("error when queueing prompt", exc_info=exc_info)
+            execution_error = exc_info
             outputs = {}
         result = RunResult(prompt_id=prompt_id)
         result.outputs = outputs
@@ -96,6 +98,9 @@ class ComfyClient:
                     cached_nodes = send_sync_data.get('nodes', [])
                     for node_id in cached_nodes:
                         result.cached[node_id] = True
+
+        if execution_error is not None:
+            raise execution_error
 
         for node in outputs.values():
             if "images" in node:

@@ -2,10 +2,7 @@ import pytest
 import torch
 
 from comfy.execution_context import current_execution_context
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 from comfy import conds, memory_management, model_base, model_management, model_patcher, ops, supported_models, system_memory
 

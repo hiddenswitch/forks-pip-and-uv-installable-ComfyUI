@@ -2,10 +2,7 @@
 
 import torch
 
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 from comfy.text_encoders.qwen_vl import process_qwen2vl_images  # noqa: E402
 

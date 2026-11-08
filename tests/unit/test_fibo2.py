@@ -295,7 +295,7 @@ def test_official_template_weights_are_registered(filename):
 
 def test_the_weights_are_registered():
     unets = {str(m): m for m in KNOWN_UNET_MODELS.data}
-    assert unets["fibo2_dev_bf16.safetensors"].repo_id == "appmana/Fibo-2.0-ComfyUI"
+    assert unets["fibo2_dev_bf16.safetensors"].repo_id == "Comfy-Org/Fibo-2.0"
     clips = {str(m): m for m in KNOWN_CLIP_MODELS.data}
     assert clips["qwen3vl_4b_bf16.safetensors"].repo_id in ("Comfy-Org/Qwen3-VL", "Comfy-Org/Mage-Flow")
     assert "flux2-vae.safetensors" in {str(m) for m in KNOWN_VAES.data}

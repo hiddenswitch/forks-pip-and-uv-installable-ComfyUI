@@ -1,9 +1,6 @@
 import torch
 
-from comfy.cli_args import args as cli_args
 
-if not torch.cuda.is_available():
-    cli_args.cpu = True
 
 import comfy.model_patcher
 import comfy.ldm.lightricks.vae.na_diffusion_decoder as na_decoder

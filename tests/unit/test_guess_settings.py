@@ -1,6 +1,6 @@
 import collections
 import subprocess
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 
 
 from comfy.cli_args_types import Configuration, PerformanceFeature
@@ -23,14 +23,11 @@ class TestTotalRamGb:
         with patch("psutil.virtual_memory", return_value=mem):
             assert abs(_total_ram_gb() - 16.0) < 0.1
 
-    def test_fallback_proc_meminfo(self, tmp_path):
-        meminfo = tmp_path / "meminfo"
-        meminfo.write_text("MemTotal:       16384000 kB\n")
-        with patch.dict("sys.modules", {"psutil": None}):
-            with patch("builtins.open", side_effect=lambda *a, **kw: open(str(meminfo), **kw) if "/proc/meminfo" in str(a) else open(*a, **kw)):
-                # The ImportError path returns 0 when psutil is missing and
-                # /proc/meminfo can't be opened.
-                pass
+    def test_fallback_proc_meminfo(self):
+        with patch.dict("sys.modules", {"psutil": None}), \
+             patch("builtins.open", mock_open(read_data="MemTotal:       16777216 kB\n")) as reader:
+            assert _total_ram_gb() == 16.0
+        reader.assert_called_once_with("/proc/meminfo", encoding="utf-8")
 
     def test_returns_zero_on_failure(self):
         with patch.dict("sys.modules", {"psutil": None}), \

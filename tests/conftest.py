@@ -61,6 +61,20 @@ def requires_serial_process_group(fixture_names) -> bool:
 def pytest_addoption(parser):
     parser.addoption("--weights", choices=("real", "mini"), default="real",
                      help="Run inference workflows on real weights, or on miniature random checkpoints for numerical smoke coverage")
+    parser.addoption("--expected-device", help="Require this inference device after test collection")
+
+
+def pytest_collection_finish(session):
+    expected = session.config.getoption("--expected-device")
+    if expected is None:
+        return
+    from comfy import model_management
+    from comfy.cli_args import args
+
+    actual = model_management.get_torch_device().type
+    if actual != expected or (expected != "cpu" and args.cpu):
+        raise pytest.UsageError(f"Expected inference device {expected}, got {actual} with cpu={args.cpu}")
+    session.config.get_terminal_writer().line(f"Inference device after collection: {actual}")
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -393,16 +407,6 @@ def use_temporary_input_directory(tmp_path: pathlib.Path):
     folder_paths.set_input_directory(tmp_path)
     yield tmp_path
     folder_paths.set_input_directory(orig_dir)
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    outcome = yield
-    report = outcome.get_result()
-    report.sections = [
-        (name, content) for name, content in report.sections
-        if "stderr" not in name.lower()
-    ]
 
 
 current_test_name = ContextVar('current_test_name', default=None)

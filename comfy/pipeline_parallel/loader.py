@@ -487,6 +487,18 @@ def try_load_diffusion_model_pipeline(
     ):
         return None
 
+    if model_config.unet_config["image_model"] == "flux2":
+        spec = get_pipeline_stage_spec("flux2")
+        supported_depth = (
+            model_config.unet_config["depth"] == spec.double_block_count
+            and model_config.unet_config["depth_single_blocks"] == spec.single_block_count
+        )
+        distributed = resolve_distributed_configuration(current_execution_context().configuration)
+        if not supported_depth and not distributed.externally_launched and distributed.pipeline_parallel_size == 1:
+            # Automatic placement must not turn an otherwise supported Klein
+            # checkpoint into an unsupported Dev pipeline configuration.
+            return None
+
     return load_diffusion_model_pipeline(
         unet_path,
         PipelineParallelConfig(devices),

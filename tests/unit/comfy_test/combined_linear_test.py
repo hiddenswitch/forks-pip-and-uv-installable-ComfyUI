@@ -1,10 +1,7 @@
 import pytest
 import torch
 
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 import comfy.lora  # noqa: E402
 import comfy.model_patcher  # noqa: E402

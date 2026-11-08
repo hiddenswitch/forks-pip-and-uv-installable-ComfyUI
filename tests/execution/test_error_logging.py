@@ -1,6 +1,7 @@
 import logging
 import threading
 
+import pytest
 from pytest import fixture
 
 from comfy_execution.graph_utils import GraphBuilder
@@ -48,10 +49,9 @@ class TestErrorLogging:
         mask = g.node("StubMask", value=0.5, height=512, width=512, batch_size=1)
         lazy_mix = g.node("TestLazyMixImages", image1=input1.out(0), image2=input2.out(0), mask=mask.out(0))
         g.node("SaveImage", images=lazy_mix.out(0))
-        try:
+        with pytest.raises(Exception) as exc_info:
             await client.run(g)
-        except Exception:
-            pass
+        assert exc_info.value.args[0]["node_id"] == lazy_mix.id
 
     async def test_error_log_is_not_duplicated(self, client: ComfyClient, builder: GraphBuilder, log_collector: _LogCollector):
         await self._run_error_workflow(client, builder)
@@ -70,6 +70,7 @@ class TestErrorLogging:
 
         all_error_text = "\n".join(r.message for r in log_collector.records)
 
+        assert all_error_text
         assert "asyncio/runners.py" not in all_error_text
         assert "concurrent/futures" not in all_error_text
         assert "threading.py" not in all_error_text
@@ -99,21 +100,20 @@ class TestErrorLogging:
         lazy_mix = g.node("TestLazyMixImages", image1=input1.out(0), image2=input2.out(0), mask=mask.out(0))
         g.node("SaveImage", images=lazy_mix.out(0))
 
-        try:
+        with pytest.raises(Exception) as exc_info:
             await client.run(g)
-            assert False, "Should have raised"
-        except Exception as e:
-            error_data = e.args[0]
-            tb_lines = error_data.get("traceback", [])
-            tb_text = "\n".join(tb_lines)
-
-            assert "embedded_comfy_client.py" not in tb_text
-            assert "asyncio" not in tb_text.lower()
-            assert "prompt_id" in error_data
+        error_data = exc_info.value.args[0]
+        assert error_data["node_id"] == lazy_mix.id
+        tb_text = "\n".join(error_data["traceback"])
+        assert "specific_tests.py" in tb_text
+        assert "embedded_comfy_client.py" not in tb_text
+        assert "asyncio" not in tb_text.lower()
+        assert "prompt_id" in error_data
 
     async def test_no_stack_trace_logger_duplication(self, client: ComfyClient, builder: GraphBuilder, log_collector: _LogCollector):
         await self._run_error_workflow(client, builder)
 
+        assert log_collector.records
         for record in log_collector.records:
             assert record.stack_info is None, (
                 f"Unexpected stack_info on record: {record.message[:200]}"

@@ -1,6 +1,6 @@
 """Unit tests for LTXVAddLatentGuide and the guide-attachment path it shares with LTXVAddGuide.
 
-The RoPE arithmetic runs for real here: only ``nodes`` and ``server`` are stubbed, so
+The RoPE arithmetic runs for real here:
 ``append_keyframe``, ``dilate_latent`` and ``_append_guide_attention_entry`` are the
 real implementations and the assertions are on actual keyframe coordinates.
 """
@@ -8,30 +8,12 @@ real implementations and the assertions are on actual keyframe coordinates.
 from __future__ import annotations
 
 import asyncio
-import sys
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 import torch
 
-# Stub nodes/server for the import only, then restore exactly those keys. patch.dict is
-# not used because it restores the whole of sys.modules on exit, which evicts everything
-# imported inside the block and forces a re-import that trips duplicate TORCH_LIBRARY
-# registration. Leaving the stubs installed is equally wrong: pytest imports every test
-# module at collection time, so a lingering MagicMock "nodes" breaks later modules that
-# use the real one. Same shape as tests-unit/comfy_extras_test/image_stitch_test.py.
-_stubs = {"nodes": MagicMock(MAX_RESOLUTION=16384), "server": MagicMock()}
-_saved = {name: sys.modules.get(name) for name in _stubs}
-sys.modules.update(_stubs)
-try:
-    import comfy_extras.nodes.nodes_lt as nodes_lt
-finally:
-    for _name, _original in _saved.items():
-        if _original is None:
-            sys.modules.pop(_name, None)
-        else:
-            sys.modules[_name] = _original
+import comfy_extras.nodes.nodes_lt as nodes_lt
 
 LATENT_CHANNELS = 128
 SCALE_FACTORS = (8, 32, 32)

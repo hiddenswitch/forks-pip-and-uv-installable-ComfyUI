@@ -1,9 +1,6 @@
 import torch
 
-from comfy.cli_args import args
 
-if not torch.cuda.is_available():
-    args.cpu = True
 
 import comfy.ops  # noqa: E402
 from comfy import quant_ops

@@ -1,10 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from comfy.cli_args import args as cli_args
 
-if not torch.cuda.is_available():
-    cli_args.cpu = True
 
 from comfy_extras.nodes.nodes_images import PadImageNode, PadStyle, PadType  # noqa: E402
 

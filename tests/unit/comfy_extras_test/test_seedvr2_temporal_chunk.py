@@ -3,7 +3,6 @@
 import pytest
 import torch
 
-from comfy.cli_args import args as cli_args
 from comfy.ldm.seedvr.constants import (
     BYTEDANCE_VAE_SPATIAL_DOWNSAMPLE,
     SEEDVR2_CHUNK_GIB_PER_MPX_FRAME,
@@ -13,8 +12,6 @@ from comfy.ldm.seedvr.constants import (
     SEEDVR2_LATENT_CHANNELS,
 )
 
-if not torch.cuda.is_available():
-    cli_args.cpu = True
 
 import comfy.model_management  # noqa: E402
 from comfy_extras.nodes.nodes_seedvr import SeedVR2TemporalChunk, SeedVR2TemporalMerge, _seedvr2_chunk_crossfade_weights  # noqa: E402
