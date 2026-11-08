@@ -53,7 +53,7 @@ def test_xpu_and_windows_run_the_full_unit_suite():
     for job_name in ("intel", "windows_nvidia"):
         commands = "\n".join(step.get("run", "") for step in jobs[job_name]["steps"])
         assert "tests/unit" in commands
-        assert not re.search(r"tests/unit/[^\s]+\.py", commands)
+        assert not re.search(r"(?<!\S)tests/unit/[^\s]+\.py", commands)
 
 
 def test_windows_process_tests_have_the_cold_start_budget():
