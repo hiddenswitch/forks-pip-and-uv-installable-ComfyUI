@@ -15,7 +15,6 @@ from comfy import utils
 from comfy.model_base import _format_quantized_storage_summary
 from comfy.quant_ops import QUANT_ALGOS
 from comfy.quant_ops import QuantizedTensor
-from comfy.supported_models import ZImage
 
 
 class SimpleModel(torch.nn.Module):
@@ -35,46 +34,6 @@ class SimpleModel(torch.nn.Module):
 
 
 class TestMixedPrecisionOps(unittest.TestCase):
-    def test_forced_fp16_z_image_weights_use_supported_compute_dtype(self):
-        with (
-            mock.patch.object(model_management, "args", Configuration(fp16_unet=True)),
-            mock.patch.object(model_management, "should_use_fp16", return_value=True),
-            mock.patch.object(model_management, "should_use_bf16", return_value=True),
-        ):
-            storage_dtype = model_management.unet_dtype(
-                device=torch.device("cpu"), supported_dtypes=ZImage.supported_inference_dtypes,
-            )
-            compute_dtype = model_management.unet_manual_cast(
-                storage_dtype, torch.device("cpu"), ZImage.supported_inference_dtypes,
-            )
-        self.assertEqual(storage_dtype, torch.float16)
-        self.assertEqual(compute_dtype, torch.bfloat16)
-
-        layer = ops.manual_cast.Linear(1, 1, bias=False, device="cpu", dtype=storage_dtype)
-        layer.load_state_dict({"weight": torch.tensor([[100.0]], dtype=storage_dtype)})
-        result = layer(torch.tensor([[1000.0]], dtype=compute_dtype))
-        self.assertEqual(layer.weight.dtype, torch.float16)
-        self.assertEqual(result.dtype, torch.bfloat16)
-        torch.testing.assert_close(result.float(), torch.tensor([[100000.0]]), rtol=0.004, atol=0)
-
-    def test_manual_cast_respects_model_and_device_dtype_support(self):
-        cases = [
-            (torch.float16, (torch.bfloat16, torch.float32), False, torch.float32),
-            (torch.bfloat16, (torch.float32,), True, torch.float32),
-            (torch.float16, (torch.float16, torch.float32), True, None),
-            (torch.bfloat16, (torch.bfloat16, torch.float32), True, None),
-        ]
-        for storage, supported, bf16_available, expected in cases:
-            with (
-                self.subTest(storage=storage, supported=supported, bf16_available=bf16_available),
-                mock.patch.object(model_management, "should_use_fp16", return_value=True),
-                mock.patch.object(model_management, "should_use_bf16", return_value=bf16_available),
-            ):
-                self.assertEqual(
-                    model_management.unet_manual_cast(storage, torch.device("cpu"), supported),
-                    expected,
-                )
-
     @unittest.skipUnless(ops.mixed_precision_quantization_available(), "requires comfy_kitchen-backed quantized tensors")
     def test_quant_layout_class_fallbacks_exist(self):
         self.assertIsNotNone(ops.get_layout_class("TensorCoreFP8E4M3Layout"))

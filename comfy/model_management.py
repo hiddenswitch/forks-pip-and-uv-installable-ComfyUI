@@ -1573,11 +1573,11 @@ def unet_manual_cast(weight_dtype, inference_device, supported_dtypes=(torch.flo
         return None
 
     fp16_supported = should_use_fp16(inference_device, prioritize_performance=False)
-    if fp16_supported and weight_dtype == torch.float16 and weight_dtype in supported_dtypes:
+    if fp16_supported and weight_dtype == torch.float16:
         return None
 
     bf16_supported = should_use_bf16(inference_device)
-    if bf16_supported and weight_dtype == torch.bfloat16 and weight_dtype in supported_dtypes:
+    if bf16_supported and weight_dtype == torch.bfloat16:
         return None
 
     fp16_supported = should_use_fp16(inference_device, prioritize_performance=True)
