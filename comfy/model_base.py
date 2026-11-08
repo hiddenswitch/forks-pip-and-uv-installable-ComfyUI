@@ -16,6 +16,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+from .ldm.wan import model_vsr
 from enum import Enum
 from typing import Any
 from typing import Optional
@@ -2251,6 +2252,19 @@ class WAN21_SCAIL(WAN21):
             out['pose_latents'] = [pose_latents.shape[0], 20, *pose_latents.shape[2:]]
 
         return out
+
+class WAN22_RelayVSR(WAN21):
+    def __init__(self, model_config, model_type=ModelType.FLOW, device=None):
+        super(WAN21, self).__init__(model_config, model_type, device=device, unet_model=model_vsr.RelayVSRWanModel)
+        self.image_to_video = False
+
+    def extra_conds(self, **kwargs):
+        out = super().extra_conds(**kwargs)
+        lq_images = kwargs.get("lq_images", None)
+        if lq_images is not None:
+            out['lq_pixels'] = conds.CONDRegular(lq_images[..., :3].movedim(-1, 0).unsqueeze(0) * 2.0 - 1.0)
+        return out
+
 
 class WAN21_SCAIL2(WAN21_SCAIL):
     """SCAIL-2: SCAIL-Preview + an additive binary multi-identity mask stream."""

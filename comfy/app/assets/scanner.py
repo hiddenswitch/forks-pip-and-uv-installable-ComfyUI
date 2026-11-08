@@ -9,6 +9,7 @@ so the rows it never reached are selected again when the scan resumes.
 """
 
 import enum
+import sqlite3
 import time
 from dataclasses import dataclass
 from itertools import islice
@@ -71,7 +72,7 @@ from .services.path_utils import get_comfy_models_folders
 from .services.path_utils import get_name_and_tags_from_asset_path
 from .services.path_utils import models_folders_snapshot
 from .services.snapshot_hash import snapshot_hash
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 import sqlalchemy as sa
 
@@ -152,6 +153,8 @@ def _never_stop() -> bool:
 WRITE_BATCH_ROWS = 256
 WRITE_YIELD_MIN_SECONDS = 0.02
 WRITE_YIELD_MAX_SECONDS = 0.1
+WRITE_MAX_ATTEMPTS = 4
+WRITE_RETRY_SECONDS = 0.2
 
 
 def _write_in_batches(
@@ -161,15 +164,29 @@ def _write_in_batches(
     committed: list[int],
 ) -> None:
     """Apply ``write_batch`` to ``items`` a batch per transaction, appending the count
-    each batch reports to ``committed`` once it commits. A failure leaves the batches
-    before it committed, and ``committed`` says how much they wrote."""
+    each batch reports to ``committed`` once it commits. Retry file-open failures in
+    a new transaction. A failure leaves the batches before it committed, and
+    ``committed`` says how much they wrote."""
     for start in range(0, len(items), WRITE_BATCH_ROWS):
-        if should_stop():
-            break
-        opened = time.perf_counter()
-        with create_write_session() as session:
-            count = write_batch(session, items[start : start + WRITE_BATCH_ROWS])
-            session.commit()
+        for attempt in range(WRITE_MAX_ATTEMPTS):
+            if should_stop():
+                return
+            opened = time.perf_counter()
+            try:
+                with create_write_session() as session:
+                    count = write_batch(session, items[start : start + WRITE_BATCH_ROWS])
+                    session.commit()
+            except OperationalError as exc:
+                if (
+                    not isinstance(exc.orig, sqlite3.OperationalError)
+                    or str(exc.orig) != "unable to open database file"
+                    or attempt == WRITE_MAX_ATTEMPTS - 1
+                ):
+                    raise
+                # The session has rolled back and released the write lock before waiting.
+                time.sleep(WRITE_RETRY_SECONDS * (attempt + 1))
+            else:
+                break
         committed.append(count)
         held = time.perf_counter() - opened
         if start + WRITE_BATCH_ROWS < len(items):
