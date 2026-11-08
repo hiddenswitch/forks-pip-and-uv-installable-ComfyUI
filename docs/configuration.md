@@ -37,6 +37,11 @@ requested model, and on Linux defaults to tensor parallelism across identical
 NVIDIA GPUs (see [distributed inference](distributed.md#defaults)). An
 explicit CLI or `Configuration` value always wins.
 
+Diffusion weight precision and compute precision can differ. For example,
+`--fp16-unet` stores Z-Image Base weights in FP16, but uses BF16 compute to avoid
+activation overflow (or FP32 when BF16 is unavailable). The loader
+reports both the model dtype and manual-cast dtype.
+
 Use `--reserve-vram` to leave a fixed amount available for the desktop or
 other workloads. `--novram` is an explicit compatibility escape hatch, not the
 normal recommendation; DynamicVRAM can eject dependencies when memory is
