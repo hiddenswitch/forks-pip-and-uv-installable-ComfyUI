@@ -1,4 +1,4 @@
-__version__ = "0.43.0.3"
+__version__ = "0.43.0.4"
 
 # This deals with workspace issues
 from comfy_compatibility.workspace import auto_patch_workspace_and_restart
