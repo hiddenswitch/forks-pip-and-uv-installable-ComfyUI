@@ -45,7 +45,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVCR_NGC_TOKEN: ${{ secrets.NVCR_NGC_TOKEN }}
         run: |
-          apt-get update
+          find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec \
+            sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.kernel.org/ubuntu|g' {} +
+          apt-get update --error-on=any
           apt-get install -y --no-install-recommends ca-certificates curl git docker.io docker-buildx
           mkdir -p ~/.docker
           ghcr_auth="$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 | tr -d '\n')"
@@ -140,7 +142,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          apt-get update
+          find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec \
+            sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.kernel.org/ubuntu|g' {} +
+          apt-get update --error-on=any
           apt-get install -y --no-install-recommends ca-certificates docker.io docker-buildx
           mkdir -p ~/.docker
           ghcr_auth="$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 | tr -d '\n')"
@@ -172,7 +176,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          apt-get update
+          find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec \
+            sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.kernel.org/ubuntu|g' {} +
+          apt-get update --error-on=any
           apt-get install -y --no-install-recommends ca-certificates docker.io docker-buildx
           mkdir -p ~/.docker
           ghcr_auth="$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 | tr -d '\n')"

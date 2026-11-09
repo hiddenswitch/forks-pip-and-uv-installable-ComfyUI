@@ -25,7 +25,6 @@ concurrency:
 
 env:
   SAM2_BUILD_CUDA: "0"
-  UBUNTU_APT_MIRROR: https://mirrors.kernel.org/ubuntu
   COMFYUI_LINUX_SYSTEM_PACKAGES: >-
     libgl1 libglib2.0-0 libsndfile1 libxcb1 zip unzip
 
@@ -51,7 +50,9 @@ jobs:
     steps:
       - name: Install system dependencies and uv
         run: |
-          apt-get update
+          find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec \
+            sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.kernel.org/ubuntu|g' {} +
+          apt-get update --error-on=any
           apt-get install -y --no-install-recommends curl ca-certificates git $COMFYUI_LINUX_SYSTEM_PACKAGES
           curl -LsSf https://astral.sh/uv/install.sh | sh
       - uses: actions/checkout@v7

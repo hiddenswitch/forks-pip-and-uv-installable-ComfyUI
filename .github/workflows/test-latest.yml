@@ -70,7 +70,11 @@ jobs:
       options: --shm-size=2g
     steps:
       - name: Install system dependencies
-        run: apt-get update && apt-get install -y git ca-certificates build-essential libgl1 libglib2.0-0 libsndfile1 libxcb1
+        run: |
+          find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec \
+            sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.kernel.org/ubuntu|g' {} +
+          apt-get update --error-on=any
+          apt-get install -y git ca-certificates build-essential libgl1 libglib2.0-0 libsndfile1 libxcb1
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Install locked dependencies and Chromium

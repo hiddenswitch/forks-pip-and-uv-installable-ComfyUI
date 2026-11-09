@@ -21,7 +21,9 @@ ENV TZ=Etc/UTC \
 # NGC's Python environment is an authored, tested CUDA ABI set. OpenCV is one
 # deliberate exception: NGC's provider installs the same cv2 import as the
 # headless distribution required by ComfyUI and cannot coexist with it.
-RUN apt-get update \
+RUN find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec \
+       sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.kernel.org/ubuntu|g' {} + \
+    && apt-get update --error-on=any \
     && apt-get install --no-install-recommends -y \
        ffmpeg libsm6 libxext6 libcairo2-dev libxcb1 zip unzip \
     && opencv_packages="$(uv pip freeze --system | sed -n -E '/^opencv/I{s/==.*//;p}' || true)" \
