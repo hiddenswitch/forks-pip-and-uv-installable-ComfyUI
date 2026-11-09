@@ -5,7 +5,7 @@ with instructions shipped by model authors for rewriting, expanding, or
 structuring prompts. These can be the most precise available prompting guide,
 even when embedded in a Python module, demo Space, or authoring skill.
 
-The tables account for all 107 native registrations, followed by the additional
+The tables account for all 108 native registrations, followed by the additional
 families in the coverage index. A public instruction is linked at the reviewed
 revision where available. Read the entire linked prompt, including examples and
 the calling code: the short descriptions here do not replace it. Upstream skills
@@ -111,6 +111,7 @@ enhancer instructions, not diffusion tokenizer limits or sampling parameters.
 | Lotus — `LotusD` | Input task: [depth/normal estimation](https://github.com/EnVision-Research/Lotus). |
 | PiD — `PiD` | Input task: [decoder](https://github.com/nv-tlabs/PiD). |
 | SeedVR2 — `SeedVR2` | Input task: [restoration](https://github.com/ByteDance-Seed/SeedVR). |
+| RelayVSR — `WAN22_RelayVSR` | Input task: [video super-resolution](https://github.com/kopperx/RelayVSR#inference); the Wan checkpoint includes prompt embeddings. |
 | TRELLIS.2 — `Trellis2` | Input task: [image-to-3D](https://github.com/microsoft/TRELLIS.2). |
 | Hunyuan3D — `Hunyuan3Dv2`, `Hunyuan3Dv2_1`, `Hunyuan3Dv2mini` | Input task: [2.0](https://github.com/Tencent-Hunyuan/Hunyuan3D-2), [2.1](https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1). |
 | TripoSplat — `TripoSplat` | Input task: [reference images](https://huggingface.co/VAST-AI/TripoSplat). |

@@ -101,6 +101,7 @@ reference; this review does not claim to have read the restricted author cards.
 | Lotus — `LotusD` | [Depth/normal task inputs](https://github.com/EnVision-Research/Lotus); not free-form image generation |
 | PiD — `PiD` | [Official decoder instructions](https://github.com/nv-tlabs/PiD); match the source latent/model family, not a separate text-prompt recipe |
 | SeedVR2 — `SeedVR2` | [Restoration input instructions](https://github.com/ByteDance-Seed/SeedVR); source image/video supplies content |
+| RelayVSR — `WAN22_RelayVSR` | [Author inference and input reference](https://github.com/kopperx/RelayVSR#inference); video super-resolution with Wan and Flash checkpoints and bundled prompt embeddings. Use `RelayVSRConditioning`, sample with one step at CFG 1, then `VSRDecode` with the same source frames |
 | TRELLIS.2 — `Trellis2` | [Official image-to-3D examples](https://github.com/microsoft/TRELLIS.2) |
 | Hunyuan3D — `Hunyuan3Dv2`, `Hunyuan3Dv2_1`, `Hunyuan3Dv2mini` | [2.0 image-conditioned generation](https://github.com/Tencent-Hunyuan/Hunyuan3D-2), [2.1](https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1) |
 | TripoSplat — `TripoSplat` | [Author model card](https://huggingface.co/VAST-AI/TripoSplat); supply reference images through the task's image inputs |

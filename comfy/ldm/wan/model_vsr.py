@@ -7,16 +7,16 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from comfy.ldm.flux.layers import EmbedND
-from comfy.ldm.flux.math import apply_rope1
-from comfy.ldm.wan.model import WanAttentionBlock, WanModel, WanSelfAttention, modulate, sinusoidal_embedding_1d
-import comfy.ldm.common_dit
-import comfy.model_management
-import comfy.model_prefetch
-import comfy.ops
-import comfy.utils
+from ..flux.layers import EmbedND
+from ..flux.math import apply_rope1
+from .model import WanAttentionBlock, WanModel, WanSelfAttention, modulate, sinusoidal_embedding_1d
+from .. import common_dit
+from ... import model_management
+from ... import model_prefetch
+from ... import ops as comfy_ops
+from ... import utils
 
-ops = comfy.ops.disable_weight_init
+ops = comfy_ops.disable_weight_init
 
 RELAY_KEYFRAME_INTERVAL = 15
 RELAY_WAN_CONTEXT = 4
@@ -94,7 +94,7 @@ class RelayVSRSelfAttention(WanSelfAttention):
 class RelayVSRAttentionBlock(WanAttentionBlock):
     def forward(self, x, e, freqs, context, cache, start, store, transformer_options={}):
         # residual updated in place, nothing allocated in the block outlives its memory compiler scope
-        e = (comfy.model_management.cast_to(self.modulation, dtype=x.dtype, device=x.device).unsqueeze(0) + e).unbind(2)
+        e = (model_management.cast_to(self.modulation, dtype=x.dtype, device=x.device).unsqueeze(0) + e).unbind(2)
         x.addcmul_(self.self_attn(modulate(x, self.norm1, e[0], e[1]), freqs, cache, start, store, transformer_options=transformer_options), e[2])
         x.add_(self.cross_attn(self.norm3(x), context, transformer_options=transformer_options))
         x.addcmul_(self.ffn(modulate(x, self.norm2, e[3], e[4])), e[5])
@@ -132,8 +132,8 @@ class RelayVSRWanModel(WanModel):
         transformer_options["block_type"] = "double"
         starts = range(0, frames, chunk)
         # the sampler's bars only count the one step
-        progress = comfy.utils.ProgressBar(len(starts) * len(self.blocks))
-        with comfy.utils.model_trange(len(starts) * len(self.blocks), desc="RelayVSR", unit="block") as pbar:
+        progress = utils.ProgressBar(len(starts) * len(self.blocks))
+        with utils.model_trange(len(starts) * len(self.blocks), desc="RelayVSR", unit="block") as pbar:
             for start in starts:
                 end = min(start + chunk, frames)
                 # only a following chunk reads the cache
@@ -143,10 +143,10 @@ class RelayVSRWanModel(WanModel):
                 # the projected LQ frames go first so the sum is row-major, the blocks update it in place
                 hidden = self.lq_proj_in(lq_pixels[:, :, start:end]) + self.patch_embedding(x[:, :, start:end].float()).to(x.dtype).flatten(2).transpose(1, 2)
                 chunk_freqs = freqs[:, start * tokens:end * tokens]
-                prefetch_queue = comfy.model_prefetch.make_prefetch_queue(list(self.blocks), x.device, transformer_options)
-                comfy.model_prefetch.malloc_graph_begin(x.device)
+                prefetch_queue = model_prefetch.make_prefetch_queue(list(self.blocks), x.device, transformer_options)
+                model_prefetch.malloc_graph_begin(x.device)
                 for i, block in enumerate(self.blocks):
-                    comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, x.device, block, x.dtype, malloc_scope="block")
+                    model_prefetch.prefetch_queue_pop(prefetch_queue, x.device, block, x.dtype, malloc_scope="block")
                     transformer_options["block_index"] = i
                     if ("double_block", i) in blocks_replace:
                         def block_wrap(args):
@@ -156,8 +156,8 @@ class RelayVSRWanModel(WanModel):
                         hidden = block(hidden, e0, chunk_freqs, context, caches[i], start, store, transformer_options=transformer_options)
                     pbar.update(1)
                     progress.update(1)
-                comfy.model_prefetch.prefetch_queue_pop(prefetch_queue, x.device, None, malloc_scope="block")
-                comfy.model_prefetch.malloc_graph_end()
+                model_prefetch.prefetch_queue_pop(prefetch_queue, x.device, None, malloc_scope="block")
+                model_prefetch.malloc_graph_end()
                 out[:, :, start:end] = self.unpatchify(self.head(hidden, e), grid_sizes)
         return out
 
@@ -165,7 +165,7 @@ class RelayVSRWanModel(WanModel):
         if lq_pixels is None:
             raise ValueError("RelayVSR needs the low-quality video, connect the model through the RelayVSR Conditioning node.")
         t, h, w = x.shape[2:]
-        x = comfy.ldm.common_dit.pad_to_patch_size(x, self.patch_size, padding_mode="replicate")
+        x = common_dit.pad_to_patch_size(x, self.patch_size, padding_mode="replicate")
         tp, hp, wp = x.shape[2:]
         lq_height, lq_width = hp * self.latent_stride, wp * self.latent_stride
         lq_pixels = lq_pixels[..., :lq_height, :lq_width]
@@ -229,7 +229,7 @@ class RelayFlashFeedForward(nn.Module):
         self.down = ops.Linear(hidden_dim, dim, bias=False, device=device, dtype=dtype)
 
     def forward(self, x):
-        return comfy.ops.linear_input_act(self.down, self.gate_up_proj(x), "swiglu")
+        return comfy_ops.linear_input_act(self.down, self.gate_up_proj(x), "swiglu")
 
 
 class RelayFlashBlock(nn.Module):
@@ -308,7 +308,7 @@ class RelayFlash(nn.Module):
 
     def prepare_condition(self, latent, freqs):
         height, width = latent.shape[-2:]
-        x = self.condition_encoder(latent) + comfy.ops.cast_to_input(self.condition_type_embedding, latent)
+        x = self.condition_encoder(latent) + comfy_ops.cast_to_input(self.condition_type_embedding, latent)
         out = []
         for block in self.backbone.blocks:
             x, kv = block.condition(x, freqs, height, width)
@@ -318,7 +318,7 @@ class RelayFlash(nn.Module):
     def decode_frame(self, lr, dtype, freqs, freqs_past, condition, history, detail):
         height, width = lr.shape[-2] // self.latent_stride, lr.shape[-1] // self.latent_stride
         x = self.lr_encoder(lr.to(dtype))
-        x = x + comfy.ops.cast_to_input(self.video_type_embedding, x)
+        x = x + comfy_ops.cast_to_input(self.video_type_embedding, x)
         next_history = []
         for block, cond, past in zip(self.backbone.blocks, condition, history):
             x, kv = block.video(x, freqs, freqs_past, height, width, cond, past)
@@ -341,19 +341,19 @@ class RelayFlash(nn.Module):
         # detail scales what the model adds to the bicubic upscale of each frame
         out = output_buffer
         if out is None:
-            out = torch.empty(self.decode_output_shape(x.shape, lq_images), device=comfy.model_management.intermediate_device())
+            out = torch.empty(self.decode_output_shape(x.shape, lq_images), device=model_management.intermediate_device())
         b, _, _, height, width = x.shape
         frames, lq_height, lq_width = lq_images.shape[:3]
         depth = len(self.backbone.blocks)
         keyframes = relay_keyframes(frames)
         device = x.device
         freqs, freqs_past = self.grid_rope(0, height, width, device), self.grid_rope(-1, height, width, device)
-        pbar = comfy.utils.ProgressBar(frames)
+        pbar = utils.ProgressBar(frames)
         # finished frames go to the output without the GPU waiting on each copy
-        with comfy.model_management.HostWriter(device, out, (b, 3, *out.shape[-2:])) as writer, comfy.utils.model_trange(frames, desc="RelayVSR Flash decode", unit="frame") as console:
+        with model_management.HostWriter(device, out, (b, 3, *out.shape[-2:])) as writer, utils.model_trange(frames, desc="RelayVSR Flash decode", unit="frame") as console:
             start = self.prepare_condition(x[:, :, 0], freqs)
             for window, (first, last) in enumerate(zip(keyframes, keyframes[1:] or keyframes)):
-                comfy.model_management.throw_exception_if_processing_interrupted()
+                model_management.throw_exception_if_processing_interrupted()
                 end = self.prepare_condition(x[:, :, min(window + 1, len(keyframes) - 1)], freqs)
                 condition = list(zip(start, end))
                 history = [None] * depth

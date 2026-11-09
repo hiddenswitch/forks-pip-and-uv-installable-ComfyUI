@@ -18,8 +18,8 @@ import comfy.utils
 from comfy_api.latest import ComfyExtension, IO, Types
 from comfy.execution_context import current_execution_context
 from .nodes_save_3d import pack_variable_mesh_batch
-from comfy_extras.mesh3d.postprocess.qem_decimate import _compute_vertex_normals
-from comfy_extras.mesh3d.postprocess.remesh import remesh_narrow_band_dc
+from ..mesh3d.postprocess.qem_decimate import _compute_vertex_normals
+from ..mesh3d.postprocess.remesh import remesh_narrow_band_dc
 from .nodes_mesh_postprocess import _build_triangle_bvh, _closest_points_on_mesh_bvh, _prepare_gpu_mesh_processing
 
 _C0 = 0.28209479177387814  # SH band-0 constant: DC coefficient -> base RGB
