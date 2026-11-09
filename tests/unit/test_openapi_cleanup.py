@@ -60,3 +60,17 @@ def test_generated_openapi_models_import_and_validate_core_payloads():
     assert models.PromptRequest.model_validate({"prompt": prompt}).prompt == prompt
     assert models.QueueInfo.model_validate({"queue_running": [], "queue_pending": []})
     assert models.HistoryEntry.model_validate({"outputs": {"1": {"images": []}}})
+
+
+def test_public_execution_and_node_outputs_validate_without_fork_only_fields():
+    from comfy.api.generated import models
+    from comfy.component_model.queue_types import ExecutionStatus
+
+    status = ExecutionStatus('success', True, [('execution_success', {'prompt_id': 'id', 'timestamp': 123})])
+    assert models.ExecutionStatusAsDict.model_validate(status.as_dict()).messages == status.messages
+    output = models.OutputModel.model_validate({
+        'images': [{'filename': 'image.png', 'subfolder': '', 'type': 'output'}],
+        'text': ['hello'], 'animated': [False],
+    })
+    assert output.images[0].abs_path is None
+    assert output.model_extra == {'text': ['hello'], 'animated': [False]}

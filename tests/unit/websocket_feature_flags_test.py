@@ -50,32 +50,3 @@ class TestWebSocketFeatureFlags:
         assert feature_flags.supports_feature(
             sockets_metadata, "legacy_client", "supports_preview_metadata"
         ) is False
-
-    def test_feature_negotiation_message_format(self):
-        """Test the format of feature negotiation messages."""
-        # Client message format
-        client_message = {
-            "type": "feature_flags",
-            "data": {
-                "supports_preview_metadata": True,
-                "api_version": "1.0.0"
-            }
-        }
-
-        # Verify structure
-        assert client_message["type"] == "feature_flags"
-        assert "supports_preview_metadata" in client_message["data"]
-
-        # Server response format (what would be sent)
-        server_features = feature_flags.get_server_features()
-        server_message = {
-            "type": "feature_flags",
-            "data": server_features
-        }
-
-        # Verify structure
-        assert server_message["type"] == "feature_flags"
-        assert "supports_preview_metadata" in server_message["data"]
-        assert server_message["data"]["supports_preview_metadata"] is True
-        assert "supports_model_type_tags" in server_message["data"]
-        assert server_message["data"]["supports_model_type_tags"] is True

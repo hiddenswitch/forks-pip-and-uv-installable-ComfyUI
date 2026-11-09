@@ -8663,16 +8663,7 @@ paths:
                     outputs:
                       $ref: '#/components/schemas/Outputs'
                     status:
-                      type: object
-                      properties:
-                        status_str:
-                          type: string
-                        completed:
-                          type: boolean
-                        messages:
-                          type: array
-                          items:
-                            type: string
+                      $ref: '#/components/schemas/ExecutionStatusAsDict'
     post:
       summary: (UI) Post history
       operationId: post_history_ui
@@ -9616,7 +9607,7 @@ components:
           description: Currently running queue items
           items:
             type: array
-            description: 'Queue item tuple: [number, prompt_id, prompt, extra_data, outputs_to_execute, sensitive]
+            description: 'Queue item tuple: [number, prompt_id, prompt, extra_data, outputs_to_execute]
 
               '
             items: {}
@@ -9636,9 +9627,6 @@ components:
               description: outputs_to_execute (list of output node IDs)
               items:
                 type: string
-            - type: object
-              description: sensitive data (may be omitted)
-              additionalProperties: true
             maxItems: 5
             minItems: 5
         queue_pending:
@@ -9646,7 +9634,7 @@ components:
           description: Pending queue items (oldest first)
           items:
             type: array
-            description: 'Queue item tuple: [number, prompt_id, prompt, extra_data, outputs_to_execute, sensitive]
+            description: 'Queue item tuple: [number, prompt_id, prompt, extra_data, outputs_to_execute]
 
               '
             items: {}
@@ -9666,9 +9654,6 @@ components:
               description: outputs_to_execute (list of output node IDs)
               items:
                 type: string
-            - type: object
-              description: sensitive data (may be omitted)
-              additionalProperties: true
             maxItems: 5
             minItems: 5
     QueueManageRequest:
@@ -14519,15 +14504,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FileOutput'
-      additionalProperties:
-        $ref: '#/components/schemas/FileOutput'
+      additionalProperties: true
     FileOutput:
       type: object
       required:
       - filename
       - subfolder
       - type
-      - abs_path
       properties:
         filename:
           type: string
@@ -14888,7 +14871,14 @@ components:
         messages:
           type: array
           items:
-            type: string
+            type: array
+            minItems: 2
+            maxItems: 2
+            items: {}
+            prefixItems:
+            - type: string
+            - type: object
+              additionalProperties: true
     CreateWorkflowRequest:
       description: Request body for creating a new saved workflow.
       properties:

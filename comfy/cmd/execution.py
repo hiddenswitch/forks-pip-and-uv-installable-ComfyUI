@@ -58,6 +58,7 @@ from ..component_model.module_property import create_module_properties
 from ..component_model.node_traceback import filter_traceback
 from ..component_model.node_traceback import format_node_exception
 from ..component_model.node_traceback import suppress_error_stack_trace
+from ..component_model.queue_types import public_queue_tuple
 from ..component_model.queue_types import AbstractPromptQueueGetCurrentQueueItems
 from ..component_model.queue_types import ExecutionStatus
 from ..component_model.queue_types import ExecutionStatusAsDict
@@ -859,6 +860,10 @@ class PromptExecutor:
         if self.server.client_id is not None or broadcast:
             self.server.send_sync(event, data, self.server.client_id)
 
+    @property
+    def execution_status(self) -> ExecutionStatus:
+        return ExecutionStatus('success' if self.success else 'error', self.success, copy.deepcopy(self.status_messages))
+
     def handle_execution_error(self, prompt_id, prompt, current_outputs, executed, error, ex):
         current_span = get_current_span()
         current_span.set_status(Status(StatusCode.ERROR))
@@ -951,6 +956,7 @@ class PromptExecutor:
             self.server.client_id = None
 
         self.status_messages = []
+        self.success = True
         self.add_message("execution_start", {"prompt_id": prompt_id}, broadcast=False)
 
         self._notify_prompt_lifecycle("start", prompt_id)
@@ -1689,7 +1695,7 @@ class PromptQueue(AbstractPromptQueue):
                 prompt = process_item(prompt)
 
             history_entry: HistoryEntry = {
-                "prompt": prompt.queue_tuple if isinstance(prompt, QueueItem) else prompt,
+                "prompt": public_queue_tuple(prompt.queue_tuple if isinstance(prompt, QueueItem) else prompt),
                 "outputs": copy.deepcopy(outputs_),
             }
             if status_dict is not None:

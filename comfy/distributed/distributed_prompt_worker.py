@@ -80,17 +80,17 @@ class DistributedPromptWorker:
             request_dict_prompt_id_recovered = request["prompt_id"] \
                 if request is not None and "prompt_id" in request else ""
             return asdict(RpcReply(request_dict_prompt_id_recovered, "", {},
-                                   ExecutionStatus("error", False, [str(e)])))
+                                   ExecutionStatus.from_exception(request_dict_prompt_id_recovered, e)))
         reply: RpcReply
         try:
             output_dict = await self._embedded_comfy_client.queue_prompt(request_obj.prompt,
                                                                          request_obj.prompt_id,
                                                                          client_id=request_obj.user_id)
             reply = RpcReply(request_obj.prompt_id, request_obj.user_token, output_dict,
-                             ExecutionStatus("success", True, []))
+                             self._embedded_comfy_client.history.get_status(request_obj.prompt_id))
         except Exception as e:
-            reply = RpcReply(request_obj.prompt_id, request_obj.user_token, {},
-                             ExecutionStatus("error", False, [str(e)]))
+            status = self._embedded_comfy_client.history.get_status(request_obj.prompt_id) or ExecutionStatus.from_exception(request_obj.prompt_id, e)
+            reply = RpcReply(request_obj.prompt_id, request_obj.user_token, {}, status)
 
         await self.on_did_complete_work_item(request_obj, reply)
         return asdict(reply)

@@ -125,7 +125,6 @@ def _collect_output_absolute_paths(history_result: dict) -> list[str]:
 
 async def _prompt_worker(q: AbstractPromptQueue, server_instance: server_module.PromptServer, asset_manager: AssetManager | None = None):
     from . import execution
-    from ..component_model import queue_types
     from .. import model_management
 
     args = current_execution_context().configuration
@@ -167,9 +166,6 @@ async def _prompt_worker(q: AbstractPromptQueue, server_instance: server_module.
                 for k in sensitive:
                     extra_data[k] = sensitive[k]
 
-                # todo: ??? what jank
-                remove_sensitive = lambda prompt: prompt[:5] + prompt[6:]
-
                 asset_manager.pause_background_scan()
                 background_scan_paused = True
                 await e.execute_async(item[2], prompt_id, item[3], item[4])
@@ -182,16 +178,10 @@ async def _prompt_worker(q: AbstractPromptQueue, server_instance: server_module.
                             error_details = data
                             break
 
-                messages = [f"{event}: {data.get('exception_message', str(data))}" if isinstance(data, dict) and 'exception_message' in data else f"{event}" for event, data in e.status_messages]
-
                 q.task_done(item_id,
                             e.history_result,
-                            status=queue_types.ExecutionStatus(
-                                status_str='success' if e.success else 'error',
-                                completed=e.success,
-                                messages=messages),
+                            status=e.execution_status,
                             error_details=error_details,
-                            process_item=remove_sensitive,
                             )
                 if q.get_tasks_remaining() == 0:
                     # Nothing else is queued, so let the background scan run now rather than on the next GC tick.

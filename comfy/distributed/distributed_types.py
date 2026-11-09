@@ -5,7 +5,7 @@ from typing import Tuple, Literal, List
 
 from ..api.components.schema.prompt import PromptDict, Prompt
 from ..auth.permissions import ComfyJwt, jwt_decode
-from ..component_model.queue_types import QueueDict, TaskInvocation, ExecutionStatus, QueueTuple, ExtraData
+from ..component_model.queue_types import QueueDict, TaskInvocation, ExecutionStatus, ExecutionMessage, QueueTuple, ExtraData
 
 
 @dataclass
@@ -45,7 +45,7 @@ class RpcRequest(DistributedBase):
 @dataclass
 class RpcReply(DistributedBase):
     outputs: dict
-    execution_status: ExecutionStatus | Tuple[Literal['success', 'error'], bool, List[str]]
+    execution_status: ExecutionStatus | Tuple[Literal['success', 'error'], bool, List[ExecutionMessage]]
 
     @staticmethod
     def from_task_invocation(task_invocation: TaskInvocation, user_token: str) -> 'RpcReply':

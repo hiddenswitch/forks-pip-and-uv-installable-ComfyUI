@@ -874,7 +874,7 @@ class TextProcessingNode(io.ComfyNode):
             outputs=[
                 io.String.Output(
                     display_name="texts",
-                    is_output_list=cls.is_output_list,
+                    is_output_list=cls.is_output_list if cls.is_output_list is not None else is_group,
                     tooltip="Processed texts",
                 )
             ],
@@ -900,13 +900,8 @@ class TextProcessingNode(io.ComfyNode):
             # Individual processing: texts is single item, call _process
             result = cls._process(texts, **params)
 
-        # Wrap result based on is_output_list
-        if cls.is_output_list:
-            # Result should already be a list (or will be for individual)
-            return io.NodeOutput(result if is_group else [result])
-        else:
-            # Single output - wrap in list for NodeOutput
-            return io.NodeOutput([result])
+        output_is_list = cls.is_output_list if cls.is_output_list is not None else is_group
+        return io.NodeOutput([result] if output_is_list and not is_group else result)
 
     @classmethod
     def _process(cls, text, **kwargs):

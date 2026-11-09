@@ -11,17 +11,21 @@ Covers both layers:
   best-effort batch cancellation that treats unknown/finished ids as no-ops
   while still rejecting malformed ids with 400).
 
-The HTTP layer is exercised against a small aiohttp app whose handlers are a
-faithful copy of the wiring in ``server.py`` driven by a fake queue that
-mirrors ``execution.PromptQueue`` (``get_current_queue`` / ``get_history`` /
-``delete_queue_item``). This keeps the test free of the heavy ComfyUI runtime
-(torch, nodes, ...) while still testing the real cancel logic.
+The HTTP tests mount PromptServer's real handlers against a controlled queue,
+so route parsing and response behavior are exercised without duplicating them.
 """
 
+import asyncio
 import json
+import struct
+from io import BytesIO
+
+from PIL import Image
 
 import pytest
-from aiohttp import web
+from comfy.cmd.server import PromptServer
+from comfy.cmd.execution import PromptQueue
+from comfy.component_model.queue_types import QueueItem, QueueTuple
 
 from comfy_execution.jobs import (
     CANCEL_PENDING,
@@ -30,11 +34,7 @@ from comfy_execution.jobs import (
     CANCEL_UNKNOWN,
     cancel_job,
     classify_job_for_cancel,
-    validate_job_id,
 )
-
-# Classifications for which a cancel was actually dispatched (vs a no-op).
-_CANCELLED = (CANCEL_RUNNING, CANCEL_PENDING)
 
 # Canonical UUID ids for HTTP-layer tests (the batch endpoint validates UUID format).
 _UUID_A = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
@@ -87,68 +87,16 @@ class FakePromptQueue:
         return False
 
 
+@pytest.fixture(autouse=True)
+def restore_prompt_server_instance(monkeypatch):
+    monkeypatch.setattr(PromptServer, "instance", PromptServer.instance)
+
+
 def build_app(queue):
-    """Build an aiohttp app exposing the cancel routes against ``queue``.
-
-    Handler bodies mirror server.py exactly.
-    """
-
-    def _cancel_job_by_id(job_id):
-        running, pending = queue.get_current_queue()
-        history = queue.get_history()
-
-        def interrupt(prompt_id):
-            return queue.interrupt_if_running(prompt_id)
-
-        def dequeue(prompt_id):
-            return queue.delete_queue_item(lambda a: a[1] == prompt_id)
-
-        classification = cancel_job(
-            job_id, running, pending, history, interrupt, dequeue
-        )
-        return classification in _CANCELLED
-
-    async def cancel_job_by_id(request):
-        job_id = request.match_info.get("job_id", None)
-        if not job_id:
-            return web.json_response({"error": "job_id is required"}, status=400)
-        cancelled = _cancel_job_by_id(job_id)
-        return web.json_response({"cancelled": cancelled})
-
-    async def cancel_jobs_batch(request):
-        try:
-            json_data = await request.json()
-        except json.JSONDecodeError:
-            return web.json_response(
-                {"error": "Request body must be valid JSON"}, status=400
-            )
-
-        job_ids = json_data.get("job_ids") if isinstance(json_data, dict) else None
-        if not isinstance(job_ids, list):
-            return web.json_response({"error": "job_ids must be a list"}, status=400)
-
-        invalid_ids = []
-        for jid in job_ids:
-            try:
-                validate_job_id(jid)
-            except (ValueError, AttributeError):
-                invalid_ids.append(jid if isinstance(jid, str) else repr(jid))
-        if invalid_ids:
-            return web.json_response(
-                {"error": "job_ids contains invalid id(s)", "invalid_ids": invalid_ids},
-                status=400,
-            )
-
-        cancelled = False
-        for jid in job_ids:
-            if _cancel_job_by_id(jid):
-                cancelled = True
-        return web.json_response({"cancelled": cancelled})
-
-    app = web.Application()
-    app.router.add_post("/api/jobs/{job_id}/cancel", cancel_job_by_id)
-    app.router.add_post("/api/jobs/cancel", cancel_jobs_batch)
-    return app
+    server = PromptServer(asyncio.get_running_loop())
+    server.prompt_queue = queue
+    server.app.add_routes(server.routes)
+    return server.app
 
 
 # ---------------------------------------------------------------------------
@@ -451,3 +399,43 @@ class TestBatchCancelEndpoint:
         assert resp.status == 400
         body = await resp.json()
         assert "invalid_ids" in body
+
+
+async def test_live_queue_shape_and_reconnect_prompt_id(aiohttp_client):
+
+    server = PromptServer(asyncio.get_running_loop())
+    queue = PromptQueue(server)
+    server.prompt_queue = queue
+    item = QueueItem(QueueTuple(0, _UUID_A, {}, {'token': 'private'}, ['2'], {'api_key_comfy_org': 'private'}), None)
+    queue.put(item)
+    server.app.add_routes(server.routes)
+    client = await aiohttp_client(server.app)
+    response = await client.get('/queue')
+    pending = (await response.json())['queue_pending']
+    assert len(pending) == 1 and len(pending[0]) == 5
+    assert pending[0][1] == _UUID_A
+    assert pending[0][3] == {'create_time': item.extra_data['create_time']}
+    response = await client.get('/api/jobs')
+    job = (await response.json())['jobs'][0]
+    assert job['status'] == 'pending'
+    assert job['create_time'] == item.extra_data['create_time']
+    server.client_id = 'reconnected-client'
+    server.last_node_id = '2'
+    server.last_prompt_id = _UUID_A
+    async with client.ws_connect('/ws?clientId=reconnected-client') as ws:
+        assert (await ws.receive_json())['type'] == 'status'
+        assert await ws.receive_json() == {'type': 'executing', 'data': {'node': '2', 'prompt_id': _UUID_A}}
+        await ws.send_json({'type': 'feature_flags', 'data': {'supports_preview_metadata': True}})
+        negotiated = await ws.receive_json()
+        assert negotiated['type'] == 'feature_flags'
+        assert negotiated['data']['supports_preview_metadata'] is True
+        assert server.sockets_metadata['reconnected-client']['feature_flags']['supports_preview_metadata'] is True
+        await server.send_image_with_metadata(('PNG', Image.new('RGB', (3, 2)), None),
+                                              {'prompt_id': _UUID_A, 'node_id': '2'}, sid='reconnected-client')
+        payload = await ws.receive_bytes()
+        event_type, metadata_length = struct.unpack('>II', payload[:8])
+        assert event_type == 4
+        assert json.loads(payload[8:8 + metadata_length]) == {
+            'prompt_id': _UUID_A, 'node_id': '2', 'image_type': 'image/png',
+        }
+        assert Image.open(BytesIO(payload[8 + metadata_length:])).size == (3, 2)

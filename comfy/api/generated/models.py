@@ -2225,7 +2225,7 @@ class FileOutput(BaseModel):
     filename: str
     subfolder: str
     type: str
-    abs_path: str
+    abs_path: str | None = None
 
 
 class ArbitraryObject(BaseModel):
@@ -2399,7 +2399,7 @@ class StatusStr(Enum):
 class ExecutionStatusAsDict(BaseModel):
     status_str: StatusStr
     completed: bool
-    messages: list[str]
+    messages: list[tuple[str, dict[str, Any]]]
 
 
 class CreateWorkflowRequest(BaseModel):
@@ -2839,7 +2839,6 @@ class OutputModel(BaseModel):
     model_config = ConfigDict(
         extra='allow',
     )
-    __pydantic_extra__: dict[str, FileOutput]
     images: list[FileOutput] | None = None
     latents: list[FileOutput] | None = None
 
