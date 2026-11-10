@@ -66,6 +66,7 @@ class Executor:
         self.history_result = {}
         self.success = True
         self.status_messages = []
+        self.execution_status = execution.ExecutionStatus('success', True, [])
 
     async def execute_async(self, *args, **kwargs) -> None:
         return None
