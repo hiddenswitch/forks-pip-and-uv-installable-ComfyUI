@@ -14,9 +14,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import comfy.ops
+from ... import ops as comfy_ops
 
-ops = comfy.ops.disable_weight_init
+ops = comfy_ops.disable_weight_init
 
 
 # Snake activations
@@ -35,7 +35,7 @@ class Snake1d(nn.Module):
         self.alpha = nn.Parameter(torch.empty(1, channels, 1))
 
     def forward(self, x):
-        alpha = comfy.ops.cast_to_input(self.alpha, x)
+        alpha = comfy_ops.cast_to_input(self.alpha, x)
         return snake(x, alpha, alpha)
 
 
@@ -48,8 +48,8 @@ class SnakeBeta(nn.Module):
         self.beta = nn.Parameter(torch.empty(in_features))
 
     def forward(self, x):
-        alpha = torch.exp(comfy.ops.cast_to_input(self.alpha, x)).view(1, -1, 1)
-        beta = torch.exp(comfy.ops.cast_to_input(self.beta, x)).view(1, -1, 1)
+        alpha = torch.exp(comfy_ops.cast_to_input(self.alpha, x)).view(1, -1, 1)
+        beta = torch.exp(comfy_ops.cast_to_input(self.beta, x)).view(1, -1, 1)
         return snake(x, alpha, beta)
 
 
@@ -99,7 +99,7 @@ class UpSample1d(nn.Module):
     def forward(self, x):
         _, C, _ = x.shape
         x = F.pad(x, (self.pad, self.pad), mode="replicate")
-        x = F.conv_transpose1d(x, comfy.ops.cast_to_input(self.filter.expand(C, -1, -1), x), stride=self.stride, groups=C).mul_(self.ratio)
+        x = F.conv_transpose1d(x, comfy_ops.cast_to_input(self.filter.expand(C, -1, -1), x), stride=self.stride, groups=C).mul_(self.ratio)
         x = x[..., self.pad_left:-self.pad_right]
         return x
 
@@ -115,7 +115,7 @@ class LowPassFilter1d(nn.Module):
     def forward(self, x):
         _, C, _ = x.shape
         x = F.pad(x, (self.pad_left, self.pad_right), mode="replicate")
-        return F.conv1d(x, comfy.ops.cast_to_input(self.filter.expand(C, -1, -1), x), stride=self.stride, groups=C)
+        return F.conv1d(x, comfy_ops.cast_to_input(self.filter.expand(C, -1, -1), x), stride=self.stride, groups=C)
 
 
 class DownSample1d(nn.Module):
@@ -239,13 +239,13 @@ class CausalAttention(nn.Module):
 
     def forward(self, x):
         B, N, C = x.shape
-        weight, _, offload_stream = comfy.ops.cast_bias_weight(self.qkv, x, offloadable=True)
-        qkv = F.linear(x, weight=weight, bias=comfy.ops.cast_to_input(torch.cat((self.q_bias, self.zero_k_bias, self.v_bias)), x))
-        comfy.ops.uncast_bias_weight(self.qkv, weight, None, offload_stream)
+        weight, _, offload_stream = comfy_ops.cast_bias_weight(self.qkv, x, offloadable=True)
+        qkv = F.linear(x, weight=weight, bias=comfy_ops.cast_to_input(torch.cat((self.q_bias, self.zero_k_bias, self.v_bias)), x))
+        comfy_ops.uncast_bias_weight(self.qkv, weight, None, offload_stream)
         q, k, v = qkv.reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4).unbind(0)
 
         # mean over heads then pool down to the latent width (in_dim >> out_dim)
-        x = comfy.ops.scaled_dot_product_attention(q, k, v, is_causal=True)
+        x = comfy_ops.scaled_dot_product_attention(q, k, v, is_causal=True)
         x = F.adaptive_avg_pool1d(torch.mean(x, dim=1), self.out_dim)
         return self.proj(x)
 
