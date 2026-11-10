@@ -386,6 +386,9 @@
   misleading messages rather than adding more logging.
 - Documentation and README edits should be concise, factual, and tied to the
   changed behavior.
+- Do not add logbook Markdown content, audit reports, work diaries, or task
+  completion records to the repository, including under `docs/audits/`. Put
+  findings and validation summaries in the PR description or conversation.
 
 ## Commit and Review Habits
 
