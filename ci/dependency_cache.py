@@ -34,7 +34,7 @@ def archive_path(lock_file, root=CACHE_ROOT):
         'build': {key: os.environ.get(key) for key in ('CC', 'CXX', 'CFLAGS', 'CXXFLAGS')},
     }
     digest = hashlib.sha256(json.dumps(environment, sort_keys=True).encode())
-    for path in (Path(lock_file), Path(__file__), Path(__file__).with_name('install-locked.sh')):
+    for path in (Path(lock_file), Path(__file__).with_name('install-locked.sh')):
         digest.update(path.read_bytes())
     return root / f'{digest.hexdigest()}.tar.zst'
 
@@ -73,7 +73,7 @@ def main():
     args = parser.parse_args()
     if args.mode == 'key':
         try:
-            archive = archive_path(args.path)
+            archive = archive_path(args.path) if os.environ.get('COMFYUI_DEPENDENCY_CACHE', '1') != '0' else None
         except (OSError, subprocess.CalledProcessError) as error:
             logging.warning('Dependency cache unavailable: %s', error)
             archive = None

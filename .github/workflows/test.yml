@@ -47,6 +47,8 @@ jobs:
       SYCL_CACHE_DIR: /opt/comfyui-ci-cache/sycl
       PYTORCH_JIT: "0"
       COMFYUI_UNIT_DISABLE_CUSTOM_NODES: "1"
+      # The 4 GiB XPU snapshot is slower than downloading wheels with local hardlinks.
+      COMFYUI_DEPENDENCY_CACHE: "0"
     steps:
       - name: Install system dependencies and uv
         run: |
