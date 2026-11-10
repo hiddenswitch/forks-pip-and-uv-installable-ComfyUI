@@ -1078,6 +1078,17 @@ class MiniMaxH3(supported_models_base.BASE):
         return supported_models_base.ClipTarget(minimax.MiniMaxH3Tokenizer, minimax.te(**detected))
 
 
+class MiniMaxH3Image(MiniMaxH3):
+    unet_config = {
+        "image_model": "minimax_h3_image",
+    }
+
+    sampling_settings = {}
+    latent_format = latent_formats.MiniMaxH3Video
+
+    def get_model(self, state_dict, prefix="", device=None):
+        return model_base.MiniMaxH3Image(self, device=device)
+
 class HunyuanVideo(supported_models_base.BASE):
     unet_config = {
         "image_model": "hunyuan_video",
@@ -2837,6 +2848,7 @@ models = [
     LTXV,
     LTXAV,
     MiniMaxH3,
+    MiniMaxH3Image,
     HunyuanVideo15_SR_Distilled,
     HunyuanVideo15,
     HunyuanImage21Refiner,

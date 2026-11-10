@@ -479,7 +479,8 @@ def _app_page(_static_server, _object_info_json, _real_nodes):
                         window.comfyAPI.app &&
                         window.comfyAPI.app.app &&
                         window.comfyAPI.app.app.graph &&
-                        Object.keys(window.LiteGraph?.registered_node_types || {}).length > 100
+                        Object.keys(window.LiteGraph?.registered_node_types || {}).length > 100 &&
+                        window.LiteGraph.registered_node_types.MarkdownNote
                     );
                 } catch(e) { return false; }
             }""",

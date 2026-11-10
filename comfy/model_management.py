@@ -2167,7 +2167,9 @@ def share_pinned_memory_budget(participants: int) -> None:
         return
     if _UNSHARED_MAX_PINNED_MEMORY is None:
         _UNSHARED_MAX_PINNED_MEMORY = MAX_PINNED_MEMORY
-    MAX_PINNED_MEMORY = _UNSHARED_MAX_PINNED_MEMORY // participants
+    # Spawned peers can import this module before restoring the execution context.
+    host_budget = min(_UNSHARED_MAX_PINNED_MEMORY, compute_max_pinned_memory())
+    MAX_PINNED_MEMORY = host_budget // participants
     logger.info("Pinned memory budget shared across %d model-parallel processes: %d MB each", participants, MAX_PINNED_MEMORY // (1024 * 1024))
 
 

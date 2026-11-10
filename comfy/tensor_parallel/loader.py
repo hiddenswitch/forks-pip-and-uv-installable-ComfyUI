@@ -21,7 +21,7 @@ from .operations import full_domain_tensor_parallel_operations, tensor_parallel_
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_MODEL_FAMILIES = frozenset(("flux2", "ideogram4", "krea2", "minimax_h3", "kandinsky6"))
+SUPPORTED_MODEL_FAMILIES = frozenset(("flux2", "ideogram4", "krea2", "minimax_h3", "minimax_h3_image", "kandinsky6"))
 
 
 @dataclass(frozen=True)

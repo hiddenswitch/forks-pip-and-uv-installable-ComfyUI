@@ -178,6 +178,7 @@ def module_with_pin_state():
     state = {subset: (FakeHostBuffer(), [], [-1], [0], [0], {}) for subset in
              ("weights", "patches", "weights-loaded", "patches-loaded", "weights-fast", "patches-fast")}
     state["writable"] = False
+    state["hostbuf_size"] = MAX_CHUNKS * CHUNK
     return SimpleNamespace(_pin_state=state)
 
 
@@ -328,3 +329,15 @@ class TestPinTimeBudget:
         reserve = reserve_for(HOST_TOTAL)
         assert model_management.ensure_pin_budget(available - reserve)
         assert not model_management.ensure_pin_budget(available - reserve + 1)
+
+
+def test_dynamic_pin_does_not_extend_past_reserved_address_range(host, monkeypatch):
+    module = module_with_pin_state()
+    module._pin_state["hostbuf_size"] = CHUNK
+    hostbuf = module._pin_state["weights"][0]
+    hostbuf.size = CHUNK
+    monkeypatch.setattr(model_management, "ensure_pin_budget", lambda *a, **kw: True)
+    monkeypatch.setattr(model_management, "ensure_pin_registerable", lambda *a, **kw: True)
+    assert pinned_memory.pin_memory(module, size=CHUNK) is False
+    assert hostbuf.size == CHUNK
+    assert not host.cudart.registered

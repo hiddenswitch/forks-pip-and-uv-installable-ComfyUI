@@ -240,13 +240,15 @@ async def test_workflow(workflow_name: str, workflow_file: Traversable, has_gpu:
             inputs = node.get('inputs', {})
             if isinstance(inputs.get('max_new_tokens'), int):
                 inputs['max_new_tokens'] = min(8, inputs['max_new_tokens'])
+            if node.get('class_type') == 'TextGenerateV2' and isinstance(inputs.get('max_length'), int):
+                inputs['max_length'] = min(8, inputs['max_length'])
             if node.get('class_type') == 'ImagePadForOutpaint':
                 for key in ('left', 'top', 'right', 'bottom', 'feathering'):
                     if isinstance(inputs.get(key), int):
                         inputs[key] = min(16, inputs[key])
             if node.get('class_type') == 'ImageScaleToTotalPixels':
                 inputs['megapixels'] = min(inputs['megapixels'], 128 * 128 / 1e6)
-            if 'Latent' in node.get('class_type', '') or node.get('class_type') == 'ImageScale':
+            if 'Latent' in node.get('class_type', '') or node.get('class_type') in ('ImageScale', 'MiniMaxH3ImageConditioning'):
                 for key in ('width', 'height'):
                     value = node.get('inputs', {}).get(key)
                     if isinstance(value, int):
