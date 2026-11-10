@@ -54,3 +54,12 @@ def test_class_attributes_are_forwarded_to_schema(node_cls):
 def test_node_classes_are_discovered():
     """Guard against the parametrization above collapsing to zero cases."""
     assert _node_classes()
+
+
+@pytest.mark.parametrize(('node_cls', 'value', 'expected', 'output_is_list'), [
+    (nodes_dataset.TextToLowercaseNode, 'HELLO', 'hello', False),
+    (nodes_dataset.MergeTextListsNode, ['hello', 'world'], ['hello', 'world'], True),
+])
+def test_text_output_shape_matches_declared_list_mode(node_cls, value, expected, output_is_list):
+    assert node_cls.define_schema().outputs[0].is_output_list is output_is_list
+    assert node_cls.execute(value).result == (expected,)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import time
+import traceback
 import typing
 from enum import Enum
 from typing import NamedTuple, Optional, List, Literal, Sequence
@@ -25,6 +26,12 @@ class QueueTuple(NamedTuple):
     sensitive: Optional[dict] = None
 
 
+def public_queue_tuple(item: QueueTuple) -> tuple:
+    extra_data = {key: value for key, value in (item[3] or {}).items()
+                  if key not in (*SENSITIVE_EXTRA_DATA_KEYS, 'token')}
+    return (*item[:3], extra_data, item[4])
+
+
 MAXIMUM_HISTORY_SIZE = 10000
 
 
@@ -35,16 +42,36 @@ class TaskInvocation(NamedTuple):
     error_details: Optional['ExecutionErrorMessage'] = None
 
 
+ExecutionMessage = tuple[str, dict]
+
+
 class ExecutionStatus(NamedTuple):
     status_str: Literal['success', 'error']
     completed: bool
-    messages: List[str]
+    messages: List[ExecutionMessage]
+
+    @classmethod
+    def from_exception(cls, prompt_id: str, exception: Exception) -> ExecutionStatus:
+        return cls('error', False, [('execution_error', {
+            'prompt_id': prompt_id,
+            'timestamp': int(time.time() * 1000),
+            'node_id': '',
+            'node_type': '',
+            'executed': [],
+            'exception_message': str(exception),
+            'exception_type': type(exception).__name__,
+            'traceback': traceback.format_exception(type(exception), exception, exception.__traceback__),
+        })])
 
     def as_dict(self, error_details: Optional['ExecutionErrorMessage'] = None) -> ExecutionStatusAsDict:
+        # Input values are diagnostic data, not persisted public history.
         result: ExecutionStatusAsDict = {
             "status_str": self.status_str,
             "completed": self.completed,
-            "messages": copy.copy(self.messages),
+            "messages": [
+                (event, copy.deepcopy({key: value for key, value in data.items() if key != 'current_inputs'}))
+                for event, data in self.messages
+            ],
         }
         if error_details is not None:
             result["error_details"] = error_details
@@ -58,7 +85,9 @@ class ExecutionError(RuntimeError):
         if status is not None:
             self._status = status
         elif exceptions is not None:
-            self._status = ExecutionStatus('error', False, [str(ex) for ex in exceptions])
+            self._status = ExecutionStatus('error', False, [
+                message for ex in exceptions for message in ExecutionStatus.from_exception(str(task_id), ex).messages
+            ])
         else:
             self._status = ExecutionStatus('error', False, [])
 
@@ -70,13 +99,16 @@ class ExecutionError(RuntimeError):
         return TaskInvocation(self._task_id, {}, self.status)
 
     def __str__(self):
-        return ",".join(self._status.messages)
+        return ",".join(
+            f"{event}: {data['exception_message']}" if 'exception_message' in data else event
+            for event, data in self._status.messages
+        )
 
 
 class ExecutionStatusAsDict(TypedDict):
     status_str: Literal['success', 'error']
     completed: bool
-    messages: List[str]
+    messages: List[ExecutionMessage]
     error_details: NotRequired[ExecutionErrorMessage]
 
 
@@ -112,14 +144,13 @@ class QueueDict(dict):
         # initialize the dictionary superclass with the data we want to serialize.
         # populate the queue tuple with the appropriate dummy fields
         queue_tuple = QueueTuple(*queue_tuple)
-        if queue_tuple.sensitive is None:
-            sensitive = {}
-            extra_data = queue_tuple.extra_data or {}
-            for sensitive_val in SENSITIVE_EXTRA_DATA_KEYS:
-                if sensitive_val in extra_data:
-                    sensitive[sensitive_val] = extra_data.pop(sensitive_val)
-            extra_data.setdefault("create_time", int(time.time() * 1000))  # timestamp in milliseconds
-            queue_tuple = QueueTuple(queue_tuple.priority, queue_tuple.prompt_id, queue_tuple.prompt, extra_data, queue_tuple.good_outputs, sensitive)
+        sensitive = dict(queue_tuple.sensitive or {})
+        extra_data = dict(queue_tuple.extra_data or {})
+        for sensitive_val in SENSITIVE_EXTRA_DATA_KEYS:
+            if sensitive_val in extra_data:
+                sensitive[sensitive_val] = extra_data.pop(sensitive_val)
+        extra_data.setdefault("create_time", int(time.time() * 1000))
+        queue_tuple = QueueTuple(queue_tuple.priority, queue_tuple.prompt_id, queue_tuple.prompt, extra_data, queue_tuple.good_outputs, sensitive)
 
         super().__init__(
             priority=queue_tuple[0],

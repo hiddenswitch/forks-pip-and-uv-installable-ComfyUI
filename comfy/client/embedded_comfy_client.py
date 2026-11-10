@@ -12,7 +12,7 @@ import threading
 import uuid
 from asyncio import get_event_loop
 from multiprocessing import RLock
-from typing import Optional, Literal
+from typing import Optional, Literal, NamedTuple
 
 from opentelemetry import context, propagate, trace
 from opentelemetry.context import Context, attach, detach
@@ -24,7 +24,7 @@ from ..api.components.schema.prompt import PromptDict
 from ..cli_args_types import Configuration
 from ..cli_args import default_configuration
 from ..cmd.folder_paths import init_default_paths
-from ..component_model.executor_types import ExecutorToClientProgress
+from ..component_model.executor_types import ExecutorToClientProgress, HistoryResultDict
 from ..component_model.make_mutable import make_mutable
 from ..component_model.queue_types import QueueItem, ExecutionStatus, TaskInvocation, QueueTuple, ExtraData
 from ..component_model.workflow_convert import is_ui_workflow, convert_ui_to_api
@@ -37,6 +37,12 @@ from ..component_model.configuration import MODEL_MANAGEMENT_ARGS, requires_proc
 _prompt_executor = threading.local()
 
 logger = logging.getLogger(__name__)
+
+
+class _PromptExecutionResult(NamedTuple):
+    history: HistoryResultDict
+    status: ExecutionStatus
+    exception: Exception | None = None
 
 
 def _add_node_site_to_path(configuration: Configuration | None) -> None:
@@ -76,7 +82,7 @@ def _execute_prompt(
         span_context: dict,
         progress_handler: ExecutorToClientProgress | None,
         configuration: Configuration | None,
-        partial_execution_targets: Optional[list[str]] = None) -> dict:
+        partial_execution_targets: Optional[list[str]] = None) -> _PromptExecutionResult:
     configuration = copy.deepcopy(configuration) if configuration is not None else None
 
     # In a ProcessPoolExecutor subprocess, main_pre.py runs at import time
@@ -113,7 +119,7 @@ async def __execute_prompt(
         span_context: Context,
         progress_handler: ExecutorToClientProgress | None,
         configuration: Configuration | None,
-        partial_execution_targets: list[str] | None) -> dict:
+        partial_execution_targets: list[str] | None) -> _PromptExecutionResult:
     from ..execution_context import context_configuration
     with context_configuration(configuration):
         return await ___execute_prompt(prompt, prompt_id, client_id, span_context, progress_handler, partial_execution_targets)
@@ -125,7 +131,7 @@ async def ___execute_prompt(
         client_id: str,
         span_context: Context,
         progress_handler: ExecutorToClientProgress | None,
-        partial_execution_targets: list[str] | None) -> dict:
+        partial_execution_targets: list[str] | None) -> _PromptExecutionResult:
     from ..cmd.execution import PromptExecutor
 
     progress_handler = progress_handler or ServerStub()
@@ -139,6 +145,9 @@ async def ___execute_prompt(
             prompt_executor.raise_exceptions = True
             _prompt_executor.executor = prompt_executor
 
+    prompt_executor.status_messages = []
+    prompt_executor.history_result = None
+    prompt_executor.success = False
     from ..nodes.download_interception import patch_folder_paths_functions
     with trace.get_tracer(__name__).start_as_current_span("Execute Prompt", context=span_context) as span, patch_folder_paths_functions():
         try:
@@ -161,11 +170,14 @@ async def ___execute_prompt(
 
             await prompt_executor.execute_async(prompt_mut, prompt_id, {"client_id": client_id},
                                                 execute_outputs=validation_tuple.good_output_node_ids)
-            return prompt_executor.history_result
+            return _PromptExecutionResult(prompt_executor.history_result, prompt_executor.execution_status)
         except Exception as exc_info:
             span.set_status(Status(StatusCode.ERROR))
             span.record_exception(exc_info)
-            raise exc_info
+            status = prompt_executor.execution_status
+            if not any(event in ('execution_error', 'execution_interrupted') for event, _ in status.messages):
+                status = ExecutionStatus('error', False, status.messages + ExecutionStatus.from_exception(prompt_id, exc_info).messages)
+            return _PromptExecutionResult(prompt_executor.history_result or {"outputs": {}, "meta": {}}, status, exc_info)
 
 
 def _cleanup(invalidate_nodes=True, unload_models=True):
@@ -631,7 +643,9 @@ class Comfy:
         propagate.inject(carrier, span_context)
         prompt = make_mutable(prompt)
 
-        async def run_prompt_in_executor() -> dict:
+        queue_item = QueueItem(QueueTuple(float(self._task_count), prompt_id, prompt, ExtraData(), [], {}), None)
+
+        async def run_prompt_in_executor() -> _PromptExecutionResult:
             return await get_event_loop().run_in_executor(
                 self._executor,
                 _execute_prompt,
@@ -645,12 +659,17 @@ class Comfy:
                 partial_execution_targets,
             )
 
+        execution_result = None
         try:
             if isinstance(self._executor, ContextVarExecutor):
                 async with self._in_process_execution_lock:
-                    history_result = await run_prompt_in_executor()
+                    execution_result = await run_prompt_in_executor()
             else:
-                history_result = await run_prompt_in_executor()
+                execution_result = await run_prompt_in_executor()
+
+            if execution_result.exception is not None:
+                raise execution_result.exception
+            history_result = execution_result.history
 
             outputs = history_result["outputs"]
             fut = concurrent.futures.Future()
@@ -658,13 +677,16 @@ class Comfy:
                 outputs_copy = copy.deepcopy(outputs)
             except Exception:
                 outputs_copy = outputs
-            fut.set_result(TaskInvocation(prompt_id, outputs_copy, ExecutionStatus('success', True, [])))
-            self._history.put(QueueItem(queue_tuple=QueueTuple(float(self._task_count), prompt_id, prompt, ExtraData(), [], {}), completed=fut), outputs, ExecutionStatus('success', True, []), meta=history_result["meta"])
+            fut.set_result(TaskInvocation(prompt_id, outputs_copy, execution_result.status))
+            queue_item.completed = fut
+            self._history.put(queue_item, outputs, execution_result.status, meta=history_result["meta"])
             return outputs
         except Exception as exc_info:
             fut = concurrent.futures.Future()
             fut.set_exception(exc_info)
-            self._history.put(QueueItem(queue_tuple=QueueTuple(float(self._task_count), prompt_id, prompt, ExtraData(), [], {}), completed=fut), {}, ExecutionStatus('error', False, [str(exc_info)]))
+            status = execution_result.status if execution_result is not None else ExecutionStatus.from_exception(prompt_id, exc_info)
+            queue_item.completed = fut
+            self._history.put(queue_item, {}, status)
             raise exc_info
         finally:
             with self._task_count_lock:

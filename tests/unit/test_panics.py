@@ -237,6 +237,26 @@ async def test_executor_cleanup(executor_cls, executor_kwargs):
                 # Run it
                 result = await client.queue_prompt(workflow)
                 assert isinstance(result, dict), "Expected workflow to return results"
+                success = next(iter(client.history.copy().values()))['status']
+                assert success['completed']
+                assert [event for event, _ in success['messages']] == ['execution_start', 'execution_cached', 'execution_success']
+                assert all(isinstance(data['timestamp'], int) for _, data in success['messages'])
+                with pytest.raises(UnrecoverableError, match='Test exception from node'):
+                    await client.queue_prompt(create_failing_workflow(), prompt_id='failed')
+                failed = client.history.copy('failed')['failed']
+                assert not failed['status']['completed']
+                event, error = failed['status']['messages'][-1]
+                assert event == 'execution_error'
+                assert error['node_id'] == '1' and error['node_type'] == 'TestExceptionNode'
+                assert 'Test exception from node' in error['exception_message']
+                assert error['traceback']
+                assert 'current_inputs' not in error
+                # Cached success after a failure must not inherit its error state.
+                await client.queue_prompt(workflow, prompt_id='recovered')
+                recovered = client.history.copy('recovered')['recovered']['status']
+                assert recovered['completed']
+                assert recovered['messages'][-1][0] == 'execution_success'
+
 
 
 # Add a test for parallel execution to verify multi-worker behavior
