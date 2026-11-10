@@ -28,7 +28,7 @@ def _section_rows(tensor, section_sizes, rank, size, axis=0):
         width = section // size
         pieces.append(tensor.narrow(axis, offset + rank * width, width))
         offset += section
-    return torch.cat(pieces, dim=axis)
+    return memory_management.concatenate_tensors(pieces, dim=axis)
 
 
 def shard_minimax_h3_state_dict(state_dict, rank, size, *, full_domain_rows=False):

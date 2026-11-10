@@ -361,6 +361,8 @@ def load_torch_file(ckpt: str, safe_load=False, device=None, return_metadata=Fal
 
 
 def save_torch_file(sd, ckpt, metadata=None):
+    sd = {key: value.materialize() if isinstance(value, memory_management.FileBackedConcat) else value
+          for key, value in sd.items()}
     if metadata is not None:
         safetensors.torch.save_file(sd, ckpt, metadata=metadata)
     else:
