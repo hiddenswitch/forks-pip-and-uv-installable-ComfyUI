@@ -122,7 +122,8 @@ dependencies = [
     "pydantic~=2.0",
     "email-validator",
     "pydantic-settings~=2.0",
-    "typer>=0.25.1",
+    # Typer 0.29 removed Click interoperability used by the workflow CLI.
+    "typer>=0.25.1,<0.29",
     "questionary",
     "ijson",
     "scikit-learn>=1.4.1",
