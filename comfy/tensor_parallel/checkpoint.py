@@ -11,19 +11,24 @@ from comfy_kitchen.backends.eager.svdquant import (
     _tile_packed_weight_to_row_major,
 )
 
-from .. import quant_ops
+from .. import memory_management, quant_ops
 
 
 def _section_rows(tensor, section_sizes, rank, size, axis=0):
     if sum(section_sizes) != tensor.shape[axis] or any(section % size for section in section_sizes):
         raise ValueError(f"Sections {section_sizes} of shape {tuple(tensor.shape)} cannot divide {size} ranks")
+    if len(section_sizes) == 1:
+        width = section_sizes[0] // size
+        selection = [slice(None)] * tensor.ndim
+        selection[axis] = slice(rank * width, (rank + 1) * width)
+        return memory_management.slice_tensor(tensor, tuple(selection))
     pieces = []
     offset = 0
     for section in section_sizes:
         width = section // size
         pieces.append(tensor.narrow(axis, offset + rank * width, width))
         offset += section
-    return torch.cat(pieces, dim=axis).clone()
+    return torch.cat(pieces, dim=axis)
 
 
 def shard_minimax_h3_state_dict(state_dict, rank, size, *, full_domain_rows=False):

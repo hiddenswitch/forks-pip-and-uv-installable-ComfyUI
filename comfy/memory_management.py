@@ -16,6 +16,24 @@ class TensorFileSlice(NamedTuple):
     size: int
 
 
+def slice_tensor(tensor, selection):
+    """Own a slice's storage, retaining bounded file backing when it is contiguous."""
+    selected = tensor[selection]
+    storage = tensor.untyped_storage()
+    info = getattr(storage, "_comfy_tensor_file_slice", None)
+    refs = getattr(storage, "_comfy_tensor_mmap_refs", None)
+    if info is None or refs is None or not selected.is_contiguous() or selected.numel() == 0:
+        return selected.clone()
+    offset = selected.storage_offset() * selected.element_size()
+    buffer = (ctypes.c_ubyte * selected.nbytes).from_address(selected.data_ptr())
+    result = torch.frombuffer(buffer, dtype=selected.dtype).view(selected.shape)
+    result_storage = result.untyped_storage()
+    result_storage._comfy_tensor_file_slice = info._replace(offset=info.offset + offset, size=selected.nbytes)
+    result_storage._comfy_tensor_mmap_refs = refs
+    result_storage._comfy_tensor_mmap_touched = False
+    return result
+
+
 def write_tensor_file_slice(tensor, source, stream=None):
     """Write one complete tensor; missing or incompatible file backing is an error."""
     info = getattr(tensor.untyped_storage(), "_comfy_tensor_file_slice", None)
