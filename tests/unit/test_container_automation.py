@@ -75,14 +75,15 @@ def test_windows_process_tests_have_the_cold_start_budget():
 def test_windows_cached_environment_still_tests_the_current_checkout():
     steps = _workflow("test.yml")["jobs"]["windows_nvidia"]["steps"]
     by_name = {step["name"]: step for step in steps}
-    for name in ("Create venv and install PyTorch", "Install locked dependencies",
-                 "Install pinned stable-ABI CUDA extensions"):
-        assert "[ ! -f C:/.comfy-environment-cache-hit ] || exit 0" in by_name[name]["run"]
-    checkout = by_name["Install current checkout into restored environment"]
-    assert "if" not in checkout
-    assert "--reinstall --no-deps ." in checkout["run"]
-    assert steps.index(checkout) < steps.index(by_name["CUDA smoke"])
-    assert steps.index(by_name["CUDA smoke"]) < steps.index(by_name["Save prepared Windows environment to SeaweedFS"])
+    prepare = by_name["Prepare Windows environment"]
+    script = (_source_root() / prepare["run"]).read_text(encoding="utf-8")
+    cold, warm = script.split("if [ ! -f C:/.comfy-environment-cache-hit ]; then", 1)[1].split("\nelse\n", 1)
+    assert "ci/install-locked.sh ci/locks/pylock.windows-py314.toml" in cold
+    assert "--reinstall --no-deps ." in warm
+    assert "if" not in prepare
+    assert steps.index(prepare) < steps.index(by_name["CUDA smoke"])
+    smoke = by_name["CUDA smoke"]["run"]
+    assert smoke.index("assert result.item() == 32") < smoke.index("ci/windows_environment_cache.py save")
 
 
 def test_cuda_image_preserves_the_ngc_python_environment():
