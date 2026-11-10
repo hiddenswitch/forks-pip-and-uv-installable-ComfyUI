@@ -72,6 +72,23 @@ def test_dependency_inputs_invalidate_cache_but_checkout_changes_do_not(tmp_path
         path.write_text("original", encoding="utf-8")
     original = cache.cache_key(tmp_path)
     (tmp_path / "README.md").write_text("new commit", encoding="utf-8")
+    workflow = tmp_path / '.github/workflows/test.yml'
+    workflow.parent.mkdir(parents=True, exist_ok=True)
+    workflow.write_text('unrelated CPU job change', encoding='utf-8')
     assert cache.cache_key(tmp_path) == original
     (tmp_path / changed).write_text("updated dependencies", encoding="utf-8")
     assert cache.cache_key(tmp_path) != original
+
+
+def test_cache_compresses_installed_binaries_and_restores_bytes(tmp_path):
+    root = tmp_path / 'local'
+    root.mkdir()
+    contents = b'MZ' + bytes(1024 * 1024)
+    environment(root, contents)
+    archive = tmp_path / 'environment.zip'
+    cache.save(archive, root)
+    assert archive.stat().st_size < len(contents) // 10
+    destination = tmp_path / 'restored'
+    destination.mkdir()
+    assert cache.restore(archive, destination)
+    assert (destination / 'venv/Scripts/python.exe').read_bytes() == contents

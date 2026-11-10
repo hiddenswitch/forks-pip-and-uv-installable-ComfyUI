@@ -13,7 +13,9 @@ import zipfile
 
 
 INPUTS = (
-    ".github/workflows/test.yml",
+    "ci/setup-windows.sh",
+    "ci/setup-windows.ps1",
+    ".github/scripts/enable-graphics-apis.ps1",
     "ci/locks/pylock.windows-py314.toml",
     "ci/install-locked.sh",
     "ci/windows_environment_cache.py",
@@ -40,13 +42,18 @@ def restore(archive, root):
             staging = Path(temporary)
             local_archive = staging / "environment.zip"
             # One sequential network read; unpack and import on local NTFS.
+            started = time.monotonic()
             shutil.copyfile(archive, local_archive)
+            logging.info("Downloaded %.1f MiB in %.1fs", local_archive.stat().st_size / 2**20, time.monotonic() - started)
+            started = time.monotonic()
             with zipfile.ZipFile(local_archive) as source:
                 for member in source.namelist():
                     path = PurePosixPath(member)
                     if not path.parts or path.is_absolute() or ".." in path.parts or path.parts[0] not in DIRECTORIES:
                         raise ValueError(f"Unexpected cache member: {member}")
                 source.extractall(staging / "unpacked")
+            logging.info("Unpacked environment in %.1fs", time.monotonic() - started)
+            local_archive.unlink()
             unpacked = staging / "unpacked"
             if not (unpacked / "venv/Scripts/python.exe").is_file() or not (unpacked / "ci-python").is_dir():
                 raise ValueError("Incomplete cached Python environment")
@@ -68,8 +75,9 @@ def save(archive, root):
     try:
         with tempfile.TemporaryDirectory(prefix="comfy-env-", dir=root) as temporary:
             local_archive = Path(temporary) / "environment.zip"
-            # ZIP_STORED avoids recompressing DLLs; ZIP64 supports large Torch wheels.
-            with zipfile.ZipFile(local_archive, "w", compression=zipfile.ZIP_STORED) as target:
+            # Installed DLLs are uncompressed. A fast compression pass saves network
+            # traffic and local staging space on every subsequent restore.
+            with zipfile.ZipFile(local_archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=1) as target:
                 for name in DIRECTORIES:
                     directory = root / name
                     if not directory.is_dir():
