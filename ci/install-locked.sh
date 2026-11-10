@@ -11,13 +11,16 @@ python=$2
 
 # uv requires reliable file locking and atomic directory creation. Runner-wide
 # caches mounted over network filesystems do not provide those guarantees.
-# Keep this install's cache on local temporary storage and remove it on exit.
-UV_CACHE_DIR=$("$python" -c 'import os, tempfile; print(tempfile.mkdtemp(prefix="comfyui-uv-", dir=None if os.name == "nt" else "/tmp"))')
+# Keep the cache beside the installed packages so uv can hardlink, then remove it.
+UV_CACHE_DIR=$("$python" -c 'import sys, tempfile; print(tempfile.mkdtemp(prefix=".comfyui-uv-", dir=sys.prefix))')
 export UV_CACHE_DIR
 cleanup_cache() {
   "$python" -c 'import os, shutil; shutil.rmtree(os.environ["UV_CACHE_DIR"])'
 }
 trap cleanup_cache EXIT HUP INT TERM
+
+cache_archive=$("$python" ci/dependency_cache.py key "$lock_file")
+"$python" ci/dependency_cache.py restore "$cache_archive" "$UV_CACHE_DIR"
 
 # The pinned VideoHelperSuite checkout uses setuptools without declaring a
 # build-system requirement. Keep builds non-isolated (important for Torch
@@ -63,12 +66,12 @@ uv pip install \
   --no-build-isolation \
   -r "$lock_file"
 
+"$python" ci/dependency_cache.py save "$cache_archive" "$UV_CACHE_DIR"
+
 # ComfyUI itself was omitted from every lock so the tested package is always
 # this checkout. Its dependencies are already exact, so do not resolve again.
-# The shared CI cache can be a network filesystem; a cache is useless for this
-# local install and makes uv's interpreter/build probes perform random I/O on
-# that filesystem.
-uv pip install --no-cache --python "$python" --no-deps .
+# Explicit local installs always rebuild; the temporary cache is on local disk.
+uv pip install --python "$python" --no-deps .
 
 if [ -n "$torch_before" ]; then
   torch_after=$("$python" -c 'import importlib.metadata as metadata; print(metadata.version("torch"))')

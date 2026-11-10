@@ -3,6 +3,9 @@ on:
   push:
     branches: [develop, master]
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   coverage:
     runs-on: [self-hosted, linux, X64, cpu]
