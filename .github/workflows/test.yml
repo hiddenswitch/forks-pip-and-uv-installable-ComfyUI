@@ -140,12 +140,10 @@ jobs:
           torch.cuda.synchronize()
           assert result.item() == 32
           PY
-      - name: Save prepared Windows environment to SeaweedFS
-        # A cache outage must not prevent the actual tests from running.
-        continue-on-error: true
-        run: |
-          [ ! -f C:/.comfy-environment-cache-hit ] || exit 0
-          C:/Python312/python.exe ci/windows_environment_cache.py save
+          # Publish only after the smoke check; cache failures must not skip tests.
+          if [ ! -f C:/.comfy-environment-cache-hit ]; then
+            C:/Python312/python.exe ci/windows_environment_cache.py save || echo '::warning::Environment cache publication failed'
+          fi
       - name: Custom-node registration
         run: C:/venv/Scripts/python.exe -m pytest -v -s --timeout=900 tests/custom_nodes/test_installed_node_registration.py
       - name: Windows unit tests
