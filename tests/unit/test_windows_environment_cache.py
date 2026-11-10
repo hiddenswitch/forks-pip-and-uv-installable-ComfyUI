@@ -73,13 +73,15 @@ def test_dependency_inputs_invalidate_cache_but_checkout_changes_do_not(tmp_path
     for name in cache.INPUTS:
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("original", encoding="utf-8")
+        path.write_bytes(b"original\n")
     original = cache.cache_key(tmp_path)
     (tmp_path / "README.md").write_text("new commit", encoding="utf-8")
     workflow = tmp_path / '.github/workflows/test.yml'
     workflow.parent.mkdir(parents=True, exist_ok=True)
     workflow.write_text('unrelated CPU job change', encoding='utf-8')
     (tmp_path / 'ci/windows_environment_cache.py').write_text('transport-only change', encoding='utf-8')
+    assert cache.cache_key(tmp_path) == original
+    (tmp_path / changed).write_bytes(b"original\r\n")
     assert cache.cache_key(tmp_path) == original
     (tmp_path / changed).write_text("updated dependencies", encoding="utf-8")
     assert cache.cache_key(tmp_path) != original

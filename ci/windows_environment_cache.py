@@ -29,7 +29,8 @@ def cache_key(checkout):
     digest = hashlib.sha256("\0".join(DIRECTORIES).encode())
     for name in INPUTS:
         digest.update(name.encode() + b"\0")
-        digest.update((checkout / name).read_bytes())
+        # Git may check these text inputs out with LF or CRLF on Windows.
+        digest.update((checkout / name).read_text(encoding="utf-8").encode())
     return digest.hexdigest()
 
 
