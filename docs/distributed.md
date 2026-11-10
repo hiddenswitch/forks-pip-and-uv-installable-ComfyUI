@@ -18,6 +18,12 @@ TP, PP, and sequence modes are currently exclusive; hybrid TP+PP and TP+sequence
 topologies are not implemented. Normal memory management still controls residency
 and offloading. Parallelism does not require `--novram`.
 
+For MiniMax H3, these flags partition the diffusion model. Qwen3-VL conditioning
+and optional Qwen3.5 prompt enhancement use ordinary text-encoder loading and
+offloading; their weights are not split across ranks. Select INT8 encoder files
+for 24 GiB cards, or BF16 files when preserving encoder precision is preferable
+to reducing offload traffic.
+
 ## Defaults
 
 Hardware guessing is enabled by default. On Linux, when all visible NVIDIA GPUs
@@ -43,6 +49,7 @@ and supported parallel sizes. Use its findings when selecting devices.
 | Ideogram 4 | Yes | — | — |
 | Krea 2 | Yes | — | — |
 | MiniMax H3 | Yes | Yes | Yes |
+| MiniMax H3 Image | Yes | Yes | — |
 | Qwen Image / Layered | — | Yes | Yes |
 | Kandinsky 6 Pro custom node | Yes | — | — |
 | HunyuanImage3 custom node | Yes, with expert parallelism | Yes | — |

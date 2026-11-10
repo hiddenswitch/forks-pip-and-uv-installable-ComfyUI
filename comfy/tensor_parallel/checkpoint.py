@@ -101,7 +101,7 @@ _FLUX2_SINGLE_OUT = re.compile(r"(?:^|\.)single_blocks\.\d+\.linear2$")
 
 
 def _column_sections(model_family, module, rows, weights, formats):
-    if model_family == "minimax_h3":
+    if model_family in ("minimax_h3", "minimax_h3_image"):
         if module.endswith(".attn.qkv_proj"):
             return (rows // 3,) * 3
         if module.endswith(".mlp.fc1"):
@@ -127,7 +127,7 @@ def _column_sections(model_family, module, rows, weights, formats):
 
 
 def _is_row_parallel(model_family: str, module: str) -> bool:
-    if model_family == "minimax_h3":
+    if model_family in ("minimax_h3", "minimax_h3_image"):
         return module.endswith((".attn.out_proj", ".mlp.fc2"))
     if model_family == "krea2":
         return _KREA2_ROW.search(module) is not None

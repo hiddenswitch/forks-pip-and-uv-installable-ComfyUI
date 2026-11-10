@@ -103,3 +103,17 @@ def test_audio_carry_round_trip_matches_sampler_schedule_conversion():
         restored[1],
         -3.0 * expected_audio + (1.0 + 3.0 * sigma_a) * 2.0,
     )
+
+
+def test_image_simple_schedule_uses_checkpoint_pdd_grid():
+    from types import SimpleNamespace
+    from comfy.ldm.minimax.sampling import MiniMaxH3ImageModelSampling
+    from comfy.samplers import simple_scheduler
+
+    # Comfy-Org/MiniMax-H3-Image checkpoint metadata, revision 892de7cb61df.
+    grid = [1.0, 0.9675236940383911, 0.8875485062599182, 0.75,
+            0.5327739119529724, 0.23200887441635132, 0.0]
+    sampling = MiniMaxH3ImageModelSampling(SimpleNamespace(unet_config={"pdd_sigmas": grid}, sampling_settings={}))
+    torch.testing.assert_close(sampling.sigma(torch.linspace(1000, 0, 7)), torch.tensor(grid), atol=1e-6, rtol=0)
+    # The stock simple scheduler indexes a 1000-entry discrete sigma table.
+    torch.testing.assert_close(simple_scheduler(sampling, 6), torch.tensor(grid), atol=1e-3, rtol=0)

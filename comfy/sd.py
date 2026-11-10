@@ -45,7 +45,7 @@ from .ldm.lightricks.vae.audio_vae import AudioVAE
 from .ldm.lightricks.vae.na_diffusion_decoder import CausalDiffusionVAE
 from .ldm.mage_flow.vae import MageVAE
 from .ldm.minimax.audio_vae import MiniMaxH3AudioVAE
-from .ldm.minimax.vae import LATENTS_MEAN, LATENTS_STD, MiniMaxH3VideoVAE, PH3ImageVAE
+from .ldm.minimax.vae import LATENTS_MEAN, LATENTS_STD, MiniMaxH3VideoVAE, MiniMaxH3ImageVAE, PH3ImageVAE
 from .ldm.minimax_music.dav import MiniMaxMusic3DAV
 from .ldm.mmaudio.vae.autoencoder import AudioAutoencoder
 from .ldm.models.autoencoder import AutoencoderKL
@@ -115,6 +115,7 @@ from .text_encoders import yue2
 from .text_encoders import z_image
 from .weight_adapter import BypassInjectionManager
 from .weight_adapter import WeightAdapterBase
+from .text_encoders import wevisone
 
 from .latent_formats import HunyuanVideo
 from .latent_formats import HunyuanVideo15
@@ -1090,10 +1091,15 @@ class VAE:
                     still_frame = int(metadata.get("h3_t1_output_slice", 3))
                 # LightVAE Lite encoders prune resnet blocks down to their shortcut
                 minimax_kept = {(int(k.split(".")[2]), int(k.split(".")[4])) for k in sd if k.startswith("encoder.down.") and k.endswith(".conv1.weight")}
-                if "decoder.proj_out.weight" in sd and sd["decoder.proj_out.weight"].shape[0] == 768:  # p-h3-image: single-frame decoder
+                if "decoder.proj_out.weight" in sd and sd["decoder.proj_out.weight"].shape[0] == 768:  # single-frame image decoders
                     still_frame = 0
                     self.not_video = True
-                    self.first_stage_model = PH3ImageVAE(operations=minimax_ops, num_layers=minimax_layers)
+                    if sd["decoder.x_embedder.weight"].shape[0] == 1024:  # MiniMax-H3-Image: 16-head 2D ViT decoder (p-h3-image has 32), loaded from the release file (no latent statistics)
+                        sd.setdefault("latents_mean", torch.tensor(LATENTS_MEAN))
+                        sd.setdefault("latents_std", torch.tensor(LATENTS_STD))
+                        self.first_stage_model = MiniMaxH3ImageVAE(operations=minimax_ops, num_layers=minimax_layers)
+                    else:  # p-h3-image
+                        self.first_stage_model = PH3ImageVAE(operations=minimax_ops, num_layers=minimax_layers)
                 else:
                     self.first_stage_model = MiniMaxH3VideoVAE(operations=minimax_ops, num_layers=minimax_layers, still_frame=still_frame, encoder_kept_blocks=minimax_kept, encoder="encoder.conv_in.weight" in sd, decoder=minimax_layers > 0, noncausal_decoder=noncausal)
                 self.latent_channels = 24
@@ -1851,6 +1857,9 @@ class TEModel(Enum):
     GEMMA_4_12B = 36
     QWEN3VL_32B = 37
     MING_IMAGE = 38
+    WEVISONE_2B = 39
+    WEVISONE_4B = 40
+    QWEN3VL_2B = 41
 
 
 def detect_te_model(sd):
@@ -1920,8 +1929,10 @@ def detect_te_model(sd):
         if weight.shape[0] == 5120:
             return TEModel.QWEN35_27B
         return TEModel.QWEN35_2B
+    if "mask_decoder.query_builder.content_proj.weight" in sd and "model.visual.merger.linear_fc2.weight" in sd:  # WeVisOne-VL: Qwen3-VL with its alpha-matte decoder
+        return TEModel.WEVISONE_4B if sd["model.visual.merger.linear_fc2.weight"].shape[0] == 2560 else TEModel.WEVISONE_2B
     if "model.visual.deepstack_merger_list.0.norm.weight" in sd:  # DeepStack is unique to Qwen3-VL
-        return TEModel.QWEN3VL_4B if sd["model.visual.merger.linear_fc2.weight"].shape[0] == 2560 else TEModel.QWEN3VL_8B
+        return {2048: TEModel.QWEN3VL_2B, 2560: TEModel.QWEN3VL_4B}.get(sd["model.visual.merger.linear_fc2.weight"].shape[0], TEModel.QWEN3VL_8B)
     if "visual.deepstack_merger_list.0.norm.weight" in sd and "model.layers.49.self_attn.q_proj.weight" in sd:
         return TEModel.QWEN3VL_32B
     if "model.layers.0.post_attention_layernorm.weight" in sd:
@@ -2158,7 +2169,7 @@ def load_text_encoder_state_dicts(state_dicts=[], embedding_directory=None, clip
                 qwen35_type = {TEModel.QWEN35_08B: "qwen35_08b", TEModel.QWEN35_2B: "qwen35_2b", TEModel.QWEN35_4B: "qwen35_4b", TEModel.QWEN35_9B: "qwen35_9b", TEModel.QWEN35_27B: "qwen35_27b"}[te_model]
                 clip_target.clip = qwen_35.te(**llama_detect(clip_data), model_type=qwen35_type, mtp="mtp.fc.weight" in clip_data[0])
                 clip_target.tokenizer = qwen_35.tokenizer(model_type=qwen35_type)
-        elif te_model in (TEModel.QWEN3VL_4B, TEModel.QWEN3VL_8B):
+        elif te_model in (TEModel.QWEN3VL_2B, TEModel.QWEN3VL_4B, TEModel.QWEN3VL_8B):
             if clip_type == CLIPType.IDEOGRAM4 and te_model == TEModel.QWEN3VL_8B:  # Ideogram4 reuses the full Qwen3-VL-8B (13-layer tap for conditioning + multimodal generate).
                 clip_data[0] = utils.state_dict_prefix_replace(clip_data[0], {"model.language_model.": "model.", "model.visual.": "visual.", "lm_head.": "model.lm_head."})
                 clip_target.clip = ideogram4.te_qwen3vl(**llama_detect(clip_data))
@@ -2201,9 +2212,14 @@ def load_text_encoder_state_dicts(state_dicts=[], embedding_directory=None, clip
                 clip_target.tokenizer = flux.KleinTokenizer8B if te_model == TEModel.QWEN3VL_8B else flux.KleinTokenizer
             else:
                 clip_data[0] = utils.state_dict_prefix_replace(clip_data[0], {"model.language_model.": "model.", "model.visual.": "visual.", "lm_head.": "model.lm_head."})
-                qwen3vl_type = {TEModel.QWEN3VL_4B: "qwen3vl_4b", TEModel.QWEN3VL_8B: "qwen3vl_8b"}[te_model]
+                qwen3vl_type = {TEModel.QWEN3VL_2B: "qwen3vl_2b", TEModel.QWEN3VL_4B: "qwen3vl_4b", TEModel.QWEN3VL_8B: "qwen3vl_8b"}[te_model]
                 clip_target.clip = qwen3vl.te(**llama_detect(clip_data), model_type=qwen3vl_type)
                 clip_target.tokenizer = qwen3vl.tokenizer(model_type=qwen3vl_type)
+        elif te_model in (TEModel.WEVISONE_2B, TEModel.WEVISONE_4B):
+            clip_data[0] = utils.state_dict_prefix_replace(clip_data[0], {"model.language_model.": "model.", "model.visual.": "visual.", "lm_head.": "model.lm_head."})
+            qwen3vl_type = "qwen3vl_4b" if te_model == TEModel.WEVISONE_4B else "qwen3vl_2b"
+            clip_target.clip = qwen3vl.te(**llama_detect(clip_data), model_type=qwen3vl_type, base=wevisone.WeVisOneTEModel)
+            clip_target.tokenizer = qwen3vl.tokenizer(model_type=qwen3vl_type, base=wevisone.WeVisOneTokenizer)
         elif te_model == TEModel.QWEN3VL_32B:
             clip_target.clip = minimax.te(**llama_detect(clip_data))
             clip_target.tokenizer = minimax.MiniMaxH3Tokenizer

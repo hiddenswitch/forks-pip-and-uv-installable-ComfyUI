@@ -483,6 +483,7 @@ def try_load_diffusion_model_pipeline(
     if model_config is None or model_config.unet_config.get("image_model") not in (
         "qwen_image",
         "minimax_h3",
+        "minimax_h3_image",
         "flux2",
     ):
         return None

@@ -19,7 +19,7 @@ from .test_workflows import ResourceMonitor, _prepare_for_workflows, _replace_re
 
 BASELINES = (
     "moss-image", "fibo2", "qwen-image21-int8-convrot", "flux3", "flux2",
-    "flux2-klein", "ideogram4", "krea2", "ltx-2", "minimax-h3-fl2va",
+    "flux2-klein", "ideogram4", "krea2", "ltx-2", "minimax-h3-fl2va", "minimax-h3-image",
 )
 CASES = [(name, "default", {}) for name in BASELINES]
 CASES += [(name, mode, changes) for name in ("moss-image", "fibo2", "qwen-image21-int8-convrot")
@@ -30,9 +30,9 @@ CASES += [(name, mode, {flag: True, "use_pytorch_cross_attention": False})
           for mode, flag in (("sage", "use_sage_attention"), ("kitchen", "use_ck_attention"))]
 CASES += [("moss-image", "int8", {})]
 CASES += [(name, "tp2", {"tensor_parallel_size": 2})
-          for name in ("flux2", "ideogram4", "krea2", "minimax-h3-fl2va")]
+          for name in ("flux2", "ideogram4", "krea2", "minimax-h3-fl2va", "minimax-h3-image")]
 CASES += [(name, "pp2", {"pipeline_parallel_size": 2})
-          for name in ("flux2", "qwen-image", "minimax-h3-fl2va")]
+          for name in ("flux2", "qwen-image", "minimax-h3-fl2va", "minimax-h3-image")]
 CASES += [("qwen-image", mode, {flag: 2})
           for mode, flag in (("ulysses2", "ulysses_degree"), ("ring2", "ring_degree"))]
 CASES += [("qwen-image-multigpu-cfg", "cfg2", {}), ("flux-compile", "compile", {})]
@@ -72,7 +72,8 @@ def install_runtime_probe(benchmark_path, runtime_path, configuration):
 
 
 def runtime_workflow(name, mode):
-    workflow = json.loads(_prepare_for_workflows()[name + "-0.json"].read_text())
+    workflow_file = next(case.values[1] for case in _prepare_for_workflows() if case.values[0] == name + "-0.json")
+    workflow = json.loads(workflow_file.read_text())
     _replace_remote_media_inputs(workflow)
     for node in workflow.values():
         values = node["inputs"]

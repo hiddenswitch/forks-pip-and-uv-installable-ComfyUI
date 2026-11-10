@@ -119,6 +119,9 @@ def pin_memory(module, subset="weights", size=None):
         return _steal_pin(module, stack, buckets, size, priority, subset)
 
     offset = hostbuf.size
+    # Unregistered slots still occupy the reserved virtual address range.
+    if offset + size > pin_state["hostbuf_size"]:
+        return _steal_pin(module, stack, buckets, size, priority, subset)
     extended = False
     try:
         hostbuf.extend(size=size, register=False)
