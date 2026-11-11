@@ -10,6 +10,7 @@ import torch
 
 from .. import model_detection, model_management, ops, utils
 from ..execution_context import current_execution_context
+from ..distributed.executors import ContextVarExecutor
 from ..model_patcher import get_model_patcher_class
 from ..pipeline_parallel.checkpoint import SafetensorsCheckpointReader
 from ..pipeline_parallel.loader import _normalize_detection_state, _normalized_descriptors
@@ -21,7 +22,7 @@ from .operations import full_domain_tensor_parallel_operations, tensor_parallel_
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_MODEL_FAMILIES = frozenset(("flux2", "ideogram4", "krea2", "minimax_h3", "kandinsky6"))
+SUPPORTED_MODEL_FAMILIES = frozenset(("flux2", "ideogram4", "krea2", "minimax_h3", "minimax_h3_image", "kandinsky6"))
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,16 @@ class TensorParallelWorkerLoadSpec:
     disable_dynamic: bool
     dtype: torch.dtype
     custom_node_path: str | None = None
+
+
+def _read_rank_state(reader, metadata, prefix, original_keys, model_options,
+                     model_family, rank, size, state_transform):
+    state = reader.load_keys(original_keys.values())
+    if prefix:
+        state = utils.state_dict_prefix_replace(state, {prefix: ""}, filter_keys=True)
+    if model_options.get("custom_operations") is None:
+        state, _ = utils.convert_old_quants(state, "", metadata=dict(metadata))
+    return state_transform(state, model_family, rank, size)
 
 
 def _load_rank(
@@ -49,6 +60,7 @@ def _load_rank(
     model_family,
     operations_decorator=None,
     state_transform=None,
+    state=None,
 ):
     rank_config = type(model_config)(model_config.unet_config)
     rank_config.quant_config = utils.deepcopy_list_dict(model_config.quant_config) if model_config.quant_config is not None else None
@@ -106,12 +118,9 @@ def _load_rank(
             raise ValueError(f"Kandinsky 6 checkpoint mismatch: {loaded}")
         return patcher
 
-    state = reader.load_keys(original_keys.values())
-    if prefix:
-        state = utils.state_dict_prefix_replace(state, {prefix: ""}, filter_keys=True)
-    if model_options.get("custom_operations") is None:
-        state, _ = utils.convert_old_quants(state, "", metadata=dict(metadata))
-    state = state_transform(state, model_family, parallel_config.rank, parallel_config.size)
+    if state is None:
+        state = _read_rank_state(reader, metadata, prefix, original_keys, model_options,
+                                 model_family, parallel_config.rank, parallel_config.size, state_transform)
 
     model = rank_config.get_model(state, "", device=torch.device("cpu"))
     patcher = get_model_patcher_class(disable_dynamic)(
@@ -184,18 +193,25 @@ def load_diffusion_model_tensor_parallel(unet_path, devices, model_options=None,
         os.fspath(unet_path), model_family, model_options, disable_dynamic, dtype, custom_node_path
     )
 
-    def load_root(tensor_operations):
-        return _load_rank(
-            reader, model_config, metadata, prefix, original_keys, unet_path,
-            model_options,
-            disable_dynamic,
-            dtype,
-            devices[0],
-            TensorParallelConfig(tensor_operations),
-            model_family,
-        )
+    with ContextVarExecutor(max_workers=1) as loading_pool:
+        # CPU checkpoint slicing can overlap peer imports and communicator setup.
+        state_future = None
+        if model_family != "kandinsky6":
+            state_future = loading_pool.submit(
+                _read_rank_state, reader, metadata, prefix, original_keys, model_options,
+                model_family, 0, len(devices),
+                partial(shard_tensor_parallel_state_dict, full_domain_rows=model_config.quant_config is not None),
+            )
 
-    root, executor = launch_tensor_parallel(load_spec, devices, load_root)
+        def load_root(tensor_operations):
+            return _load_rank(
+                reader, model_config, metadata, prefix, original_keys, unet_path,
+                model_options, disable_dynamic, dtype, devices[0],
+                TensorParallelConfig(tensor_operations), model_family,
+                state=None if state_future is None else state_future.result(),
+            )
+
+        root, executor = launch_tensor_parallel(load_spec, devices, load_root)
     remotes = [
         RemoteTensorParallelRankModel(
             executor, rank, devices[rank], executor.rank_sizes[rank], dtype,

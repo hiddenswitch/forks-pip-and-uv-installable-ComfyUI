@@ -27,7 +27,7 @@ jobs:
       options: --shm-size=8g
     steps:
       - name: Install system dependencies
-        run: pacman -Syu --noconfirm git python uv zip base-devel libxcb mesa
+        run: pacman -Syu --noconfirm git python uv zip zstd base-devel libxcb mesa
       - uses: actions/checkout@v7
       - name: Install locked dependencies
         run: |
@@ -56,7 +56,11 @@ jobs:
       - name: Unit tests
         env:
           COMFYUI_UNIT_DISABLE_CUSTOM_NODES: "1"
-        run: .venv/bin/python -m pytest -v tests/unit --ignore=tests/unit/test_workflow_convert_playwright.py
+        run: .venv/bin/python -m pytest -v -n 4 -m "not server_process" tests/unit --ignore=tests/unit/test_workflow_convert_playwright.py
+      - name: Server process unit tests
+        env:
+          COMFYUI_UNIT_DISABLE_CUSTOM_NODES: "1"
+        run: .venv/bin/python -m pytest -v -m server_process tests/unit --ignore=tests/unit/test_workflow_convert_playwright.py
       - name: Execution tests
         run: .venv/bin/python -m pytest -v -rs --timeout=180 tests/execution
 
@@ -74,9 +78,11 @@ jobs:
           find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec \
             sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.kernel.org/ubuntu|g' {} +
           apt-get update --error-on=any
-          apt-get install -y git ca-certificates build-essential libgl1 libglib2.0-0 libsndfile1 libxcb1
+          apt-get install -y git ca-certificates build-essential libgl1 libglib2.0-0 libsndfile1 libxcb1 zstd
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
       - name: Install locked dependencies and Chromium
         run: |
           uv venv --python 3.14
@@ -103,7 +109,7 @@ jobs:
       options: --shm-size=8g
     steps:
       - name: Install system dependencies
-        run: pacman -Syu --noconfirm git python uv zip
+        run: pacman -Syu --noconfirm git python uv zip zstd
       - uses: actions/checkout@v7
       - name: Build and install the package
         run: |

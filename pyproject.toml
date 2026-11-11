@@ -1,6 +1,6 @@
 [project]
 name = "comfyui"
-version = "0.43.0.4"
+version = "0.45.0.1"
 description = "An installable version of ComfyUI"
 readme = "README.md"
 authors = [
@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
     # todo: it looks like there are breaking frontend package changes, so this really does need to be pinned?
     "comfyui-frontend-package==1.58.5",
-    "comfyui-workflow-templates==0.11.103",
+    "comfyui-workflow-templates==0.11.105",
     "comfyui-embedded-docs==0.5.16",
     "comfy-kitchen==0.2.41",
     "comfy-aimdo==0.6.0",
@@ -122,7 +122,7 @@ dependencies = [
     "pydantic~=2.0",
     "email-validator",
     "pydantic-settings~=2.0",
-    "typer>=0.25.1",
+    "typer>=0.29.0",
     "questionary",
     "ijson",
     "scikit-learn>=1.4.1",

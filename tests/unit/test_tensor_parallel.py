@@ -797,3 +797,94 @@ def test_minimax_full_domain_tensor_parallel_matches_full_model(monkeypatch):
         torch.testing.assert_close(output, expected_attention)
     for output in mlp_outputs:
         torch.testing.assert_close(output, expected_mlp)
+
+
+def test_contiguous_checkpoint_shards_retain_bounded_file_backing(tmp_path):
+    import gc
+    import mmap
+    import threading
+    from comfy.memory_management import TensorFileSlice, read_tensor_file_slice_into, slice_tensor
+    from comfy.tensor_parallel.checkpoint import _section_rows
+
+    expected = torch.arange(32, dtype=torch.float32).reshape(4, 8)
+    path = tmp_path / "weights.bin"
+    path.write_bytes(expected.numpy().tobytes())
+    with path.open("rb") as file:
+        mapping = mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_COPY)
+        source = torch.frombuffer(mapping, dtype=torch.float32).reshape(4, 8)
+        storage = source.untyped_storage()
+        storage._comfy_tensor_file_slice = TensorFileSlice(file, threading.Lock(), 0, source.nbytes)
+        storage._comfy_tensor_mmap_refs = (mapping,)
+        shard = _section_rows(source, (4,), 1, 2)
+        del source, storage, mapping
+        gc.collect()
+        assert shard.storage_offset() == 0
+        assert shard.untyped_storage().nbytes() == shard.nbytes
+        assert shard.untyped_storage()._comfy_tensor_file_slice.offset == 64
+        torch.testing.assert_close(shard, expected[2:])
+        restored = torch.empty_like(shard)
+        assert read_tensor_file_slice_into(shard, restored)
+        torch.testing.assert_close(restored, expected[2:])
+        nested = slice_tensor(shard, (slice(1, 2), slice(None)))
+        del shard
+        gc.collect()
+        assert nested.untyped_storage()._comfy_tensor_file_slice.offset == 96
+        restored = torch.empty_like(nested)
+        assert read_tensor_file_slice_into(nested, restored)
+        torch.testing.assert_close(restored, expected[3:])
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.int8])
+def test_fused_checkpoint_shards_stream_without_materializing(tmp_path, dtype):
+    import gc
+    import mmap
+    from comfy.memory_management import FileBackedConcat, TensorFileSlice, read_tensor_file_slice_into
+    from comfy.tensor_parallel.checkpoint import _section_rows
+
+    weights = torch.arange(96, dtype=dtype).reshape(12, 8)
+    expected = torch.cat((weights[2:4], weights[6:8], weights[10:12]))
+    path = tmp_path / "qkv.bin"
+    path.write_bytes(weights.numpy().tobytes())
+    with path.open("rb") as file:
+        mapping = mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_COPY)
+        source = torch.frombuffer(mapping, dtype=dtype).reshape(12, 8)
+        storage = source.untyped_storage()
+        storage._comfy_tensor_file_slice = TensorFileSlice(file, threading.Lock(), 0, source.nbytes)
+        storage._comfy_tensor_mmap_refs = (mapping,)
+        shard = torch.nn.Parameter(_section_rows(source, (4, 4, 4), 1, 2), requires_grad=False)
+        del source, storage, mapping
+        gc.collect()
+        with torch.inference_mode():
+            shard = torch.nn.Parameter(shard, requires_grad=False)
+        assert isinstance(shard, FileBackedConcat)
+        assert shard.to(device="cpu", dtype=shard.dtype) is shard
+        assert shard._materialized is None
+        restored = torch.empty(expected.shape, dtype=expected.dtype)
+        assert read_tensor_file_slice_into(shard, restored)
+        torch.testing.assert_close(restored, expected)
+        assert shard._materialized is None
+        if dtype == torch.int8:
+            import json
+            layer = comfy_ops.mixed_precision_ops(compute_dtype=torch.float32).Linear(8, 6, bias=False, device="cpu")
+            layer.load_state_dict({
+                "weight": shard,
+                "weight_scale": torch.tensor(1.0),
+                "comfy_quant": torch.tensor(list(json.dumps({"format": "int8_tensorwise"}).encode()), dtype=torch.uint8),
+            })
+            assert isinstance(layer.weight._qdata, FileBackedConcat)
+            destination = layer.weight._copy_with(qdata=torch.empty_like(expected))
+            assert read_tensor_file_slice_into(layer.weight, destination)
+            torch.testing.assert_close(destination._qdata, expected)
+            assert layer.weight._qdata._materialized is None
+        # A real weight mutation must remain visible through detached aliases,
+        # and subsequent loads must not silently restore the original file data.
+        alias = shard.detach()
+        alias.add_(1)
+        assert not read_tensor_file_slice_into(shard, restored)
+        torch.testing.assert_close(shard + 0, expected + 1)
+        from comfy.utils import save_torch_file
+        from safetensors.torch import load_file
+        save_torch_file({"weight": shard}, tmp_path / "saved.safetensors")
+        torch.testing.assert_close(load_file(tmp_path / "saved.safetensors")["weight"], expected + 1)
+        torch.save(shard, tmp_path / "saved.pt")
+        torch.testing.assert_close(torch.load(tmp_path / "saved.pt", weights_only=True), expected + 1)

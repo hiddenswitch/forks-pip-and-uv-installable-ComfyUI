@@ -2,6 +2,7 @@ import math
 import ctypes
 import dataclasses
 import torch
+from torch.utils._pytree import tree_map
 from typing import NamedTuple
 
 import comfy_aimdo.host_buffer
@@ -14,6 +15,87 @@ class TensorFileSlice(NamedTuple):
     lock: object
     offset: int
     size: int
+
+
+class FileBackedConcat(torch.Tensor):
+    """A row concatenation that streams checkpoint regions into the loading buffer."""
+
+    @staticmethod
+    def __new__(cls, parts):
+        first = parts[0]
+        shape = (sum(part.shape[0] for part in parts), *first.shape[1:])
+        result = torch.Tensor._make_wrapper_subclass(cls, shape, dtype=first.dtype, device=first.device)
+        result._parts = parts
+        result._materialized = None
+        return result
+
+    __torch_function__ = torch._C._disabled_torch_function_impl
+
+    def materialize(self):
+        if self._materialized is None:
+            self._materialized = torch.cat(self._parts, dim=0)
+        return self._materialized
+
+    def __repr__(self):
+        return f"FileBackedConcat(shape={tuple(self.shape)}, dtype={self.dtype}, parts={len(self._parts)})"
+
+    def __reduce_ex__(self, protocol):
+        return self.materialize().__reduce_ex__(protocol)
+
+    @classmethod
+    def __torch_dispatch__(cls, func, types, args=(), kwargs=None):
+        if func in (torch.ops.aten.detach.default, torch.ops.aten.alias.default):
+            return args[0]
+        if func.overloadpacket == torch.ops.aten.to:
+            options = {arg.name: arg.default_value for arg in func._schema.arguments}
+            options.update(zip((arg.name for arg in func._schema.arguments), args))
+            options.update(kwargs or {})
+            tensor = args[0]
+            other = options.get("other")
+            device = other.device if other is not None else options.get("device")
+            dtype = other.dtype if other is not None else options.get("dtype")
+            if (device in (None, tensor.device) and dtype in (None, tensor.dtype)
+                    and not options.get("copy", False)
+                    and options.get("memory_format") in (None, torch.preserve_format, torch.contiguous_format)):
+                return tensor
+        # Ordinary tensor operations (including mutations) share one materialized
+        # value. The streaming loader does not need to allocate that value.
+        def unwrap(value):
+            return value.materialize() if isinstance(value, cls) else value
+        return func(*tree_map(unwrap, args), **tree_map(unwrap, kwargs or {}))
+
+
+def concatenate_tensors(tensors, dim=0):
+    """Keep contiguous checkpoint regions lazy; other layouts use ordinary cat."""
+    if tensors and dim == 0 and all(
+        tensor.dtype == tensors[0].dtype and tensor.device == tensors[0].device
+        and tensor.shape[1:] == tensors[0].shape[1:]
+        and not tensor.requires_grad and tensor.is_contiguous()
+        and hasattr(tensor.untyped_storage(), "_comfy_tensor_file_slice")
+        and hasattr(tensor.untyped_storage(), "_comfy_tensor_mmap_refs")
+        for tensor in tensors
+    ):
+        parts = tuple(slice_tensor(tensor, (slice(None),) * tensor.ndim) for tensor in tensors)
+        return FileBackedConcat(parts)
+    return torch.cat(tensors, dim=dim)
+
+
+def slice_tensor(tensor, selection):
+    """Own a slice's storage, retaining bounded file backing when it is contiguous."""
+    selected = tensor[selection]
+    storage = tensor.untyped_storage()
+    info = getattr(storage, "_comfy_tensor_file_slice", None)
+    refs = getattr(storage, "_comfy_tensor_mmap_refs", None)
+    if info is None or refs is None or not selected.is_contiguous() or selected.numel() == 0:
+        return selected.clone()
+    offset = selected.storage_offset() * selected.element_size()
+    buffer = (ctypes.c_ubyte * selected.nbytes).from_address(selected.data_ptr())
+    result = torch.frombuffer(buffer, dtype=selected.dtype).view(selected.shape)
+    result_storage = result.untyped_storage()
+    result_storage._comfy_tensor_file_slice = info._replace(offset=info.offset + offset, size=selected.nbytes)
+    result_storage._comfy_tensor_mmap_refs = refs
+    result_storage._comfy_tensor_mmap_touched = False
+    return result
 
 
 def write_tensor_file_slice(tensor, source, stream=None):
@@ -37,6 +119,24 @@ def write_tensor_file_slice(tensor, source, stream=None):
 
 
 def read_tensor_file_slice_into(tensor, destination, stream=None, destination2=None):
+    if isinstance(tensor, FileBackedConcat):
+        if tensor._materialized is not None:
+            return False
+        if destination is None and destination2 is None:
+            return False
+        for target in (destination, destination2):
+            if target is not None and (target.shape != tensor.shape or target.dtype != tensor.dtype or not target.is_contiguous()):
+                return False
+        offset = 0
+        for part in tensor._parts:
+            count = part.shape[0]
+            target = None if destination is None else destination.narrow(0, offset, count)
+            target2 = None if destination2 is None else destination2.narrow(0, offset, count)
+            if not read_tensor_file_slice_into(part, target, stream, target2):
+                return False
+            offset += count
+        return True
+
     if isinstance(tensor, QuantizedTensor):
         if not read_tensor_file_slice_into(tensor._qdata,
                                            destination._qdata if destination is not None else None, stream=stream,

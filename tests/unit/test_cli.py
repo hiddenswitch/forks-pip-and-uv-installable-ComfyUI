@@ -496,3 +496,21 @@ def test_asset_flags_and_preview_directory_reach_configuration(tmp_path):
     assert configuration.enable_assets
     assert configuration.disable_assets
     assert configuration.previews_directory == preview_dir
+
+
+@pytest.mark.parametrize("command_args,option,value", [
+    (["serve"], "nccl-proto", "ll128"),
+    (["serve"], "distributed-executor-backend", "mp"),
+    (["serve"], "preview-method", "latent2rgb"),
+    (["serve"], "default-hashing-function", "sha512"),
+    (["serve"], "logging-level", "DETAIL"),
+    (["serve"], "aimdo-logging-level", "WARNING"),
+    (["snapshot-pip-registry", "unused.sqlite"], "pip-facade-snapshot-compression", "xz"),
+])
+def test_typed_cli_choices_preserve_values_and_reject_invalid_options(command_args, option, value):
+    command = typer.main.get_command(app).commands[command_args[0]]
+    with command.make_context(command_args[0], [*command_args[1:], f"--{option}", value]) as context:
+        assert context.params[option.replace("-", "_")] == value
+    result = runner.invoke(app, [*command_args, f"--{option}", "invalid-choice"])
+    assert result.exit_code == 2
+    assert "invalid-choice" in result.output

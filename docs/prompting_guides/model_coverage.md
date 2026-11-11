@@ -67,6 +67,7 @@ reference; this review does not claim to have read the restricted author cards.
 |---|---|
 | Mochi — `GenmoMochi` | [Official inference examples](https://github.com/genmoai/models) |
 | LTX — `LTXV`, `LTXAV` | [LTX-Video snapshot](ltx_video_readme.md), [current LTX-2 family prompting](ltx_2_readme.md) |
+| MiniMax image — `MiniMaxH3Image` | [H3 Image model card](https://huggingface.co/MiniMaxAI/MiniMax-H3-Image); use natural-language scene descriptions, or refer to edit inputs as Picture 1, Picture 2 |
 | MiniMax — `MiniMaxH3` | [H3 prompting and hosted/local distinctions](minimax_h3_video_generation.md) |
 | HunyuanVideo — `HunyuanVideo`, `HunyuanVideoI2V`, `HunyuanVideoSkyreelsI2V` | [Original video guide](https://github.com/Tencent-Hunyuan/HunyuanVideo), [I2V guide](https://github.com/Tencent-Hunyuan/HunyuanVideo-I2V), [SkyReels variant](https://github.com/SkyworkAI/SkyReels-V1) |
 | HunyuanVideo 1.5 — `HunyuanVideo15`, `HunyuanVideo15_SR_Distilled` | [1.5 prompt handbook](hunyuan_video_1_5_prompt_handbook.md); super-resolution reuses the source video's conditioning |

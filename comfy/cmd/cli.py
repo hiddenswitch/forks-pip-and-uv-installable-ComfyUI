@@ -20,12 +20,11 @@ import subprocess
 import sys
 import warnings
 from pathlib import Path
-from typing import Optional
+from typing import Any, Literal, Optional
 
 # must be set before any transitive import of requests (e.g. via typer/click)
 warnings.filterwarnings("ignore", message=".*doesn't match a supported version")
 
-import click
 import typer
 
 from ..cli_args_types import (
@@ -41,12 +40,12 @@ logger = logging.getLogger(__name__)
 class _ComfyGroup(typer.core.TyperGroup):
     """Custom group that renders compact help for ``-h`` and full help for ``--help``."""
 
-    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+    def parse_args(self, ctx: typer.Context, args: list[str]) -> list[str]:
         if self._maybe_render_workflow_help(ctx, args):
             ctx.exit()
         return super().parse_args(ctx, args)
 
-    def _maybe_render_workflow_help(self, ctx: click.Context, args: list[str]) -> bool:
+    def _maybe_render_workflow_help(self, ctx: typer.Context, args: list[str]) -> bool:
         if "--help" not in args and "-h" not in args:
             return False
 
@@ -72,34 +71,34 @@ class _ComfyGroup(typer.core.TyperGroup):
 
     def _workflow_help_command_context(
         self,
-        ctx: click.Context,
+        ctx: typer.Context,
         args: list[str],
-    ) -> tuple["_RunWorkflowCommand | None", click.Context | None, list[str] | None]:
+    ) -> tuple["_RunWorkflowCommand | None", typer.Context | None, list[str] | None]:
         command = self.get_command(ctx, "run-workflow")
         if args and args[0] == "run-workflow" and isinstance(command, _RunWorkflowCommand):
-            command_ctx = click.Context(command, info_name="run-workflow", parent=ctx)
+            command_ctx = typer.Context(command, info_name="run-workflow", parent=ctx)
             return command, command_ctx, args[1:]
 
         if len(args) >= 2 and args[0] == "workflows":
             workflows = self.get_command(ctx, "workflows")
-            if not isinstance(workflows, click.Group):
+            if not isinstance(workflows, typer.core.TyperGroup):
                 return None, None, None
             command = workflows.get_command(ctx, args[1])
             if not isinstance(command, _RunWorkflowCommand):
                 return None, None, None
-            workflows_ctx = click.Context(workflows, info_name="workflows", parent=ctx)
-            command_ctx = click.Context(command, info_name=args[1], parent=workflows_ctx)
+            workflows_ctx = typer.Context(workflows, info_name="workflows", parent=ctx)
+            command_ctx = typer.Context(command, info_name=args[1], parent=workflows_ctx)
             return command, command_ctx, args[2:]
 
         return None, None, None
 
-    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+    def format_help(self, ctx: typer.Context, formatter: Any) -> None:
         if _short_help_requested():
             self._format_short_help(ctx, formatter)
         else:
             super().format_help(ctx, formatter)
 
-    def _format_short_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+    def _format_short_help(self, ctx: typer.Context, formatter: Any) -> None:
         from .. import __version__
         formatter.write(f"comfyui {__version__}\n\n")
         formatter.write("usage: comfyui <command> [options]\n\n")
@@ -181,8 +180,8 @@ _DISTRIBUTED_OPTS: list[tuple] = [
     ("hunyuan_expert_parallel_only", bool, typer.Option(False, "--hunyuan-expert-parallel-only/--no-hunyuan-expert-parallel-only", help="Shard only HunyuanImage3 MoE experts across --tensor-parallel-size ranks; replicate attention and dense layers.")),
     ("ulysses_degree", Optional[int], typer.Option(None, "--ulysses-degree", envvar="COMFYUI_ULYSSES_DEGREE", help="xDiT Ulysses sequence-parallel degree. Defaults to one; one keeps the ordinary attention path.")),
     ("ring_degree", Optional[int], typer.Option(None, "--ring-degree", envvar="COMFYUI_RING_DEGREE", help="xDiT ring-attention degree. Defaults to one; one disables ring attention.")),
-    ("nccl_proto", str, typer.Option("auto", "--nccl-proto", click_type=click.Choice(("auto", "simple", "ll", "ll128")), help="Select the NCCL collective protocol. auto preserves NCCL topology tuning.")),
-    ("distributed_executor_backend", str, typer.Option("auto", "--distributed-executor-backend", envvar="COMFYUI_DISTRIBUTED_EXECUTOR_BACKEND", click_type=click.Choice(DISTRIBUTED_EXECUTOR_BACKENDS), help="Pipeline executor backend: auto, peer, mp, or external_launcher.")),
+    ("nccl_proto", Literal["auto", "simple", "ll", "ll128"], typer.Option("auto", "--nccl-proto", help="Select the NCCL collective protocol. auto preserves NCCL topology tuning.")),
+    ("distributed_executor_backend", Literal[DISTRIBUTED_EXECUTOR_BACKENDS], typer.Option("auto", "--distributed-executor-backend", envvar="COMFYUI_DISTRIBUTED_EXECUTOR_BACKEND", help="Pipeline executor backend: auto, peer, mp, or external_launcher.")),
 ]
 
 _VRAM_OPTS: list[tuple] = [
@@ -262,14 +261,14 @@ _CACHE_OPTS: list[tuple] = [
 ]
 
 _PREVIEW_OPTS: list[tuple] = [
-    ("preview_method", str, typer.Option("auto", "--preview-method", click_type=click.Choice(["none", "auto", "latent2rgb", "taesd"]), help="Method for generating previews.")),
+    ("preview_method", Literal["none", "auto", "latent2rgb", "taesd"], typer.Option("auto", "--preview-method", help="Method for generating previews.")),
     ("preview_size", int, typer.Option(512, "--preview-size", help="Sets the maximum preview size for sampler nodes.")),
 ]
 
 _PERF_OPTS: list[tuple] = [
     ("fast", Optional[list[str]], typer.Option(None, "--fast", help="Enable some untested and potentially quality deteriorating optimizations. Valid optimizations: fp16_accumulation, fp8_matrix_mult, cublas_ops, autotune, dynamic_vram.")),
     ("deterministic", bool, typer.Option(False, "--deterministic/--no-deterministic", help="Use deterministic algorithms where possible.")),
-    ("default_hashing_function", str, typer.Option("sha256", "--default-hashing-function", click_type=click.Choice(["md5", "sha1", "sha256", "sha512"]), help="Hash function for duplicate filename / contents comparison.")),
+    ("default_hashing_function", Literal["md5", "sha1", "sha256", "sha512"], typer.Option("sha256", "--default-hashing-function", help="Hash function for duplicate filename / contents comparison.")),
     ("force_channels_last", bool, typer.Option(False, "--force-channels-last/--no-force-channels-last", help="Force channels last format when inferencing the models.")),
     ("force_hf_local_dir_mode", bool, typer.Option(False, "--force-hf-local-dir-mode/--no-force-hf-local-dir-mode", help="Download HF repos with local_dir instead of cache_dir.")),
     ("mmap_torch_files", bool, typer.Option(False, "--mmap-torch-files/--no-mmap-torch-files", help="Use mmap when loading ckpt/pt files.")),
@@ -301,8 +300,8 @@ _TELEMETRY_OPTS: list[tuple] = [
 ]
 
 _LOGGING_OPTS: list[tuple] = [
-    ("logging_level", str, typer.Option("INFO", "--logging-level", click_type=click.Choice(["DEBUG", "DETAIL", "INFO", "WARNING", "ERROR", "CRITICAL"]), help="Specifies the logging level.")),
-    ("aimdo_logging_level", str, typer.Option("ERROR", "--aimdo-logging-level", click_type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]), help="Log level of comfy-aimdo's native library (DynamicVRAM), apart from --logging-level. Its VRAM usage dump logs every pinned page at WARNING.")),
+    ("logging_level", Literal["DEBUG", "DETAIL", "INFO", "WARNING", "ERROR", "CRITICAL"], typer.Option("INFO", "--logging-level", help="Specifies the logging level.")),
+    ("aimdo_logging_level", Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], typer.Option("ERROR", "--aimdo-logging-level", help="Log level of comfy-aimdo's native library (DynamicVRAM), apart from --logging-level. Its VRAM usage dump logs every pinned page at WARNING.")),
     ("debug_hang", bool, typer.Option(False, "--debug-hang/--no-debug-hang", help="Enable stack trace dumps on Ctrl-C for debugging hangs.")),
 ]
 
@@ -318,7 +317,7 @@ _PIP_FACADE_OPTS: list[tuple] = [
 
 _PIP_FACADE_SNAPSHOT_OPTS: list[tuple] = [
     ("pip_facade_snapshot_output", str, typer.Argument(..., help="Output snapshot fsspec URL, e.g. /data/registry.sqlite or s3://bucket/registry.sqlite. Use a .xz suffix or --pip-facade-snapshot-compression=xz for a compressed archive.")),
-    ("pip_facade_snapshot_compression", str, typer.Option("auto", "--pip-facade-snapshot-compression", click_type=click.Choice(["auto", "none", "xz"]), help="Snapshot compression mode. 'auto' uses the output suffix.")),
+    ("pip_facade_snapshot_compression", Literal["auto", "none", "xz"], typer.Option("auto", "--pip-facade-snapshot-compression", help="Snapshot compression mode. 'auto' uses the output suffix.")),
     ("pip_facade_snapshot_overwrite", bool, typer.Option(False, "--pip-facade-snapshot-overwrite/--no-pip-facade-snapshot-overwrite", help="Replace an existing snapshot at the output URL.")),
 ]
 
@@ -1235,7 +1234,7 @@ def _download_workflow_models(workflow_sources: list[str], dry_run: bool = False
 
 class _RunWorkflowCommand(typer.core.TyperCommand):
     @staticmethod
-    def _option_value_arity_by_name(ctx: click.Context | None) -> dict[str, int]:
+    def _option_value_arity_by_name(ctx: typer.Context | None) -> dict[str, int]:
         if ctx is None:
             return {}
         arity: dict[str, int] = {}
@@ -1251,7 +1250,7 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
         return arity
 
     @classmethod
-    def _known_option_names(cls, ctx: click.Context | None) -> set[str]:
+    def _known_option_names(cls, ctx: typer.Context | None) -> set[str]:
         return set(cls._option_value_arity_by_name(ctx))
 
     @classmethod
@@ -1263,7 +1262,7 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
         return out
 
     @classmethod
-    def _workflow_flag_for_param(cls, param, ctx: click.Context | None = None) -> str | None:
+    def _workflow_flag_for_param(cls, param, ctx: typer.Context | None = None) -> str | None:
         if not param.flag_name:
             return None
         flag = f"--{param.flag_name}"
@@ -1272,7 +1271,7 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
         return flag
 
     @classmethod
-    def _rewrite_workflow_param_args(cls, args: list[str], ctx: click.Context | None = None) -> list[str]:
+    def _rewrite_workflow_param_args(cls, args: list[str], ctx: typer.Context | None = None) -> list[str]:
         ref = cls._extract_workflow_ref(args, ctx=ctx)
         if not ref:
             return args
@@ -1306,7 +1305,7 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
             negative_boolean_param = by_negative_boolean_flag.get(option)
             if negative_boolean_param is not None:
                 if eq:
-                    raise click.UsageError(f"Option {option!r} does not take a value.")
+                    raise typer.BadParameter(f"Option {option!r} does not take a value.")
                 rewritten.extend(cls._set_args_for_workflow_param(negative_boolean_param, "false"))
                 i += 1
                 continue
@@ -1328,13 +1327,13 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
                 continue
 
             if i + 1 >= n:
-                raise click.UsageError(f"Option {arg!r} requires a value.")
+                raise typer.BadParameter(f"Option {arg!r} requires a value.")
             rewritten.extend(cls._set_args_for_workflow_param(param, args[i + 1]))
             i += 2
         return rewritten
 
     @classmethod
-    def _extract_workflow_ref(cls, args: list[str], ctx: click.Context | None = None) -> str | None:
+    def _extract_workflow_ref(cls, args: list[str], ctx: typer.Context | None = None) -> str | None:
         arity_by_name = cls._option_value_arity_by_name(ctx)
         i = 0
         n = len(args)
@@ -1369,7 +1368,7 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
         ]
 
     @classmethod
-    def _example_invocation(cls, ref: str, params, ctx: click.Context | None = None) -> str | None:
+    def _example_invocation(cls, ref: str, params, ctx: typer.Context | None = None) -> str | None:
         from ..entrypoints.workflow_params import TIER_HEADLINE
         command_path = ctx.command_path if ctx is not None else "comfyui run-workflow"
         target = next(
@@ -1577,7 +1576,7 @@ class _RunWorkflowCommand(typer.core.TyperCommand):
             typer.echo(after_params.lstrip("\n"))
 
     @staticmethod
-    def _get_help_text(ctx: click.Context) -> str:
+    def _get_help_text(ctx: typer.Context) -> str:
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
             help_text = ctx.command.get_help(ctx)
@@ -1832,7 +1831,7 @@ def list_models_cmd(
     base_directory: Optional[str] = typer.Option(None, "--base-directory", help="Base directory."),
     base_paths: Optional[list[str]] = typer.Option(None, "--base-paths", help="Additional base paths."),
     extra_model_paths_config: Optional[list[str]] = typer.Option(None, "--extra-model-paths-config", help="Extra model paths config."),
-    logging_level: str = typer.Option("INFO", "--logging-level", click_type=click.Choice(["DEBUG", "DETAIL", "INFO", "WARNING", "ERROR", "CRITICAL"]), help="Logging level."),
+    logging_level: Literal["DEBUG", "DETAIL", "INFO", "WARNING", "ERROR", "CRITICAL"] = typer.Option("INFO", "--logging-level", help="Logging level."),
 ):
     """List known downloadable models."""
     if check_exists:

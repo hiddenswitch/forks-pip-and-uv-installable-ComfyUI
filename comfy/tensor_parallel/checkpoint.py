@@ -11,19 +11,24 @@ from comfy_kitchen.backends.eager.svdquant import (
     _tile_packed_weight_to_row_major,
 )
 
-from .. import quant_ops
+from .. import memory_management, quant_ops
 
 
 def _section_rows(tensor, section_sizes, rank, size, axis=0):
     if sum(section_sizes) != tensor.shape[axis] or any(section % size for section in section_sizes):
         raise ValueError(f"Sections {section_sizes} of shape {tuple(tensor.shape)} cannot divide {size} ranks")
+    if len(section_sizes) == 1:
+        width = section_sizes[0] // size
+        selection = [slice(None)] * tensor.ndim
+        selection[axis] = slice(rank * width, (rank + 1) * width)
+        return memory_management.slice_tensor(tensor, tuple(selection))
     pieces = []
     offset = 0
     for section in section_sizes:
         width = section // size
         pieces.append(tensor.narrow(axis, offset + rank * width, width))
         offset += section
-    return torch.cat(pieces, dim=axis).clone()
+    return memory_management.concatenate_tensors(pieces, dim=axis)
 
 
 def shard_minimax_h3_state_dict(state_dict, rank, size, *, full_domain_rows=False):
@@ -101,7 +106,7 @@ _FLUX2_SINGLE_OUT = re.compile(r"(?:^|\.)single_blocks\.\d+\.linear2$")
 
 
 def _column_sections(model_family, module, rows, weights, formats):
-    if model_family == "minimax_h3":
+    if model_family in ("minimax_h3", "minimax_h3_image"):
         if module.endswith(".attn.qkv_proj"):
             return (rows // 3,) * 3
         if module.endswith(".mlp.fc1"):
@@ -127,7 +132,7 @@ def _column_sections(model_family, module, rows, weights, formats):
 
 
 def _is_row_parallel(model_family: str, module: str) -> bool:
-    if model_family == "minimax_h3":
+    if model_family in ("minimax_h3", "minimax_h3_image"):
         return module.endswith((".attn.out_proj", ".mlp.fc2"))
     if model_family == "krea2":
         return _KREA2_ROW.search(module) is not None

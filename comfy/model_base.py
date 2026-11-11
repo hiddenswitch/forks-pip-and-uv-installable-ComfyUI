@@ -17,6 +17,7 @@
 """
 
 from .ldm.wan import model_vsr
+from .ldm.minimax import sampling as minimax_sampling
 from enum import Enum
 from typing import Any
 from typing import Optional
@@ -1255,6 +1256,22 @@ class Flux(BaseModel):
             ref_latents_method = kwargs.get("reference_latents_method", None)
             if ref_latents_method is not None:
                 out['ref_latents_method'] = conds.CONDConstant(ref_latents_method)
+
+        # Multi-view (UltraTex): batch items as tiles of one image, and background token dropping.
+        view_grid = kwargs.get("view_grid", None)
+        if view_grid is not None:
+            out['view_grid'] = conds.CONDConstant(view_grid)
+        token_masks = kwargs.get("token_masks", None)
+        if token_masks is not None:
+            # the kept token indices depend on the conditioning alone: compute them once, not every step
+            device = kwargs["device"]
+            masks = {"target": token_masks["target"].to(device), "refs": [None if m is None else m.to(device) for m in token_masks["refs"]]}
+            background = self.process_latent_in(kwargs["background_latent"]).to(device=device, dtype=self.get_dtype_inference())
+            out['token_keep'] = conds.CONDConstant(self.diffusion_model.preprocess_token_masks(
+                masks, view_grid, kwargs["noise"].shape, [lat.shape for lat in ref_latents], background))
+        reference_views = kwargs.get("reference_views", None)
+        if reference_views is not None:
+            out['reference_views'] = conds.CONDConstant(reference_views)
         return out
 
     def extra_conds_shapes(self, **kwargs):
@@ -2416,8 +2433,8 @@ class Hunyuan3Dv2_1(BaseModel):
 
 
 class MiniMaxH3(BaseModel):
-    def __init__(self, model_config, model_type=ModelType.FLOW_AV, device=None):
-        super().__init__(model_config, model_type, device=device, unet_model=minimax_model.MiniMaxH3Model)
+    def __init__(self, model_config, model_type=ModelType.FLOW_AV, device=None, unet_model=minimax_model.MiniMaxH3Model):
+        super().__init__(model_config, model_type, device=device, unet_model=unet_model)
 
     def execute_diffusion_model(self, method, *args, **kwargs):
         if method != "forward" or self.pipeline_executor is None:
@@ -2476,9 +2493,9 @@ class MiniMaxH3(BaseModel):
             )
             out["c_crossattn"] = CONDRegular(cross_attn)
 
-        latent_shapes = kwargs.get("latent_shapes")
-        if latent_shapes is not None:
-            out["latent_shapes"] = CONDConstant(latent_shapes)
+        latent_shapes = kwargs.get("latent_shapes", None)
+        if latent_shapes is not None and len(latent_shapes) > 1:  # the image model samples one stream
+            out['latent_shapes'] = conds.CONDConstant(latent_shapes)
 
         payload = {}
         tags = kwargs.get("minimax_token_tags")
@@ -2639,6 +2656,21 @@ class MiniMaxH3(BaseModel):
         x_blend_weight = (token_grid_mask - denoise_mask) / (1.0 - denoise_mask).clamp(min=1e-6)
         x_blend_weight = torch.where(denoise_mask < 1.0, x_blend_weight.clamp(0.0, 1.0), torch.zeros_like(x_blend_weight))
         return injected + x_blend_weight.to(injected.dtype) * (x - injected)
+
+class MiniMaxH3Image(MiniMaxH3):
+    def __init__(self, model_config, model_type=ModelType.FLOW, device=None):
+        super().__init__(model_config, model_type, device=device, unet_model=minimax_model.MiniMaxH3ImageModel)
+        self.model_sampling = minimax_sampling.MiniMaxH3ImageModelSampling(model_config)
+
+    def extra_conds(self, **kwargs):
+        out = super().extra_conds(**kwargs)
+        if 'c_crossattn' in out:
+            # the image is one latent stream without audio
+            payload = out['minimax_payload'].cond
+            shape = kwargs["noise"].shape
+            payload["layout"] = minimax_model.PackedLayout(
+                out['c_crossattn'].cond.shape[1], shape[2], (shape[3] + 1) // 2 * 2, (shape[4] + 1) // 2 * 2, 0, refs=payload.get("refs"))
+        return out
 
 class TripoSplat(BaseModel):
     def __init__(self, model_config, model_type=ModelType.FLOW, device=None):

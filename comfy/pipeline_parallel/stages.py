@@ -167,6 +167,10 @@ class MiniMaxH3PipelineStageSpec(_ContiguousBlockStageSpec):
     exit_prefixes = ("final_layer.",)
 
 
+class MiniMaxH3ImagePipelineStageSpec(MiniMaxH3PipelineStageSpec):
+    model_family = "minimax_h3_image"
+
+
 class HunyuanImage3PipelineStageSpec(_ContiguousBlockStageSpec):
     """The HunyuanImage3 custom node's transformer, in its ComfyUI checkpoint layout.
 
@@ -240,6 +244,8 @@ class Flux2PipelineStageSpec(AbstractBasePipelineStageSpec):
 def get_pipeline_stage_spec(image_model: str) -> AbstractBasePipelineStageSpec:
     if image_model == "qwen_image":
         return QwenImagePipelineStageSpec()
+    if image_model == "minimax_h3_image":
+        return MiniMaxH3ImagePipelineStageSpec()
     if image_model == "minimax_h3":
         return MiniMaxH3PipelineStageSpec()
     if image_model == "flux2":

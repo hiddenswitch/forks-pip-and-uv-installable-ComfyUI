@@ -19,6 +19,7 @@ import socket
 import threading
 import time
 import traceback
+from functools import cache
 from importlib.metadata import distributions, version as pkg_version
 from importlib.resources import files
 from pathlib import Path
@@ -56,10 +57,12 @@ from playwright.sync_api import sync_playwright  # noqa: E402
 _CACHE_DIR = Path(str(files("tests.unit").joinpath("playwright_cache")))
 
 
+@cache
 def _frontend_version() -> str:
     return pkg_version("comfyui-frontend-package")
 
 
+@cache
 def _templates_version() -> str:
     template_dists: list[tuple[str, str]] = []
     for dist in distributions():
@@ -479,7 +482,8 @@ def _app_page(_static_server, _object_info_json, _real_nodes):
                         window.comfyAPI.app &&
                         window.comfyAPI.app.app &&
                         window.comfyAPI.app.app.graph &&
-                        Object.keys(window.LiteGraph?.registered_node_types || {}).length > 100
+                        Object.keys(window.LiteGraph?.registered_node_types || {}).length > 100 &&
+                        window.LiteGraph.registered_node_types.MarkdownNote
                     );
                 } catch(e) { return false; }
             }""",

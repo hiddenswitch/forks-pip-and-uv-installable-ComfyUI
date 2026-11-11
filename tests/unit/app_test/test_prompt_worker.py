@@ -61,7 +61,7 @@ class AssetManager:
             raise self.resume_error
 
 
-class Executor:
+class Executor(execution.PromptExecutor):
     def __init__(self, *args, **kwargs) -> None:
         self.history_result = {}
         self.success = True

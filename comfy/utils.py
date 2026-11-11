@@ -255,23 +255,13 @@ def load_safetensors(ckpt, include_keys=None, tensor_slices=None) -> tuple[dict[
                 warnings.filterwarnings("ignore", message="The given buffer is not writable")
                 tensor = torch.frombuffer(mv[start:end], dtype=dtype).view(info["shape"])
                 selection = None if tensor_slices is None else tensor_slices.get(name)
-                if selection is not None:
-                    selected = tensor[selection]
-                    if not selected.is_contiguous() or selected.numel() == 0:
-                        sd[name] = selected.clone()
-                        continue
-                    # Give the shard its own bounded storage and file range so
-                    # DynamicVRAM can stream it without an anonymous RAM copy.
-                    start += selected.storage_offset() * selected.element_size()
-                    end = start + selected.nbytes
-                    tensor = torch.frombuffer(mv[start:end], dtype=dtype).view(selected.shape).detach()
                 storage = tensor.untyped_storage()
                 setattr(storage,
                         "_comfy_tensor_file_slice",
                         memory_management.TensorFileSlice(f, file_lock, data_base_offset + start, end - start))
                 setattr(storage, "_comfy_tensor_mmap_refs", (model_mmap, mv))
                 setattr(storage, "_comfy_tensor_mmap_touched", False)
-                sd[name] = tensor
+                sd[name] = memory_management.slice_tensor(tensor, selection) if selection is not None else tensor
 
     return sd, header.get("__metadata__", {}),
 
@@ -371,6 +361,8 @@ def load_torch_file(ckpt: str, safe_load=False, device=None, return_metadata=Fal
 
 
 def save_torch_file(sd, ckpt, metadata=None):
+    sd = {key: value.materialize() if isinstance(value, memory_management.FileBackedConcat) else value
+          for key, value in sd.items()}
     if metadata is not None:
         safetensors.torch.save_file(sd, ckpt, metadata=metadata)
     else:

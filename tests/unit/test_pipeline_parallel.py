@@ -1211,7 +1211,6 @@ def test_a_ranks_receive_buffers_hold_one_shape_across_tensor_sets():
     # timestep), then the next prompt's text prefill and decode (no timestep). The denoising buffers,
     # the largest of all, must not stay allocated under the next prompt's prefill.
     from comfy.pipeline_parallel.runtime import LatestShapeBuffers
-    from comfy.pipeline_parallel.types import PipelineIntermediateSchema
 
     def allocate(descriptors):
         return {name: torch.empty(d.shape, dtype=d.dtype) for name, d in descriptors.items()}
@@ -1250,3 +1249,38 @@ def test_klein_geometry_uses_ordinary_loader_unless_pipeline_explicit(tmp_path, 
         else:
             with pytest.raises(ValueError, match='currently supports Flux2 Dev'):
                 loader.try_load_diffusion_model_pipeline(path, memory_coordinator=coordinator)
+
+
+@pytest.mark.parametrize("pdd_heads", [1, 3])
+def test_minimax_image_two_stage_forward_matches_unpartitioned(pdd_heads):
+    from comfy.ldm.minimax.model import MiniMaxH3ImageModel
+
+    kwargs = dict(hidden_size=12, num_layers=2, token_refiner_num_layers=1,
+                  num_attention_heads=2, attention_head_dim=6, ffn_hidden_size=16,
+                  latents_dim=2, text_dim=12, timestep_input_dim=8,
+                  time_embed_hidden_size=12, time_embed_dim=6, rope_inv_freq_len=1,
+                  pdd_steps=pdd_heads, pdd_sigmas=[1.0 - i / pdd_heads for i in range(pdd_heads + 1)],
+                  dtype=torch.float32, device="cpu", operations=comfy_ops.disable_weight_init)
+    torch.manual_seed(11)
+    full = MiniMaxH3ImageModel(**kwargs)
+    for value in (*full.parameters(), *full.buffers()):
+        torch.nn.init.uniform_(value, -0.05, 0.05)
+    first = MiniMaxH3ImageModel(**kwargs, pipeline_stage=PipelineStageConfig(0, 2, 0, 1))
+    second = MiniMaxH3ImageModel(**kwargs, pipeline_stage=PipelineStageConfig(1, 2, 1, 2))
+    first.load_state_dict(full.state_dict(), strict=False)
+    second.load_state_dict(full.state_dict(), strict=False)
+    for model in (full, first, second):
+        model.requires_grad_(False)
+    plans = tuple(PipelineStagePlan(i, torch.device("cpu"), i, i + 1, 1, frozenset()) for i in range(2))
+    executor = SingleProcessPipelineExecutor(
+        PipelinePartitionPlan("minimax_h3_image", plans), (first, second.forward_pipeline_stage),
+        FakePipelineTransport(FakeDeviceRuntime()))
+    x = torch.randn(1, 2, 1, 3, 5)
+    context = torch.randn(1, 3, 12)
+    timestep = torch.tensor([500.0])
+    options = {"sample_sigmas": torch.tensor([0.5, 0.25, 0.0])}
+    expected = full(x, timestep, context, transformer_options=dict(options))
+    actual = executor.execute(x, timestep, context, transformer_options=dict(options))
+    assert actual.shape == x.shape
+    assert torch.isfinite(actual).all()
+    torch.testing.assert_close(actual, expected)

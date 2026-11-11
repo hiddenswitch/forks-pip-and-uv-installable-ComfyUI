@@ -1982,15 +1982,15 @@ class Schema:
                 output.append(o.io_type)
                 output_is_list.append(o.is_output_list)
                 output_name.append(o.display_name if o.display_name else o.io_type)
-                output_tooltips.append(o.tooltip if o.tooltip else None)
+                output_tooltips.append(o.tooltip or "")
                 # special handling for MatchType
                 if isinstance(o, MatchType.Output):
                     output_matchtypes.append(o.template.template_id)
                     any_matchtypes = True
                 else:
-                    output_matchtypes.append(None)
+                    output_matchtypes.append("")
 
-        # clear out lists that are all None
+        # Omit match types when none of the outputs use one.
         if not any_matchtypes:
             output_matchtypes = None
 
@@ -2004,7 +2004,7 @@ class Schema:
             output_tooltips=output_tooltips,
             output_matchtypes=output_matchtypes,
             name=self.node_id,
-            display_name=self.display_name,
+            display_name=self.display_name or self.node_id,
             category=self.category,
             description=self.description,
             output_node=self.is_output_node,
@@ -2271,7 +2271,7 @@ class _ComfyNodeBaseInternal(_ComfyNodeInternal):
     def GET_NODE_INFO_V1(cls) -> dict[str, Any]:
         schema = cls.GET_SCHEMA()
         info = schema.get_v1_info(cls)
-        return asdict(info)
+        return prune_dict(asdict(info))
 
     _DESCRIPTION = None
     @final
@@ -2448,7 +2448,7 @@ class _ComfyNodeBaseInternal(_ComfyNodeInternal):
                     output.append(o.io_type)
                     output_name.append(o.display_name if o.display_name else o.io_type)
                     output_is_list.append(o.is_output_list)
-                    output_tooltips.append(o.tooltip if o.tooltip else None)
+                    output_tooltips.append(o.tooltip or "")
 
             cls._RETURN_TYPES = output
             cls._RETURN_NAMES = output_name

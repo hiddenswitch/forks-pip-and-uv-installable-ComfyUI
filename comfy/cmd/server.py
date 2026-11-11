@@ -92,7 +92,7 @@ from ..component_model.queue_types import ExecutionStatus
 from ..component_model.queue_types import ExtraData
 from ..component_model.queue_types import HistoryEntry
 from ..component_model.queue_types import QueueItem
-from ..component_model.queue_types import QueueTuple
+from ..component_model.queue_types import QueueTuple, public_queue_tuple
 from ..component_model.queue_types import TaskInvocation
 from ..component_model.workflow_convert import convert_ui_to_api
 from ..component_model.workflow_convert import is_ui_workflow
@@ -153,17 +153,7 @@ def workflow_metadata_from_prompt(extra_data: dict) -> Optional[dict]:
 
 
 def _remove_sensitive_from_queue(queue: list) -> list:
-    """Remove sensitive data (index 5) from queue item tuples."""
-    items = []
-    for item in queue:
-        if isinstance(item, tuple) or isinstance(item, list) and len(item) >= 5:
-            items.append(item[:5])
-        else:
-            items.append({
-                **item,
-                "sensitive": None,
-            })
-    return items
+    return [public_queue_tuple(item.queue_tuple if isinstance(item, QueueItem) else item) for item in queue]
 
 
 async def send_socket_catch_exception(function, message):
@@ -446,7 +436,7 @@ class PromptServer(ExecutorToClientProgress):
                 await self.send("status", {"status": self.get_queue_info(), "sid": sid}, sid)
                 # On reconnect if we are the currently executing client send the current node
                 if self.client_id == sid and self.last_node_id is not None:
-                    await self.send("executing", {"node": self.last_node_id}, sid)  # Flag to track if we've received the first message
+                    await self.send("executing", {"node": self.last_node_id, "prompt_id": self.last_prompt_id}, sid)  # Flag to track if we've received the first message
                 first_message = True
                 async for msg in ws:
                     if msg.type == aiohttp.WSMsgType.ERROR:
@@ -970,9 +960,9 @@ class PromptServer(ExecutorToClientProgress):
                     status=400
                 )
 
-            limit = None
+            limit = 200
 
-            # If limit is provided, validate that it is a positive integer, else continue without a limit
+            # If limit is provided, validate that it is a positive integer.
             if 'limit' in query:
                 try:
                     limit = int(query.get('limit'))
@@ -1489,7 +1479,8 @@ class PromptServer(ExecutorToClientProgress):
                         return self._schedule_background_task_with_web_response(completed, task_id)
                     task_invocation_or_dict: TaskInvocation | dict = completed.result()
                     if isinstance(task_invocation_or_dict, dict):
-                        result = TaskInvocation(item_id=item.prompt_id, outputs=task_invocation_or_dict, status=ExecutionStatus("success", True, []))
+                        history_status = self.prompt_queue.get_history(item.prompt_id)[item.prompt_id]['status']
+                        result = TaskInvocation(item_id=item.prompt_id, outputs=task_invocation_or_dict, status=ExecutionStatus(**history_status))
                     else:
                         result = task_invocation_or_dict
             except ExecutionError as exec_exc:
@@ -1537,7 +1528,7 @@ class PromptServer(ExecutorToClientProgress):
                         except ValueError:
                             continue
                         url_search_dict: FileOutput = dict(image_indv_)
-                        del url_search_dict["abs_path"]
+                        url_search_dict.pop("abs_path", None)
                         if "name" in url_search_dict:
                             del url_search_dict["name"]
                         if url_search_dict["subfolder"] == "":
@@ -1556,7 +1547,7 @@ class PromptServer(ExecutorToClientProgress):
                                         }))
                 # todo: provide more ways to accept these, or support multiple file returns easily
                 elif accept == "image/png" or accept == "image/jpeg":
-                    return web.FileResponse(main_image["abs_path"],
+                    return web.FileResponse(main_image.get("abs_path") or file_output_path(main_image["filename"], type=main_image.get("type", "output"), subfolder=main_image.get("subfolder")),
                                             headers=digest_headers_)
                 else:
                     return web.Response(status=500,

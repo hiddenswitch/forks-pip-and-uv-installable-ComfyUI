@@ -2144,6 +2144,7 @@ class ModelPatcherDynamic(ModelPatcher):
                 "fast_disk": self.fast_disk,
                 "writable": self.model.comfy_writable,
                 "hostbufs_initialized": False,
+                "hostbuf_size": 0,
                 "failed": False,
                 "active": False,
                 "current_prompt": False,
@@ -2296,6 +2297,7 @@ class ModelPatcherDynamic(ModelPatcher):
             pin_state = self.model.dynamic_pins[self.load_device]
             if not pin_state["hostbufs_initialized"] and comfy_aimdo.host_buffer.lib is not None:
                 hostbuf_size = model_management.pinned_hostbuf_size(self.model_size())
+                pin_state["hostbuf_size"] = hostbuf_size
                 pin_state["weights"] = (comfy_aimdo.host_buffer.HostBuffer(0, 64 * 1024 * 1024, hostbuf_size), [], [-1], [0], [0], {})
                 pin_state["patches"] = (comfy_aimdo.host_buffer.HostBuffer(0, 8 * 1024 * 1024, hostbuf_size), [], [-1], [0], [0], {})
                 pin_state["weights-loaded"] = (comfy_aimdo.host_buffer.HostBuffer(0, 64 * 1024 * 1024, hostbuf_size), [], [-1], [0], [0], {})
@@ -2621,7 +2623,7 @@ class ModelPatcherDynamic(ModelPatcher):
         pin_state["active"] = False
         self.partially_unload_ram(1e30, subsets=["patches", "patches-loaded", "patches-fast"])
         for subset in ("patches", "patches-loaded", "patches-fast"):
-            pin_state[subset] = (comfy_aimdo.host_buffer.HostBuffer(0, 8 * 1024 * 1024, model_management.pinned_hostbuf_size(self.model_size())), [], [-1], [0], [0], {})
+            pin_state[subset] = (comfy_aimdo.host_buffer.HostBuffer(0, 8 * 1024 * 1024, pin_state["hostbuf_size"]), [], [-1], [0], [0], {})
 
     def patch_model(self, device_to=None, lowvram_model_memory=0, load_weights=True, force_patch_weights=False):
         # This isn't used by the core at all and can only be to load a model out of

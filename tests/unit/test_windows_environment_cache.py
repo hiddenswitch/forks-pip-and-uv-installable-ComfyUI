@@ -1,4 +1,8 @@
 from pathlib import Path
+from functools import partial
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import shutil
+import threading
 import zipfile
 
 import pytest
@@ -69,9 +73,52 @@ def test_dependency_inputs_invalidate_cache_but_checkout_changes_do_not(tmp_path
     for name in cache.INPUTS:
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("original", encoding="utf-8")
+        path.write_bytes(b"original\n")
     original = cache.cache_key(tmp_path)
     (tmp_path / "README.md").write_text("new commit", encoding="utf-8")
+    workflow = tmp_path / '.github/workflows/test.yml'
+    workflow.parent.mkdir(parents=True, exist_ok=True)
+    workflow.write_text('unrelated CPU job change', encoding='utf-8')
+    (tmp_path / 'ci/windows_environment_cache.py').write_text('transport-only change', encoding='utf-8')
+    assert cache.cache_key(tmp_path) == original
+    (tmp_path / changed).write_bytes(b"original\r\n")
     assert cache.cache_key(tmp_path) == original
     (tmp_path / changed).write_text("updated dependencies", encoding="utf-8")
     assert cache.cache_key(tmp_path) != original
+
+
+def test_cache_compresses_installed_binaries_and_restores_bytes(tmp_path):
+    root = tmp_path / 'local'
+    root.mkdir()
+    contents = b'MZ' + bytes(1024 * 1024)
+    environment(root, contents)
+    archive = tmp_path / 'environment.zip'
+    cache.save(archive, root)
+    assert archive.stat().st_size < len(contents) // 10
+    destination = tmp_path / 'restored'
+    destination.mkdir()
+    assert cache.restore(archive, destination)
+    assert (destination / 'venv/Scripts/python.exe').read_bytes() == contents
+
+
+@pytest.mark.parametrize('http_available', [True, False])
+def test_http_restore_and_mounted_cache_fallback(tmp_path, http_available):
+    source, destination, published = (tmp_path / name for name in ('source', 'destination', 'http'))
+    for directory in (source, destination, published):
+        directory.mkdir()
+    environment(source)
+    archive = tmp_path / 'mounted/environment.zip'
+    cache.save(archive, source)
+    if http_available:
+        shutil.move(archive, published / archive.name)
+    server = HTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(published)))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        assert cache.restore(archive, destination, f'http://127.0.0.1:{server.server_port}')
+        assert (destination / 'venv/Scripts/python.exe').read_bytes() == b'prepared dependency'
+        assert (destination / '.comfy-environment-cache-hit').is_file()
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
