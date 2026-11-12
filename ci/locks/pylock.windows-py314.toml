@@ -314,32 +314,32 @@ wheels = [
 [[packages]]
 name = "comfyui-advanced-controlnet"
 version = "1.6.0"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-advanced-controlnet/1.6.0/comfyui_advanced_controlnet-1.6.0-py3-none-any.whl", hashes = { sha256 = "a4a2d500713d21638e01e4985bb404794fbd84bb3aba2a13ab961341a1b5d5f7" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-advanced-controlnet/1.6.0/comfyui_advanced_controlnet-1.6.0-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-animatediff-evolved"
 version = "1.5.7"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-animatediff-evolved/1.5.7/comfyui_animatediff_evolved-1.5.7-py3-none-any.whl", hashes = { sha256 = "dd7dca1bb088bf62e773233a8244eaf129872547f1b8975e7834dd96ac785ecd" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-animatediff-evolved/1.5.7/comfyui_animatediff_evolved-1.5.7-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-controlnet-aux"
 version = "1.1.5"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-controlnet-aux/1.1.5/comfyui_controlnet_aux-1.1.5-py3-none-any.whl", hashes = { sha256 = "baeb3fe6d90dc1b613d3d0bd25b461c94cbdb3fbfc38b29d95570092d79153a8" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-controlnet-aux/1.1.5/comfyui_controlnet_aux-1.1.5-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-crystools"
 version = "1.27.4"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-crystools/1.27.4/comfyui_crystools-1.27.4-py3-none-any.whl", hashes = { sha256 = "0ce32e7c557adb1e8ac624aa69895977d1baa766c0d5d5c174a1aff15f50c60c" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-crystools/1.27.4/comfyui_crystools-1.27.4-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-custom-scripts"
 version = "1.2.5"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-custom-scripts/1.2.5/comfyui_custom_scripts-1.2.5-py3-none-any.whl", hashes = { sha256 = "6402ac3378f8209f40e02cdc5b42464d272688aec3bf238830e402ef1a5eb050" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-custom-scripts/1.2.5/comfyui_custom_scripts-1.2.5-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-detail-daemon"
 version = "1.2.0"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-detail-daemon/1.2.0/comfyui_detail_daemon-1.2.0-py3-none-any.whl", hashes = { sha256 = "0466da4ea3d974fae91216e9c7abd9220d92180df67dfe8d41f29dcd7882655a" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-detail-daemon/1.2.0/comfyui_detail_daemon-1.2.0-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-embedded-docs"
@@ -350,17 +350,17 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/aa/73/565750a7eefe9ca
 [[packages]]
 name = "comfyui-essentials"
 version = "1.1.0"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-essentials/1.1.0/comfyui_essentials-1.1.0-py3-none-any.whl", hashes = { sha256 = "6d1b5dc1fde55f97d7ee06730319ee1ad6d3603a1e586365efe12bf2d5b2b863" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-essentials/1.1.0/comfyui_essentials-1.1.0-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-florence2"
 version = "1.1.0"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-florence2/1.1.0/comfyui_florence2-1.1.0-py3-none-any.whl", hashes = { sha256 = "e3acc8511a9f0230f454766bd97519cd43baea8ece36384ae7026ca5de4f44cc" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-florence2/1.1.0/comfyui_florence2-1.1.0-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-frame-interpolation"
 version = "1.0.11"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-frame-interpolation/1.0.11/comfyui_frame_interpolation-1.0.11-py3-none-any.whl", hashes = { sha256 = "ffd2a8ee52ee9defb3dfd3c3ec286e778f35e6db104fce0a3a3bd7cdd4ee9546" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-frame-interpolation/1.0.11/comfyui_frame_interpolation-1.0.11-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-frontend-package"
@@ -371,37 +371,37 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/b4/a4/601b1471318e8c7
 [[packages]]
 name = "comfyui-gguf"
 version = "1.1.10"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-gguf/1.1.10/comfyui_gguf-1.1.10-py3-none-any.whl", hashes = { sha256 = "21a8963032da3dcacdb69137fb6e6a59d7bc176a358de2c4436ea790b545f273" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-gguf/1.1.10/comfyui_gguf-1.1.10-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-hunyuanimage3"
 version = "0.1.0"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-hunyuanimage3/0.1.0/comfyui_hunyuanimage3-0.1.0-py3-none-any.whl", hashes = { sha256 = "63ca49771fb4ea27cc16f47bffdd34d791a52f32a4b440377d6ead5114ce04c1" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-hunyuanimage3/0.1.0/comfyui_hunyuanimage3-0.1.0-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-impact-pack"
 version = "8.28.3"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-impact-pack/8.28.3/comfyui_impact_pack-8.28.3-py3-none-any.whl", hashes = { sha256 = "1b18c7d5f63d4bcdf1322bee6bd56f49c4935109de5b0e83f1f6dc3c77c3b286" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-impact-pack/8.28.3/comfyui_impact_pack-8.28.3-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-impact-subpack"
 version = "1.3.5"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-impact-subpack/1.3.5/comfyui_impact_subpack-1.3.5-py3-none-any.whl", hashes = { sha256 = "9af97d14fe19c538ae1209b4c55780cd43b5bf1754f613a6969600bc860bd357" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-impact-subpack/1.3.5/comfyui_impact_subpack-1.3.5-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-inspire-pack"
 version = "1.23.0"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-inspire-pack/1.23.0/comfyui_inspire_pack-1.23.0-py3-none-any.whl", hashes = { sha256 = "5d8929265b4c66f1ddc3f12fcd219043904b05cac37ed6e12bd7f87307c3a4e7" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-inspire-pack/1.23.0/comfyui_inspire_pack-1.23.0-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-ipadapter-plus"
 version = "2.0.0"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-ipadapter-plus/2.0.0/comfyui_ipadapter_plus-2.0.0-py3-none-any.whl", hashes = { sha256 = "8d535316a35123fec42b53eca00dac115989e9cd3413496342656b5b5fbfba55" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-ipadapter-plus/2.0.0/comfyui_ipadapter_plus-2.0.0-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-kjnodes"
 version = "1.4.6"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-kjnodes/1.4.6/comfyui_kjnodes-1.4.6-py3-none-any.whl", hashes = { sha256 = "368a84367b5ea2a6fab5a1ff73c5eccb9f87ac1c0fd5d8d613db27c182170022" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-kjnodes/1.4.6/comfyui_kjnodes-1.4.6-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-manager"
@@ -412,17 +412,17 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/2c/21/ff7464c4ea1bc53
 [[packages]]
 name = "comfyui-ollama"
 version = "2.1.0"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-ollama/2.1.0/comfyui_ollama-2.1.0-py3-none-any.whl", hashes = { sha256 = "ebcdd0bc1a77b0fe0f50712a6a04a59662587472998c35a41f0d701190373d0b" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-ollama/2.1.0/comfyui_ollama-2.1.0-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-prompt-combinator"
 version = "1.0.1"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-prompt-combinator/1.0.1/comfyui_prompt_combinator-1.0.1-py3-none-any.whl", hashes = { sha256 = "da8bf59fe90f57846275695491f7f8390d010f428c01280a112047a40e1f24fe" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-prompt-combinator/1.0.1/comfyui_prompt_combinator-1.0.1-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-sam2"
 version = "1.0.3"
-wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-sam2/1.0.3/comfyui_sam2-1.0.3-py3-none-any.whl", hashes = { sha256 = "20dfcf8e88b87f6d627e403c4f9bf45ec182537a380032c0c079d99c9956d558" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/comfyui-sam2/1.0.3/comfyui_sam2-1.0.3-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "comfyui-videohelpersuite"
@@ -431,21 +431,21 @@ archive = { url = "https://github.com/AppMana/appmana-comfyui-nodes-video-helper
 
 [[packages]]
 name = "comfyui-workflow-templates"
-version = "0.11.105"
-sdist = { url = "https://files.pythonhosted.org/packages/27/28/d1dc5cd5135c7d3b326ba93101d3ec965face70229b4103e123c2e8f30f5/comfyui_workflow_templates-0.11.105.tar.gz", upload-time = 2026-11-10T15:02:29Z, size = 19357, hashes = { sha256 = "2f84c77b9a626b16d8144633b401db3e2f39ce523b3eb2bc5b1625307f173c67" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/54/4e/c0acdbdd708ca5bfa6f187c73fa1412c550cba724ececff8246a35385ef3/comfyui_workflow_templates-0.11.105-py3-none-any.whl", upload-time = 2026-11-10T15:02:28Z, size = 11038, hashes = { sha256 = "081545aaf2ecd74cee944deef86bc5fc0b5dc16dde69f5fb0c6f30574adb411a" } }]
+version = "0.11.106"
+sdist = { url = "https://files.pythonhosted.org/packages/99/67/3e365b9bdab8834eaaa2b06d130a6b8f48e3530c9e1404ed08cd5891ac88/comfyui_workflow_templates-0.11.106.tar.gz", upload-time = 2026-11-10T19:56:36Z, size = 19330, hashes = { sha256 = "967937f939cbfd13482b2014ca4e0f56ef351b17309165f521784e56e5260159" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/7d/36/d88f31398f1b4e586af2b87a94b1e99973e330080cf729b05c5f7518e3ab/comfyui_workflow_templates-0.11.106-py3-none-any.whl", upload-time = 2026-11-10T19:56:35Z, size = 11038, hashes = { sha256 = "cdf36cc4c252098fa678fd9379b8db3d785804c8f711798543cb4f16abf48750" } }]
 
 [[packages]]
 name = "comfyui-workflow-templates-core"
-version = "0.3.396"
-sdist = { url = "https://files.pythonhosted.org/packages/31/af/46c1cf569e078e56a041e2f3b2effc2b384c046ae86b63b0a50fa21a538a/comfyui_workflow_templates_core-0.3.396.tar.gz", upload-time = 2026-11-10T15:02:16Z, size = 102618, hashes = { sha256 = "d5493af0090b71a3932371911a0d9117c8beb4498d2e65d601e1a411a4d7690e" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/f8/70/7cb403e33d0a55a04eda749864c2dc8a61809663f5dda5c3a874af5a8954/comfyui_workflow_templates_core-0.3.396-py3-none-any.whl", upload-time = 2026-11-10T15:02:15Z, size = 89381, hashes = { sha256 = "31a4f263d8cf5bf1305f886b8d0ca1438848d171bda34849c63e11ed641639ca" } }]
+version = "0.3.397"
+sdist = { url = "https://files.pythonhosted.org/packages/76/26/44b24a9d3315532d07e3ca73044889dd2b0b635cab9668b83e90455f7a66/comfyui_workflow_templates_core-0.3.397.tar.gz", upload-time = 2026-11-10T19:56:09Z, size = 103165, hashes = { sha256 = "362dc5ba0be89b7e6c932d1b3d54c6d2bb3cacc45c1a94e0eb724d3b7de76eec" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/9c/bc/8b3ba5df317fa8584ed5c1ca5364e87b8b641ed7a5508a8cf82508df378c/comfyui_workflow_templates_core-0.3.397-py3-none-any.whl", upload-time = 2026-11-10T19:56:08Z, size = 89947, hashes = { sha256 = "63e14e115d979a9862fdd243f80be881763792ff4e51579e9d16f442c1d5a8bf" } }]
 
 [[packages]]
 name = "comfyui-workflow-templates-json"
-version = "0.1.131"
-sdist = { url = "https://files.pythonhosted.org/packages/6d/e3/2151139691fb92037a9449d97e537bc5045cb008f2a0a0dcb3cb4392f78a/comfyui_workflow_templates_json-0.1.131.tar.gz", upload-time = 2026-11-10T15:02:23Z, size = 3842198, hashes = { sha256 = "1a3c40b91a6acdaa4490ab70c15779333c0fea8781fbac6a2752db5187e2b9c0" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/5a/7b/eea1e5a7efbd956866fcaa34e7b5a059dc315b5001fc53dc0db74372c7c5/comfyui_workflow_templates_json-0.1.131-py3-none-any.whl", upload-time = 2026-11-10T15:02:21Z, size = 4444408, hashes = { sha256 = "74a5a619e69fa59f8864492626b765c6e4a9999496aa3795a090d79be4aad863" } }]
+version = "0.1.132"
+sdist = { url = "https://files.pythonhosted.org/packages/96/4a/50419eb73942f81799e3d0f3d457976988b7bc835cd30367313f059f26e1/comfyui_workflow_templates_json-0.1.132.tar.gz", upload-time = 2026-11-10T19:56:15Z, size = 3863137, hashes = { sha256 = "4307918f3b84ea89745c1990e9a1a7764f8035d494400f443c44095a11cb0f78" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/b9/d9/1d001d4a5ee5e745a1c118ad8dc83be6e3d74f459a96ca75ff3a45b2b724/comfyui_workflow_templates_json-0.1.132-py3-none-any.whl", upload-time = 2026-11-10T19:56:14Z, size = 4469968, hashes = { sha256 = "78f398b3dd03c2c03ea874b7021d69b64945244c48c9d148ae02318b9c1f8d0b" } }]
 
 [[packages]]
 name = "comfyui-workflow-templates-media-api"
@@ -461,9 +461,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/7c/4c/39858b7dd6036fa
 
 [[packages]]
 name = "comfyui-workflow-templates-media-assets-02"
-version = "0.1.30"
-sdist = { url = "https://files.pythonhosted.org/packages/5d/46/ad031e97ea6eca2c94b092526fa78fe2058c8cc522e3e869f69d180ddda0/comfyui_workflow_templates_media_assets_02-0.1.30.tar.gz", upload-time = 2026-11-10T14:26:08Z, size = 77842532, hashes = { sha256 = "bd924a9116f17ca4c350b8f908b89dbc78f334d5e439e100c02674e9482f0fa4" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/db/05/71be274827559eea9b233ca00c6fd0be836584df9ea30fd68abea7e3b0d9/comfyui_workflow_templates_media_assets_02-0.1.30-py3-none-any.whl", upload-time = 2026-11-10T14:26:04Z, size = 77850184, hashes = { sha256 = "a9f884ffb25bc805bc5d0bc2f96e033c7f651634e1eeb18857fe2caf37676dd8" } }]
+version = "0.1.31"
+sdist = { url = "https://files.pythonhosted.org/packages/3d/d9/f9c73809fedd357233f63966171373164392c1248379ef9b2675b40c26e0/comfyui_workflow_templates_media_assets_02-0.1.31.tar.gz", upload-time = 2026-11-10T19:56:28Z, size = 83169722, hashes = { sha256 = "ea809e137538ced83c8a4f66eeabde358b3bf77d344607aea0f1537ad49db1eb" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/d3/42/c26a673c07e425e9ce790765319f843656713e8bc0d9de26e909fa1055c3/comfyui_workflow_templates_media_assets_02-0.1.31-py3-none-any.whl", upload-time = 2026-11-10T19:56:24Z, size = 83177226, hashes = { sha256 = "1e8307681574828e7f044bdcf8293a0c57d9dc97087d44dc2c308459733ac072" } }]
 
 [[packages]]
 name = "comfyui-workflow-templates-media-image"
@@ -939,12 +939,12 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/41/45/1a4ed80516f0215
 [[packages]]
 name = "kandinsky6"
 version = "1.0.2"
-wheels = [{ url = "https://nodes.appmana.com/packages/kandinsky6/1.0.2/kandinsky6-1.0.2-py3-none-any.whl", hashes = { sha256 = "6f1a014cd9b3fd23cb331f552999d2a054d49a694734ea3fc70925bda7cd1b73" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/kandinsky6/1.0.2/kandinsky6-1.0.2-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "kandinsky6-sr"
 version = "0.1.2"
-wheels = [{ url = "https://nodes.appmana.com/packages/kandinsky6-sr/0.1.2/kandinsky6_sr-0.1.2-py3-none-any.whl", hashes = { sha256 = "118fea25bb022f2a0d20d3748260d64ea8a9423216969f9968bb539c79014989" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/kandinsky6-sr/0.1.2/kandinsky6_sr-0.1.2-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "kiwisolver"
@@ -1395,7 +1395,7 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/f1/e0/492879f69d94f91
 [[packages]]
 name = "pixeloe"
 version = "0.1.5"
-wheels = [{ url = "https://nodes.appmana.com/packages/pixeloe/0.1.5/pixeloe-0.1.5-py3-none-any.whl", hashes = { sha256 = "e8982791a804b73e7b323e9e8467820dc17b1ddacc5c2a8d91256e80cdde8bdb" } }]
+wheels = [{ url = "https://nodes.appmana.com/packages/pixeloe/0.1.5/pixeloe-0.1.5-py3-none-any.whl", hashes = {} }]
 
 [[packages]]
 name = "platformdirs"
@@ -1775,7 +1775,7 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/1b/6d/3fba214c1e5e0f6
 [[packages]]
 name = "sam2"
 version = "1.1.0"
-sdist = { url = "https://nodes.appmana.com/packages/pypi-rewrite/sam2-1.1.0.tar.gz", hashes = { sha256 = "bd75cd9394184c8597520d855a4694c568798bb66d0f468fd3dc905d0fe2c6e2" } }
+sdist = { url = "https://nodes.appmana.com/packages/pypi-rewrite/sam2-1.1.0.tar.gz", hashes = {} }
 
 [[packages]]
 name = "scikit-image"
