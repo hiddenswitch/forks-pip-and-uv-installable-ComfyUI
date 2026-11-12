@@ -117,7 +117,6 @@ fpte_group.add_argument("--bf16-text-enc", action="store_true", help="Store text
 
 parser.add_argument("--fp16-intermediates", action="store_true", help="Experimental: Use fp16 for intermediate tensors between nodes instead of fp32.")
 
-parser.add_argument("--directml", type=int, nargs="?", metavar="DIRECTML_DEVICE", const=-1, help="Use torch-directml.")
 parser.add_argument("--oneapi-device-selector", type=str, default=None, metavar="SELECTOR_STRING", help="Sets the oneAPI device(s).")
 parser.add_argument("--supports-fp8-compute", action="store_true", help="Act as if device supports fp8 compute.")
 parser.add_argument("--fp8-materialization", choices=("auto", "torch", "comfy_kitchen"), default="auto", help="Select how FP8 weights are materialized to bf16/fp16/fp32. auto leaves room for benchmark-selected lowerings; torch uses the graph-visible torch op; comfy_kitchen uses comfy_kitchen's registered backend.")

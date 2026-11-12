@@ -226,7 +226,7 @@ class Comfy:
         -   **Pros**: Complete isolation. Configuration changes (like `lowvram`) do not affect the main process.
         -   **Cons**: Higher overhead (process startup).
         -   **Use Case**: Required when `configuration` overrides arguments that affect global model management state.
-            These arguments include: `lowvram`, `highvram`, `cpu`, `gpu_only`, `deterministic`, `directml`,
+            These arguments include: `lowvram`, `highvram`, `cpu`, `gpu_only`, `deterministic`,
             various `fp8`/`fp16`/`bf16` settings, and attention optimizations (e.g., `use_flash_attention`).
 
     The client automatically selects `ProcessPoolExecutor` if you provide a `configuration` that modifies any of these

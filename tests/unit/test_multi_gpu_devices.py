@@ -8,7 +8,6 @@ from comfy.cli_args_types import Configuration
 
 def _use_gpu_state(monkeypatch):
     monkeypatch.setattr(model_management, "cpu_state", model_management.CPUState.GPU)
-    monkeypatch.setattr(model_management, "directml_device", None)
     monkeypatch.setattr(model_management, "is_ascend_npu", lambda: False)
     monkeypatch.setattr(model_management, "is_mlu", lambda: False)
 
