@@ -179,7 +179,7 @@ def load():
         turbo = importlib.import_module("inference.model.turbo_vaed")
         sampler = importlib.import_module("inference.pipeline.sampler")
     preview._mh_moe_fwd = _mh_moe_fwd
-    torch.ops.magi2.flex_flash_attn_func = refiner._custom_flex_flash_attn_func
+    torch.ops.magi2.flex_flash_attn_func = lambda q, k, v, q_ranges, k_ranges, *args: refiner._custom_flex_flash_attn_func(q, k, v, q_ranges, k_ranges)
     return types.SimpleNamespace(preview=preview, refiner=refiner, preview_proxy=preview_proxy, refiner_proxy=refiner_proxy,
                                  config=config, turbo=turbo, sampler=sampler, eager=_eager)
 

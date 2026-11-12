@@ -465,7 +465,8 @@ class PreAdapter(nn.Module):
             if tokens.shape[1]:
                 out[:, start:start + tokens.shape[1]] = embedder(tokens.float())
             start += tokens.shape[1]
-        out[..., :time_embedding.shape[-1]] = time_embedding
+        if time_embedding is not None:
+            out[..., :time_embedding.shape[-1]] = time_embedding
         return out
 
 
@@ -491,7 +492,7 @@ class Magi2Model(nn.Module):
     """MAGI-2 Preview DiT: [video, audio] velocity for packed video, audio and text tokens."""
 
     def __init__(self, num_layers=40, hidden_size=3072, head_dim=128, num_query_groups=24, video_in_channels=48,
-                 audio_in_channels=64, text_in_channels=5120, intermediate_factor=4.0, multimodal_layers=(0, 1, 38, 39),
+                 audio_in_channels=64, text_in_channels=5120, intermediate_size=8192, multimodal_layers=(0, 1, 38, 39),
                  moe_layers=tuple(range(2, 38)), num_streams=4, moe_heads=12, num_experts=256, top_k=6,
                  expert_intermediate_size=1280, shared_expert_intermediate_size=1280,
                  modality_shared_expert_intermediate_size=1280, route_scale=4.9, sinkhorn_iterations=20,
@@ -506,7 +507,6 @@ class Magi2Model(nn.Module):
         self.audio_in_channels = audio_in_channels
         self.pipeline_stage = pipeline_stage
         width = num_streams * hidden_size
-        intermediate_size = int(hidden_size * intermediate_factor * 2 / 3) // 128 * 128
         is_first = pipeline_stage is None or pipeline_stage.is_first
         is_last = pipeline_stage is None or pipeline_stage.is_last
         self.pre_adapter = PreAdapter(width, head_dim, video_in_channels, audio_in_channels, text_in_channels, device=device) if is_first else PipelineMissingLayer()

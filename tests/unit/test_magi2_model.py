@@ -20,7 +20,7 @@ pytestmark = pytest.mark.skipif(magi2_reference.REFERENCE_SRC is None or not tor
                                 reason="needs MAGI2_REFERENCE_SRC and CUDA")
 
 PREVIEW = dict(num_layers=4, hidden_size=128, head_dim=32, num_query_groups=4, video_in_channels=8, audio_in_channels=6,
-               text_in_channels=24, multimodal_layers=(0, 3), moe_layers=(1, 2), moe_heads=2, num_experts=4,
+               text_in_channels=24, intermediate_size=256, multimodal_layers=(0, 3), moe_layers=(1, 2), moe_heads=2, num_experts=4,
                expert_intermediate_size=32, shared_expert_intermediate_size=32, modality_shared_expert_intermediate_size=32)
 TOLERANCE = 2e-2
 
