@@ -85,10 +85,11 @@ def modality_linear(module, x, groups):
     """Apply one linear, or one linear per modality group of the token axis."""
     if not isinstance(module, nn.ModuleList):
         return module(x)
-    parts = []
-    for linear, part in zip(module, x.split(groups, dim=1)):
-        parts.append(linear(part) if part.shape[1] else part.new_empty(part.shape[:-1] + (linear.out_features,)))
-    return torch.cat(parts, dim=1)
+    parts = x.split(groups, dim=1)
+    outputs = [linear(part) if part.shape[1] else None for linear, part in zip(module, parts)]
+    # a parallel linear's output width is not its local out_features, so empty groups take a computed group's width
+    width = next(output.shape[-1] for output in outputs if output is not None)
+    return torch.cat([part.new_empty(part.shape[:-1] + (width,)) if output is None else output for output, part in zip(outputs, parts)], dim=1)
 
 
 def make_modality_linear(num_modality, factory):
@@ -568,7 +569,7 @@ class Magi2Model(nn.Module):
         if self.pipeline_stage is not None and not self.pipeline_stage.is_last:
             tensors = {"hidden_states": hidden, "freqs": freqs}
             metadata = {
-                "layout": pack_pipeline_value(layout, tensors, "layout"),
+                "layout": pack_pipeline_value((layout.video_shape, layout.ref_shapes, layout.audio_len, layout.text_len), tensors, "layout"),
                 "output_dtypes": pack_pipeline_value((video.dtype, audio.dtype), tensors, "output_dtypes"),
                 "nested": isinstance(x, (list, tuple)),
                 "transformer_options": pack_pipeline_value(prepare_model_parallel_value(transformer_options), tensors, "transformer_options"),
@@ -608,7 +609,7 @@ class Magi2Model(nn.Module):
         if self.pipeline_stage is None or self.pipeline_stage.is_first:
             raise RuntimeError("MAGI-2 pipeline continuation requires a non-first stage")
         tensors, metadata = intermediate.tensors, intermediate.metadata
-        layout = unpack_pipeline_value(metadata["layout"], tensors)
+        layout = Magi2Layout(*unpack_pipeline_value(metadata["layout"], tensors))
         transformer_options = unpack_pipeline_value(metadata["transformer_options"], tensors)
         hidden = self._run_layers(tensors["hidden_states"], tensors["freqs"], layout.groups, transformer_options,
                                   self.pipeline_stage.start_layer, self.pipeline_stage.end_layer)

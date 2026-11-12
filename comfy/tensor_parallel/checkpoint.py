@@ -105,6 +105,15 @@ _FLUX2_SINGLE_IN = re.compile(r"(?:^|\.)single_blocks\.\d+\.linear1$")
 _FLUX2_SINGLE_OUT = re.compile(r"(?:^|\.)single_blocks\.\d+\.linear2$")
 
 
+_MAGI2_LAYER = r"(?:^|\.)block\.layers\.\d+\."
+_MAGI2_QKV = re.compile(_MAGI2_LAYER + r"attention\.linear_qkv(?:\.\d+)?$")
+_MAGI2_COLUMN = re.compile(_MAGI2_LAYER + r"(?:attention\.linear_g(?:\.\d+)?|mlp\.up_gate_proj(?:\.\d+)?|mlp\.split_linear|mlp\.shared_expert_fc1"
+                           r"|mlp\.modality_specific_shared_expert_fc1\.\d+|mlp\.moe_mlp\.(?:router|gate_proj|up_proj|down_proj))$")
+_MAGI2_ROW = re.compile(_MAGI2_LAYER + r"(?:attention\.linear_proj(?:\.\d+)?|mlp\.down_proj(?:\.\d+)?|mlp\.merge_linear|mlp\.shared_expert_fc2"
+                        r"|mlp\.modality_specific_shared_expert_fc2\.\d+)$")
+_MAGI2_SINKS = re.compile(_MAGI2_LAYER + r"attention\.sinks$")
+
+
 def _column_sections(model_family, module, rows, weights, formats):
     if model_family in ("minimax_h3", "minimax_h3_image"):
         if module.endswith(".attn.qkv_proj"):
@@ -113,6 +122,15 @@ def _column_sections(model_family, module, rows, weights, formats):
             return (rows // 2,) * 2
     if model_family == "krea2" and _KREA2_COLUMN.search(module):
         return (rows,)
+    if model_family in ("magi2", "magi2_refiner"):
+        if _MAGI2_QKV.search(module):
+            # [q | k | v]: q spans the hidden width, which is the output width of the matching projection
+            projection = module.replace("linear_qkv", "linear_proj")
+            q = output_rows(weights[projection], formats[projection])
+            return (q, (rows - q) // 2, (rows - q) // 2)
+        if _MAGI2_COLUMN.search(module):
+            # expert banks and the router split by whole MoE heads, which are contiguous rows
+            return (rows,)
     if model_family == "ideogram4":
         if _IDEOGRAM4_QKV.search(module):
             return (rows // 3,) * 3
@@ -136,6 +154,8 @@ def _is_row_parallel(model_family: str, module: str) -> bool:
         return module.endswith((".attn.out_proj", ".mlp.fc2"))
     if model_family == "krea2":
         return _KREA2_ROW.search(module) is not None
+    if model_family in ("magi2", "magi2_refiner"):
+        return _MAGI2_ROW.search(module) is not None
     if model_family == "ideogram4":
         return _IDEOGRAM4_ROW.search(module) is not None
     if model_family == "flux2":
@@ -162,6 +182,9 @@ def shard_tensor_parallel_state_dict(
     sharded = {}
     for key, tensor in state_dict.items():
         module, _, parameter = key.rpartition(".")
+        if model_family in ("magi2", "magi2_refiner") and _MAGI2_SINKS.search(key):
+            sharded[key] = _section_rows(tensor, (tensor.shape[1],), rank, size, axis=1)
+            continue
         weight = weights.get(module)
         if weight is None:
             sharded[key] = tensor

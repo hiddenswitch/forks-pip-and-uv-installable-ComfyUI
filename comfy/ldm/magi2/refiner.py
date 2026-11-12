@@ -221,7 +221,7 @@ class Magi2RefinerModel(nn.Module):
         if self.pipeline_stage is not None and not self.pipeline_stage.is_last:
             tensors = {"hidden_states": hidden, "freqs": freqs}
             metadata = {
-                "layout": pack_pipeline_value(layout, tensors, "layout"),
+                "layout": pack_pipeline_value((layout.video_shape, layout.ref_shapes, layout.audio_len, layout.text_len), tensors, "layout"),
                 "output_dtypes": pack_pipeline_value((video.dtype, audio.dtype), tensors, "output_dtypes"),
                 "nested": isinstance(x, (list, tuple)),
                 "transformer_options": pack_pipeline_value(prepare_model_parallel_value(transformer_options), tensors, "transformer_options"),
@@ -260,7 +260,7 @@ class Magi2RefinerModel(nn.Module):
         if self.pipeline_stage is None or self.pipeline_stage.is_first:
             raise RuntimeError("MAGI-2 refiner pipeline continuation requires a non-first stage")
         tensors, metadata = intermediate.tensors, intermediate.metadata
-        layout = unpack_pipeline_value(metadata["layout"], tensors)
+        layout = Magi2Layout(*unpack_pipeline_value(metadata["layout"], tensors))
         transformer_options = unpack_pipeline_value(metadata["transformer_options"], tensors)
         hidden = self._run_layers(tensors["hidden_states"], tensors["freqs"], layout, transformer_options,
                                   self.pipeline_stage.start_layer, self.pipeline_stage.end_layer)
