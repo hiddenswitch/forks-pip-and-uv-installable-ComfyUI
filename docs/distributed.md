@@ -61,9 +61,11 @@ before output-channel shards; checkpoint layout helpers handle packed projection
 scalar/channel/blocked scales, and tiled SVDQuant weights. Hunyuan's streaming
 loader preserves per-expert quantization data.
 
-PP uses DynamicVRAM-aware block partitioning. Hunyuan PP supports diffusion with
-supplied captions; autoregressive prompt rewriting and Spectrum acceleration are
-not supported by its pipeline stages. TP supports the separate autoregressive path.
+PP uses DynamicVRAM-aware block partitioning. Hunyuan PP supports diffusion and
+autoregressive prompt rewriting: each text step flows stage to stage and every
+stage keeps the K/V cache for its own layers through the decode. Spectrum
+acceleration is not supported by its pipeline stages. TP also supports the
+autoregressive path.
 Family support does not imply every checkpoint, custom patch, or quantizer works.
 
 ## Examples
