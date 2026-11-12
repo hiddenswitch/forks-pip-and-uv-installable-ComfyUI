@@ -96,6 +96,7 @@ from .text_encoders import ming_image
 from .text_encoders import minimax
 from .text_encoders import minimax_music
 from .text_encoders import moss_image
+from .text_encoders import magi2 as magi2_text
 from .text_encoders import fibo2
 from .text_encoders import newbie
 from .text_encoders import omnigen2
@@ -1777,6 +1778,7 @@ class CLIPType(Enum):
     FLUX3 = 37
     MOSS_IMAGE = 38
     FIBO2 = 39
+    MAGI2 = 40
 
 
 @dataclasses.dataclass
@@ -2165,6 +2167,9 @@ def load_text_encoder_state_dicts(state_dicts=[], embedding_directory=None, clip
             if clip_type == CLIPType.MOSS_IMAGE and te_model == TEModel.QWEN35_9B:  # MOSS-Image: stock Qwen3.5-9B, last hidden state, open think block.
                 clip_target.clip = moss_image.te(**llama_detect(clip_data))
                 clip_target.tokenizer = moss_image.MOSSImageTokenizer
+            elif clip_type == CLIPType.MAGI2 and te_model == TEModel.QWEN35_27B:  # MAGI-2: raw prompt, hidden state three layers from the top.
+                clip_target.clip = magi2_text.te(**llama_detect(clip_data))
+                clip_target.tokenizer = magi2_text.Magi2Tokenizer
             else:
                 qwen35_type = {TEModel.QWEN35_08B: "qwen35_08b", TEModel.QWEN35_2B: "qwen35_2b", TEModel.QWEN35_4B: "qwen35_4b", TEModel.QWEN35_9B: "qwen35_9b", TEModel.QWEN35_27B: "qwen35_27b"}[te_model]
                 clip_target.clip = qwen_35.te(**llama_detect(clip_data), model_type=qwen35_type, mtp="mtp.fc.weight" in clip_data[0])

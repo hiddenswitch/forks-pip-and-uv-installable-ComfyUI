@@ -18,6 +18,9 @@
 
 from .ldm.wan import model_vsr
 from .ldm.minimax import sampling as minimax_sampling
+from .ldm.magi2 import model as magi2_model
+from .ldm.magi2 import refiner as magi2_refiner
+from .ldm.magi2 import sampling as magi2_sampling
 from enum import Enum
 from typing import Any
 from typing import Optional
@@ -2671,6 +2674,54 @@ class MiniMaxH3Image(MiniMaxH3):
             payload["layout"] = minimax_model.PackedLayout(
                 out['c_crossattn'].cond.shape[1], shape[2], (shape[3] + 1) // 2 * 2, (shape[4] + 1) // 2 * 2, 0, refs=payload.get("refs"))
         return out
+
+class Magi2(BaseModel):
+    """MAGI-2 Preview: a packed [video, audio] latent; the Wan 2.2 latent scale applies to the video stream only."""
+
+    def __init__(self, model_config, model_type=ModelType.FLOW, device=None, unet_model=magi2_model.Magi2Model):
+        super().__init__(model_config, model_type, device=device, unet_model=unet_model)
+        self.model_sampling = magi2_sampling.Magi2ModelSampling(model_config)
+
+    def get_dtype_inference(self):
+        # the reference feeds fp32 latents, text features and coordinates to its fp32 adapters
+        return torch.float32
+
+    def _video_stream(self, latent, process):
+        if latent.is_nested:
+            streams = list(latent.unbind())
+            return nested_tensor.NestedTensor([process(streams[0])] + streams[1:])
+        if self.latent_shapes is None or len(self.latent_shapes) < 2:
+            return process(latent)
+        streams = utils.unpack_latents(latent, self.latent_shapes)
+        streams[0] = process(streams[0])
+        return utils.pack_latents(streams)[0]
+
+    def process_latent_in(self, latent):
+        return self._video_stream(latent, self.latent_format.process_in)
+
+    def process_latent_out(self, latent):
+        return self._video_stream(latent, self.latent_format.process_out)
+
+    def extra_conds(self, **kwargs):
+        out = super().extra_conds(**kwargs)
+        cross_attn = kwargs.get("cross_attn")
+        if cross_attn is not None:
+            out["c_crossattn"] = CONDRegular(cross_attn)
+        latent_shapes = kwargs.get("latent_shapes")
+        if latent_shapes is not None and len(latent_shapes) > 1:
+            out["latent_shapes"] = CONDConstant(latent_shapes)
+        references = kwargs.get("magi2_reference_images")
+        if references:
+            out["magi2_refs"] = CONDConstant([{"latent": self.latent_format.process_in(reference["latent"]), "token": reference["token"]}
+                                              for reference in references])
+        return out
+
+
+class Magi2Refiner(Magi2):
+    def __init__(self, model_config, model_type=ModelType.FLOW, device=None):
+        super().__init__(model_config, model_type, device=device, unet_model=magi2_refiner.Magi2RefinerModel)
+        self.model_sampling = magi2_sampling.Magi2RefinerModelSampling(model_config)
+
 
 class TripoSplat(BaseModel):
     def __init__(self, model_config, model_type=ModelType.FLOW, device=None):
