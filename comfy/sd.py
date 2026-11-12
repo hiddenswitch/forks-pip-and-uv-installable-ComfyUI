@@ -56,6 +56,7 @@ from .ldm.trellis2 import vae as trellis2_vae
 from .ldm.triposplat.vae import OctreeGaussianDecoder
 from .ldm.wan import vae as wan_vae
 from .ldm.wan import vae2_2 as wan_vae2_2
+from .ldm.magi2 import turbo_vae as magi2_turbo_vae
 from .lora import load_lora
 from .lora import model_lora_keys_clip
 from .lora import model_lora_keys_unet
@@ -814,6 +815,16 @@ class VAE:
                 self.downscale_ratio = (lambda a: max(0, math.floor((a + 7) / 8)), 32, 32)
                 self.downscale_index_formula = (8, 32, 32)
                 self.working_dtypes = [torch.bfloat16, torch.float32]
+            elif "decoder.conv_in.conv.weight" in sd and "decoder.up_blocks.0.resnets.0.conv1.conv.weight" in sd and "decoder.conv_out.conv.weight" in sd and any(key.endswith(".upsamplers.0.resample.1.weight") for key in sd):  # MAGI-2 turbo decoder (distilled Wan 2.2)
+                self.upscale_ratio = (lambda a: max(0, a * 4 - 3), 16, 16)
+                self.upscale_index_formula = (4, 16, 16)
+                self.downscale_ratio = (lambda a: max(0, math.floor((a + 3) / 4)), 16, 16)
+                self.downscale_index_formula = (4, 16, 16)
+                self.latent_dim = 3
+                self.latent_channels = sd["decoder.conv_in.conv.weight"].shape[1]
+                self.first_stage_model = magi2_turbo_vae.TurboVAEDecoder(**magi2_turbo_vae.decoder_config(sd))
+                self.working_dtypes = [torch.bfloat16, torch.float16, torch.float32]
+                self.memory_used_decode = lambda shape, dtype: 3000 * min(shape[2], 8) * shape[3] * shape[4] * (16 * 16) * model_management.dtype_size(dtype)
             elif "decoder.conv_in.conv.weight" in sd and sd['decoder.conv_in.conv.weight'].shape[1] == 32:
                 ddconfig = {"block_out_channels": [128, 256, 512, 1024, 1024], "in_channels": 3, "out_channels": 3, "num_res_blocks": 2, "ffactor_spatial": 16, "ffactor_temporal": 4, "downsample_match_channel": True, "upsample_match_channel": True}
                 ddconfig['z_channels'] = sd["decoder.conv_in.conv.weight"].shape[1]
