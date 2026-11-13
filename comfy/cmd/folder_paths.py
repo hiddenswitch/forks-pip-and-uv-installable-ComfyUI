@@ -520,7 +520,9 @@ def recursive_search(directory, excluded_dir_names=None) -> tuple[list[str], dic
 
 
 def filter_files_extensions(files: collections.abc.Collection[str], extensions: collections.abc.Collection[str]):
-    return sorted(list(filter(lambda a: os.path.splitext(a)[-1].lower() in extensions or len(extensions) == 0, files)))
+    # compound extensions such as ".index.json" (a sharded safetensors checkpoint) match the end of the name
+    compound = tuple(extension for extension in extensions if extension.count(".") > 1)
+    return sorted(list(filter(lambda a: os.path.splitext(a)[-1].lower() in extensions or a.lower().endswith(compound) or len(extensions) == 0, files)))
 
 
 def get_full_path(folder_name, filename) -> Optional[str | bytes | os.PathLike]:
