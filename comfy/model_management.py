@@ -1009,12 +1009,18 @@ class LoadedModel:
         return False
 
     def model_unload(self, memory_to_free=None, unpatch_weights=True):
-        if memory_to_free is not None:
+        shared_pool = not getattr(self.model, "is_dynamic", lambda: False)() and offload_shares_device_memory(self.device)
+        if memory_to_free is not None and not shared_pool:
             if memory_to_free < self.model.loaded_size():
                 freed = self.model.partially_unload(self.model.offload_device, memory_to_free)
                 if freed >= memory_to_free:
                     return False
         self.model.detach(unpatch_weights)
+        if shared_pool and unpatch_weights and isinstance(getattr(self.model, "model", None), torch.nn.Module):
+            # Moving weights to the CPU frees nothing here; release them to the checkpoint
+            # mapping they were loaded from instead.
+            released = memory_management.release_file_backed_weights(self.model.model)
+            detail("Released file-backed weights: model=%s mb=%.1f", self.model.model.__class__.__name__, released / (1024 ** 2))
         self.model_finalizer.detach()
         self.model_finalizer = None
         self.real_model = None

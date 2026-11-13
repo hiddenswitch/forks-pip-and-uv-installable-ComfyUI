@@ -266,6 +266,57 @@ def load_safetensors(ckpt, include_keys=None, tensor_slices=None) -> tuple[dict[
     return sd, header.get("__metadata__", {}),
 
 
+def load_safetensors_file_backed(ckpt, include_keys=None) -> tuple[dict[str, torch.Tensor], FileMetadata]:
+    """Tensors that are copy-on-write views of a private mapping of ``ckpt``.
+
+    Their pages are clean page cache the kernel can drop and fault back in from the file, a
+    write gives the writer a private copy, and nothing is read until a tensor is used.
+    """
+    import mmap
+
+    with open(ckpt, "rb") as f:
+        file_size = os.fstat(f.fileno()).st_size
+        if file_size < 8:
+            raise _incomplete_safetensors_error("The safetensors header is incomplete.", ckpt)
+        header_size = struct.unpack("<Q", f.read(8))[0]
+        if header_size > _SAFETENSORS_MAX_HEADER_SIZE:
+            raise _invalid_safetensors_error("The safetensors header is too large.", ckpt)
+        data_base_offset = 8 + header_size
+        if data_base_offset > file_size:
+            raise _incomplete_safetensors_error("The safetensors header is incomplete.", ckpt)
+        try:
+            header = json.loads(f.read(header_size).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            raise _invalid_safetensors_error(str(e), ckpt) from e
+        mapping = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_COPY)
+
+    data = memoryview(mapping)[data_base_offset:]
+    sd = {}
+    for name, info in header.items():
+        if name == "__metadata__" or (include_keys is not None and name not in include_keys):
+            continue
+        start, end = info["data_offsets"]
+        dtype = _TYPES[info["dtype"]]
+        if start < 0 or end < start:
+            raise _invalid_safetensors_error("Tensor '{}' has invalid data offsets.".format(name), ckpt)
+        if end > len(data):
+            raise _incomplete_safetensors_error("Tensor '{}' extends past the end of the file.".format(name), ckpt)
+        if math.prod(info["shape"]) * dtype.itemsize != end - start:
+            raise _invalid_safetensors_error("Tensor '{}' does not match its declared shape and dtype.".format(name), ckpt)
+        if start == end:
+            sd[name] = torch.empty(info["shape"], dtype=dtype)
+            continue
+        tensor = torch.frombuffer(data[start:end], dtype=dtype).view(info["shape"])
+        memory_management.mark_file_backed(tensor)
+        sd[name] = tensor
+    return sd, header.get("__metadata__", {})
+
+
+def _file_backed_loads() -> bool:
+    from . import model_management
+    return not DISABLE_MMAP and sys.platform != "win32" and model_management.offload_shares_device_memory()
+
+
 def load_torch_file(ckpt: str, safe_load=False, device=None, return_metadata=False, include_keys=None) -> dict[str, torch.Tensor] | tuple[dict[str, torch.Tensor], Optional[FileMetadata]]:
     if device is None:
         device = torch.device("cpu")
@@ -277,6 +328,10 @@ def load_torch_file(ckpt: str, safe_load=False, device=None, return_metadata=Fal
         try:
             if memory_management.aimdo_enabled:
                 sd, metadata = load_safetensors(ckpt, include_keys=include_keys)
+                if not return_metadata:
+                    metadata = None
+            elif device.type == "cpu" and _file_backed_loads():
+                sd, metadata = load_safetensors_file_backed(ckpt, include_keys=include_keys)
                 if not return_metadata:
                     metadata = None
             else:
@@ -316,7 +371,10 @@ def load_torch_file(ckpt: str, safe_load=False, device=None, return_metadata=Fal
         checkpoint_files = [os.path.join(checkpoint_folder, f) for f in checkpoint_files]
         sd: dict[str, torch.Tensor] = {}
         for checkpoint_file in checkpoint_files:
-            sd.update(safetensors.torch.load_file(str(checkpoint_file), device=device.type))
+            if device.type == "cpu" and _file_backed_loads():
+                sd.update(load_safetensors_file_backed(str(checkpoint_file))[0])
+            else:
+                sd.update(safetensors.torch.load_file(str(checkpoint_file), device=device.type))
     elif ckpt.lower().endswith(".gguf"):
         # from gguf
         # avoiding circular imports here by importing it lazily

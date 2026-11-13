@@ -463,7 +463,9 @@ class CLIP:
 
     def load_sd(self, sd, full_model=False):
         if full_model:
-            return self.cond_stage_model.load_state_dict(sd, strict=False, assign=self.patcher.is_dynamic())
+            result = self.cond_stage_model.load_state_dict(sd, strict=False, assign=self.patcher.is_dynamic())
+            memory_management.record_file_backing(self.cond_stage_model, sd)
+            return result
         else:
             can_assign = self.patcher.is_dynamic()
             self.cond_stage_model.can_assign_sd = can_assign
@@ -475,7 +477,9 @@ class CLIP:
             for m in self.cond_stage_model.modules():
                 m.can_assign_sd = can_assign
 
-            return self.cond_stage_model.load_sd(sd)
+            result = self.cond_stage_model.load_sd(sd)
+            memory_management.record_file_backing(self.cond_stage_model, sd)
+            return result
 
     def get_sd(self):
         sd_clip = self.cond_stage_model.state_dict()
@@ -1211,6 +1215,7 @@ class VAE:
         if not self.patcher.is_dynamic():
             # Lazy parameters only exist after loading the state dict.
             self.first_stage_model.to(self.vae_dtype)
+        memory_management.record_file_backing(self.first_stage_model, sd)
         if len(m) > 0:
             logger.warning("Missing VAE keys {}".format(m))
 

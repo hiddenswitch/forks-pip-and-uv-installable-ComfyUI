@@ -581,6 +581,8 @@ class ModelPatcher(ModelManageable, PatchSupport, metaclass=_ModelPatcherFactory
         return self._memory_measurements.model_loaded_weight_memory
 
     def reclaimable_non_vbar_memory(self):
+        if model_management.offload_shares_device_memory(self.load_device):
+            return memory_management.file_backed_device_bytes(self.model)
         return self.loaded_size()
 
     def get_free_memory(self, device):

@@ -217,6 +217,69 @@ def read_tensor_file_slice_into(tensor, destination, stream=None, destination2=N
         view.release()
 
 
+def mark_file_backed(tensor):
+    tensor.untyped_storage()._comfy_file_backed = True
+
+
+def is_file_backed(tensor) -> bool:
+    """A plain tensor whose storage is a copy-on-write mapping of a checkpoint file."""
+    if not isinstance(tensor, torch.Tensor) or isinstance(tensor, QuantizedTensor):
+        return False
+    return getattr(tensor.untyped_storage(), "_comfy_file_backed", False)
+
+
+def record_file_backing(module, state_dict, prefix=""):
+    """Remember which of ``module``'s parameters equal a file-backed tensor of ``state_dict``.
+
+    On unified memory such a parameter can be released by pointing it back at the mapping,
+    so the checkpoint file is its backing store. A parameter that is still on the CPU is
+    pointed at the mapping right away, dropping its anonymous copy.
+    """
+    backing = module.__dict__.setdefault("_comfy_file_backing", {})
+    for name, param in module.named_parameters():
+        source = state_dict.get(prefix + name)
+        if (source is None or not is_file_backed(source) or isinstance(param.data, QuantizedTensor)
+                or source.shape != param.shape or source.dtype != param.dtype):
+            continue
+        with torch.no_grad():
+            if param.device.type == "cpu":
+                if param.data_ptr() != source.data_ptr():
+                    if not torch.equal(param.data, source):
+                        continue
+                    param.data = source
+            elif not torch.equal(param.data, source.to(param.device)):
+                continue
+        backing[name] = source
+
+
+def file_backed_device_bytes(module) -> int:
+    """Bytes of ``module``'s device-resident parameters that the checkpoint file backs."""
+    backing = module.__dict__.get("_comfy_file_backing")
+    if not backing:
+        return 0
+    return sum(param.nbytes for name, param in module.named_parameters()
+               if name in backing and param.device.type != "cpu"
+               and backing[name].dtype == param.dtype and backing[name].shape == param.shape)
+
+
+def release_file_backed_weights(module) -> int:
+    """Point every file-backed device parameter back at its mapping; returns the bytes freed."""
+    backing = module.__dict__.get("_comfy_file_backing")
+    if not backing:
+        return 0
+    freed = 0
+    for name, param in module.named_parameters():
+        source = backing.get(name)
+        if source is None or param.device.type == "cpu":
+            continue
+        if source.dtype != param.dtype or source.shape != param.shape:
+            del backing[name]
+            continue
+        freed += param.nbytes
+        param.data = source
+    return freed
+
+
 class TensorGeometry(NamedTuple):
     shape: any
     dtype: torch.dtype

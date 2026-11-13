@@ -33,6 +33,7 @@ from .ldm.minimax.model import FRAME_PER_TOKEN, FRAME_RESCALE
 from . import conds
 from . import latent_formats
 from . import model_management
+from . import memory_management
 from . import model_prefetch
 from . import nested_tensor
 from . import ops
@@ -531,6 +532,7 @@ class BaseModel(torch.nn.Module):
         to_load = self.model_config.process_unet_state_dict(to_load)
         _preserve_mixed_precision_storage(self.diffusion_model, to_load)
         m, u = self.diffusion_model.load_state_dict(to_load, strict=False, assign=assign)
+        memory_management.record_file_backing(self.diffusion_model, to_load)
         if len(m) > 0:
             logger.warning("unet missing: {}".format(m))
 
