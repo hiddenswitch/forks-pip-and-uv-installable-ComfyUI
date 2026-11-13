@@ -24,6 +24,16 @@ if managed_memory.is_active():
     else:
         logger.info("DynamicVRAM is off: the unified memory allocator manages device memory")
     memory_management.aimdo_allocator = None
+elif model_management.is_unified_memory_device(model_management.get_torch_device()):
+    # Measured on a GB10: comfy-aimdo's VMM pages held MemAvailable at its integrated floor
+    # (7.8 GB) until the driver's own allocations failed (NV_ERR_NO_MEMORY) and the next kernel
+    # faulted (Xid 31). On unified memory the SHARED path loads weights once and releases them
+    # to the checkpoint mapping instead.
+    if args.enable_dynamic_vram:
+        logger.warning("DynamicVRAM is off on unified-memory devices")
+    else:
+        logger.info("DynamicVRAM is off on unified-memory devices")
+    memory_management.aimdo_allocator = None
 elif dynamic_vram_requested() and not dynamic_vram_supported():
     logger.warning("Unsupported Pytorch detected. DynamicVRAM support requires Pytorch version 2.8 or later (2.12+ is recommended). Falling back to legacy ModelPatcher. VRAM estimates may be unreliable especially on Windows")
     memory_management.aimdo_allocator = None
