@@ -123,34 +123,56 @@
       ]
     }
   },
-  "20": {
-    "class_type": "Magi2Decode",
-    "inputs": {
-      "samples": [
-        "15",
-        0
-      ],
-      "video_vae": [
-        "3",
-        0
-      ],
-      "audio_vae": [
-        "4",
-        2
-      ],
-      "frame_rate": 12.5
-    }
-  },
   "21": {
     "class_type": "SaveVideo",
     "inputs": {
       "video": [
-        "20",
+        "51",
         0
       ],
       "filename_prefix": "video/magi2-t2va",
       "format": "auto",
       "codec": "auto"
+    }
+  },
+  "20": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "15",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "50": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "15",
+        0
+      ],
+      "vae": [
+        "4",
+        2
+      ]
+    }
+  },
+  "51": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "20",
+        0
+      ],
+      "fps": 12.5,
+      "audio": [
+        "50",
+        0
+      ]
     }
   }
 }

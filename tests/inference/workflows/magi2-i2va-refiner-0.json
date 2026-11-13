@@ -171,7 +171,7 @@
     "class_type": "SaveVideo",
     "inputs": {
       "video": [
-        "40",
+        "51",
         0
       ],
       "filename_prefix": "video/magi2-i2va-refiner",
@@ -241,25 +241,43 @@
     }
   },
   "40": {
-    "class_type": "Magi2Decode",
+    "class_type": "VAEDecode",
     "inputs": {
       "samples": [
         "45",
         0
       ],
-      "video_vae": [
+      "vae": [
         "3",
         0
-      ],
-      "audio_vae": [
-        "4",
-        2
-      ],
-      "audio": [
+      ]
+    }
+  },
+  "50": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
         "15",
         0
       ],
-      "frame_rate": 25.0
+      "vae": [
+        "4",
+        2
+      ]
+    }
+  },
+  "51": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "40",
+        0
+      ],
+      "fps": 25.0,
+      "audio": [
+        "50",
+        0
+      ]
     }
   }
 }

@@ -5,6 +5,7 @@ from typing import Any
 from typing import Optional
 import dataclasses
 import json
+import functools
 import logging
 import math
 import os
@@ -56,6 +57,7 @@ from .ldm.trellis2 import vae as trellis2_vae
 from .ldm.triposplat.vae import OctreeGaussianDecoder
 from .ldm.wan import vae as wan_vae
 from .ldm.wan import vae2_2 as wan_vae2_2
+from .ldm.magi2 import latents as magi2_latents
 from .ldm.magi2 import turbo_vae as magi2_turbo_vae
 from .lora import load_lora
 from .lora import model_lora_keys_clip
@@ -525,6 +527,8 @@ class CLIP:
 class VAE:
     def __init__(self, sd=None, device=None, config=None, dtype=None, metadata=None, no_init=False, ckpt_name: Optional[str] = ""):
         self.ckpt_name = ckpt_name
+        # a zero-argument callable returning this VAE's (state dict, metadata) from its file, for float32_copy
+        self.state_dict_source = None
         if no_init:
             return
         fast_disk = storage.state_dict_fast_disk(sd)
@@ -1273,6 +1277,7 @@ class VAE:
         if "_tile_bounded_shape" in self.__dict__:
             n._tile_bounded_shape = self._tile_bounded_shape
         n.ckpt_name = self.ckpt_name
+        n.state_dict_source = self.state_dict_source
         return n
 
     def model_size(self):
@@ -1401,8 +1406,31 @@ class VAE:
             args["overlap_t"] = overlap_t
         return args
 
-    def decode(self, samples_in, vae_options={}):
+    def float32_copy(self):
+        """This VAE with fp32 weights, reloaded from its file once and cached; itself when it already runs in fp32."""
+        if self.vae_dtype == torch.float32:
+            return self
+        cached = getattr(self, "_float32_copy", None)
+        if cached is not None:
+            return cached
+        if self.state_dict_source is None:
+            raise ValueError(f"{self.ckpt_name or 'This VAE'} cannot be reloaded in fp32: load it from a file with Load VAE or Load Checkpoint")
+        state_dict, metadata = self.state_dict_source()
+        if any(value.dtype != torch.float32 for value in state_dict.values() if value.is_floating_point()):
+            logger.warning("%s does not store fp32 weights; its fp32 copy holds the stored precision", self.ckpt_name or "This VAE")
+        copy = VAE(sd=state_dict, metadata=metadata, device=self.device, dtype=torch.float32, ckpt_name=self.ckpt_name)
+        copy.state_dict_source = self.state_dict_source
+        self._float32_copy = copy
+        return copy
+
+    def decode(self, samples_in, vae_options={}, latent_format=None):
+        """latent_format names a model's latent basis (LATENT["latent_format"]) that this VAE maps to its own input."""
         self.throw_exception_if_invalid()
+        if latent_format is not None:
+            magi2_latents.check_latent_format(latent_format)
+            if self.latent_dim == 1:
+                return magi2_latents.decode_audio(self, samples_in)
+            samples_in = magi2_latents.video_decoder_input(self, samples_in)
         pixel_samples = None
         do_tile = False
         if self.latent_dim == 2 and samples_in.ndim == 5:
@@ -1545,8 +1573,13 @@ class VAE:
             bounded[-1] = min(bounded[-1], tile_x)
         return tuple(bounded)
 
-    def decode_tiled(self, samples, tile_x=None, tile_y=None, overlap=None, tile_t=None, overlap_t=None):
+    def decode_tiled(self, samples, tile_x=None, tile_y=None, overlap=None, tile_t=None, overlap_t=None, latent_format=None):
         self.throw_exception_if_invalid()
+        if latent_format is not None:
+            magi2_latents.check_latent_format(latent_format)
+            if self.latent_dim == 1:
+                return magi2_latents.decode_audio(self, samples)
+            samples = magi2_latents.video_decoder_input(self, samples)
         memory_used = self.memory_used_decode(
             self._tile_bounded_shape(samples.shape, tile_x, tile_y, tile_t),
             self.vae_dtype,
@@ -2431,6 +2464,12 @@ def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, o
     return out
 
 
+def _checkpoint_vae_state_dict(ckpt_path, model_config):
+    sd, metadata = utils.load_torch_file(ckpt_path, return_metadata=True)
+    vae_sd = utils.state_dict_prefix_replace(sd, {k: "" for k in model_config.vae_key_prefix}, filter_keys=True)
+    return model_config.process_vae_state_dict(vae_sd), metadata
+
+
 def load_checkpoint_clip_patcher(ckpt_path, embedding_directory=None, model_options={}, te_model_options={}, disable_dynamic=False):
     """Reload only the CLIP patcher from a checkpoint. Used as the cached_patcher_init
     factory for the CLIP returned by load_checkpoint_guess_config."""
@@ -2545,6 +2584,8 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
         vae_sd = model_config.process_vae_state_dict(vae_sd)
         vae_device = model_options.get("load_device", None)
         vae = VAE(sd=vae_sd, metadata=metadata, device=vae_device)
+        if ckpt_path:
+            vae.state_dict_source = functools.partial(_checkpoint_vae_state_dict, ckpt_path, model_config)
 
     if output_clip:
         if te_model_options.get("custom_operations", None) is None:

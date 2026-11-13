@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import logging
@@ -385,10 +386,16 @@ class VAEDecode:
         if latent.is_nested:
             latent = latent.unbind()[0]
 
-        images = vae.decode(latent)
+        # a model-specific latent basis (MAGI-2) is passed only when present, so other VAE objects keep their signature
+        images = vae.decode(latent, **_latent_format(samples))
         if len(images.shape) == 5: #Combine batches
             images = images.reshape(-1, images.shape[-3], images.shape[-2], images.shape[-1])
         return (images,)
+
+
+def _latent_format(samples):
+    latent_format = samples.get("latent_format")
+    return {} if latent_format is None else {"latent_format": latent_format}
 
 
 class VAEDecodeTiled:
@@ -426,7 +433,8 @@ class VAEDecodeTiled:
             latent = latent.unbind()[0]
 
         compression = vae.spacial_compression_decode()
-        images = vae.decode_tiled(latent, tile_x=tile_size // compression, tile_y=tile_size // compression, overlap=overlap // compression, tile_t=temporal_size, overlap_t=temporal_overlap)
+        images = vae.decode_tiled(latent, tile_x=tile_size // compression, tile_y=tile_size // compression, overlap=overlap // compression, tile_t=temporal_size, overlap_t=temporal_overlap,
+                                  **_latent_format(samples))
         if len(images.shape) == 5:  # Combine batches
             images = images.reshape(-1, images.shape[-3], images.shape[-2], images.shape[-1])
         return (images,)
@@ -948,6 +956,7 @@ class VAELoader:
         # load_taesd) are not addressable by a single vae_path.
         if vae_path is not None:
             vae.patcher.cached_patcher_init = (sd.load_vae_patcher, (vae_path, metadata, None))
+            vae.state_dict_source = functools.partial(utils.load_torch_file, vae_path, return_metadata=True)
         return (vae,)
 
 
