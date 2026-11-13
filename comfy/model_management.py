@@ -42,6 +42,7 @@ import psutil
 import torch
 
 from . import interruption
+from . import managed_memory
 from . import memory_management
 from . import quant_ops
 from . import system_memory
@@ -368,6 +369,9 @@ def is_unified_memory_device(device=None) -> bool:
 
 def _unified_allocator_memory(dev):
     """(reserved, reusable) bytes held by torch's allocator on a unified-memory device."""
+    if managed_memory.is_active():
+        # The managed allocator returns every block to the driver on free: nothing is cached.
+        return 0, 0
     if dev.type == "mps":
         reserved = torch.mps.driver_allocated_memory()
         return reserved, max(0, reserved - torch.mps.current_allocated_memory())
@@ -2884,6 +2888,9 @@ def _unload_model_and_clones(model: ModelPatcher, unload_additional_models=True,
             free_memory(1e30, device, keep_loaded)
 
 def debug_memory_summary():
+    if managed_memory.is_active():
+        return "managed memory allocator: system memory {} available of {}".format(
+            system_memory.virtual_memory_available(), system_memory.virtual_memory_total())
     if is_amd() or is_nvidia():
         return torch.cuda.memory.memory_summary()
     return ""

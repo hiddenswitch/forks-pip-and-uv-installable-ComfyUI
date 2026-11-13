@@ -536,7 +536,16 @@ def _run_worker(operations, coordinator, patcher, span_name, execution_model=Non
                     tensors = args = kwargs = None
 
 
+def _apply_unified_memory_allocator():
+    """A spawned rank resolves the same allocator as its driver before anything allocates."""
+    from ..component_model.setup import setup_unified_memory_allocator
+    from ..execution_context import current_execution_context
+
+    setup_unified_memory_allocator(current_execution_context().configuration)
+
+
 def worker_main(host, port, authkey, parallel_kind="tensor"):
+    _apply_unified_memory_allocator()
     connection = multiprocessing.connection.Client((host, int(port)), authkey=bytes.fromhex(authkey))
     distributed = resolve_distributed_configuration(environment=os.environ)
     rank = distributed.rank

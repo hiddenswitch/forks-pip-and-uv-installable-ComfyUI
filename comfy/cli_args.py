@@ -169,6 +169,7 @@ parser.add_argument("--async-offload", nargs='?', const=2, type=int, default=Non
 parser.add_argument("--disable-async-offload", action="store_true", help="Disable async weight offloading.")
 parser.add_argument("--disable-dynamic-vram", action="store_true", help="Disable dynamic VRAM and use estimate based model loading.")
 parser.add_argument("--enable-dynamic-vram", action="store_true", help="Enable dynamic VRAM on systems where it's not enabled by default.")
+parser.add_argument("--unified-memory-allocator", action=argparse.BooleanOptionalAction, default=None, help="Allocate CUDA memory with cudaMallocManaged process-wide. Default: on for NVIDIA shared-memory devices (e.g. DGX Spark GB10), off elsewhere. When on, DynamicVRAM is off.")
 parser.add_argument("--fast-disk", action="store_true", help="Force disk-backed dynamic loading and offload over unpinned RAM. Can be faster for users with fast NVME disks.")
 parser.add_argument("--disable-fast-disk", action="store_true", help="Disable disk-backed dynamic loading and offload over unpinned RAM. Overrides --fast-disk.")
 parser.add_argument("--disable-cuda-graphs", action="store_true", help="Disable CUDA graphs.")
