@@ -233,44 +233,56 @@ def record_file_backing(module, state_dict, prefix=""):
 
     On unified memory such a parameter can be released by pointing it back at the mapping,
     so the checkpoint file is its backing store. A parameter that is still on the CPU is
-    pointed at the mapping right away, dropping its anonymous copy.
+    pointed at the mapping right away, dropping its anonymous copy. Device parameters are
+    compared on their device with one synchronization for the whole module.
     """
     backing = module.__dict__.setdefault("_comfy_file_backing", {})
-    for name, param in module.named_parameters():
-        source = state_dict.get(prefix + name)
-        if (source is None or not is_file_backed(source) or isinstance(param.data, QuantizedTensor)
-                or source.shape != param.shape or source.dtype != param.dtype):
-            continue
-        with torch.no_grad():
+    pending = []
+    with torch.no_grad():
+        for name, param in module.named_parameters():
+            source = state_dict.get(prefix + name)
+            if (source is None or not is_file_backed(source) or isinstance(param.data, QuantizedTensor)
+                    or source.shape != param.shape or source.dtype != param.dtype):
+                continue
             if param.device.type == "cpu":
                 if param.data_ptr() != source.data_ptr():
                     if not torch.equal(param.data, source):
                         continue
                     param.data = source
-            elif not torch.equal(param.data, source.to(param.device)):
-                continue
-        backing[name] = source
+                backing[name] = source
+            else:
+                pending.append((name, source, torch.eq(param.data, source.to(param.device)).all()))
+        if pending:
+            equal = torch.stack([flag for _, _, flag in pending]).cpu().tolist()
+            for (name, source, _), same in zip(pending, equal):
+                if same:
+                    backing[name] = source
+
+
+def _file_backed_parameters(root):
+    """(backing, name, parameter) for every recorded parameter in ``root`` and its submodules."""
+    for module in root.modules():
+        backing = module.__dict__.get("_comfy_file_backing")
+        if not backing:
+            continue
+        for name, param in module.named_parameters():
+            if name in backing:
+                yield backing, name, param
 
 
 def file_backed_device_bytes(module) -> int:
     """Bytes of ``module``'s device-resident parameters that the checkpoint file backs."""
-    backing = module.__dict__.get("_comfy_file_backing")
-    if not backing:
-        return 0
-    return sum(param.nbytes for name, param in module.named_parameters()
-               if name in backing and param.device.type != "cpu"
+    return sum(param.nbytes for backing, name, param in _file_backed_parameters(module)
+               if param.device.type != "cpu"
                and backing[name].dtype == param.dtype and backing[name].shape == param.shape)
 
 
 def release_file_backed_weights(module) -> int:
     """Point every file-backed device parameter back at its mapping; returns the bytes freed."""
-    backing = module.__dict__.get("_comfy_file_backing")
-    if not backing:
-        return 0
     freed = 0
-    for name, param in module.named_parameters():
-        source = backing.get(name)
-        if source is None or param.device.type == "cpu":
+    for backing, name, param in list(_file_backed_parameters(module)):
+        source = backing[name]
+        if param.device.type == "cpu":
             continue
         if source.dtype != param.dtype or source.shape != param.shape:
             del backing[name]

@@ -141,3 +141,20 @@ def test_discrete_unload_still_offloads_to_the_cpu(tmp_path, monkeypatch):
 
     assert all(p.device.type == "cpu" for p in module.parameters())
     assert not any(memory_management.is_file_backed(p) for p in module.parameters())
+
+
+@accelerator
+def test_release_finds_backing_recorded_on_a_submodule(tmp_path):
+    # BaseModel records on its diffusion_model; the patcher releases from the BaseModel.
+    reference, path = _checkpoint(tmp_path)
+    device = torch.device("cuda", torch.cuda.current_device())
+    state = utils.load_safetensors_file_backed(str(path))[0]
+    root = torch.nn.Module()
+    root.diffusion_model = _fresh_module().to(device)
+    root.diffusion_model.load_state_dict(state)
+    memory_management.record_file_backing(root.diffusion_model, state)
+
+    nbytes = sum(p.nbytes for p in root.parameters())
+    assert memory_management.file_backed_device_bytes(root) == nbytes
+    assert memory_management.release_file_backed_weights(root) == nbytes
+    assert all(memory_management.is_file_backed(p) for p in root.parameters())
