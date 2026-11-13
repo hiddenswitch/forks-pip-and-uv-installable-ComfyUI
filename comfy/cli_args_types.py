@@ -160,6 +160,7 @@ class Configuration(dict):
         vram_headroom (float): Extra DynamicVRAM headroom in GB above the default reservation.
         disable_nvml_pressure (bool): Use CUDA instead of NVML for DynamicVRAM memory pressure.
         disable_dynamic_vram (bool): Disable dynamic VRAM and use estimate-based model loading.
+        unified_memory_allocator (Optional[bool]): Allocate CUDA memory with cudaMallocManaged process-wide. None (auto) enables it on NVIDIA shared-memory devices (an integrated GPU with concurrent managed access, such as the DGX Spark GB10) and leaves it off on discrete GPUs, ROCm, MPS and CPU. When it is on, DynamicVRAM is off and weights are loaded once into managed memory.
         disable_cuda_graphs (bool): Disable CUDA graph capture and replay.
         disable_comfy_compiler (bool): Disable the Comfy model compiler, including its CUDA graph subfeature.
         assert_graph_breaks (bool): Fail on Comfy model compiler graph breaks.
@@ -348,6 +349,7 @@ class Configuration(dict):
         self.disable_nvml_pressure: bool = False
         self.disable_dynamic_vram: bool = False
         self.enable_dynamic_vram: bool = False
+        self.unified_memory_allocator: Optional[bool] = None
         self.fast_disk: bool = False
         self.disable_fast_disk: bool = False
         self.disable_cuda_graphs: bool = False

@@ -194,6 +194,7 @@ _VRAM_OPTS: list[tuple] = [
     ("vram_headroom", float, typer.Option(0, "--vram-headroom", help="Set extra DynamicVRAM headroom in GB above the default reservation.")),
     ("disable_nvml_pressure", bool, typer.Option(False, "--disable-nvml-pressure", help="Use CUDA instead of NVML for DynamicVRAM memory pressure.")),
     ("disable_dynamic_vram", bool, typer.Option(False, "--disable-dynamic-vram", help="Disable dynamic VRAM and use estimate based model loading.")),
+    ("unified_memory_allocator", Optional[bool], typer.Option(None, "--unified-memory-allocator/--no-unified-memory-allocator", envvar="COMFYUI_UNIFIED_MEMORY_ALLOCATOR", help="Allocate CUDA memory with cudaMallocManaged process-wide. Default: on for NVIDIA shared-memory devices (integrated GPU with concurrent managed access, e.g. DGX Spark GB10), off elsewhere. When on, DynamicVRAM is off.")),
     ("fast_disk", bool, typer.Option(False, "--fast-disk/--no-fast-disk", help="Force disk-backed dynamic loading and offload over unpinned RAM. Can be faster for users with fast NVME disks.")),
     ("disable_fast_disk", bool, typer.Option(False, "--disable-fast-disk", help="Disable disk-backed dynamic loading. Overrides --fast-disk.")),
     ("disable_cuda_graphs", bool, typer.Option(False, "--disable-cuda-graphs", help="Disable CUDA graph capture and replay.")),
