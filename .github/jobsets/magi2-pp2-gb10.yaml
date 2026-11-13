@@ -96,7 +96,7 @@ spec:
                 python3 -c 'from comfy.cmd.cli import entrypoint; entrypoint()' workflows run "${OUT}/workflow.json" \
                   --base-directory "${ROOT}" --output-directory "${OUT}" --no-guess-settings \
                   --tensor-parallel-size 1 --pipeline-parallel-size 2 --distributed-executor-backend external_launcher \
-                  --logging-level INFO 2>&1 | tee "${OUT}/rank${RANK}.log"
+                  --logging-level INFO ${COMFYUI_EXTRA_ARGS} 2>&1 | tee "${OUT}/rank${RANK}.log"
                 status=${PIPESTATUS[0]}
                 set -e
                 echo "workflow ${WORKFLOW} rank ${RANK} exit ${status} after $(( $(date +%s) - start )) s" | tee -a "${OUT}/rank${RANK}.log"
@@ -114,6 +114,8 @@ spec:
                 value: '1800'
               - name: SKIP_DOWNLOADS
                 value: '0'
+              - name: COMFYUI_EXTRA_ARGS
+                value: ''
               - name: JOBSET_UID
                 valueFrom:
                   fieldRef:
