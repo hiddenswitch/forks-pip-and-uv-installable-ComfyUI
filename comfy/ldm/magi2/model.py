@@ -14,8 +14,10 @@ reference's per-modality permutation; positions come from each token's coordinat
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 import math
+import threading
 
 import torch
 import torch.nn.functional as F
@@ -34,6 +36,34 @@ from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimi
 TIME_CHANNELS = 64
 SINK_PAD = 8
 MHC_CHUNK = 8192
+MOE_ROW_CHUNK = 1 << 16
+
+_precision_lock = threading.Lock()
+_precision_users = 0
+_precision_previous = None
+
+
+@contextlib.contextmanager
+def ieee_fp32_matmul():
+    """Run fp32 matmuls in IEEE fp32 instead of TF32.
+
+    SandAI's pipeline keeps PyTorch's default "highest" fp32 matmul precision, so its fp32 adapters,
+    router, hyper-connection logits and expert GEMMs are full fp32; ComfyUI sets "high" at import.
+    The setting is process wide, so concurrent tensor-parallel ranks share one reference count.
+    """
+    global _precision_users, _precision_previous
+    with _precision_lock:
+        if _precision_users == 0:
+            _precision_previous = torch.get_float32_matmul_precision()
+            torch.set_float32_matmul_precision("highest")
+        _precision_users += 1
+    try:
+        yield
+    finally:
+        with _precision_lock:
+            _precision_users -= 1
+            if _precision_users == 0:
+                torch.set_float32_matmul_precision(_precision_previous)
 
 
 def swiglu7(x):
@@ -46,10 +76,10 @@ def swiglu7(x):
 
 
 def swiglu7_pair(gate, up):
-    dtype = gate.dtype
-    gate = gate.float().clamp(max=7.0)
-    up = up.float().clamp(min=-7.0, max=7.0)
-    return (gate * torch.sigmoid(1.702 * gate) * (up + 1.0)).to(dtype)
+    """SwiGLU7 over separate fp32 gate and up projections; the result stays fp32."""
+    gate = gate.clamp(max=7.0)
+    up = up.clamp(min=-7.0, max=7.0)
+    return gate * torch.sigmoid(1.702 * gate) * (up + 1.0)
 
 
 def sinusoidal_embedding(t, dim=TIME_CHANNELS):
@@ -231,27 +261,34 @@ class MLP(nn.Module):
         return modality_linear(self.down_proj, x, groups)
 
 
-def _expert_rows(bank, weight, start, count, dtype):
-    """Experts [start, start + count) of a bank as a [count, out, in] compute-dtype tensor and its ConvRot group size.
+def _expert_rows(bank, weight, start, count):
+    """Experts [start, start + count) of a bank as a [count, out, in] fp32 tensor and its ConvRot group size.
 
     A ConvRot INT8 bank stays in its rotated basis: the caller rotates the activations instead, which
     is exact because the regular Hadamard used by ConvRot is its own inverse.
     """
     if not isinstance(weight, QuantizedTensor):
-        return weight.view(-1, bank.out_features, bank.in_features)[start:start + count], 0
+        return weight.view(-1, bank.out_features, bank.in_features)[start:start + count].float(), 0
     qdata, scale = weight.layout_cls.get_plain_tensors(weight)
     rows = qdata.view(-1, bank.out_features, bank.in_features)[start:start + count]
     if scale.numel() > 1:
         scale = scale.view(-1, bank.out_features, 1)[start:start + count]
     params = weight.params
     group = params.convrot_groupsize if getattr(params, "convrot", False) else 0
-    return (rows.float() * scale.float()).to(dtype), group
+    return rows.float() * scale.float(), group
 
 
 def _grouped_projection(x, bank, offsets):
+    """fp32 output of a grouped GEMM over compute-dtype rows.
+
+    SandAI's fused kernel accumulates bf16 x bf16 products in fp32 and never rounds the gate, up or
+    down outputs. Products of bf16 operands are exact in fp32, so an fp32 GEMM of the upcast operands
+    is that accumulation.
+    """
     weight, group = bank
+    x = x.float()
     if group:
-        x = _rotate_activation(x, _build_hadamard(group, device=x.device, dtype=x.dtype), group)
+        x = _rotate_activation(x, _build_hadamard(group, device=x.device, dtype=torch.float32), group)
     return torch._grouped_mm(x, weight.transpose(1, 2), offs=offsets)
 
 
@@ -287,7 +324,10 @@ class MultiHeadMoE(nn.Module):
         batch, tokens, _ = x.shape
         x = x.reshape(batch * tokens, self.heads, self.head_dim)
         out = torch.empty_like(x)
-        with self.gate_proj.bank_resident(x), self.up_proj.bank_resident(x), self.down_proj.bank_resident(x):
+        # a quantized bank that the ops dequantize up front (full precision matmul) is dequantized in fp32, not rounded to bf16
+        resident = lambda bank: x[:0].float() if isinstance(bank.weight, QuantizedTensor) else x
+        with (self.gate_proj.bank_resident(resident(self.gate_proj)), self.up_proj.bank_resident(resident(self.up_proj)),
+              self.down_proj.bank_resident(resident(self.down_proj))):
             banks = tuple((bank, bank._resident_bank[0]) for bank in (self.gate_proj, self.up_proj, self.down_proj))
             for head in range(self.heads):
                 x_head = x[:, head].contiguous()
@@ -296,13 +336,20 @@ class MultiHeadMoE(nn.Module):
                 token_ids = order // self.top_k
                 offsets = torch.bincount(indices.flatten(), minlength=self.num_experts).cumsum(0).to(torch.int32)
                 rows = x_head.index_select(0, token_ids)
+                weights = probs.flatten()[order].unsqueeze(-1)
                 start = head * self.num_experts
-                gate_bank, up_bank, down_bank = (_expert_rows(bank, weight, start, self.num_experts, x.dtype) for bank, weight in banks)
-                hidden = swiglu7_pair(_grouped_projection(rows, gate_bank, offsets), _grouped_projection(rows, up_bank, offsets))
-                del rows, gate_bank, up_bank
-                y = _grouped_projection(hidden, down_bank, offsets)
-                del hidden, down_bank
-                y = (y.float() * probs.flatten()[order].unsqueeze(-1)).to(x.dtype)
+                gate_bank, up_bank, down_bank = (_expert_rows(bank, weight, start, self.num_experts) for bank, weight in banks)
+                y = torch.empty_like(rows)
+                for chunk in range(0, rows.shape[0], MOE_ROW_CHUNK):
+                    end = min(chunk + MOE_ROW_CHUNK, rows.shape[0])
+                    chunk_offsets = offsets.clamp(min=chunk, max=end) - chunk
+                    part = rows[chunk:end]
+                    # the kernel rounds SwiGLU7's fp32 output once, to the down projection's dtype
+                    hidden = swiglu7_pair(_grouped_projection(part, gate_bank, chunk_offsets),
+                                          _grouped_projection(part, up_bank, chunk_offsets)).to(x.dtype)
+                    y[chunk:end] = _grouped_projection(hidden, down_bank, chunk_offsets) * weights[chunk:end]
+                    del hidden
+                del rows, gate_bank, up_bank, down_bank
                 head_out = torch.zeros_like(x_head)
                 head_out.index_add_(0, token_ids, y)
                 out[:, head] = head_out
@@ -526,10 +573,11 @@ class Magi2Model(nn.Module):
         if compile_allocations:
             out = [torch.empty_like(part) for part in x] if isinstance(x, (list, tuple)) else torch.empty_like(x)
             model_prefetch.malloc_graph_begin(video.device)
-        graph_out = patcher_extension.WrapperExecutor.new_class_executor(
-            self._forward, self,
-            patcher_extension.get_all_wrappers(patcher_extension.WrappersMP.DIFFUSION_MODEL, transformer_options),
-        ).execute(x, timestep, context, transformer_options, magi2_refs=magi2_refs, **kwargs)
+        with ieee_fp32_matmul():
+            graph_out = patcher_extension.WrapperExecutor.new_class_executor(
+                self._forward, self,
+                patcher_extension.get_all_wrappers(patcher_extension.WrappersMP.DIFFUSION_MODEL, transformer_options),
+            ).execute(x, timestep, context, transformer_options, magi2_refs=magi2_refs, **kwargs)
         if not compile_allocations:
             return graph_out
         if isinstance(out, list):
@@ -607,8 +655,9 @@ class Magi2Model(nn.Module):
         tensors, metadata = intermediate.tensors, intermediate.metadata
         layout = Magi2Layout(*unpack_pipeline_value(metadata["layout"], tensors))
         transformer_options = unpack_pipeline_value(metadata["transformer_options"], tensors)
-        hidden = self._run_layers(tensors["hidden_states"], tensors["freqs"], layout.groups, transformer_options,
-                                  self.pipeline_stage.start_layer, self.pipeline_stage.end_layer)
-        if not self.pipeline_stage.is_last:
-            return PipelineIntermediateTensors({**tensors, "hidden_states": hidden}, metadata)
-        return self._output(hidden, layout, unpack_pipeline_value(metadata["output_dtypes"], tensors), metadata["nested"])
+        with ieee_fp32_matmul():
+            hidden = self._run_layers(tensors["hidden_states"], tensors["freqs"], layout.groups, transformer_options,
+                                      self.pipeline_stage.start_layer, self.pipeline_stage.end_layer)
+            if not self.pipeline_stage.is_last:
+                return PipelineIntermediateTensors({**tensors, "hidden_states": hidden}, metadata)
+            return self._output(hidden, layout, unpack_pipeline_value(metadata["output_dtypes"], tensors), metadata["nested"])

@@ -19,7 +19,8 @@ from ...pipeline_parallel import PipelineIntermediateTensors, PipelineMissingLay
 from ...pipeline_parallel.types import pack_pipeline_value, prepare_model_parallel_value, unpack_pipeline_value
 from ...tensor_parallel.operations import column_parallel_linear, local_size, row_parallel_linear
 from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimized_attention
-from .model import Magi2Layout, MultiModalityRMSNorm, PostAdapter, PreAdapter, fourier_rope, make_modality_linear, modality_linear, qk_norm_rope, swiglu7, video_tokens
+from .model import (Magi2Layout, MultiModalityRMSNorm, PostAdapter, PreAdapter, fourier_rope, ieee_fp32_matmul, make_modality_linear, modality_linear,
+                    qk_norm_rope, swiglu7, video_tokens)
 
 WINDOW_KEY_BUDGET = 1 << 19
 
@@ -190,10 +191,11 @@ class Magi2RefinerModel(nn.Module):
         if compile_allocations:
             out = [torch.empty_like(part) for part in x] if isinstance(x, (list, tuple)) else torch.empty_like(x)
             model_prefetch.malloc_graph_begin(video.device)
-        graph_out = patcher_extension.WrapperExecutor.new_class_executor(
-            self._forward, self,
-            patcher_extension.get_all_wrappers(patcher_extension.WrappersMP.DIFFUSION_MODEL, transformer_options),
-        ).execute(x, timestep, context, transformer_options, **kwargs)
+        with ieee_fp32_matmul():
+            graph_out = patcher_extension.WrapperExecutor.new_class_executor(
+                self._forward, self,
+                patcher_extension.get_all_wrappers(patcher_extension.WrappersMP.DIFFUSION_MODEL, transformer_options),
+            ).execute(x, timestep, context, transformer_options, **kwargs)
         if not compile_allocations:
             return graph_out
         if isinstance(out, list):
@@ -262,8 +264,9 @@ class Magi2RefinerModel(nn.Module):
         tensors, metadata = intermediate.tensors, intermediate.metadata
         layout = Magi2Layout(*unpack_pipeline_value(metadata["layout"], tensors))
         transformer_options = unpack_pipeline_value(metadata["transformer_options"], tensors)
-        hidden = self._run_layers(tensors["hidden_states"], tensors["freqs"], layout, transformer_options,
-                                  self.pipeline_stage.start_layer, self.pipeline_stage.end_layer)
-        if not self.pipeline_stage.is_last:
-            return PipelineIntermediateTensors({**tensors, "hidden_states": hidden}, metadata)
-        return self._output(hidden, layout, unpack_pipeline_value(metadata["output_dtypes"], tensors), metadata["nested"])
+        with ieee_fp32_matmul():
+            hidden = self._run_layers(tensors["hidden_states"], tensors["freqs"], layout, transformer_options,
+                                      self.pipeline_stage.start_layer, self.pipeline_stage.end_layer)
+            if not self.pipeline_stage.is_last:
+                return PipelineIntermediateTensors({**tensors, "hidden_states": hidden}, metadata)
+            return self._output(hidden, layout, unpack_pipeline_value(metadata["output_dtypes"], tensors), metadata["nested"])
