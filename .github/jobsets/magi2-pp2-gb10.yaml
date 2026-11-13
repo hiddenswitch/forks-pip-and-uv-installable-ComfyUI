@@ -1,0 +1,160 @@
+# Hilton cluster: two DGX Spark (GB10, sm121, arm64) hosts, one GPU each, joined over RoCE.
+# Pipeline parallel MAGI-2 Preview (+ refiner) with the external launcher; TP is single-host only.
+# The image is the vLLM consumer image DSV4 runs on these hosts: it supplies torch 2.13/cu130 and the
+# NCCL build validated on this RoCE fabric, so ComfyUI installs around it with those packages pinned.
+# Weights download with --local-dir into a ComfyUI models/ tree on each host's own disk.
+# WORKFLOW selects tests/inference/workflows/<name>.json at COMFYUI_REVISION. Rank 0 keeps running
+# for RESULT_HOLD_SECONDS after the workflow so the output can be copied with kubectl cp.
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: comfy-magi2-pp2-gb10
+  namespace: inference
+spec:
+  failurePolicy:
+    maxRestarts: 0
+  network:
+    enableDNSHostnames: true
+    publishNotReadyAddresses: true
+  replicatedJobs:
+  - name: rank
+    replicas: 2
+    template:
+      spec:
+        backoffLimit: 0
+        completionMode: Indexed
+        completions: 1
+        parallelism: 1
+        activeDeadlineSeconds: 21600
+        template:
+          spec:
+            hostNetwork: true
+            dnsPolicy: ClusterFirstWithHostNet
+            restartPolicy: Never
+            imagePullSecrets:
+            - name: ghcr-appmana-pull
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                  - matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: In
+                      values: [spark-2ab3, spark-5867]
+              podAntiAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      jobset.sigs.k8s.io/jobset-name: comfy-magi2-pp2-gb10
+                  topologyKey: kubernetes.io/hostname
+            containers:
+            - name: rank
+              image: ghcr.io/appmana/vllm-consumer@sha256:c3f28f120477e0753b6d31ae4116322b107806c7613e8931043e389c9185d6c7
+              command:
+              - /bin/bash
+              - -lc
+              - |
+                set -euo pipefail
+                case "$(hostname)" in
+                  spark-2ab3) RANK=0 ;;
+                  spark-5867) RANK=1 ;;
+                  *) echo "unexpected host $(hostname)" >&2; exit 1 ;;
+                esac
+                export RANK WORLD_SIZE=2 LOCAL_RANK=0 LOCAL_WORLD_SIZE=1
+                ROOT=/data/comfyui
+                OUT="${ROOT}/output/${JOBSET_UID}"
+                mkdir -p "${ROOT}/models" "${OUT}"
+                python3 - > /tmp/overrides.txt <<'PINS'
+                import importlib.metadata as m
+                for name in ("torch", "torchvision", "torchaudio", "triton"):
+                    try:
+                        print(f"{name}=={m.version(name)}")
+                    except m.PackageNotFoundError:
+                        pass
+                PINS
+                cat /tmp/overrides.txt
+                uv pip install --system --break-system-packages --override /tmp/overrides.txt \
+                  "comfyui @ https://github.com/hiddenswitch/forks-pip-and-uv-installable-ComfyUI/archive/${COMFYUI_REVISION}.tar.gz"
+                python3 -c 'import torch; print(torch.__version__, torch.cuda.get_device_name(0), torch.cuda.nccl.version(), flush=True)'
+                M="${ROOT}/models"
+                hf download appmana/MAGI-2-preview-ComfyUI --local-dir "${M}" \
+                  --include 'diffusion_models/magi2_preview_int8_convrot*' --include 'diffusion_models/magi2_refiner_int8_convrot.safetensors'
+                if [ "${RANK}" -eq 0 ]; then
+                  hf download appmana/MAGI-2-preview-ComfyUI --local-dir "${M}" --include 'vae/*'
+                  hf download appmana/Qwen3.5-27B-ComfyUI --local-dir "${M}" --include 'text_encoders/qwen3.5_27b_int8_convrot.safetensors'
+                  hf download Comfy-Org/stable-audio-open-1.0_repackaged stable-audio-open-1.0.safetensors --local-dir "${M}/checkpoints"
+                  curl -fsSL "https://raw.githubusercontent.com/hiddenswitch/forks-pip-and-uv-installable-ComfyUI/${COMFYUI_REVISION}/tests/inference/workflows/${WORKFLOW}.json" -o "${OUT}/workflow.json"
+                fi
+                cd "${ROOT}"
+                start=$(date +%s)
+                set +e
+                python3 -c 'from comfy.cmd.cli import entrypoint; entrypoint()' workflows run "${OUT}/workflow.json" \
+                  --base-directory "${ROOT}" --output-directory "${OUT}" --no-guess-settings \
+                  --tensor-parallel-size 1 --pipeline-parallel-size 2 --distributed-executor-backend external_launcher \
+                  --logging-level INFO 2>&1 | tee "${OUT}/rank${RANK}.log"
+                status=${PIPESTATUS[0]}
+                set -e
+                echo "workflow ${WORKFLOW} rank ${RANK} exit ${status} after $(( $(date +%s) - start )) s" | tee -a "${OUT}/rank${RANK}.log"
+                if [ "${RANK}" -eq 0 ]; then
+                  find "${OUT}" -type f -newer "${OUT}/workflow.json" -printf '%s %p\n'
+                  sleep "${RESULT_HOLD_SECONDS}"
+                fi
+                exit "${status}"
+              env:
+              - name: COMFYUI_REVISION
+                value: f32021959ecca3a8f2b8a9878779f45453bf9d82
+              - name: WORKFLOW
+                value: magi2-t2va-0
+              - name: RESULT_HOLD_SECONDS
+                value: '1800'
+              - name: JOBSET_UID
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['jobset.sigs.k8s.io/jobset-uid']
+              - name: MASTER_ADDR
+                value: 10.255.0.1
+              - name: MASTER_PORT
+                value: '29541'
+              - name: NCCL_IB_HCA
+                value: rocep1s0f1,roceP2p1s0f1
+              - name: NCCL_IB_ROCE_VERSION_NUM
+                value: '2'
+              - name: NCCL_SOCKET_IFNAME
+                value: enp1s0f1np1
+              - name: GLOO_SOCKET_IFNAME
+                value: enp1s0f1np1
+              - name: NCCL_DEBUG
+                value: INFO
+              - name: NCCL_DEBUG_SUBSYS
+                value: INIT,NET
+              - name: HF_HOME
+                value: /data/hf-home
+              - name: HF_HUB_ENABLE_HF_TRANSFER
+                value: '0'
+              resources:
+                limits:
+                  memory: 118Gi
+                  nvidia.com/gpu: '1'
+                  rdma/gb10_roce: '1'
+                requests:
+                  memory: 64Gi
+                  nvidia.com/gpu: '1'
+                  rdma/gb10_roce: '1'
+              volumeMounts:
+              - name: data
+                mountPath: /data
+              - name: dshm
+                mountPath: /dev/shm
+            volumes:
+            - name: data
+              hostPath:
+                path: /home/administrator/comfyui-magi2
+                type: DirectoryOrCreate
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 16Gi
+  startupPolicy:
+    startupPolicyOrder: AnyOrder
+  successPolicy:
+    operator: All
