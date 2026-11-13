@@ -182,7 +182,6 @@ def sink_attention(q, k, v, sinks, comfy_attention, transformer_options):
 class Attention(nn.Module):
     def __init__(self, hidden_size, num_heads_q, num_heads_kv, head_dim, num_modality, dtype=None, device=None, operations=None):
         super().__init__()
-        self.num_modality = num_modality
         self.head_dim = head_dim
         self.heads_q = local_size(operations, num_heads_q, "MAGI-2 attention heads")
         self.heads_kv = local_size(operations, num_heads_kv, "MAGI-2 key/value heads")
@@ -502,9 +501,6 @@ class Magi2Model(nn.Module):
         super().__init__()
         self.dtype = dtype
         self.num_layers = num_layers
-        self.hidden_size = hidden_size
-        self.num_streams = num_streams
-        self.video_in_channels = video_in_channels
         self.audio_in_channels = audio_in_channels
         self.pipeline_stage = pipeline_stage
         width = num_streams * hidden_size
