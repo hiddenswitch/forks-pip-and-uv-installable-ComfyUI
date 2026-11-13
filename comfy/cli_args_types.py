@@ -138,7 +138,6 @@ class Configuration(dict):
         fp32_text_enc (bool): Use FP32 precision for the text encoder.
         fp16_intermediates (bool): Experimental: Use fp16 for intermediate tensors between nodes instead of fp32.
         oneapi_device_selector (Optional[str]): Sets the oneAPI device(s) this instance will use.
-        directml (Optional[int]): Use DirectML. -1 for auto-selection.
         preview_method (LatentPreviewMethod): Method for generating previews. Defaults to "auto".
         cache_lru (int): Use LRU caching with a maximum of N node results cached. May use more RAM/VRAM.
         cache_ram (float): Use RAM pressure caching with the specified headroom threshold.
@@ -323,7 +322,6 @@ class Configuration(dict):
         self.fp16_text_enc: bool = False
         self.fp32_text_enc: bool = False
         self.fp16_intermediates: bool = False
-        self.directml: Optional[int] = None
         self.preview_method: LatentPreviewMethod = LatentPreviewMethod.Auto
         self.use_split_cross_attention: bool = False
         self.use_quad_cross_attention: bool = False

@@ -19,7 +19,6 @@ AFFECTS_PATHS: frozenset[str] = frozenset({
 # Fields that affect model management behavior - when changed, requires ProcessPoolExecutor
 MODEL_MANAGEMENT_ARGS: frozenset[str] = frozenset({
     "deterministic",
-    "directml",
     "cpu",
     "torch_device",
     "pipeline_parallel_size",

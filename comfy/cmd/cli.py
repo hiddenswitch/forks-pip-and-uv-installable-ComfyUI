@@ -158,7 +158,6 @@ _DEVICE_OPTS: list[tuple] = [
     ("default_device", Optional[int], typer.Option(None, "--default-device", help="Set the id of the default device, all other devices will stay visible.")),
     ("cuda_malloc", bool, typer.Option(False, "--cuda-malloc/--no-cuda-malloc", help="Enable cudaMallocAsync.")),
     ("disable_cuda_malloc", bool, typer.Option(True, "--disable-cuda-malloc", help="Disable cudaMallocAsync.")),
-    ("directml", Optional[int], typer.Option(None, "--directml", help="Use torch-directml. -1 for auto-selection.")),
     ("oneapi_device_selector", Optional[str], typer.Option(None, "--oneapi-device-selector", help="Sets the oneAPI device(s) this instance will use.")),
     ("supports_fp8_compute", bool, typer.Option(False, "--supports-fp8-compute/--no-supports-fp8-compute", help="ComfyUI will act like if the device supports fp8 compute.")),
     ("enable_comfy_kitchen_backends", Optional[list[str]], typer.Option(None, "--enable-comfy-kitchen-backends", help="Re-enable comfy_kitchen quantization backends previously disabled by guess-settings or another flag. Comma-separated. Valid: eager, cuda, triton.")),

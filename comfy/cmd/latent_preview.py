@@ -39,8 +39,6 @@ def preview_to_image(latent_image, do_scale=True) -> Image.Image:
         latents_ubyte = (latent_image.clamp(0, 1)
                          .mul(0xFF)  # to 0..255
                          )
-    if model_management.directml_device is not None:
-        latents_ubyte = latents_ubyte.to(dtype=torch.uint8)
     latents_ubyte = latents_ubyte.to(device="cpu", dtype=torch.uint8, non_blocking=model_management.device_supports_non_blocking(latent_image.device))
 
     return Image.fromarray(latents_ubyte.numpy())

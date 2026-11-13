@@ -173,7 +173,7 @@
 ## Model, Device, and Memory Behavior
 
 - Treat dtype, device placement, VRAM usage, and offloading behavior as core
-  correctness concerns. Check CPU, CUDA, ROCm, MPS, DirectML, XPU, NPU, and low
+  correctness concerns. Check CPU, CUDA, ROCm, MPS, XPU, NPU, and low
   VRAM implications when touching shared execution or loading code.
 - Prefer native ComfyUI formats and existing quantization/offload helpers over
   adding parallel code paths. Use `comfy.quant_ops`, `comfy.model_management`,
