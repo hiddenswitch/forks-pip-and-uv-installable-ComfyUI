@@ -55,6 +55,36 @@ a pin does not fit, idle pins are evicted first; otherwise the weights are used
 unpinned. `--max-pinned-memory` caps the total below the limit minus the
 reserve.
 
+### Unified memory (Apple Silicon, DGX Spark, AMD APUs)
+
+On Apple MPS and on integrated CUDA or ROCm GPUs (torch reports
+`is_integrated`) the GPU allocates from the same RAM as the CPU. ComfyUI
+treats these devices as unified memory:
+
+- Free and total device memory are system memory: `MemAvailable`, capped by
+  the cgroup as above, plus memory torch has cached for reuse. On a GB10,
+  `cudaMemGetInfo` reports `MemFree`, which ignores reclaimable page cache.
+- The device is `SHARED`: weights load straight to the device from a
+  copy-on-write mapping of the safetensors file, with no anonymous CPU copy,
+  and models are never offloaded to the CPU, which would only copy within the
+  same RAM. Unloading a model points its weights back at the file mapping,
+  so the memory is returned and the next load reads the file again.
+- Pinned memory is off, and the pinned-memory reserve is also kept free of
+  device allocations, which the OS can neither reclaim nor swap.
+
+`--unified-memory-allocator` / `--no-unified-memory-allocator`
+(`COMFYUI_UNIFIED_MEMORY_ALLOCATOR`) controls the CUDA allocator. By default
+it is on when every visible device is an integrated NVIDIA GPU with
+concurrent managed access, such as the DGX Spark GB10, and off for discrete
+GPUs, ROCm, MPS and CPU. When on, every CUDA allocation is managed memory
+(`cudaMallocManaged`, preferred location the GPU): pageable RAM the kernel
+can reclaim and swap, instead of pinned device allocations. DynamicVRAM is
+off in that mode; on a GB10 its VMM pages held memory at its 7.8 GB floor
+until the GPU driver's own allocations failed and the next kernel faulted
+(Xid 31). Freed managed blocks are reused only after a device
+synchronization and are returned to the driver whenever ComfyUI empties its
+caches.
+
 ## Distributed configuration
 
 The model-parallel flags are ordinary configuration values:

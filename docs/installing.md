@@ -28,7 +28,10 @@ uv pip install --extra-index-url https://nodes.appmana.com/simple/cu130/ sageatt
 ```
 
 Apple Silicon uses the MPS backend selected by `--torch-backend=auto`. Feature
-availability follows the installed PyTorch MPS build.
+availability follows the installed PyTorch MPS build. Apple Silicon, DGX Spark
+(GB10, Linux arm64) and AMD APUs share RAM between the CPU and GPU; see
+[unified memory](configuration.md#unified-memory-apple-silicon-dgx-spark-amd-apus)
+for how weights are loaded, offloaded and budgeted there.
 
 ## AMD ROCm
 
@@ -127,8 +130,10 @@ Do not modify `PYTHONPATH` to select between competing installations.
 
 ## Memory and performance
 
-DynamicVRAM is the normal memory-management path. It accounts for all selected
-devices and can eject inactive model dependencies when memory is needed. Use
+DynamicVRAM is the normal memory-management path on discrete GPUs. It accounts
+for all selected devices and can eject inactive model dependencies when memory
+is needed. Unified-memory devices load each weight once and release it to the
+checkpoint file instead; see [configuration](configuration.md#unified-memory-apple-silicon-dgx-spark-amd-apus). Use
 `--reserve-vram` for a desktop reservation. `--novram` remains an explicit
 compatibility escape hatch and is not required for ordinary constrained runs.
 

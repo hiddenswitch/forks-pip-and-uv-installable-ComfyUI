@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ctypes
 import logging
+import os
 import sys
 import threading
 from typing import Optional
@@ -256,6 +257,9 @@ def install(configured: Optional[bool]) -> bool:
                 raise RuntimeError("--unified-memory-allocator requires the NVIDIA driver library libcuda.so.1")
             _allocator = _build_allocator()
             torch.cuda.memory.change_current_allocator(_allocator)
+            # ProcessGroupNCCL registers allocator segments with NCCL through an allocator
+            # snapshot, which a pluggable allocator cannot produce; destroying such a group aborts.
+            os.environ["TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK"] = "0"
             _active = True
         logger.info("Unified memory allocator: %s (%s)", "managed memory" if _active else "off",
                     "auto" if configured is None else "configured")
