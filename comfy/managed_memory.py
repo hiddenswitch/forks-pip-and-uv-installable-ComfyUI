@@ -93,31 +93,129 @@ _ALLOC_FN = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int, cty
 _FREE_FN = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int, ctypes.c_void_p)
 
 
+_SMALL_BLOCK = 1 << 20
+_LARGE_GRANULE = 2 << 20
+
+
+def size_class(size: int) -> int:
+    """Bytes actually allocated for a request: powers of two below 1 MiB, 2 MiB multiples above."""
+    if size <= _SMALL_BLOCK:
+        return max(512, 1 << (size - 1).bit_length())
+    return (size + _LARGE_GRANULE - 1) // _LARGE_GRANULE * _LARGE_GRANULE
+
+
+class _BlockCache:
+    """Managed blocks kept for reuse, because cuMemAllocManaged and cuMemFree cost about a millisecond each.
+
+    A freed block may still be read by work queued on any stream (a pluggable allocator sees no
+    record_stream), so it waits in ``pending`` until the next context synchronization, exactly
+    the guarantee cudaFree gives, and only then becomes reusable.
+    """
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.sizes = {}
+        self.ready = {}
+        self.pending = []
+        self.cached = 0
+
+    def take(self, device, block):
+        blocks = self.ready.get((device, block))
+        if not blocks and any(key == (device, block) for key, _ in self.pending):
+            self.promote()
+            blocks = self.ready.get((device, block))
+        if not blocks:
+            return 0
+        self.cached -= block
+        return blocks.pop()
+
+    def promote(self):
+        _driver.cuCtxSynchronize()
+        for key, pointer in self.pending:
+            self.ready.setdefault(key, []).append(pointer)
+        self.pending.clear()
+
+    def release(self) -> int:
+        if not self.pending and not any(self.ready.values()):
+            return 0
+        _driver.cuCtxSynchronize()
+        for key, pointer in self.pending:
+            self.ready.setdefault(key, []).append(pointer)
+        self.pending.clear()
+        released = 0
+        for (_, block), pointers in self.ready.items():
+            for pointer in pointers:
+                _driver.cuMemFree_v2(pointer)
+                del self.sizes[pointer]
+                released += block
+            pointers.clear()
+        self.cached = 0
+        return released
+
+
+_cache = _BlockCache()
+
+
+def _allocate_managed(driver, block, device):
+    pointer = ctypes.c_uint64(0)
+    result = driver.cuMemAllocManaged(ctypes.byref(pointer), block, CU_MEM_ATTACH_GLOBAL)
+    if result == CUDA_ERROR_INVALID_CONTEXT and _make_current(driver, device):
+        result = driver.cuMemAllocManaged(ctypes.byref(pointer), block, CU_MEM_ATTACH_GLOBAL)
+    if result != 0:
+        return 0, result
+    for advice in (CU_MEM_ADVISE_SET_PREFERRED_LOCATION, CU_MEM_ADVISE_SET_ACCESSED_BY):
+        advised = driver.cuMemAdvise(pointer.value, block, advice, device)
+        if advised != 0:
+            logger.error("cuMemAdvise(%d) on device %d failed with CUDA error %d", advice, device, advised)
+    return pointer.value, 0
+
+
 def _managed_alloc(size, device, stream):
     del stream
-    driver = _driver
-    pointer = ctypes.c_uint64(0)
-    result = driver.cuMemAllocManaged(ctypes.byref(pointer), size, CU_MEM_ATTACH_GLOBAL)
-    if result == CUDA_ERROR_INVALID_CONTEXT and _make_current(driver, device):
-        result = driver.cuMemAllocManaged(ctypes.byref(pointer), size, CU_MEM_ATTACH_GLOBAL)
-    if result != 0:
-        logger.error("cuMemAllocManaged of %d bytes on device %d failed with CUDA error %d", size, device, result)
+    if size == 0:
         return 0
-    for advice in (CU_MEM_ADVISE_SET_PREFERRED_LOCATION, CU_MEM_ADVISE_SET_ACCESSED_BY):
-        result = driver.cuMemAdvise(pointer.value, size, advice, device)
-        if result != 0:
-            logger.error("cuMemAdvise(%d) on device %d failed with CUDA error %d", advice, device, result)
-    return pointer.value
+    block = size_class(size)
+    with _cache.lock:
+        pointer = _cache.take(device, block)
+        if pointer:
+            return pointer
+        pointer, result = _allocate_managed(_driver, block, device)
+        if not pointer:
+            _cache.release()
+            pointer, result = _allocate_managed(_driver, block, device)
+        if not pointer:
+            logger.error("cuMemAllocManaged of %d bytes on device %d failed with CUDA error %d", block, device, result)
+            return 0
+        _cache.sizes[pointer] = block
+        return pointer
 
 
 def _managed_free(pointer, size, device, stream):
-    del size, device, stream
-    driver = _driver
-    if not pointer or driver is None:
+    del size, stream
+    if not pointer or _driver is None:
         return
-    # cudaFree semantics: work queued on any stream may still read the block.
-    driver.cuCtxSynchronize()
-    driver.cuMemFree_v2(pointer)
+    with _cache.lock:
+        block = _cache.sizes[pointer]
+        _cache.pending.append(((device, block), pointer))
+        _cache.cached += block
+
+
+def release_cached() -> int:
+    """Return every cached managed block to the driver; the bytes released."""
+    if not _active:
+        return 0
+    with _cache.lock:
+        return _cache.release()
+
+
+def cached_bytes() -> int:
+    """Bytes of managed blocks freed by torch and kept for reuse."""
+    return _cache.cached
+
+
+def held_bytes() -> int:
+    """Bytes of managed blocks allocated from the driver, in use or cached."""
+    return sum(_cache.sizes.values())
 
 
 _c_alloc = _ALLOC_FN(_managed_alloc)
