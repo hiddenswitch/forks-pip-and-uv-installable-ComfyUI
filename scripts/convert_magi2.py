@@ -317,6 +317,26 @@ def report(args):
                   f"max abs {max(r[4] for r in selected):.3e} | cos min {min(r[5] for r in selected):.7f} | plain rel mean {sum(r[6] for r in selected) / len(selected):.4e}")
 
 
+def wan_vae(args):
+    """MAGI-2's fp32 Wan 2.2 VAE (it encodes reference images in fp32) as safetensors, keys and values unchanged.
+
+    With --reference, also checks that Comfy-Org's fp16 Wan 2.2 VAE holds the same tensors rounded to fp16.
+    """
+    state = torch.load(glob.glob(os.path.join(args.source, "*.pth"))[0], map_location="cpu", weights_only=True, mmap=True)
+    state = state.get("state_dict", state)
+    if args.reference:
+        theirs = Reader(args.reference)
+        if set(theirs.keys()) != set(state):
+            raise ValueError(f"key sets differ: {sorted(set(theirs.keys()) ^ set(state))[:10]}")
+        rounded = sum(not torch.equal(value.to(theirs.tensor(key).dtype), theirs.tensor(key)) for key, value in state.items())
+        print(f"{len(state)} tensors, {rounded} differ from the reference after rounding to its dtype")
+    plan = [(key, value.dtype, tuple(value.shape)) for key, value in state.items()]
+    writer = ShardedWriter(args.out, plan, {"format": "pt"}, int(args.shard_gib * 2**30))
+    for key, value in state.items():
+        writer.add(key, value)
+    print("\n".join(writer.close()))
+
+
 def audio_vae(args):
     """Compare MAGI-2's Stable Audio Open copy with another file (Comfy-Org's repackaged one), tensor by tensor."""
     ours, theirs = Reader(args.source), Reader(args.reference)
@@ -338,22 +358,25 @@ def audio_vae(args):
 def main():
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("report", "transformer", "text-encoder", "turbo-vae", "audio-vae"):
+    for name in ("report", "transformer", "text-encoder", "turbo-vae", "wan-vae", "audio-vae"):
         command = commands.add_parser(name)
         command.add_argument("--source", required=True)
         command.add_argument("--device", default="cpu")
         command.add_argument("--shard-gib", type=float, default=40.0)
         if name in ("transformer", "text-encoder"):
             command.add_argument("--format", choices=("bf16", "int8"), required=True)
-        if name in ("transformer", "text-encoder", "turbo-vae"):
+        if name in ("transformer", "text-encoder", "turbo-vae", "wan-vae"):
             command.add_argument("--out", required=True)
         if name == "report":
             command.add_argument("--layers", default="0,2,20,37,39")
             command.add_argument("--experts", type=int, default=16)
         if name == "audio-vae":
             command.add_argument("--reference", required=True)
+        if name == "wan-vae":
+            command.add_argument("--reference")
     args = parser.parse_args()
-    {"report": report, "transformer": transformer, "text-encoder": text_encoder, "turbo-vae": turbo_vae, "audio-vae": audio_vae}[args.command](args)
+    {"report": report, "transformer": transformer, "text-encoder": text_encoder, "turbo-vae": turbo_vae, "wan-vae": wan_vae,
+     "audio-vae": audio_vae}[args.command](args)
 
 
 if __name__ == "__main__":

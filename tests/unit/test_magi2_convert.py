@@ -134,3 +134,19 @@ def _assert_int8_experts_follow_the_kernel_contract(module):
         with ieee_fp32_matmul(), torch.no_grad():
             actual = module(x)[0]
         assert relative_error(actual, expected) < INT8_MOE_TOLERANCE, full_precision_mm
+
+
+def test_wan_vae_is_kept_in_fp32_and_checked_against_the_fp16_copy(tmp_path, capsys):
+    generator = torch.Generator().manual_seed(4)
+    state = {"encoder.conv1.weight": torch.randn(4, 3, 3, 3, 3, generator=generator), "decoder.head.2.bias": torch.randn(3, generator=generator)}
+    source = tmp_path / "vae"
+    source.mkdir()
+    torch.save(state, source / "Wan2.2_VAE.pth")
+    reference = tmp_path / "wan2.2_vae.safetensors"
+    safetensors.torch.save_file({key: value.half() for key, value in state.items()}, reference)
+    out = tmp_path / "magi2_wan2.2_vae_fp32.safetensors"
+    _converter().wan_vae(argparse.Namespace(source=str(source), reference=str(reference), out=str(out), shard_gib=40.0))
+    assert "2 tensors, 0 differ" in capsys.readouterr().out
+    converted = safetensors.torch.load_file(out)
+    assert converted.keys() == state.keys()
+    assert all(converted[key].dtype == torch.float32 and torch.equal(converted[key], value) for key, value in state.items())

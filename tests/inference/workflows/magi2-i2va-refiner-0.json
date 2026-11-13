@@ -39,7 +39,7 @@
   "8": {
     "class_type": "VAELoader",
     "inputs": {
-      "vae_name": "wan2.2_vae.safetensors"
+      "vae_name": "magi2_wan2.2_vae_fp32.safetensors"
     }
   },
   "9": {

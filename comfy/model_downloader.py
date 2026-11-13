@@ -839,6 +839,7 @@ KNOWN_APPROX_VAES: Final[KnownDownloadables] = KnownDownloadables([
 
 KNOWN_VAES: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("appmana/MAGI-2-preview-ComfyUI", "vae/magi2_turbo_vae.safetensors"),
+    HuggingFile("appmana/MAGI-2-preview-ComfyUI", "vae/magi2_wan2.2_vae_fp32.safetensors"),
     HuggingFile("Comfy-Org/Idol", "vae/idol_decoder_fp16.safetensors"),
     HuggingFile("Comfy-Org/MOSS-Image", "vae/flux2-vae_small.safetensors"),
     HuggingFile("Comfy-Org/Ming-Image", "vae/ming_image_vae_bf16.safetensors"),
