@@ -12,18 +12,32 @@ import torch
 from safetensors.torch import _TYPES
 
 
+_WEIGHT_NORM = {"weight_g": "parametrizations.weight.original0", "weight_v": "parametrizations.weight.original1"}
+
+
+def _receiver_name(name, targets):
+    """The receiver key for a source key: weight-norm checkpoints store weight_g / weight_v, which torch's
+    parametrization exposes as original0 / original1 and renames on load."""
+    if name in targets:
+        return name
+    prefix, _, leaf = name.rpartition(".")
+    alias = f"{prefix}.{_WEIGHT_NORM[leaf]}" if prefix and leaf in _WEIGHT_NORM else _WEIGHT_NORM.get(leaf)
+    return alias if alias in targets else None
+
+
 def random_state(state, targets, *, seed=0, max_bytes=1024**3, device="cpu"):
     """Materialize source keys at receiver shapes, retaining small source buffers."""
-    size = sum(t.numel() * t.element_size() for k, t in targets.items() if k in state)
+    receivers = {name: _receiver_name(name, targets) for name in state}
+    size = sum(targets[r].numel() * targets[r].element_size() for r in receivers.values() if r is not None)
     if size > max_bytes:
         raise ValueError(f'Miniature checkpoint still requires {size / 1024**2:.0f} MiB (limit {max_bytes / 1024**2:.0f})')
     generator = torch.Generator(device=device).manual_seed(seed)
     weights = OrderedDict()
     for name, tensor in state.items():
-        if name not in targets:
+        if receivers[name] is None:
             # Removed repeated blocks are intentionally absent in the smaller model.
             continue
-        target = targets[name]
+        target = targets[receivers[name]]
         if not tensor.is_meta:
             weights[name] = tensor.flatten()[:target.numel()].reshape(target.shape).to(target.dtype)
             continue
