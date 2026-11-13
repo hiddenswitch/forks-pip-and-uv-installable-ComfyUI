@@ -220,3 +220,12 @@ MAGI-2 implementation obstacles (`features/magi2`):
   Stable Audio VAE decoded NaN and SaveAudio wrote it silently (`b3c06df74`).
 - **Running scripts from a worktree**: set `PYTHONPATH=<worktree>` or the venv's installed `comfy` is
   imported. Hugging Face `upload-large-folder` needs more than an 8 GiB memory cap.
+- **Unified-memory hosts (DGX Spark GB10) are not ordinary GPUs** (Hilton, 2026-11-13, see PR #83):
+  with DynamicVRAM the driver ran out of memdesc allocations and then raised `Xid 31` (MMU fault,
+  `FAULT_PDE`) in the first forward; without it, the mmap'd checkpoint and the device copies shared the
+  128 GB pool and the host rebooted. Read `journalctl -k -b -1` (NVRM lines) on the host before blaming
+  the kernel in the Python traceback; reproduce the suspect op in isolation (fp32 `torch._grouped_mm` was
+  exact on GB10). Budget a stage at half the unified pool until loading avoids the second copy.
+- **Stage weights for multi-host runs before the window**: one Spark's Hugging Face egress was slow and
+  restarted downloads instead of resuming; copying from the other host over the RoCE link (HTTP server
+  pod on one host, `curl --interface <roce ip>` + `sha256sum -c` on the other) took minutes.
