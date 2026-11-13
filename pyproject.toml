@@ -299,6 +299,7 @@ ignorelist = ["all", "format", "id", "input", "max", "min", "round", "type"]
 "scripts/fast_coverage.py" = ["T201"]
 "comfy/cmd/folder_paths.py" = ["F822"]  # __all__ entries provided dynamically by module property
 "scripts/snapshot_flash_attention_wheels.py" = ["T201"]
+"scripts/convert_magi2.py" = ["T201"]  # a command-line report
 "comfy_extras/nodes/nodes_eval.py" = ["S102"]
 "comfy_extras/nodes/nodes_cosmos_upsampling.py" = ["B005"]
 
