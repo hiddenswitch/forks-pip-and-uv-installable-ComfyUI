@@ -184,5 +184,39 @@ from SandAI's repo. Parity tests compare against these references.
 - Their sizes, not their architecture, force PP/TP: MAGI-2's preview transformer is 212 GiB bf16
   (114B MoE, 6B active), PAN2's is 29B dense. Plan the target hardware from bytes per stage.
 - Search for existing conversions and identical components first (see Step 1); this avoided
-  publishing a duplicate Qwen3.5-9B encoder.
-- Per-implementation obstacles are recorded in the commits on `features/magi2` and `features/pan2`.
+  publishing a duplicate Qwen3.5-9B encoder, and showed MAGI-2's Stable Audio VAE is byte-identical
+  to Comfy-Org's while Comfy-Org's Wan 2.2 VAE is the fp16 rounding of the fp32 weights MAGI-2 encodes
+  with (`f19ba6e5c` adds an fp32 conversion).
+
+MAGI-2 implementation obstacles (`features/magi2`):
+- **Read the reference loader, not only the model.** SandAI's model routes with `expert_bias`, but
+  its loader overwrites it with `expert_bias_ema`; the scheduler hands the model truncated integer
+  timesteps while the solver keeps float sigmas.
+- **End-to-end tolerances hide precision deviations.** A 2e-2 end-to-end bound missed routed-expert
+  gate/up outputs rounded to bf16 where the reference kernel keeps fp32; a module-level kernel-contract
+  test catches it exactly (`f3b4a5ffa`). Isolate scatter-add order (one expert per token) before
+  blaming the math.
+- **ComfyUI sets `torch.set_float32_matmul_precision("high")` at import**, so every fp32 matmul runs
+  as TF32. A reference run in the same process inherits the setting and hides it; run references at
+  their own defaults and wrap the model in a "highest" precision context when the reference needs it
+  (`f3b4a5ffa`).
+- **MoE parity**: bf16 rounding flips top-k choices and compounds; compare layers teacher-forced on the
+  reference's own inputs plus a full-route end-to-end run (`48acd5e03`).
+- **Make random weights exercise every feature**: uniform small weights left attention sinks without
+  effect, so the test could not see a sink bug; fan-in scaled init with real sink magnitudes fixed it.
+  Confirm a parity test discriminates by mutating the implementation (window radius, block size).
+- **Sink attention through ComfyUI attention** (no log-sum-exp returned, dense masks impossible at 57k
+  tokens): pad the head dim and carry the sink logit in an extra key. Quantized attention backends lose
+  precision on that logit.
+- **Latent order**: when the reference un-normalizes in an order no latent hook reproduces, keep the
+  latents normalized and let the model's decode node map them (`33e6b86e5`); the stock VAE Decode then
+  no longer applies to that family.
+- **Tensor parallel**: widths of empty modality groups must come from the global size under full-domain
+  TP; the TP loader must accept sharded `.index.json` checkpoints like the PP loader (`c8f13375c`).
+- **ConvRot group** is the largest power of 4 dividing the input width: MAGI-2's refiner MLP down
+  projection (10920) gets group 4.
+- **Shared harness bugs surface late**: folder listings hid `.index.json` and `.sft` files over a
+  missing comma (`0a82acdcc`); mini-weight checkpoints left weight-norm parameters uninitialised, so the
+  Stable Audio VAE decoded NaN and SaveAudio wrote it silently (`b3c06df74`).
+- **Running scripts from a worktree**: set `PYTHONPATH=<worktree>` or the venv's installed `comfy` is
+  imported. Hugging Face `upload-large-folder` needs more than an 8 GiB memory cap.
