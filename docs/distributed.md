@@ -106,7 +106,9 @@ storage reduces weight capacity requirements but does not guarantee faster math.
 See [quantization contracts](../QUANTIZATION.md).
 
 Pipeline boundaries begin with checkpoint geometry and are refined against
-DynamicVRAM geometry on each device. Text encoders and other dependencies can
+DynamicVRAM geometry on each device. On unified-memory devices such as the DGX
+Spark, each stage's budget is the host's available system memory, and stages
+are built directly on the device. Text encoders and other dependencies can
 be ejected by the normal memory manager. Reduced offloading can improve latency,
 but sequential pipeline stages do not execute different layers of one sample
 simultaneously. Slow checkpoint storage can dominate startup and streaming.

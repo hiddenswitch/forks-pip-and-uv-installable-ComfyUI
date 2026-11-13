@@ -26,8 +26,11 @@ for model-parallel support rather than duplicating that matrix here.
 - Native ComfyUI nodes and the packaged frontend are tested together. A custom
   node that depends on a private frontend build may need its own compatibility
   pin.
-- DynamicVRAM is the normal memory-management path. Use explicit low-memory
-  modes only when diagnosing a constrained or unusual environment.
+- DynamicVRAM is the normal memory-management path on discrete GPUs. Use
+  explicit low-memory modes only when diagnosing a constrained or unusual
+  environment. Unified-memory devices (Apple MPS, DGX Spark GB10, AMD APUs)
+  follow the [unified memory](configuration.md#unified-memory-apple-silicon-dgx-spark-amd-apus)
+  rules instead.
 - Torch extensions must match the active backend and Python ABI. The package
   facade exposes named, allowlisted indexes for supported extension families;
   it does not make arbitrary binary wheels compatible.
