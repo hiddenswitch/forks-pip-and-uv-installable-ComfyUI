@@ -135,6 +135,20 @@ def test_setup_resolves_cpu_configurations_off(monkeypatch):
     assert seen == [False, False, None, True]
 
 
+def test_auto_stays_off_for_nccl_model_parallel_runs(monkeypatch):
+    seen = []
+    monkeypatch.setattr(managed_memory, "install", lambda configured: seen.append(configured) or False)
+    for name in ("RANK", "WORLD_SIZE", "LOCAL_RANK", "LOCAL_WORLD_SIZE"):
+        monkeypatch.delenv(name, raising=False)
+    setup.setup_unified_memory_allocator(Configuration(pipeline_parallel_size=2))
+    setup.setup_unified_memory_allocator(Configuration(tensor_parallel_size=2))
+    setup.setup_unified_memory_allocator(Configuration(pipeline_parallel_size=2, unified_memory_allocator=True))
+    monkeypatch.setenv("RANK", "1")
+    monkeypatch.setenv("WORLD_SIZE", "2")
+    setup.setup_unified_memory_allocator(Configuration())
+    assert seen == [False, False, True, False]
+
+
 def test_pre_torch_setup_installs_the_allocator_last(monkeypatch):
     calls = []
     for name in ("setup_environment", "setup_guess_settings", "setup_windows_multi_gpu_defaults",

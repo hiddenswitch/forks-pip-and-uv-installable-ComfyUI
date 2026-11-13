@@ -386,7 +386,20 @@ def setup_unified_memory_allocator(config: Configuration):
     configured = config.unified_memory_allocator
     if configured is None and (config.cpu or (config.torch_device or "").startswith("cpu")):
         configured = False
+    if configured is None and _uses_nccl_process_groups(config):
+        # NGC torch 2.15's ProcessGroupNCCL aborts with a pluggable allocator: destroying a group
+        # asks the allocator for a snapshot it cannot produce, even with
+        # TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK=0.
+        logger.info("Unified memory allocator left off: model-parallel ranks use NCCL process groups")
+        configured = False
     return managed_memory.install(configured)
+
+
+def _uses_nccl_process_groups(config: Configuration) -> bool:
+    distributed = resolve_distributed_configuration(config)
+    return (distributed.world_size > 1 or distributed.pipeline_parallel_size > 1
+            or distributed.tensor_parallel_size > 1
+            or distributed.ulysses_degree * distributed.ring_degree > 1)
 
 
 def setup_pre_torch(config: Configuration):
