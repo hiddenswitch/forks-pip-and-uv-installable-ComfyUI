@@ -24,6 +24,10 @@ offloading; their weights are not split across ranks. Select INT8 encoder files
 for 24 GiB cards, or BF16 files when preserving encoder precision is preferable
 to reducing offload traffic.
 
+MAGI-2 Preview splits its attention heads and its twelve routed MoE heads (each with
+its 256 experts) across TP ranks, so a TP size must divide those heads and the 1280-wide
+shared experts: 2 or 4. The refiner's eight key/value heads allow 2, 4 or 8.
+
 ## Defaults
 
 Hardware guessing is enabled by default. On Linux, when all visible NVIDIA GPUs
@@ -50,6 +54,7 @@ and supported parallel sizes. Use its findings when selecting devices.
 | Krea 2 | Yes | — | — |
 | MiniMax H3 | Yes | Yes | Yes |
 | MiniMax H3 Image | Yes | Yes | — |
+| MAGI-2 Preview and refiner | Yes | Yes | — |
 | Qwen Image / Layered | — | Yes | Yes |
 | Kandinsky 6 Pro custom node | Yes | — | — |
 | HunyuanImage3 custom node | Yes, with expert parallelism | Yes | — |

@@ -12,7 +12,7 @@ from .. import model_detection, model_management, ops, utils
 from ..execution_context import current_execution_context
 from ..distributed.executors import ContextVarExecutor
 from ..model_patcher import get_model_patcher_class
-from ..pipeline_parallel.checkpoint import SafetensorsCheckpointReader
+from ..pipeline_parallel.checkpoint import SafetensorsCheckpointReader, is_safetensors_checkpoint
 from ..pipeline_parallel.loader import _normalize_detection_state, _normalized_descriptors
 from .checkpoint import shard_tensor_parallel_state_dict
 from .distributed import RemoteTensorParallelRankModel, launch_tensor_parallel
@@ -22,7 +22,7 @@ from .operations import full_domain_tensor_parallel_operations, tensor_parallel_
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_MODEL_FAMILIES = frozenset(("flux2", "ideogram4", "krea2", "minimax_h3", "minimax_h3_image", "kandinsky6"))
+SUPPORTED_MODEL_FAMILIES = frozenset(("flux2", "ideogram4", "krea2", "minimax_h3", "minimax_h3_image", "kandinsky6", "magi2", "magi2_refiner"))
 
 
 @dataclass(frozen=True)
@@ -250,7 +250,7 @@ def try_load_diffusion_model_tensor_parallel(unet_path, model_options=None, disa
     size = int(configuration.tensor_parallel_size or 1)
     if size == 1:
         return None
-    if os.path.splitext(os.fspath(unet_path))[1].lower() not in (".safetensors", ".sft"):
+    if not is_safetensors_checkpoint(unet_path):
         raise ValueError("Tensor parallel loading requires a safetensors checkpoint")
     reader = SafetensorsCheckpointReader(unet_path)
     detection_state, metadata, _prefix = _normalize_detection_state(reader)

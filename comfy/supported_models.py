@@ -1089,6 +1089,29 @@ class MiniMaxH3Image(MiniMaxH3):
     def get_model(self, state_dict, prefix="", device=None):
         return model_base.MiniMaxH3Image(self, device=device)
 
+class Magi2(supported_models_base.BASE):
+    unet_config = {"image_model": "magi2"}
+    sampling_settings = {"shift": 7.0}
+    unet_extra_config = {}
+    latent_format = latent_formats.Magi2
+    memory_usage_factor = 6.0
+    supported_inference_dtypes = [torch.bfloat16, torch.float32]
+    vae_key_prefix = ["vae."]
+    text_encoder_key_prefix = ["text_encoders."]
+
+    def get_model(self, state_dict, prefix="", device=None):
+        return model_base.Magi2(self, device=device)
+
+
+class Magi2Refiner(Magi2):
+    unet_config = {"image_model": "magi2_refiner"}
+    sampling_settings = {"shift": 5.0, "renoise_index": 220}
+    memory_usage_factor = 3.0
+
+    def get_model(self, state_dict, prefix="", device=None):
+        return model_base.Magi2Refiner(self, device=device)
+
+
 class HunyuanVideo(supported_models_base.BASE):
     unet_config = {
         "image_model": "hunyuan_video",
@@ -2849,6 +2872,8 @@ models = [
     LTXAV,
     MiniMaxH3,
     MiniMaxH3Image,
+    Magi2,
+    Magi2Refiner,
     HunyuanVideo15_SR_Distilled,
     HunyuanVideo15,
     HunyuanImage21Refiner,

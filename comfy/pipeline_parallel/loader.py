@@ -485,6 +485,8 @@ def try_load_diffusion_model_pipeline(
         "minimax_h3",
         "minimax_h3_image",
         "flux2",
+        "magi2",
+        "magi2_refiner",
     ):
         return None
 
