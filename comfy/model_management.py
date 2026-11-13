@@ -1525,6 +1525,13 @@ def offload_shares_device_memory(load_device=None) -> bool:
     return is_unified_memory_device(load_device) and not memory_management.aimdo_enabled
 
 
+def offload_device_for(load_device, offload_device=torch.device("cpu")):
+    """The offload device a loader should use for a model that runs on ``load_device``."""
+    if offload_shares_device_memory(load_device):
+        return load_device
+    return offload_device
+
+
 def unet_offload_device():
     if vram_state == VRAMState.HIGH_VRAM or offload_shares_device_memory():
         return get_torch_device()

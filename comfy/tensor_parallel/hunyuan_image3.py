@@ -256,13 +256,14 @@ def load_rank(load_spec, device, tensor_operations):
         {"shift": upstream_loader.SHIFT}, quant_config=quantization,
         dtype=load_spec.dtype, custom_operations=operations,
     )
-    model = upstream_base.HunyuanImage3Model(config, device=torch.device("cpu"))
+    offload_device = model_management.offload_device_for(device)
+    model = upstream_base.HunyuanImage3Model(config, device=offload_device)
     parallel = TensorParallelConfig(tensor_operations)
     shards = _shard_model(model.diffusion_model, operations, parallel, load_spec.model_options["expert_only"])
     state = _load_state(reader, shards, parallel, upstream_model.HEAD_PREFIXES)
     upstream_loader.shared_codebooks(state)
     patcher = get_model_patcher_class(load_spec.disable_dynamic)(
-        model, load_device=device, offload_device=torch.device("cpu"),
+        model, load_device=device, offload_device=offload_device,
         ckpt_name=os.path.basename(load_spec.checkpoint_path),
     )
     loaded = model.diffusion_model.load_state_dict(state, strict=False, assign=patcher.is_dynamic())

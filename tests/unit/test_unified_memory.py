@@ -172,3 +172,56 @@ def test_pinned_memory_is_disabled_on_unified_memory(monkeypatch):
     assert model_management.pinned_memory_disabled_for_device()
     monkeypatch.setattr(model_management, "is_unified_memory_device", lambda d=None: False)
     assert not model_management.pinned_memory_disabled_for_device()
+
+
+def test_model_parallel_offload_device_follows_unified_memory(monkeypatch):
+    device = torch.device("cuda", 0)
+    monkeypatch.setattr(memory_management, "aimdo_allocator", None)
+    monkeypatch.setattr(model_management, "is_unified_memory_device", lambda d=None: True)
+    assert model_management.offload_device_for(device) == device
+
+    monkeypatch.setattr(memory_management, "aimdo_allocator", object())
+    assert model_management.offload_device_for(device) == torch.device("cpu")
+
+    monkeypatch.setattr(memory_management, "aimdo_allocator", None)
+    monkeypatch.setattr(model_management, "is_unified_memory_device", lambda d=None: False)
+    assert model_management.offload_device_for(device) == torch.device("cpu")
+
+
+def test_pipeline_stage_is_built_on_a_unified_memory_device(monkeypatch):
+    from comfy.pipeline_parallel import loader
+    from comfy.pipeline_parallel.types import PipelineStagePlan
+
+    device = torch.device("cuda", 0)
+    monkeypatch.setattr(model_management, "offload_device_for", lambda load, offload=None: load)
+    built = {}
+
+    class StopAfterPlacement(Exception):
+        pass
+
+    class Config:
+        def __init__(self, unet_config):
+            self.unet_config = dict(unet_config)
+            self.quant_config = None
+            self.custom_operations = None
+            self.optimizations = {}
+            self.supported_inference_dtypes = (torch.bfloat16,)
+
+        def set_inference_dtype(self, *args, **kwargs):
+            pass
+
+        def get_model(self, state, prefix, device=None):
+            built["device"] = device
+            raise StopAfterPlacement
+
+    class Reader:
+        def load_keys(self, keys):
+            return {}
+
+    monkeypatch.setattr(loader, "get_pipeline_stage_spec", lambda name: SimpleNamespace(owns_key=lambda *a: True))
+    monkeypatch.setattr(model_management, "unet_manual_cast", lambda *a, **k: None)
+    stage = PipelineStagePlan(0, device, 0, 1, 1, frozenset())
+    with pytest.raises(StopAfterPlacement):
+        loader._load_pipeline_stage(Reader(), Config({"image_model": "qwen_image"}), {}, "", {}, "unet.safetensors",
+                                    SimpleNamespace(size=1), stage, {}, True, torch.bfloat16, torch.device("cpu"))
+    assert built["device"] == device

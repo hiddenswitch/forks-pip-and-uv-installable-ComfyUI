@@ -79,6 +79,7 @@ def _load_pipeline_stage(
     dtype,
     offload_device,
 ):
+    offload_device = model_management.offload_device_for(stage.device, offload_device)
     stage_model_config = type(model_config)(model_config.unet_config)
     stage_model_config.quant_config = utils.deepcopy_list_dict(model_config.quant_config) if model_config.quant_config is not None else None
     stage_model_config.custom_operations = model_config.custom_operations

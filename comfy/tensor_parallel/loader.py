@@ -105,12 +105,13 @@ def _load_rank(
         if rank_config.quant_config is not None:
             raise ValueError("Kandinsky 6 tensor parallelism currently requires unquantized checkpoints")
         extension_module = type(model_config).__module__.split(".")[0]
-        model = rank_config.get_model({}, "", device=torch.device("cpu"))
+        offload_device = model_management.offload_device_for(device)
+        model = rank_config.get_model({}, "", device=offload_device)
         install_magcache_transport(model.diffusion_model, extension_module)
         shards = shard_model(model.diffusion_model, rank_config.custom_operations, extension_module)
         state = load_state(reader, prefix, shards, parallel_config, extension_module)
         patcher = get_model_patcher_class(disable_dynamic)(
-            model, load_device=device, offload_device=torch.device("cpu"),
+            model, load_device=device, offload_device=offload_device,
             ckpt_name=os.path.basename(checkpoint_path),
         )
         loaded = model.diffusion_model.load_state_dict(state, strict=False, assign=patcher.is_dynamic())
@@ -122,11 +123,12 @@ def _load_rank(
         state = _read_rank_state(reader, metadata, prefix, original_keys, model_options,
                                  model_family, parallel_config.rank, parallel_config.size, state_transform)
 
-    model = rank_config.get_model(state, "", device=torch.device("cpu"))
+    offload_device = model_management.offload_device_for(device)
+    model = rank_config.get_model(state, "", device=offload_device)
     patcher = get_model_patcher_class(disable_dynamic)(
         model,
         load_device=device,
-        offload_device=torch.device("cpu"),
+        offload_device=offload_device,
         ckpt_name=os.path.basename(checkpoint_path),
     )
     model.load_model_weights(state, "", assign=patcher.is_dynamic())
