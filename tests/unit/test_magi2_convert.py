@@ -25,11 +25,11 @@ def _converter():
     return module
 
 
-def _release_checkpoint(directory):
+def _release_checkpoint(directory, video_channels=8, audio_channels=6):
     """A tiny preview transformer saved in the release layout: shards plus model.safetensors.index.json."""
     ref = magi2_reference.load()
     cfg = ref.config
-    config = cfg.ModelConfig(num_layers=3, hidden_size=256, head_dim=64, num_query_groups=4, video_in_channels=8, audio_in_channels=6,
+    config = cfg.ModelConfig(num_layers=3, hidden_size=256, head_dim=64, num_query_groups=4, video_in_channels=video_channels, audio_in_channels=audio_channels,
                              text_in_channels=5120, mm_layers=[0, 2], num_heads_q=4, num_heads_kv=4,
                              moe_config=cfg.MoEConfig(num_experts=8, top_k=6, moe_layers=[1], expert_intermediate_size=64, shared_expert_intermediate_size=32,
                                                       modality_specific_expert_intermediate_size=32, num_heads=4))
