@@ -380,14 +380,24 @@ def fix_pytorch_240():
             pass
 
 
+def setup_unified_memory_allocator(config: Configuration):
+    """Resolve --unified-memory-allocator and install the managed allocator before CUDA initializes."""
+    from .. import managed_memory
+    configured = config.unified_memory_allocator
+    if configured is None and (config.cpu or (config.torch_device or "").startswith("cpu")):
+        configured = False
+    return managed_memory.install(configured)
+
+
 def setup_pre_torch(config: Configuration):
-    """Must be called before torch import."""
+    """Must be called before torch import; ends by installing the CUDA allocator, which imports torch."""
     setup_environment()
     setup_debug_hang(config)
     setup_guess_settings(config)
     setup_windows_multi_gpu_defaults(config)
     setup_cuda_devices(config)
     setup_cuda_malloc(config)
+    setup_unified_memory_allocator(config)
 
 
 def setup_post_torch(config: Configuration):
@@ -396,6 +406,7 @@ def setup_post_torch(config: Configuration):
     # Otherwise that first access installs an exporter-less provider and the
     # CLI's configured endpoint arrives too late.
     setup_tracing(config)
+    setup_unified_memory_allocator(config)
     setup_warning_filters()
     setup_logging_filters()
     setup_logging(config)

@@ -225,3 +225,16 @@ def test_pipeline_stage_is_built_on_a_unified_memory_device(monkeypatch):
         loader._load_pipeline_stage(Reader(), Config({"image_model": "qwen_image"}), {}, "", {}, "unet.safetensors",
                                     SimpleNamespace(size=1), stage, {}, True, torch.bfloat16, torch.device("cpu"))
     assert built["device"] == device
+
+
+def test_managed_allocator_free_memory_is_system_memory(monkeypatch):
+    # The managed allocator keeps no cache and torch cannot report stats for it.
+    from comfy import managed_memory
+    _cuda_properties(monkeypatch, integrated=True)
+    _system_memory(monkeypatch, total=121 * GiB, available=90 * GiB)
+    monkeypatch.setattr(managed_memory, "_active", True)
+    monkeypatch.setattr(model_management.torch.cuda, "memory_stats",
+                        lambda dev=None: pytest.fail("pluggable allocators have no device stats"))
+    device = torch.device("cuda", 0)
+    assert model_management.get_free_memory(device, torch_free_too=True) == (90 * GiB, 0)
+    assert model_management.get_total_memory(device, torch_total_too=True) == (121 * GiB, 0)
