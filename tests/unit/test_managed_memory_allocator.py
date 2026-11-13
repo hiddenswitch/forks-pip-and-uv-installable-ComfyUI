@@ -219,6 +219,7 @@ def test_managed_allocator_backs_cuda_tensors_with_managed_memory():
         from comfy import managed_memory
         assert managed_memory.install(True)
         x = torch.arange(1024, device="cuda", dtype=torch.float32)
+        assert torch.empty(0, device="cuda").numel() == 0
         value = ctypes.c_int(0)
         CU_POINTER_ATTRIBUTE_IS_MANAGED = 8
         libcuda = ctypes.CDLL("libcuda.so.1")
@@ -227,3 +228,4 @@ def test_managed_allocator_backs_cuda_tensors_with_managed_memory():
     """)
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=300, check=True)
     assert result.stdout.strip().splitlines()[-1] == f"1 {float(sum(range(1024)) * 2)}"
+    assert "cuMemAllocManaged" not in result.stderr

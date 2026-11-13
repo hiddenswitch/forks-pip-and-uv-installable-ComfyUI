@@ -95,6 +95,8 @@ _FREE_FN = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int
 
 def _managed_alloc(size, device, stream):
     del stream
+    if size == 0:
+        return 0
     driver = _driver
     pointer = ctypes.c_uint64(0)
     result = driver.cuMemAllocManaged(ctypes.byref(pointer), size, CU_MEM_ATTACH_GLOBAL)
