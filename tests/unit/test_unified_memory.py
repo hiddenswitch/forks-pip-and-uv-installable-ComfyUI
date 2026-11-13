@@ -228,13 +228,28 @@ def test_pipeline_stage_is_built_on_a_unified_memory_device(monkeypatch):
 
 
 def test_managed_allocator_free_memory_is_system_memory(monkeypatch):
-    # The managed allocator keeps no cache and torch cannot report stats for it.
+    # torch cannot report stats for a pluggable allocator; free memory is system memory plus
+    # the managed blocks cached for reuse.
     from comfy import managed_memory
     _cuda_properties(monkeypatch, integrated=True)
     _system_memory(monkeypatch, total=121 * GiB, available=90 * GiB)
     monkeypatch.setattr(managed_memory, "_active", True)
+    monkeypatch.setattr(managed_memory, "cached_bytes", lambda: 0)
+    monkeypatch.setattr(managed_memory, "held_bytes", lambda: 0)
     monkeypatch.setattr(model_management.torch.cuda, "memory_stats",
                         lambda dev=None: pytest.fail("pluggable allocators have no device stats"))
     device = torch.device("cuda", 0)
     assert model_management.get_free_memory(device, torch_free_too=True) == (90 * GiB, 0)
     assert model_management.get_total_memory(device, torch_total_too=True) == (121 * GiB, 0)
+
+
+def test_managed_allocator_cache_counts_as_free(monkeypatch):
+    from comfy import managed_memory
+    _cuda_properties(monkeypatch, integrated=True)
+    _system_memory(monkeypatch, total=121 * GiB, available=90 * GiB)
+    monkeypatch.setattr(managed_memory, "_active", True)
+    monkeypatch.setattr(managed_memory, "cached_bytes", lambda: 3 * GiB)
+    monkeypatch.setattr(managed_memory, "held_bytes", lambda: 40 * GiB)
+    device = torch.device("cuda", 0)
+    assert model_management.get_free_memory(device, torch_free_too=True) == (93 * GiB, 3 * GiB)
+    assert model_management.get_total_memory(device, torch_total_too=True) == (121 * GiB, 40 * GiB)

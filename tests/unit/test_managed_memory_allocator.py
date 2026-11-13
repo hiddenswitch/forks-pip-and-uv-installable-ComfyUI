@@ -229,3 +229,62 @@ def test_managed_allocator_backs_cuda_tensors_with_managed_memory():
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=300, check=True)
     assert result.stdout.strip().splitlines()[-1] == f"1 {float(sum(range(1024)) * 2)}"
     assert "cuMemAllocManaged" not in result.stderr
+
+
+def test_size_classes():
+    assert managed_memory.size_class(1) == 512
+    assert managed_memory.size_class(513) == 1024
+    assert managed_memory.size_class(1 << 20) == 1 << 20
+    assert managed_memory.size_class((1 << 20) + 1) == 2 << 20
+    assert managed_memory.size_class((5 << 20) + 7) == 6 << 20
+
+
+class _RecordingDriver:
+    def __init__(self):
+        self.next = 0x1000
+        self.events = []
+
+    def cuMemAllocManaged(self, pointer, size, flags):
+        self.next += size
+        pointer._obj.value = self.next
+        self.events.append(("alloc", size))
+        return 0
+
+    def cuMemAdvise(self, pointer, size, advice, device):
+        return 0
+
+    def cuCtxSynchronize(self):
+        self.events.append(("sync",))
+        return 0
+
+    def cuMemFree_v2(self, pointer):
+        self.events.append(("free", pointer))
+        return 0
+
+
+def test_freed_blocks_are_reused_only_after_a_context_synchronization(monkeypatch):
+    driver = _RecordingDriver()
+    monkeypatch.setattr(managed_memory, "_driver", driver)
+    monkeypatch.setattr(managed_memory, "_cache", managed_memory._BlockCache())
+    monkeypatch.setattr(managed_memory, "_active", True)
+
+    first = managed_memory._managed_alloc(3 << 20, 0, None)
+    managed_memory._managed_free(first, 3 << 20, 0, None)
+    assert managed_memory.cached_bytes() == 4 << 20
+    assert driver.events == [("alloc", 4 << 20)]
+
+    again = managed_memory._managed_alloc(4 << 20, 0, None)
+    assert again == first
+    assert driver.events == [("alloc", 4 << 20), ("sync",)]
+    assert managed_memory.cached_bytes() == 0
+
+    other = managed_memory._managed_alloc(64, 0, None)
+    assert other != first
+    assert driver.events[-1] == ("alloc", 512)
+
+    managed_memory._managed_free(again, 4 << 20, 0, None)
+    managed_memory._managed_free(other, 64, 0, None)
+    assert managed_memory.held_bytes() == (4 << 20) + 512
+    assert managed_memory.release_cached() == (4 << 20) + 512
+    assert managed_memory.held_bytes() == 0
+    assert sorted(e for e in driver.events if e[0] == "free") == sorted([("free", first), ("free", other)])

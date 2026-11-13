@@ -370,8 +370,7 @@ def is_unified_memory_device(device=None) -> bool:
 def _unified_allocator_memory(dev):
     """(reserved, reusable) bytes held by torch's allocator on a unified-memory device."""
     if managed_memory.is_active():
-        # The managed allocator returns every block to the driver on free: nothing is cached.
-        return 0, 0
+        return managed_memory.held_bytes(), managed_memory.cached_bytes()
     if dev.type == "mps":
         reserved = torch.mps.driver_allocated_memory()
         return reserved, max(0, reserved - torch.mps.current_allocated_memory())
@@ -2846,6 +2845,7 @@ def _soft_empty_cache(force=False):
     elif torch.cuda.is_available():
         torch.cuda.synchronize()
         torch.cuda.empty_cache()
+        managed_memory.release_cached()
         torch.cuda.ipc_collect()
 
 
