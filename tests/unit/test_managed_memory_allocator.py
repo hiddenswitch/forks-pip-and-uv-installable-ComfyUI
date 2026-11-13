@@ -86,6 +86,7 @@ def test_explicit_setting_overrides_detection(monkeypatch):
 
 def test_install_changes_the_allocator_only_when_resolved_on(monkeypatch, fresh_allocator_state):
     import torch
+    monkeypatch.delenv("TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK", raising=False)
     installed = []
     monkeypatch.setattr(torch.cuda.memory, "change_current_allocator", installed.append)
     monkeypatch.setattr(torch.cuda, "is_initialized", lambda: False)
@@ -95,12 +96,14 @@ def test_install_changes_the_allocator_only_when_resolved_on(monkeypatch, fresh_
 
     assert managed_memory.install(None) is False
     assert installed == []
+    assert "TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK" not in managed_memory.os.environ
 
     monkeypatch.setattr(managed_memory, "_resolved", None)
     monkeypatch.setattr(managed_memory, "nvidia_shared_memory_devices", lambda: True)
     assert managed_memory.install(None) is True
     assert installed == ["managed-allocator"]
     assert managed_memory.is_active()
+    assert managed_memory.os.environ["TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK"] == "0"
 
     assert managed_memory.install(None) is True
     assert installed == ["managed-allocator"]
