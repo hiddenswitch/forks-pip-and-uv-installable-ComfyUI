@@ -76,13 +76,15 @@ treats these devices as unified memory:
 (`COMFYUI_UNIFIED_MEMORY_ALLOCATOR`) controls the CUDA allocator. By default
 it is on when every visible device is an integrated NVIDIA GPU with
 concurrent managed access, such as the DGX Spark GB10, and off for discrete
-GPUs, ROCm, MPS and CPU, and also off for pipeline, tensor and sequence
-parallel runs: NGC PyTorch 2.15 aborts when a NCCL process group is destroyed
-under a pluggable allocator. When on, every CUDA allocation is managed memory
+GPUs, ROCm, MPS and CPU. When on, every CUDA allocation is managed memory
 (`cudaMallocManaged`, preferred location the GPU): pageable RAM the kernel
 can reclaim and swap, instead of pinned device allocations. Freed managed
 blocks are reused only after a device synchronization and are returned to
-the driver whenever ComfyUI empties its caches.
+the driver whenever ComfyUI empties its caches. NCCL process groups use
+torch's stock `ProcessGroupNCCL` (`TORCH_DIST_USE_NCCL2=0`): the nccl2
+backend that recent torch builds select for `nccl` registers every allocator
+segment with NCCL through allocator snapshots, which a pluggable allocator
+cannot provide.
 
 DynamicVRAM is off on unified-memory devices: on a GB10 its VMM pages held
 memory at its 7.8 GB floor until the GPU driver's own allocations failed and

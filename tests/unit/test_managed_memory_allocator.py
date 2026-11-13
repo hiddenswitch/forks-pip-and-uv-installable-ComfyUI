@@ -86,7 +86,6 @@ def test_explicit_setting_overrides_detection(monkeypatch):
 
 def test_install_changes_the_allocator_only_when_resolved_on(monkeypatch, fresh_allocator_state):
     import torch
-    monkeypatch.delenv("TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK", raising=False)
     installed = []
     monkeypatch.setattr(torch.cuda.memory, "change_current_allocator", installed.append)
     monkeypatch.setattr(torch.cuda, "is_initialized", lambda: False)
@@ -96,14 +95,12 @@ def test_install_changes_the_allocator_only_when_resolved_on(monkeypatch, fresh_
 
     assert managed_memory.install(None) is False
     assert installed == []
-    assert "TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK" not in managed_memory.os.environ
 
     monkeypatch.setattr(managed_memory, "_resolved", None)
     monkeypatch.setattr(managed_memory, "nvidia_shared_memory_devices", lambda: True)
     assert managed_memory.install(None) is True
     assert installed == ["managed-allocator"]
     assert managed_memory.is_active()
-    assert managed_memory.os.environ["TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK"] == "0"
 
     assert managed_memory.install(None) is True
     assert installed == ["managed-allocator"]
@@ -135,18 +132,18 @@ def test_setup_resolves_cpu_configurations_off(monkeypatch):
     assert seen == [False, False, None, True]
 
 
-def test_auto_stays_off_for_nccl_model_parallel_runs(monkeypatch):
+def test_auto_holds_for_nccl_model_parallel_runs(monkeypatch):
     seen = []
     monkeypatch.setattr(managed_memory, "install", lambda configured: seen.append(configured) or False)
     for name in ("RANK", "WORLD_SIZE", "LOCAL_RANK", "LOCAL_WORLD_SIZE"):
         monkeypatch.delenv(name, raising=False)
     setup.setup_unified_memory_allocator(Configuration(pipeline_parallel_size=2))
     setup.setup_unified_memory_allocator(Configuration(tensor_parallel_size=2))
-    setup.setup_unified_memory_allocator(Configuration(pipeline_parallel_size=2, unified_memory_allocator=True))
+    setup.setup_unified_memory_allocator(Configuration(pipeline_parallel_size=2, unified_memory_allocator=False))
     monkeypatch.setenv("RANK", "1")
     monkeypatch.setenv("WORLD_SIZE", "2")
     setup.setup_unified_memory_allocator(Configuration())
-    assert seen == [False, False, True, False]
+    assert seen == [None, None, False, None]
 
 
 def test_pre_torch_setup_installs_the_allocator_last(monkeypatch):
@@ -246,6 +243,49 @@ def test_managed_allocator_backs_cuda_tensors_with_managed_memory():
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=300, check=True)
     assert result.stdout.strip().splitlines()[-1] == f"1 {float(sum(range(1024)) * 2)}"
     assert "cuMemAllocManaged" not in result.stderr
+
+
+def test_nccl_process_groups_live_and_die_under_the_managed_allocator():
+    """torch's nccl2 backend snapshots the allocator, which a pluggable allocator cannot; install selects the stock one."""
+    import torch
+    import torch.distributed as dist
+    if not torch.cuda.is_available() or not dist.is_nccl_available():
+        pytest.skip("needs a CUDA device and NCCL")
+    script = textwrap.dedent("""
+        import os, socket, torch, torch.distributed as dist
+        from comfy import managed_memory
+        assert managed_memory.install(True)
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        torch.cuda.set_device(0)
+        dist.init_process_group("nccl", init_method=f"tcp://127.0.0.1:{port}", rank=0, world_size=1,
+                                device_id=torch.device("cuda", 0))
+        x = torch.ones(1 << 20, device="cuda")
+        dist.all_reduce(x)
+        group = dist.new_group([0], backend="nccl", device_id=torch.device("cuda", 0))
+        dist.all_reduce(x, group=group)
+        dist.destroy_process_group(group)
+        dist.destroy_process_group()
+        print(os.environ["TORCH_DIST_USE_NCCL2"], float(x.sum().item()))
+    """)
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=300)
+    assert result.returncode == 0, result.stderr[-4000:]
+    assert result.stdout.strip().splitlines()[-1] == f"0 {float(1 << 20)}"
+
+
+def test_install_selects_the_stock_nccl_backend_only_with_the_allocator(monkeypatch, fresh_allocator_state):
+    import torch
+    monkeypatch.setattr(torch.cuda.memory, "change_current_allocator", lambda allocator: None)
+    monkeypatch.setattr(torch.cuda, "is_initialized", lambda: False)
+    monkeypatch.setattr(managed_memory, "_load_driver", lambda: object())
+    monkeypatch.setattr(managed_memory, "_build_allocator", lambda: "managed-allocator")
+    monkeypatch.setenv("TORCH_DIST_USE_NCCL2", "1")
+    assert managed_memory.install(False) is False
+    assert managed_memory.os.environ["TORCH_DIST_USE_NCCL2"] == "1"
+    monkeypatch.setattr(managed_memory, "_resolved", None)
+    assert managed_memory.install(True) is True
+    assert managed_memory.os.environ["TORCH_DIST_USE_NCCL2"] == "0"
 
 
 def test_size_classes():
