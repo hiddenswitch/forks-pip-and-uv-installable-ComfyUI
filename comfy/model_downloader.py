@@ -838,6 +838,8 @@ KNOWN_APPROX_VAES: Final[KnownDownloadables] = KnownDownloadables([
 ], folder_name="vae_approx")
 
 KNOWN_VAES: Final[KnownDownloadables] = KnownDownloadables([
+    HuggingFile("appmana/MAGI-2-preview-int8", "vae/magi2_turbo_vae.safetensors", revision="14bd09837669a3921cb4c7d530ab5c20085d4097", size=428503102),
+    HuggingFile("appmana/MAGI-2-preview-int8", "vae/magi2_wan2.2_vae_fp32.safetensors", revision="14bd09837669a3921cb4c7d530ab5c20085d4097", size=2818780225),
     HuggingFile("Comfy-Org/Idol", "vae/idol_decoder_fp16.safetensors"),
     HuggingFile("Comfy-Org/MOSS-Image", "vae/flux2-vae_small.safetensors"),
     HuggingFile("Comfy-Org/Ming-Image", "vae/ming_image_vae_bf16.safetensors"),
@@ -944,6 +946,9 @@ KNOWN_HUGGINGFACE_MODEL_REPOS: Final[Set[str]] = {
 }
 
 KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
+    HuggingFile("appmana/MAGI-2-preview-int8", "diffusion_models/magi2_preview_int8_convrot.safetensors.index.json", revision="14bd09837669a3921cb4c7d530ab5c20085d4097", size=302565,
+                companion_files=("diffusion_models/magi2_preview_int8_convrot-00001-of-00003.safetensors", "diffusion_models/magi2_preview_int8_convrot-00002-of-00003.safetensors", "diffusion_models/magi2_preview_int8_convrot-00003-of-00003.safetensors")),
+    HuggingFile("appmana/MAGI-2-preview-int8", "diffusion_models/magi2_refiner_int8_convrot.safetensors", revision="14bd09837669a3921cb4c7d530ab5c20085d4097", size=6797335679),
     HuggingFile("Comfy-Org/Idol", "diffusion_models/idol_fp16.safetensors"),
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_base_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/MOSS-Image", "diffusion_models/moss_image_sft_int8_convrot.safetensors"),
@@ -1299,6 +1304,7 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("bertbobson/Sulphur-2-base-INT8-ConvRot", "sulphur_distil_INT8_ConvRot.safetensors"),
 ], folder_names=["diffusion_models", "unet"])
 KNOWN_CLIP_MODELS: Final[KnownDownloadables] = KnownDownloadables([
+    HuggingFile("appmana/Qwen3.5-27B-int8", "text_encoders/qwen3.5_27b_int8_convrot.safetensors", revision="a266f9737edfef5faf6bcac207b5ae3a27406ec9", size=27929049739),
     HuggingFile("Comfy-Org/Ming-Image", "text_encoders/ming_image_0.1_ling_mini_2.0_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Qwen3.8-27B", "text_encoders/qwen3.8_27b_w4a8.safetensors"),
     HuggingFile("Comfy-Org/Qwen-Image-2.1", "text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors"),

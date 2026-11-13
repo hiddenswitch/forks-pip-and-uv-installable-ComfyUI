@@ -108,14 +108,19 @@ def vae_decode_audio(vae, samples, tile=None, overlap=None):
     if latent.is_nested:
         latent = latent.unbind()[-1]
 
+    latent_format = samples.get("latent_format")
+    # passed only when present, so other VAE objects keep their signature
+    formatted = {} if latent_format is None else {"latent_format": latent_format}
     if tile is not None:
-        audio = vae.decode_tiled(latent, tile_x=tile, tile_y=tile, overlap=overlap).movedim(-1, 1)
+        audio = vae.decode_tiled(latent, tile_x=tile, tile_y=tile, overlap=overlap, **formatted).movedim(-1, 1)
     else:
-        audio = vae.decode(latent).movedim(-1, 1)
+        audio = vae.decode(latent, **formatted).movedim(-1, 1)
 
-    std = torch.std(audio, dim=[1, 2], keepdim=True) * 5.0
-    std[std < 1.0] = 1.0
-    audio /= std
+    if latent_format is None:
+        # a model-specific latent format decodes exactly as its reference pipeline, without this loudness cap
+        std = torch.std(audio, dim=[1, 2], keepdim=True) * 5.0
+        std[std < 1.0] = 1.0
+        audio /= std
     vae_sample_rate = getattr(vae, "audio_sample_rate_output", getattr(vae, "audio_sample_rate", 44100))
     return {"waveform": audio, "sample_rate": vae_sample_rate if "sample_rate" not in samples else samples["sample_rate"]}
 

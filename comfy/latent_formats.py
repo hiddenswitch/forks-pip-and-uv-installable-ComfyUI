@@ -1225,3 +1225,31 @@ class CogVideoX1_5(CogVideoX):
     """
     def __init__(self):
         self.scale_factor = 0.7
+
+
+class Magi2(Wan22):
+    """MAGI-2 keeps its Wan 2.2 video latents in the normalized basis, as SandAI's pipeline does.
+
+    The reference samples, upsamples for the refiner and re-noises normalized fp32 latents and maps
+    them to the VAE basis only inside the encoder and the decoder, with its own operation order; the
+    model's latents are therefore not rescaled on the way in or out of the sampler.
+    """
+
+    def process_in(self, latent):
+        return latent
+
+    def process_out(self, latent):
+        return latent
+
+    def _inverse_std(self, device):
+        # the reference stores 1 / std in fp32 and divides or multiplies by it
+        return 1.0 / self.latents_std.to(device, torch.float32)
+
+    def normalize(self, latent):
+        """VAE latent -> model latent: (mu - mean) * (1 / std) in fp32, as SandAI's Wan 2.2 encode."""
+        return (latent.float() - self.latents_mean.to(latent.device, torch.float32)) * self._inverse_std(latent.device)
+
+    def denormalize(self, latent, dtype):
+        """Model latent -> VAE latent: rounded to dtype, divided by (1 / std) plus mean in fp32, rounded again, as SandAI's decode."""
+        latent = latent.to(dtype)
+        return (latent / self._inverse_std(latent.device) + self.latents_mean.to(latent.device, torch.float32)).to(dtype)

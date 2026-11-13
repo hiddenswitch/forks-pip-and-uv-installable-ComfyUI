@@ -143,7 +143,25 @@ def miniature_transformers(loaded, width, depth, initialization_device):
                 handle.remove()
 
 
+def _smaller_magi2(config, depth):
+    # Layer roles follow the checkpoint (multimodal first layers, then experts), so keep enough
+    # layers to reach an expert layer. Widths keep every ConvRot input a multiple of 256.
+    config = config.copy()
+    preview = config['image_model'] == 'magi2'
+    if config.get('pipeline_stage') is None:
+        config['num_layers'] = min(config['num_layers'], max(depth, 3 if preview else 2))
+    layers = range(config['num_layers'])
+    config.update(hidden_size=512, intermediate_size=512, num_query_groups=4 if preview else 2,
+                  multimodal_layers=tuple(i for i in config['multimodal_layers'] if i in layers))
+    if preview:
+        config.update(moe_layers=tuple(i for i in config['moe_layers'] if i in layers), moe_heads=2, num_experts=8, top_k=2,
+                      expert_intermediate_size=256, shared_expert_intermediate_size=256, modality_shared_expert_intermediate_size=256)
+    return config
+
+
 def _smaller(config, width, depth, alignment=1):
+    if config.get('image_model') in ('magi2', 'magi2_refiner'):
+        return _smaller_magi2(config, depth)
     _original_counts = (config.get("n_double_layers", 0), config.get("n_layers", 0))
     config = config.copy()
     depth_keys = ('depth', 'depth_single_blocks', 'num_layers', 'num_single_layers', 'num_double_stream_layers', 'num_refiner_layers', 'num_blocks', 'n_layers', 'n_double_layers', 'num_hidden_layers', 'num_text_blocks', 'num_visual_blocks', 'layers', 'patch_depth', 'pixel_depth', 'vace_layers')
