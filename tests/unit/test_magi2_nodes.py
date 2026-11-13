@@ -7,32 +7,29 @@ import scipy.signal
 import torch
 from PIL import Image
 
+from comfy import sd
 from comfy.latent_formats import Magi2, Wan22
-from comfy_extras.nodes import nodes_magi2
-from comfy_extras.nodes.nodes_magi2 import (AUDIO_STRETCH, EmptyMagi2Latent, Magi2RefinerLatent, encode_reference, fft_resample, reference_hint, reference_pixels,
-                                           video_latent_frames)
+from comfy.ldm.audio.autoencoder import AudioOobleckVAE
+from comfy.ldm.magi2 import latents as magi2_latents
+from comfy.ldm.magi2.latents import LATENT_FORMAT
+from comfy.nested_tensor import NestedTensor
+from comfy.nodes.base_nodes import VAEDecode
+from comfy_extras.nodes.nodes_audio import vae_decode_audio
+from comfy_extras.nodes.nodes_magi2 import EmptyMagi2Latent, Magi2RefinerLatent, encode_reference, reference_hint, reference_pixels, video_latent_frames
 
 from . import magi2_reference
 
 
-def test_fft_resample_matches_scipy():
-    generator = torch.Generator().manual_seed(0)
-    for length in (512000, 2048 * 7, 4096 + 2):
-        waveform = torch.randn(1, 2, length, generator=generator)
-        num = length * AUDIO_STRETCH[0] // AUDIO_STRETCH[1]
-        expected = scipy.signal.resample(waveform[0].T.numpy(), int(length * (441 / 512)))
-        actual = fft_resample(waveform, num)[0].T.numpy()
-        np.testing.assert_allclose(actual, expected, rtol=1e-4, atol=1e-5)
-
-
 def test_empty_latent_matches_reference_lengths():
-    latent = EmptyMagi2Latent.execute(896, 512, 10.0, 1).result[0]["samples"]
+    empty = EmptyMagi2Latent.execute(896, 512, 10.0, 1).result[0]
+    assert empty["latent_format"] == LATENT_FORMAT
+    latent = empty["samples"]
     video, audio = latent.unbind()
     assert video.shape == (1, 48, 32, 32, 56)
     assert audio.shape == (1, 64, 250)
     assert video_latent_frames(10.0) == 32
-    refined = Magi2RefinerLatent.execute({"samples": latent}, 1920, 1088).result[0]["samples"]
-    assert refined.shape == (1, 48, 63, 68, 120)
+    refined = Magi2RefinerLatent.execute(empty, 1920, 1088).result[0]
+    assert refined["samples"].shape == (1, 48, 63, 68, 120) and refined["latent_format"] == LATENT_FORMAT
 
 
 reference_required = pytest.mark.skipif(magi2_reference.REFERENCE_SRC is None, reason="needs MAGI2_REFERENCE_SRC")
@@ -81,6 +78,9 @@ class _RecordingVae:
     def __init__(self, latent):
         self.latent, self.inputs = latent, []
 
+    def float32_copy(self):
+        return self
+
     def encode(self, pixels):
         self.inputs.append(pixels)
         return self.latent
@@ -99,18 +99,73 @@ def test_encode_reference_normalizes_like_sandai():
     assert torch.equal(Magi2().denormalize(latent, torch.float32), (latent / (1.0 / stats.latents_std) + stats.latents_mean))
 
 
-def test_float32_vae_reloads_the_checkpoint_in_fp32(monkeypatch, caplog):
+def test_float32_copy_reloads_the_source_in_fp32(monkeypatch, caplog):
     built = []
-    monkeypatch.setattr(nodes_magi2.folder_paths, "get_full_path_or_raise", lambda folder, name: f"/{folder}/{name}")
-    monkeypatch.setattr(nodes_magi2.utils, "load_torch_file", lambda path, return_metadata: ({"w": torch.zeros(1, dtype=torch.float16)}, None))
-    monkeypatch.setattr(nodes_magi2.sd, "VAE", lambda **kwargs: built.append(kwargs) or "fp32 vae")
-    fp32 = _RecordingVae(None)
-    assert nodes_magi2.float32_vae(fp32) is fp32
-    bf16 = _RecordingVae(None)
-    bf16.vae_dtype = torch.bfloat16
-    assert nodes_magi2.float32_vae(bf16) == "fp32 vae"
+
+    class Built:
+        def __init__(self, **kwargs):
+            built.append(kwargs)
+
+    monkeypatch.setattr(sd, "VAE", Built)
+    stub = type("Stub", (), {})()
+    stub.vae_dtype, stub.ckpt_name, stub.device = torch.bfloat16, "wan.safetensors", "cpu"
+    stub.state_dict_source = lambda: ({"w": torch.zeros(1, dtype=torch.float16)}, None)
+    copy = _FLOAT32_COPY(stub)
     assert built[0]["dtype"] == torch.float32 and built[0]["ckpt_name"] == "wan.safetensors"
-    assert "not an fp32 checkpoint" in caplog.text
-    bf16.ckpt_name = ""
+    assert "does not store fp32 weights" in caplog.text
+    assert _FLOAT32_COPY(stub) is copy and len(built) == 1
+    stub.vae_dtype = torch.float32
+    del stub._float32_copy
+    assert _FLOAT32_COPY(stub) is stub
+    stub.vae_dtype, stub.state_dict_source = torch.bfloat16, None
     with pytest.raises(ValueError):
-        nodes_magi2.float32_vae(bf16)
+        _FLOAT32_COPY(stub)
+
+
+_FLOAT32_COPY = sd.VAE.float32_copy
+
+
+class _StubVae:
+    """Enough of a VAE for the MAGI-2 latent mapping: the decoder class, dtype and an fp32 copy."""
+
+    def __init__(self, model, latent_dim, latent_channels, vae_dtype=torch.bfloat16, waveform=None):
+        self.first_stage_model, self.latent_dim, self.latent_channels, self.vae_dtype = model, latent_dim, latent_channels, vae_dtype
+        self.audio_sample_rate, self.waveform, self.decoded = 44100, waveform, []
+
+    def float32_copy(self):
+        copy = _StubVae(self.first_stage_model, self.latent_dim, self.latent_channels, torch.float32, self.waveform)
+        copy.decoded = self.decoded
+        return copy
+
+    def decode(self, samples, latent_format=None):
+        if latent_format is not None:
+            return sd.VAE.decode(self, samples, latent_format=latent_format)
+        self.decoded.append((samples, self.vae_dtype))
+        return self.waveform
+
+    def throw_exception_if_invalid(self):
+        pass
+
+
+def test_magi2_audio_decodes_like_sandai_through_vae_decode_audio():
+    """Stock VAE Decode Audio: fp32 decode, scipy.signal.resample by 441/512, no loudness cap, 44.1 kHz."""
+    generator = torch.Generator().manual_seed(6)
+    waveform = torch.randn(1, 2048 * 10, 2, generator=generator) * 3.0
+    vae = _StubVae(AudioOobleckVAE.__new__(AudioOobleckVAE), 1, 64, waveform=waveform)
+    audio_latent = torch.randn(1, 64, 10, generator=generator)
+    latent = {"samples": NestedTensor((torch.zeros(1, 48, 2, 2, 2), audio_latent)), "latent_format": LATENT_FORMAT}
+    audio = vae_decode_audio(vae, latent)
+    assert vae.decoded[0][1] == torch.float32 and torch.equal(vae.decoded[0][0], audio_latent)
+    expected = scipy.signal.resample(waveform[0].numpy(), int(waveform.shape[1] * 441 / 512))
+    assert audio["sample_rate"] == 44100
+    assert torch.equal(audio["waveform"][0], torch.from_numpy(expected).T)
+
+
+def test_magi2_latents_refuse_other_vaes():
+    latent = {"samples": torch.zeros(1, 48, 2, 2, 2), "latent_format": LATENT_FORMAT}
+    with pytest.raises(ValueError, match="turbo VAE or the Wan 2.2 VAE"):
+        VAEDecode().decode(_StubVae(torch.nn.Identity(), 3, 48), latent)
+    with pytest.raises(ValueError, match="Stable Audio Open"):
+        magi2_latents.decode_audio(_StubVae(torch.nn.Identity(), 1, 64), torch.zeros(1, 64, 4))
+    with pytest.raises(ValueError, match="Unknown latent format"):
+        VAEDecode().decode(_StubVae(torch.nn.Identity(), 3, 48), {"samples": torch.zeros(1, 48, 2, 2, 2), "latent_format": "other"})

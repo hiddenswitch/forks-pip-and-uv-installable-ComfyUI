@@ -2,7 +2,11 @@ import pytest
 import torch
 
 import comfy.ops as comfy_ops
+from comfy import sd
+from comfy.ldm.magi2.latents import LATENT_FORMAT
 from comfy.ldm.magi2.turbo_vae import TurboVAEDecoder, decoder_config
+from comfy.nested_tensor import NestedTensor
+from comfy.nodes.base_nodes import VAEDecode
 
 from . import magi2_reference
 
@@ -33,37 +37,45 @@ def _latent(frames, device):
 
 @pytest.mark.parametrize("frames", [2, 3, 7, 8])
 def test_turbo_decoder_matches_sandai(frames):
+    """TurboVAEDecoder decodes Wan 2.2-basis latents; SandAI's decode un-normalizes first."""
     ref = magi2_reference.load()
     device = torch.device("cuda", torch.cuda.device_count() - 1)
     reference, model = _models(ref, device)
     z = _latent(frames, device)
     with torch.no_grad(), ref.eager():
         expected = reference.decode(z)
+    mean, inverse_std = reference.scale
     with torch.no_grad():
-        actual = model.decode(z)
+        actual = model.decode(z / inverse_std.view(1, 48, 1, 1, 1) + mean.view(1, 48, 1, 1, 1))
     assert actual.shape == expected.shape == (1, 3, (frames - 1) * 4 + 1, 48, 64)
     torch.testing.assert_close(actual, expected, rtol=1e-4, atol=1e-4)
 
 
-def test_turbo_decoder_input_matches_sandai_in_bf16():
-    """The pipeline hands the decoder its normalized latent in bf16; the decoder input is then bit-identical to SandAI's."""
+def test_stock_vae_decode_matches_sandai_bit_for_bit():
+    """Stock VAE Decode on a MAGI-2 LATENT: the bf16 decoder input and the frames equal SandAI's exactly."""
     ref = magi2_reference.load()
     device = torch.device("cuda", torch.cuda.device_count() - 1)
-    reference, model = _models(ref, device)
-    reference, model = reference.to(torch.bfloat16), model.to(torch.bfloat16)
+    reference, _ = _models(ref, device)
+    vae = sd.VAE(sd={key: value.cpu() for key, value in reference.state_dict().items() if key.startswith("decoder.")})
+    assert isinstance(vae.first_stage_model, TurboVAEDecoder) and vae.vae_dtype == torch.bfloat16
+    # the chunk schedule is the release config's (7, 7), not part of the weights; this tiny reference uses (3, 2)
+    vae.first_stage_model.first_chunk_size, vae.first_stage_model.step_size = 3, 2
+    reference = reference.to(torch.bfloat16)
     inputs = {"reference": [], "comfy": []}
     reference.decoder.register_forward_pre_hook(lambda module, args, kwargs: inputs["reference"].append(args[0]), with_kwargs=True)
-    model.decoder.register_forward_pre_hook(lambda module, args: inputs["comfy"].append(args[0]))
+    vae.first_stage_model.decoder.register_forward_pre_hook(lambda module, args: inputs["comfy"].append(args[0]))
     z = _latent(7, device) * 3.0
+    audio = torch.randn(1, 64, 20, generator=torch.Generator().manual_seed(5))
+    latent = {"samples": NestedTensor((z.cpu(), audio)), "latent_format": LATENT_FORMAT}
     with torch.no_grad(), ref.eager():
-        expected = reference.decode(z.to(torch.bfloat16))
+        expected = reference.decode(z.to(torch.bfloat16)).float().mul(0.5).add(0.5).clamp(0, 1)
     with torch.no_grad():
-        actual = model.decode(z.to(torch.bfloat16))
+        frames, = VAEDecode().decode(vae, latent)
     assert len(inputs["comfy"]) == len(inputs["reference"]) > 1
     for comfy_input, reference_input in zip(inputs["comfy"], inputs["reference"]):
         assert comfy_input.dtype == reference_input.dtype == torch.bfloat16
-        assert torch.equal(comfy_input, reference_input)
-    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+        assert torch.equal(comfy_input.to(reference_input.device), reference_input)
+    assert torch.equal(frames, expected[0].permute(1, 2, 3, 0).cpu())
     # un-normalizing the fp32 latent before the bf16 cast, as a plain latent format would, does not give the same input
     mean, inverse_std = reference.scale
     unnormalized_first = (z / inverse_std.view(1, 48, 1, 1, 1) + mean.view(1, 48, 1, 1, 1)).to(torch.bfloat16)
