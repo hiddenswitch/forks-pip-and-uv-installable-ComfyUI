@@ -265,7 +265,7 @@ def turbo_vae(args):
 
 
 def _errors(weight, back):
-    weight, back = weight.float().flatten(), back.float().flatten()
+    weight, back = weight.double().flatten(), back.double().flatten()
     difference = weight - back
     return (difference.norm() / weight.norm()).item(), difference.abs().max().item(), torch.nn.functional.cosine_similarity(weight, back, dim=0).item()
 
@@ -273,6 +273,7 @@ def _errors(weight, back):
 def _plain(weight):
     rows = weight.reshape(-1, weight.shape[-1]).float()
     scale = rows.abs().amax(dim=1, keepdim=True) / 127.0
+    scale = torch.where(scale == 0, torch.ones_like(scale), scale)
     return (torch.round(rows / scale).clamp(-127, 127) * scale).view(weight.shape)
 
 

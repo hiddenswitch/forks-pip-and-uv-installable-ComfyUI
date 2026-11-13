@@ -1,6 +1,6 @@
 """Imports SandAI's MAGI-2 Preview inference package as the parity reference.
 
-Set MAGI2_REFERENCE_SRC to a checkout of https://github.com/SandAI-org/MAGI-2 (the `inference/`
+Set MAGI2_REFERENCE_SRC to a checkout of https://github.com/SandAI-org/MAGI-2-preview (the `inference/`
 package). Its CUDA-only kernels and compiler hooks are replaced by plain PyTorch stand-ins that
 implement the documented kernel contracts: FlashAttention-3 varlen forward returning (out, lse),
 the sink LSE correction, the flash multi-head MoE gather/GEMM/scatter, flash-attn's rotary
