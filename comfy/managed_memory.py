@@ -23,6 +23,7 @@ CU_MEM_ATTACH_GLOBAL = 1
 CU_MEM_ADVISE_SET_PREFERRED_LOCATION = 3
 CU_MEM_ADVISE_SET_ACCESSED_BY = 5
 CUDA_ERROR_INVALID_CONTEXT = 201
+_NCCL2_ENVIRONMENT = "TORCH_DIST_USE_NCCL2"
 
 _lock = threading.Lock()
 _driver = None
@@ -235,6 +236,23 @@ def _build_allocator():
     return ManagedMemoryAllocator()
 
 
+def _use_stock_nccl_backend():
+    """Route ``backend="nccl"`` to torch's stock ProcessGroupNCCL.
+
+    torch's nccl2 implementation (the default "nccl" since torch 2.14) registers every
+    allocator segment with its communicators: its caching-allocator hook takes an allocator
+    snapshot and attaches a trace tracker, both of which a pluggable allocator rejects, and
+    the destructor's detachMemoryHook then terminates the process. The stock backend uses
+    the allocator only for tensors. torch resolves "nccl" lazily, when the first process
+    group is created, from this variable.
+    """
+    previous = os.environ.get(_NCCL2_ENVIRONMENT)
+    if previous not in (None, "0"):
+        logger.warning("%s=%s overridden to 0: torch's nccl2 backend cannot run on a pluggable CUDA allocator",
+                       _NCCL2_ENVIRONMENT, previous)
+    os.environ[_NCCL2_ENVIRONMENT] = "0"
+
+
 def install(configured: Optional[bool]) -> bool:
     """Resolve the setting and, when it is on, make managed memory torch's CUDA allocator.
 
@@ -257,9 +275,7 @@ def install(configured: Optional[bool]) -> bool:
                 raise RuntimeError("--unified-memory-allocator requires the NVIDIA driver library libcuda.so.1")
             _allocator = _build_allocator()
             torch.cuda.memory.change_current_allocator(_allocator)
-            # ProcessGroupNCCL registers allocator segments with NCCL through an allocator
-            # snapshot, which a pluggable allocator cannot produce; destroying such a group aborts.
-            os.environ["TORCH_NCCL_USE_TENSOR_REGISTER_ALLOCATOR_HOOK"] = "0"
+            _use_stock_nccl_backend()
             _active = True
         logger.info("Unified memory allocator: %s (%s)", "managed memory" if _active else "off",
                     "auto" if configured is None else "configured")
