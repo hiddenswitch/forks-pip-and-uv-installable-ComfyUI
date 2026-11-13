@@ -22,7 +22,17 @@ def _fresh_module():
     return torch.nn.Sequential(torch.nn.Linear(64, 32), torch.nn.Linear(32, 16))
 
 
-def test_file_backed_safetensors_match_the_checkpoint_and_copy_on_write(tmp_path):
+def _mapping_permissions(address):
+    with open("/proc/self/maps") as maps:
+        for line in maps:
+            bounds, permissions = line.split()[:2]
+            low, high = (int(value, 16) for value in bounds.split("-"))
+            if low <= address < high:
+                return permissions
+    raise AssertionError(f"address {address:#x} is not mapped")
+
+
+def test_file_backed_safetensors_match_the_checkpoint(tmp_path):
     reference, path = _checkpoint(tmp_path)
     state = utils.load_safetensors_file_backed(str(path))[0]
 
@@ -30,9 +40,17 @@ def test_file_backed_safetensors_match_the_checkpoint_and_copy_on_write(tmp_path
         assert memory_management.is_file_backed(state[key])
         torch.testing.assert_close(state[key], value, rtol=0, atol=0)
 
-    state["0.weight"].add_(1.0)
-    again = utils.load_safetensors_file_backed(str(path))[0]
-    torch.testing.assert_close(again["0.weight"], reference.state_dict()["0.weight"], rtol=0, atol=0)
+
+@pytest.mark.skipif(not utils.sys.platform.startswith("linux"), reason="reads /proc/self/maps")
+def test_file_backed_safetensors_are_a_read_only_private_mapping(tmp_path):
+    """A writable private mapping lets the CUDA driver break copy-on-write when it copies from it.
+
+    On a GB10 every byte copied to the device from such a mapping became an anonymous page as
+    well, so a load cost twice its weights; comfy-aimdo maps checkpoints PROT_READ for the same reason.
+    """
+    _, path = _checkpoint(tmp_path)
+    state = utils.load_safetensors_file_backed(str(path))[0]
+    assert _mapping_permissions(state["0.weight"].data_ptr()) == "r--p"
 
 
 def test_include_keys_limits_the_file_backed_state(tmp_path):

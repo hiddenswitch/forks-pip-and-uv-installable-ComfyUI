@@ -267,10 +267,13 @@ def load_safetensors(ckpt, include_keys=None, tensor_slices=None) -> tuple[dict[
 
 
 def load_safetensors_file_backed(ckpt, include_keys=None) -> tuple[dict[str, torch.Tensor], FileMetadata]:
-    """Tensors that are copy-on-write views of a private mapping of ``ckpt``.
+    """Tensors that are views of a read-only private mapping of ``ckpt``, as comfy-aimdo maps it.
 
-    Their pages are clean page cache the kernel can drop and fault back in from the file, a
-    write gives the writer a private copy, and nothing is read until a tensor is used.
+    Their pages are clean page cache the kernel can drop and fault back in from the file, and
+    nothing is read until a tensor is used. The mapping must not be writable: copying from a
+    writable private mapping to a GB10's device made the CUDA driver break copy-on-write on
+    every source page, so each loaded byte was held twice (8 GiB copied lowered MemAvailable
+    by 15.9 to 16.1 GiB, against 7.8 to 8.1 GiB from a read-only mapping).
     """
     import mmap
 
@@ -288,7 +291,7 @@ def load_safetensors_file_backed(ckpt, include_keys=None) -> tuple[dict[str, tor
             header = json.loads(f.read(header_size).decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
             raise _invalid_safetensors_error(str(e), ckpt) from e
-        mapping = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_COPY)
+        mapping = mmap.mmap(f.fileno(), 0, flags=mmap.MAP_PRIVATE, prot=mmap.PROT_READ)
 
     data = memoryview(mapping)[data_base_offset:]
     sd = {}
@@ -306,7 +309,9 @@ def load_safetensors_file_backed(ckpt, include_keys=None) -> tuple[dict[str, tor
         if start == end:
             sd[name] = torch.empty(info["shape"], dtype=dtype)
             continue
-        tensor = torch.frombuffer(data[start:end], dtype=dtype).view(info["shape"])
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="The given buffer is not writable")
+            tensor = torch.frombuffer(data[start:end], dtype=dtype).view(info["shape"])
         memory_management.mark_file_backed(tensor)
         sd[name] = tensor
     return sd, header.get("__metadata__", {})
