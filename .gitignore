@@ -1,4 +1,5 @@
-.claude/
+.claude/*
+!.claude/skills/
 main.exp
 main.lib
 main.obj
