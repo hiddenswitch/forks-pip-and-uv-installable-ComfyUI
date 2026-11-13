@@ -823,7 +823,9 @@ class VAE:
                 self.latent_dim = 3
                 self.latent_channels = sd["decoder.conv_in.conv.weight"].shape[1]
                 self.first_stage_model = magi2_turbo_vae.TurboVAEDecoder(**magi2_turbo_vae.decoder_config(sd))
-                self.working_dtypes = [torch.bfloat16, torch.float16, torch.float32]
+                self.working_dtypes = [torch.bfloat16]
+                # SandAI decodes with bf16 weights and a bf16 input, whatever the global VAE precision flags say
+                dtype = torch.bfloat16 if dtype is None else dtype
                 self.memory_used_decode = lambda shape, dtype: 3000 * min(shape[2], 8) * shape[3] * shape[4] * (16 * 16) * model_management.dtype_size(dtype)
             elif "decoder.conv_in.conv.weight" in sd and sd['decoder.conv_in.conv.weight'].shape[1] == 32:
                 ddconfig = {"block_out_channels": [128, 256, 512, 1024, 1024], "in_channels": 3, "out_channels": 3, "num_res_blocks": 2, "ffactor_spatial": 16, "ffactor_temporal": 4, "downsample_match_channel": True, "upsample_match_channel": True}

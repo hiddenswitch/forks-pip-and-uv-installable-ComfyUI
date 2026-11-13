@@ -3,9 +3,13 @@
 Sampling uses stock nodes: LTXV Dual CFG Guider (video 5, audio 7), KSamplerSelect "uni_pc_flow"
 and BasicScheduler "flow_unipc" (100 steps) for the preview; CFGGuider (2.0) with the same sampler
 and scheduler (5 steps) for the refiner.
+
+MAGI-2 video latents stay in the model's normalized basis, as in SandAI's pipeline (latent_formats.Magi2):
+decode them with MAGI-2 Decode rather than VAE Decode.
 """
 
 import json
+import logging
 from fractions import Fraction
 
 import numpy as np
@@ -13,9 +17,14 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from comfy import model_management, nested_tensor, node_helpers
+from comfy import latent_formats, model_management, nested_tensor, node_helpers, sd, utils
+from comfy.cmd import folder_paths
+from comfy.ldm.magi2.model import ieee_fp32_matmul
+from comfy.ldm.magi2.turbo_vae import TurboVAEDecoder
 from comfy.nodes.common import MAX_RESOLUTION
 from comfy_api.latest import ComfyExtension, InputImpl, Types, io
+
+logger = logging.getLogger(__name__)
 
 VIDEO_FPS = 12.5
 AUDIO_LATENT_FPS = 25.0
@@ -62,6 +71,30 @@ def reference_pixels(image, width, height):
     canvas.paste(pil.resize(fit, resample=Image.Resampling.LANCZOS), ((target_w - fit[0]) // 2, (target_h - fit[1]) // 2))
     canvas = canvas.resize((target_w - target_w % 32, target_h - target_h % 32), resample=Image.Resampling.LANCZOS)
     return torch.from_numpy(np.asarray(canvas).astype(np.float32) / 255.0).unsqueeze(0)
+
+
+def float32_vae(vae):
+    """The VAE with fp32 weights: SandAI encodes reference images with its fp32 Wan 2.2 VAE whatever the global precision."""
+    if vae.vae_dtype == torch.float32:
+        return vae
+    if not vae.ckpt_name:
+        raise ValueError("MAGI-2 encodes reference images with the Wan 2.2 VAE in fp32: load it with Load VAE so it can be reloaded in fp32")
+    state_dict, metadata = utils.load_torch_file(folder_paths.get_full_path_or_raise("vae", vae.ckpt_name), return_metadata=True)
+    if any(value.dtype != torch.float32 for value in state_dict.values() if value.is_floating_point()):
+        logger.warning("%s is not an fp32 checkpoint; MAGI-2's reference images are encoded with the fp32 Wan 2.2 VAE (vae/magi2_wan2.2_vae_fp32.safetensors)", vae.ckpt_name)
+    return sd.VAE(sd=state_dict, metadata=metadata, dtype=torch.float32, ckpt_name=vae.ckpt_name)
+
+
+def encode_reference(vae, pixels):
+    """SandAI's reference image latent: [-1, 1] pixels rounded to bf16, the fp32 Wan 2.2 encoder mean, normalized in fp32.
+
+    VAE.encode maps [0, 1] to [-1, 1] by x * 2 - 1, which is exact on (b + 1) / 2 for every bf16 value b in [-1, 1].
+    """
+    signed = (pixels * 2.0 - 1.0).to(torch.bfloat16).float()
+    vae = float32_vae(vae)
+    with ieee_fp32_matmul():
+        latent = vae.encode((signed + 1.0) / 2.0)
+    return latent_formats.Magi2().normalize(latent[:, :, :1])
 
 
 def fft_resample(waveform, num):
@@ -111,7 +144,7 @@ class Magi2ImageToVideo(io.ComfyNode):
                 io.Clip.Input("clip"),
                 io.String.Input("prompt", multiline=True, dynamic_prompts=True),
                 io.Conditioning.Input("negative"),
-                io.Vae.Input("vae", tooltip="The Wan 2.2 VAE."),
+                io.Vae.Input("vae", tooltip="The fp32 Wan 2.2 VAE (magi2_wan2.2_vae_fp32); it is reloaded in fp32 if it was loaded in another precision."),
                 io.Image.Input("image"),
                 io.Int.Input("width", default=896, min=16, max=MAX_RESOLUTION, step=16, tooltip="The generated video's width."),
                 io.Int.Input("height", default=512, min=16, max=MAX_RESOLUTION, step=16, tooltip="The generated video's height."),
@@ -127,8 +160,7 @@ class Magi2ImageToVideo(io.ComfyNode):
         features = positive[0][0]
         token = features[0, indices].float().mean(dim=0) if indices else features.new_zeros(features.shape[-1], dtype=torch.float32)
         width, height = width - width % SPATIAL_STRIDE, height - height % SPATIAL_STRIDE
-        latent = vae.encode(reference_pixels(image, width, height))
-        references = [{"latent": latent[:, :, :1], "token": token.to(torch.bfloat16)}]
+        references = [{"latent": encode_reference(vae, reference_pixels(image, width, height)), "token": token.to(torch.bfloat16)}]
         positive = node_helpers.conditioning_set_values(positive, {"magi2_reference_images": references})
         negative = node_helpers.conditioning_set_values(negative, {"magi2_reference_images": references})
         return io.NodeOutput(positive, negative)
@@ -182,7 +214,11 @@ class Magi2Decode(io.ComfyNode):
         audio_latent = (audio or samples)["samples"]
         if not audio_latent.is_nested:
             raise ValueError("MAGI-2 Decode needs an AV latent for the audio")
-        images = video_vae.decode(_video_stream(latent))
+        video = _video_stream(latent)
+        if not isinstance(video_vae.first_stage_model, TurboVAEDecoder):
+            # the turbo decoder maps the model's normalized latents to the Wan 2.2 basis itself
+            video = latent_formats.Magi2().denormalize(video, video_vae.vae_dtype)
+        images = video_vae.decode(video)
         images = images.reshape(-1, *images.shape[-3:])
         waveform = audio_vae.decode(audio_latent.unbind()[1]).movedim(-1, 1)
         waveform = fft_resample(waveform, waveform.shape[-1] * AUDIO_STRETCH[0] // AUDIO_STRETCH[1])

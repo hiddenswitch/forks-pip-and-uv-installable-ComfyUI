@@ -1,6 +1,7 @@
 """MAGI-2's distilled Wan 2.2 decoder (TurboVAED, decoder only).
 
-Decodes un-normalized Wan 2.2 latents in overlapping temporal chunks: a first chunk of
+Takes the model's normalized latents, maps them to the Wan 2.2 basis in the reference's order
+(latent_formats.Magi2.denormalize) and decodes them in overlapping temporal chunks: a first chunk of
 first_chunk_size latent frames plus one frame of right context, then step_size frames with one
 frame of context on each side; each context frame's temporal_compression output frames are cut.
 """
@@ -10,6 +11,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from ... import ops
+from ...latent_formats import Magi2
 
 ops = ops.disable_weight_init
 
@@ -141,6 +143,7 @@ class TurboVAEDecoder(nn.Module):
                                dtype=dtype, device=device, operations=operations)
 
     def decode(self, z):
+        z = Magi2().denormalize(z, z.dtype)
         first, step, overlap = self.first_chunk_size, self.step_size, self.temporal_compression
         frames = z.shape[2]
         padding = first - frames if frames < first else -(frames - first) % step

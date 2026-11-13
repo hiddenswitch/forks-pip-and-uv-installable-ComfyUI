@@ -1093,7 +1093,7 @@ class Magi2(supported_models_base.BASE):
     unet_config = {"image_model": "magi2"}
     sampling_settings = {"shift": 7.0}
     unet_extra_config = {}
-    latent_format = latent_formats.Wan22
+    latent_format = latent_formats.Magi2
     memory_usage_factor = 6.0
     supported_inference_dtypes = [torch.bfloat16, torch.float32]
     vae_key_prefix = ["vae."]
