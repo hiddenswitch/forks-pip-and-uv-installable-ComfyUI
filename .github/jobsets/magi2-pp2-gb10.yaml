@@ -1,7 +1,7 @@
 # Hilton cluster: two DGX Spark (GB10, sm121, arm64) hosts, one GPU each, joined over RoCE.
 # Pipeline parallel MAGI-2 Preview (+ refiner) with the external launcher; TP is single-host only.
-# The image is the vLLM consumer image DSV4 runs on these hosts: it supplies torch 2.13/cu130 and the
-# NCCL build validated on this RoCE fabric, so ComfyUI installs around it with those packages pinned.
+# The image is NVIDIA's arm64 PyTorch container (26.10): it supplies torch and NCCL for GB10, and
+# ComfyUI installs into it with uv, keeping the container's torch, torchvision, torchaudio and triton.
 # Weights download with --local-dir into a ComfyUI models/ tree on each host's own disk.
 # WORKFLOW selects tests/inference/workflows/<name>.json at COMFYUI_REVISION. Rank 0 keeps running
 # for RESULT_HOLD_SECONDS after the workflow so the output can be copied with kubectl cp.
@@ -31,8 +31,6 @@ spec:
             hostNetwork: true
             dnsPolicy: ClusterFirstWithHostNet
             restartPolicy: Never
-            imagePullSecrets:
-            - name: ghcr-appmana-pull
             affinity:
               nodeAffinity:
                 requiredDuringSchedulingIgnoredDuringExecution:
@@ -49,7 +47,7 @@ spec:
                   topologyKey: kubernetes.io/hostname
             containers:
             - name: rank
-              image: ghcr.io/appmana/vllm-consumer@sha256:c3f28f120477e0753b6d31ae4116322b107806c7613e8931043e389c9185d6c7
+              image: nvcr.io/nvidia/pytorch@sha256:c24a66e7694a2ffc04851fba93ada27f09066c49e0779242660372e5f023a7c0
               command:
               - /bin/bash
               - -lc
@@ -73,15 +71,16 @@ spec:
                         pass
                 PINS
                 cat /tmp/overrides.txt
+                python3 -m pip install -q uv
                 uv pip install --system --break-system-packages --override /tmp/overrides.txt \
                   "comfyui @ https://github.com/hiddenswitch/forks-pip-and-uv-installable-ComfyUI/archive/${COMFYUI_REVISION}.tar.gz"
                 python3 -c 'import torch; print(torch.__version__, torch.cuda.get_device_name(0), torch.cuda.nccl.version(), flush=True)'
                 M="${ROOT}/models"
-                hf download appmana/MAGI-2-preview-ComfyUI --local-dir "${M}" \
+                hf download appmana/MAGI-2-preview-int8 --local-dir "${M}" \
                   --include 'diffusion_models/magi2_preview_int8_convrot*' --include 'diffusion_models/magi2_refiner_int8_convrot.safetensors'
                 if [ "${RANK}" -eq 0 ]; then
-                  hf download appmana/MAGI-2-preview-ComfyUI --local-dir "${M}" --include 'vae/*'
-                  hf download appmana/Qwen3.5-27B-ComfyUI --local-dir "${M}" --include 'text_encoders/qwen3.5_27b_int8_convrot.safetensors'
+                  hf download appmana/MAGI-2-preview-int8 --local-dir "${M}" --include 'vae/*'
+                  hf download appmana/Qwen3.5-27B-int8 --local-dir "${M}" --include 'text_encoders/qwen3.5_27b_int8_convrot.safetensors'
                   hf download Comfy-Org/stable-audio-open-1.0_repackaged stable-audio-open-1.0.safetensors --local-dir "${M}/checkpoints"
                   curl -fsSL "https://raw.githubusercontent.com/hiddenswitch/forks-pip-and-uv-installable-ComfyUI/${COMFYUI_REVISION}/tests/inference/workflows/${WORKFLOW}.json" -o "${OUT}/workflow.json"
                 fi
@@ -102,7 +101,7 @@ spec:
                 exit "${status}"
               env:
               - name: COMFYUI_REVISION
-                value: f32021959ecca3a8f2b8a9878779f45453bf9d82
+                value: 8140dd8a6804d718d5df6a81ee1233464e1f818c
               - name: WORKFLOW
                 value: magi2-t2va-0
               - name: RESULT_HOLD_SECONDS
