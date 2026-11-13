@@ -2,7 +2,9 @@
 # Pipeline parallel MAGI-2 Preview (+ refiner) with the external launcher; TP is single-host only.
 # The image is NVIDIA's arm64 PyTorch container (26.10): it supplies torch and NCCL for GB10, and
 # ComfyUI installs into it with uv, keeping the container's torch, torchvision, torchaudio and triton.
-# Weights download with --local-dir into a ComfyUI models/ tree on each host's own disk.
+# Weights download with --local-dir into a ComfyUI models/ tree on each host's own disk; set
+# SKIP_DOWNLOADS=1 when both hosts already hold them (hosts with slow egress can be filled from the
+# other host over the RoCE link instead).
 # WORKFLOW selects tests/inference/workflows/<name>.json at COMFYUI_REVISION. Rank 0 keeps running
 # for RESULT_HOLD_SECONDS after the workflow so the output can be copied with kubectl cp.
 apiVersion: jobset.x-k8s.io/v1alpha2
@@ -76,12 +78,16 @@ spec:
                   "comfyui @ https://github.com/hiddenswitch/forks-pip-and-uv-installable-ComfyUI/archive/${COMFYUI_REVISION}.tar.gz"
                 python3 -c 'import torch; print(torch.__version__, torch.cuda.get_device_name(0), torch.cuda.nccl.version(), flush=True)'
                 M="${ROOT}/models"
-                hf download appmana/MAGI-2-preview-int8 --local-dir "${M}" \
-                  --include 'diffusion_models/magi2_preview_int8_convrot*' --include 'diffusion_models/magi2_refiner_int8_convrot.safetensors'
+                if [ "${SKIP_DOWNLOADS}" != 1 ]; then
+                  hf download appmana/MAGI-2-preview-int8 --local-dir "${M}" \
+                    --include 'diffusion_models/magi2_preview_int8_convrot*' --include 'diffusion_models/magi2_refiner_int8_convrot.safetensors'
+                  if [ "${RANK}" -eq 0 ]; then
+                    hf download appmana/MAGI-2-preview-int8 --local-dir "${M}" --include 'vae/*'
+                    hf download appmana/Qwen3.5-27B-int8 --local-dir "${M}" --include 'text_encoders/qwen3.5_27b_int8_convrot.safetensors'
+                    hf download Comfy-Org/stable-audio-open-1.0_repackaged stable-audio-open-1.0.safetensors --local-dir "${M}/checkpoints"
+                  fi
+                fi
                 if [ "${RANK}" -eq 0 ]; then
-                  hf download appmana/MAGI-2-preview-int8 --local-dir "${M}" --include 'vae/*'
-                  hf download appmana/Qwen3.5-27B-int8 --local-dir "${M}" --include 'text_encoders/qwen3.5_27b_int8_convrot.safetensors'
-                  hf download Comfy-Org/stable-audio-open-1.0_repackaged stable-audio-open-1.0.safetensors --local-dir "${M}/checkpoints"
                   curl -fsSL "https://raw.githubusercontent.com/hiddenswitch/forks-pip-and-uv-installable-ComfyUI/${COMFYUI_REVISION}/tests/inference/workflows/${WORKFLOW}.json" -o "${OUT}/workflow.json"
                 fi
                 cd "${ROOT}"
@@ -106,6 +112,8 @@ spec:
                 value: magi2-t2va-0
               - name: RESULT_HOLD_SECONDS
                 value: '1800'
+              - name: SKIP_DOWNLOADS
+                value: '0'
               - name: JOBSET_UID
                 valueFrom:
                   fieldRef:
