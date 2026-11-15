@@ -588,6 +588,14 @@ def _run_worker_commands(coordinator, rank, world_size, device, patcher):
                 )
 
 
+def _apply_unified_memory_allocator():
+    """A spawned rank resolves the same allocator as its driver before anything allocates."""
+    from ..component_model.setup import setup_unified_memory_allocator
+    from ..execution_context import current_execution_context
+
+    setup_unified_memory_allocator(current_execution_context().configuration)
+
+
 def _worker_main(
     rank: int,
     world_size: int,
@@ -596,6 +604,7 @@ def _worker_main(
     device_identity: AcceleratorDeviceIdentity,
     ready: multiprocessing.connection.Connection,
 ):
+    _apply_unified_memory_allocator()
     device_provider = accelerator_device_provider(device_identity.device_type)
     device = device_provider.resolve(device_identity)
     stages = list(load_spec.plan.stages)

@@ -647,6 +647,13 @@ class KSamplerX0Inpaint:
             out = out * denoise_mask + self.latent_image * latent_mask
         return out
 
+def flow_unipc_scheduler(model_sampling, steps):
+    """diffusers' FlowUniPCMultistepScheduler: linspace from the top of its 1000-step table (0.999) to 0, then shifted."""
+    shift = model_sampling.shift
+    sigmas = numpy.linspace(float(numpy.float32(1.0 - 1 / 1000)), 0.0, steps + 1)[:-1]
+    sigmas = shift * sigmas / (1 + (shift - 1) * sigmas)
+    return torch.from_numpy(numpy.concatenate([sigmas, [0.0]]).astype(numpy.float32))
+
 def simple_scheduler(model_sampling, steps):
     s = model_sampling
     sigs = []
@@ -977,7 +984,7 @@ KSAMPLER_NAMES = ["euler", "euler_cfg_pp", "euler_ancestral", "euler_ancestral_c
                   "lms", "dpm_fast", "dpm_adaptive", "dpmpp_2s_ancestral", "dpmpp_2s_ancestral_cfg_pp", "dpmpp_sde", "dpmpp_sde_gpu",
                   "dpmpp_2m", "dpmpp_2m_cfg_pp", "dpmpp_2m_sde", "dpmpp_2m_sde_gpu", "dpmpp_2m_sde_heun", "dpmpp_2m_sde_heun_gpu", "dpmpp_3m_sde", "dpmpp_3m_sde_gpu", "ddpm", "lcm",
                   "ipndm", "ipndm_v", "deis", "cfgpp_ud10_ab", "res_multistep", "res_multistep_cfg_pp", "res_multistep_ancestral", "res_multistep_ancestral_cfg_pp",
-                  "gradient_estimation", "gradient_estimation_cfg_pp", "er_sde", "seeds_2", "seeds_3", "sa_solver", "sa_solver_pece"]
+                  "gradient_estimation", "gradient_estimation_cfg_pp", "er_sde", "seeds_2", "seeds_3", "sa_solver", "sa_solver_pece", "uni_pc_flow"]
 
 class KSAMPLER(Sampler):
     def __init__(self, sampler_function, extra_options={}, inpaint_options={}):
@@ -1413,6 +1420,7 @@ SCHEDULER_HANDLERS = {
     "normal": SchedulerHandler(normal_scheduler),
     "linear_quadratic": SchedulerHandler(linear_quadratic_schedule),
     "kl_optimal": SchedulerHandler(kl_optimal_scheduler, use_ms=False),
+    "flow_unipc": SchedulerHandler(flow_unipc_scheduler),
 }
 SCHEDULER_NAMES = list(SCHEDULER_HANDLERS)
 

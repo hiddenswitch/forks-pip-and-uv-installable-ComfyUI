@@ -94,7 +94,9 @@ def _broadcast_tensors(operations, tensors=None, descriptors=None):
 
 
 class TorchDistributedModelParallelExecutor:
-    def __init__(self, root_model, operations, coordinator, workers, connections, devices, rank_sizes, root_patcher=None, process_groups=None):
+    def __init__(self, root_model, operations, coordinator, workers, connections, devices, rank_sizes,
+                 root_patcher=None, process_groups=None, close_command="close",
+                 preserve_process_groups=False):
         self.root_model = root_model
         self.root_patcher = root_patcher
         self.operations = operations
@@ -104,6 +106,8 @@ class TorchDistributedModelParallelExecutor:
         self.devices = tuple(devices)
         self.rank_sizes = tuple(rank_sizes)
         self.process_groups = process_groups
+        self.close_command = close_command
+        self.preserve_process_groups = preserve_process_groups
         self._closed = False
         self._device_group_active = True
         self._responses = ContextVarExecutor(max_workers=max(1, len(self.devices) - 1))
@@ -228,7 +232,7 @@ class TorchDistributedModelParallelExecutor:
         self._closed = True
         self._responses.shutdown(wait=False, cancel_futures=True)
         try:
-            self.coordinator.broadcast_command({"kind": "close"})
+            self.coordinator.broadcast_command({"kind": self.close_command})
         except Exception:
             pass
 
@@ -250,7 +254,7 @@ class TorchDistributedModelParallelExecutor:
                 worker_pool.shutdown(wait=True)
             else:
                 worker_pool.shutdown(wait=True)
-        if self.process_groups is None and dist.is_initialized():
+        if self.process_groups is None and not self.preserve_process_groups and dist.is_initialized():
             if self._device_group_active:
                 try:
                     dist.destroy_process_group(self.operations.process_group)
@@ -413,7 +417,8 @@ def _send_worker_error(coordinator, rank):
     coordinator.send_object({"kind": "error", "traceback": error}, 0)
 
 
-def _run_worker(operations, coordinator, patcher, span_name, execution_model=None):
+def _run_worker(operations, coordinator, patcher, span_name, execution_model=None,
+                close_commands=("close",)):
     if execution_model is None:
         execution_model = patcher.model.diffusion_model
     while True:
@@ -427,8 +432,8 @@ def _run_worker(operations, coordinator, patcher, span_name, execution_model=Non
                 "comfy.command.kind": command["kind"],
             },
         ):
-                if command["kind"] == "close":
-                    return True
+                if command["kind"] in close_commands:
+                    return command["kind"]
                 if command["kind"] == "end_model_context":
                     return False
                 if command["kind"] == "model_context":
@@ -437,9 +442,16 @@ def _run_worker(operations, coordinator, patcher, span_name, execution_model=Non
                         with getattr(execution_model, command["method"])() as model:
                             started = True
                             coordinator.send_object({"kind": "done"}, 0)
-                            closed = _run_worker(operations, coordinator, patcher, span_name, model)
+                            closed = _run_worker(
+                                operations,
+                                coordinator,
+                                patcher,
+                                span_name,
+                                model,
+                                close_commands=close_commands,
+                            )
                         if closed:
-                            return True
+                            return closed
                         coordinator.send_object({"kind": "done"}, 0)
                     except Exception:
                         _send_worker_error(coordinator, operations.rank)
@@ -536,7 +548,16 @@ def _run_worker(operations, coordinator, patcher, span_name, execution_model=Non
                     tensors = args = kwargs = None
 
 
+def _apply_unified_memory_allocator():
+    """A spawned rank resolves the same allocator as its driver before anything allocates."""
+    from ..component_model.setup import setup_unified_memory_allocator
+    from ..execution_context import current_execution_context
+
+    setup_unified_memory_allocator(current_execution_context().configuration)
+
+
 def worker_main(host, port, authkey, parallel_kind="tensor"):
+    _apply_unified_memory_allocator()
     connection = multiprocessing.connection.Client((host, int(port)), authkey=bytes.fromhex(authkey))
     distributed = resolve_distributed_configuration(environment=os.environ)
     rank = distributed.rank
