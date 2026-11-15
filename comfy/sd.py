@@ -297,6 +297,7 @@ class CLIP:
         model_management.archive_model_dtypes(self.cond_stage_model)
 
         self.tokenizer: "sd1_clip.SD1Tokenizer" = tokenizer(embedding_directory=embedding_directory, tokenizer_data=tokenizer_data)
+        self.tokenizer_metadata = {k: v for k, v in tokenizer_data.items() if k.endswith("_tokenizer_json") and isinstance(v, str)}
         self.patcher = get_model_patcher_class(disable_dynamic=disable_dynamic)(self.cond_stage_model, load_device=load_device, offload_device=offload_device, fast_disk=storage.state_dict_fast_disk(state_dict))
         # Match torch.float32 hardcode upcast in TE implemention
         self.patcher.set_model_compute_dtype(torch.float32)
@@ -337,6 +338,7 @@ class CLIP:
         n.cond_stage_model = self.cond_stage_model
         # cloning the tokenizer allows the vocab updates to work more idiomatically
         n.tokenizer = self.tokenizer.clone()
+        n.tokenizer_metadata = self.tokenizer_metadata.copy()
         n.layer_idx = self.layer_idx
         n.tokenizer_options = self.tokenizer_options.copy()
         n.use_clip_schedule = self.use_clip_schedule
@@ -1798,10 +1800,16 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
     if model_options is None:
         model_options = dict()
     clip_data = []
+    tokenizer_data = {}
     for p in ckpt_paths:
         sd, metadata = utils.load_torch_file(p, safe_load=True, return_metadata=True)
         if model_options.get("custom_operations", None) is None:
             sd, metadata = utils.convert_old_quants(sd, model_prefix="", metadata=metadata)
+        for k, v in (metadata or {}).items():
+            if k.endswith("_tokenizer_json"):
+                if k in tokenizer_data and tokenizer_data[k] != v:
+                    raise ValueError("Conflicting embedded tokenizer: {}".format(k))
+                tokenizer_data[k] = v
         clip_data.append(sd)
     clip = load_text_encoder_state_dicts(
         clip_data,
@@ -1810,6 +1818,7 @@ def load_clip(ckpt_paths, embedding_directory=None, clip_type=CLIPType.STABLE_DI
         model_options=model_options,
         textmodel_json_config=textmodel_json_config,
         disable_dynamic=disable_dynamic,
+        tokenizer_data=tokenizer_data,
     )
     clip.patcher.cached_patcher_init = (
         load_clip_model_patcher,
@@ -1979,10 +1988,10 @@ def llama_detect(clip_data):
 
     return {}
 
-
 # todo: investigate if this should stay a mutable array
-def load_text_encoder_state_dicts(state_dicts=[], embedding_directory=None, clip_type=CLIPType.STABLE_DIFFUSION, model_options={}, textmodel_json_config=None,disable_dynamic=False):
+def load_text_encoder_state_dicts(state_dicts=[], embedding_directory=None, clip_type=CLIPType.STABLE_DIFFUSION, model_options={}, textmodel_json_config=None, disable_dynamic=False, tokenizer_data={}):
     clip_data = state_dicts
+    tokenizer_data = tokenizer_data.copy()
 
     class EmptyClass:
         pass
@@ -1996,7 +2005,6 @@ def load_text_encoder_state_dicts(state_dicts=[], embedding_directory=None, clip
         if "lm_head.weight" in clip_data[i]:
             clip_data[i]["model.lm_head.weight"] = clip_data[i].pop("lm_head.weight")  # prefix missing in some models
 
-    tokenizer_data = {}
     clip_target = CLIPTarget()
     clip_target.params = {}
     if len(clip_data) == 1:
@@ -2167,7 +2175,8 @@ def load_text_encoder_state_dicts(state_dicts=[], embedding_directory=None, clip
                 clip_target.tokenizer = moss_image.MOSSImageTokenizer
             else:
                 qwen35_type = {TEModel.QWEN35_08B: "qwen35_08b", TEModel.QWEN35_2B: "qwen35_2b", TEModel.QWEN35_4B: "qwen35_4b", TEModel.QWEN35_9B: "qwen35_9b", TEModel.QWEN35_27B: "qwen35_27b"}[te_model]
-                clip_target.clip = qwen_35.te(**llama_detect(clip_data), model_type=qwen35_type, mtp="mtp.fc.weight" in clip_data[0])
+                clip_target.clip = qwen_35.te(**llama_detect(clip_data), model_type=qwen35_type, mtp="mtp.fc.weight" in clip_data[0],
+                    vocab_size=clip_data[0]["model.embed_tokens.weight"].shape[0], tokenizer_json=tokenizer_data.get("{}_tokenizer_json".format(qwen35_type)))
                 clip_target.tokenizer = qwen_35.tokenizer(model_type=qwen35_type)
         elif te_model in (TEModel.QWEN3VL_2B, TEModel.QWEN3VL_4B, TEModel.QWEN3VL_8B):
             if clip_type == CLIPType.IDEOGRAM4 and te_model == TEModel.QWEN3VL_8B:  # Ideogram4 reuses the full Qwen3-VL-8B (13-layer tap for conditioning + multimodal generate).
@@ -2555,7 +2564,8 @@ def load_state_dict_guess_config(sd, output_vae=True, output_clip=True, output_c
             clip_sd = model_config.process_clip_state_dict(sd)
             if len(clip_sd) > 0:
                 parameters = utils.calculate_parameters(clip_sd)
-                clip = CLIP(clip_target, embedding_directory=embedding_directory, tokenizer_data=clip_sd, parameters=parameters, state_dict=clip_sd, model_options=te_model_options, disable_dynamic=disable_dynamic)
+                tokenizer_data = {**clip_sd, **{k: v for k, v in (metadata or {}).items() if k.endswith("_tokenizer_json")}}
+                clip = CLIP(clip_target, embedding_directory=embedding_directory, tokenizer_data=tokenizer_data, parameters=parameters, state_dict=clip_sd, model_options=te_model_options, disable_dynamic=disable_dynamic)
             else:
                 logger.warning(f"no CLIP/text encoder weights in checkpoint {ckpt_path}, the text encoder model will not be loaded.")
 
@@ -2749,6 +2759,8 @@ def save_checkpoint(output_path, model, clip=None, vae=None, clip_vision=None, m
 
     if metadata is None:
         metadata = {}
+    if clip is not None:
+        metadata = {**metadata, **clip.tokenizer_metadata}
 
     model_management.load_models_gpu(load_models)
     clip_vision_sd = clip_vision.get_sd() if clip_vision is not None else None

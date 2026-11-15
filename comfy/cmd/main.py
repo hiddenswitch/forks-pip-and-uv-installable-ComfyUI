@@ -537,6 +537,7 @@ async def __start_comfyui(from_script_dir: Optional[Path] = None):
     try:
         if product_tips.tips_enabled(args, os.environ):
             logger.info(product_tips.COMFY_API_STARTUP_TIP)
+        model_management.cuda_version_warning()
         await server.setup()
         await run(server, address=first_listen_addr, port=args.port, call_on_start=call_on_start)
     except (asyncio.CancelledError, KeyboardInterrupt):
