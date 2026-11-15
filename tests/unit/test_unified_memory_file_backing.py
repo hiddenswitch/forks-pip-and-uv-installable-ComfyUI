@@ -176,3 +176,89 @@ def test_release_finds_backing_recorded_on_a_submodule(tmp_path):
     assert memory_management.file_backed_device_bytes(root) == nbytes
     assert memory_management.release_file_backed_weights(root) == nbytes
     assert all(memory_management.is_file_backed(p) for p in root.parameters())
+
+
+def test_file_backed_slices_and_concatenations_do_not_clone_on_cpu(tmp_path):
+    _, path = _checkpoint(tmp_path)
+    state = utils.load_safetensors_file_backed(str(path))[0]
+    weight = state["0.weight"]
+
+    second_half = memory_management.slice_tensor(weight, (slice(16, 32), slice(None)))
+    assert memory_management.is_file_backed(second_half)
+    assert second_half.data_ptr() == weight[16:32].data_ptr()
+    if utils.sys.platform.startswith("linux"):
+        assert _mapping_permissions(second_half.data_ptr()) == "r--p"
+
+    pieces = [weight.narrow(0, 0, 8), weight.narrow(0, 16, 8)]
+    concat = memory_management.concatenate_tensors(pieces, dim=0)
+    assert isinstance(concat, memory_management.FileBackedConcat)
+    assert concat._materialized is None
+
+    copied = concat.to(dtype=torch.float64)
+    assert concat._materialized is None
+    torch.testing.assert_close(copied, torch.cat(pieces, dim=0).to(dtype=torch.float64), rtol=0, atol=0)
+
+    copied_with_device = concat.to(device="cpu", dtype=torch.float64)
+    assert concat._materialized is None
+    torch.testing.assert_close(copied_with_device, copied, rtol=0, atol=0)
+
+    destination = torch.empty_like(torch.cat(pieces, dim=0))
+    destination.copy_(concat)
+    assert concat._materialized is None
+    torch.testing.assert_close(destination, torch.cat(pieces, dim=0), rtol=0, atol=0)
+
+
+@accelerator
+def test_quantized_tensor_and_concat_weights_release_and_reload(tmp_path, monkeypatch):
+    from comfy import ops
+    from comfy.quant_ops import QuantizedTensor, TensorWiseINT8Layout
+
+    device = torch.device("cuda", torch.cuda.current_device())
+    monkeypatch.setattr(model_management, "offload_shares_device_memory", lambda d=None: True)
+
+    qdata = torch.randint(-64, 64, (32, 64), dtype=torch.int8)
+    scale = torch.linspace(0.1, 0.5, 32, dtype=torch.float32).unsqueeze(1)
+    quant_meta = torch.tensor(list(b'{"format": "int8_tensorwise"}'), dtype=torch.uint8)
+    path = tmp_path / "quant.safetensors"
+    safetensors.torch.save_file(
+        {"0.weight": qdata, "0.weight_scale": scale, "0.comfy_quant": quant_meta},
+        str(path),
+    )
+
+    state = utils.load_safetensors_file_backed(str(path))[0]
+    fused_weight = memory_management.concatenate_tensors(
+        [state["0.weight"].narrow(0, 0, 16), state["0.weight"].narrow(0, 16, 16)],
+        dim=0,
+    )
+    state["0.weight"] = fused_weight
+
+    mp_ops = ops.mixed_precision_ops({"0": {"format": "int8_tensorwise"}}, torch.bfloat16)
+    module = torch.nn.Sequential(mp_ops.Linear(64, 32, bias=False, device=device, dtype=torch.bfloat16))
+    module.load_state_dict(state, strict=False)
+    assert fused_weight._materialized is None
+    memory_management.record_file_backing(module, state)
+    assert fused_weight._materialized is None
+
+    assert isinstance(module[0].weight, QuantizedTensor)
+    assert isinstance(module[0].weight._params, TensorWiseINT8Layout.Params)
+    expected_dequant = module[0].weight.dequantize().cpu()
+
+    patcher = ModelPatcher(module, load_device=device, offload_device=device, _force_core=True)
+    loaded = model_management.LoadedModel(patcher)
+    loaded.model_load()
+    assert patcher.reclaimable_non_vbar_memory() == qdata.nbytes
+
+    assert loaded.model_unload(memory_to_free=1) is True
+    assert memory_management.is_file_backed(module[0].weight)
+    assert module[0].weight.device.type == "cpu"
+    assert module[0].weight._qdata.device.type == "cpu"
+    assert patcher.reclaimable_non_vbar_memory() == 0
+    assert fused_weight._materialized is None
+
+    loaded.model_load()
+    assert module[0].weight.device == device
+    assert module[0].weight._qdata.device == device
+    assert fused_weight._materialized is None
+    torch.testing.assert_close(module[0].weight.dequantize().cpu(), expected_dequant, rtol=0, atol=0)
+
+

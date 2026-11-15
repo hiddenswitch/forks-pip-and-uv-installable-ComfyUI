@@ -345,3 +345,47 @@ def test_freed_blocks_are_reused_only_after_a_context_synchronization(monkeypatc
     assert managed_memory.release_cached() == (4 << 20) + 512
     assert managed_memory.held_bytes() == 0
     assert sorted(e for e in driver.events if e[0] == "free") == sorted([("free", first), ("free", other)])
+
+
+def test_pressure_releases_cached_blocks_before_a_new_allocation(monkeypatch):
+    driver = _RecordingDriver()
+    cache = managed_memory._BlockCache()
+    monkeypatch.setattr(managed_memory, "_driver", driver)
+    monkeypatch.setattr(managed_memory, "_cache", cache)
+    monkeypatch.setattr(managed_memory, "_active", True)
+
+    cached = managed_memory._managed_alloc(3 << 20, 0, None)
+    managed_memory._managed_free(cached, 3 << 20, 0, None)
+    monkeypatch.setattr(
+        managed_memory,
+        "_available_for_managed_allocation",
+        lambda: (2 << 20) + managed_memory._CACHE_RELEASE_HEADROOM - 1,
+    )
+
+    allocated = managed_memory._managed_alloc(2 << 20, 0, None)
+
+    assert managed_memory.cached_bytes() == 0
+    assert ("sync",) in driver.events
+    assert ("free", cached) in driver.events
+    assert allocated != cached
+
+
+def test_healthy_headroom_keeps_cached_blocks_for_reuse(monkeypatch):
+    driver = _RecordingDriver()
+    cache = managed_memory._BlockCache()
+    monkeypatch.setattr(managed_memory, "_driver", driver)
+    monkeypatch.setattr(managed_memory, "_cache", cache)
+    monkeypatch.setattr(managed_memory, "_active", True)
+
+    cached = managed_memory._managed_alloc(3 << 20, 0, None)
+    managed_memory._managed_free(cached, 3 << 20, 0, None)
+    monkeypatch.setattr(
+        managed_memory,
+        "_available_for_managed_allocation",
+        lambda: (2 << 20) + managed_memory._CACHE_RELEASE_HEADROOM,
+    )
+
+    managed_memory._managed_alloc(2 << 20, 0, None)
+
+    assert managed_memory.cached_bytes() == 4 << 20
+    assert ("free", cached) not in driver.events

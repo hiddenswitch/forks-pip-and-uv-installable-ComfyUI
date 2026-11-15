@@ -80,7 +80,8 @@ GPUs, ROCm, MPS and CPU. When on, every CUDA allocation is managed memory
 (`cudaMallocManaged`, preferred location the GPU): pageable RAM the kernel
 can reclaim and swap, instead of pinned device allocations. Freed managed
 blocks are reused only after a device synchronization and are returned to
-the driver whenever ComfyUI empties its caches. NCCL process groups use
+the driver whenever ComfyUI empties its caches or a new allocation would leave
+less than 8 GiB of effective memory available. NCCL process groups use
 torch's stock `ProcessGroupNCCL` (`TORCH_DIST_USE_NCCL2=0`): the nccl2
 backend that recent torch builds select for `nccl` registers every allocator
 segment with NCCL through allocator snapshots, which a pluggable allocator
@@ -103,8 +104,10 @@ comfyui --cuda-device 0,1 --ring-degree 2
 
 For `torchrun` or another launcher, canonical `RANK`, `WORLD_SIZE`,
 `LOCAL_RANK`, `LOCAL_WORLD_SIZE`, `MASTER_ADDR`, and `MASTER_PORT` are read
-alongside common MPI/PMI/Slurm aliases. Do not configure normal application
-behavior by inventing additional environment variables.
+alongside common MPI/PMI/Slurm aliases. An external TP launch requires
+`WORLD_SIZE` to equal `--tensor-parallel-size` and pipeline size one. Do not
+configure normal application behavior by inventing additional environment
+variables.
 
 ## Tracing
 

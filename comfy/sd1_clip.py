@@ -16,6 +16,7 @@ import torch
 from .transformers_compat import CLIPTokenizer, PreTrainedTokenizerBase
 
 from . import clip_model
+from . import memory_management
 from . import model_management
 from . import ops
 from .component_model import files
@@ -382,7 +383,9 @@ class SDClipModel(torch.nn.Module, ClipTokenWeightEncoder):
         return r
 
     def load_sd(self, sd):
-        return self.transformer.load_state_dict(sd, strict=False, assign=getattr(self, "can_assign_sd", False))
+        result = self.transformer.load_state_dict(sd, strict=False, assign=getattr(self, "can_assign_sd", False))
+        memory_management.record_file_backing(self.transformer, sd)
+        return result
 
     def generate(self, tokens, do_sample, max_length, temperature, top_k, top_p, min_p, repetition_penalty, seed, presence_penalty=0.0, mtp=True):
         if isinstance(tokens, dict):
