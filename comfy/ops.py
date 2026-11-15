@@ -1473,6 +1473,33 @@ class disable_weight_init:
                     kwargs.pop("out_dtype")
                 return super().forward(*args, **kwargs)
 
+    class MoEExperts(torch.nn.Module, CastWeightBiasOp):
+        """An unquantized [num_experts, out, in] expert bank; the mixed-precision ops replace it for quantized checkpoints."""
+
+        def __init__(self, num_experts, in_features, out_features, bias=True, device=None, dtype=None):
+            super().__init__()
+            self.num_experts = num_experts
+            self.in_features = in_features
+            self.out_features = out_features
+            self.weight = torch.nn.Parameter(torch.empty((num_experts, out_features, in_features), device=device, dtype=dtype), requires_grad=False)
+            if bias:
+                self.bias = torch.nn.Parameter(torch.empty((num_experts, out_features), device=device, dtype=dtype), requires_grad=False)
+            else:
+                self.register_parameter("bias", None)
+            self._resident_bank = None
+
+        def reset_parameters(self):
+            return None
+
+        @contextlib.contextmanager
+        def bank_resident(self, input):
+            with CastBiasWeightContext(self, input, offloadable=True) as (weight, bias):
+                self._resident_bank = (weight, bias)
+                try:
+                    yield self
+                finally:
+                    self._resident_bank = None
+
     @classmethod
     def conv_nd(s, dims, *args, **kwargs):
         if dims == 2:

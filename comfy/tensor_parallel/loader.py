@@ -10,9 +10,10 @@ import torch
 
 from .. import model_detection, model_management, ops, utils
 from ..execution_context import current_execution_context
+from ..distributed.config import resolve_distributed_configuration
 from ..distributed.executors import ContextVarExecutor
 from ..model_patcher import get_model_patcher_class
-from ..pipeline_parallel.checkpoint import SafetensorsCheckpointReader
+from ..pipeline_parallel.checkpoint import SafetensorsCheckpointReader, is_safetensors_checkpoint
 from ..pipeline_parallel.loader import _normalize_detection_state, _normalized_descriptors
 from .checkpoint import shard_tensor_parallel_state_dict
 from .distributed import RemoteTensorParallelRankModel, launch_tensor_parallel
@@ -22,7 +23,7 @@ from .operations import full_domain_tensor_parallel_operations, tensor_parallel_
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_MODEL_FAMILIES = frozenset(("flux2", "ideogram4", "krea2", "minimax_h3", "minimax_h3_image", "kandinsky6"))
+SUPPORTED_MODEL_FAMILIES = frozenset(("flux2", "ideogram4", "krea2", "minimax_h3", "minimax_h3_image", "kandinsky6", "magi2", "magi2_refiner"))
 
 
 @dataclass(frozen=True)
@@ -89,15 +90,15 @@ def _load_rank(
             full_domain_tensor_parallel_operations if rank_config.quant_config is not None
             else tensor_parallel_operations
         )
+    rank_config.custom_operations = operations_decorator(
+        base_operations,
+        parallel_config,
+    )
     if state_transform is None:
         state_transform = partial(
             shard_tensor_parallel_state_dict,
             full_domain_rows=rank_config.quant_config is not None,
         )
-    rank_config.custom_operations = operations_decorator(
-        base_operations,
-        parallel_config,
-    )
 
     if model_family == "kandinsky6":
         from .kandinsky6 import install_magcache_transport, load_state, shard_model
@@ -105,12 +106,13 @@ def _load_rank(
         if rank_config.quant_config is not None:
             raise ValueError("Kandinsky 6 tensor parallelism currently requires unquantized checkpoints")
         extension_module = type(model_config).__module__.split(".")[0]
-        model = rank_config.get_model({}, "", device=torch.device("cpu"))
+        offload_device = model_management.offload_device_for(device)
+        model = rank_config.get_model({}, "", device=offload_device)
         install_magcache_transport(model.diffusion_model, extension_module)
         shards = shard_model(model.diffusion_model, rank_config.custom_operations, extension_module)
         state = load_state(reader, prefix, shards, parallel_config, extension_module)
         patcher = get_model_patcher_class(disable_dynamic)(
-            model, load_device=device, offload_device=torch.device("cpu"),
+            model, load_device=device, offload_device=offload_device,
             ckpt_name=os.path.basename(checkpoint_path),
         )
         loaded = model.diffusion_model.load_state_dict(state, strict=False, assign=patcher.is_dynamic())
@@ -122,11 +124,12 @@ def _load_rank(
         state = _read_rank_state(reader, metadata, prefix, original_keys, model_options,
                                  model_family, parallel_config.rank, parallel_config.size, state_transform)
 
-    model = rank_config.get_model(state, "", device=torch.device("cpu"))
+    offload_device = model_management.offload_device_for(device)
+    model = rank_config.get_model(state, "", device=offload_device)
     patcher = get_model_patcher_class(disable_dynamic)(
         model,
         load_device=device,
-        offload_device=torch.device("cpu"),
+        offload_device=offload_device,
         ckpt_name=os.path.basename(checkpoint_path),
     )
     model.load_model_weights(state, "", assign=patcher.is_dynamic())
@@ -164,8 +167,30 @@ def load_tensor_parallel_rank(load_spec, rank, device, tensor_operations):
     )
 
 
-def load_diffusion_model_tensor_parallel(unet_path, devices, model_options=None, disable_dynamic=False):
+def load_diffusion_model_tensor_parallel(
+    unet_path,
+    devices,
+    model_options=None,
+    disable_dynamic=False,
+    external_runtime=None,
+):
     model_options = dict(model_options or {})
+    distributed = resolve_distributed_configuration(current_execution_context().configuration)
+    if external_runtime is None and distributed.externally_launched:
+        if distributed.tensor_parallel_size > 1:
+            from .external import get_external_tensor_parallel_runtime
+
+            external_runtime = get_external_tensor_parallel_runtime()
+            if external_runtime is None:
+                raise RuntimeError("External-launcher tensor-parallel runtime has not been initialized")
+    if external_runtime is not None:
+        if not external_runtime.is_driver:
+            raise RuntimeError("Only tensor-parallel rank zero can load the driver model")
+        if tuple(devices) != external_runtime.logical_devices:
+            raise ValueError(
+                f"Tensor-parallel devices {devices} do not match launcher ranks "
+                f"{external_runtime.logical_devices}"
+            )
     reader = SafetensorsCheckpointReader(unet_path)
     detection_state, metadata, prefix = _normalize_detection_state(reader)
     model_config = model_detection.model_config_from_unet(detection_state, "", metadata=metadata)
@@ -200,7 +225,10 @@ def load_diffusion_model_tensor_parallel(unet_path, devices, model_options=None,
             state_future = loading_pool.submit(
                 _read_rank_state, reader, metadata, prefix, original_keys, model_options,
                 model_family, 0, len(devices),
-                partial(shard_tensor_parallel_state_dict, full_domain_rows=model_config.quant_config is not None),
+                partial(
+                    shard_tensor_parallel_state_dict,
+                    full_domain_rows=model_config.quant_config is not None,
+                ),
             )
 
         def load_root(tensor_operations):
@@ -211,7 +239,10 @@ def load_diffusion_model_tensor_parallel(unet_path, devices, model_options=None,
                 state=None if state_future is None else state_future.result(),
             )
 
-        root, executor = launch_tensor_parallel(load_spec, devices, load_root)
+        if external_runtime is None:
+            root, executor = launch_tensor_parallel(load_spec, devices, load_root)
+        else:
+            root, executor = external_runtime.load_executor(load_spec, load_root)
     remotes = [
         RemoteTensorParallelRankModel(
             executor, rank, devices[rank], executor.rank_sizes[rank], dtype,
@@ -250,7 +281,7 @@ def try_load_diffusion_model_tensor_parallel(unet_path, model_options=None, disa
     size = int(configuration.tensor_parallel_size or 1)
     if size == 1:
         return None
-    if os.path.splitext(os.fspath(unet_path))[1].lower() not in (".safetensors", ".sft"):
+    if not is_safetensors_checkpoint(unet_path):
         raise ValueError("Tensor parallel loading requires a safetensors checkpoint")
     reader = SafetensorsCheckpointReader(unet_path)
     detection_state, metadata, _prefix = _normalize_detection_state(reader)
@@ -267,11 +298,30 @@ def try_load_diffusion_model_tensor_parallel(unet_path, model_options=None, disa
             ", ".join(sorted(SUPPORTED_MODEL_FAMILIES)),
         )
         return None
-    current = model_management.get_torch_device()
-    available = model_management.get_all_torch_devices()
-    devices = tuple([current] + [device for device in available if device != current])
-    if size > len(devices):
-        raise ValueError(f"Tensor parallel size {size} exceeds {len(devices)} available devices")
+    distributed = resolve_distributed_configuration(configuration)
+    external_runtime = None
+    if distributed.externally_launched:
+        if distributed.pipeline_parallel_size != 1:
+            raise ValueError("External tensor parallelism requires pipeline_parallel_size=1")
+        if distributed.world_size != size:
+            raise ValueError("External tensor parallelism requires WORLD_SIZE == tensor_parallel_size")
+        from .external import get_external_tensor_parallel_runtime
+
+        external_runtime = get_external_tensor_parallel_runtime()
+        if external_runtime is None:
+            raise RuntimeError("External-launcher tensor-parallel runtime has not been initialized")
+        devices = external_runtime.logical_devices
+    else:
+        current = model_management.get_torch_device()
+        available = model_management.get_all_torch_devices()
+        devices = tuple([current] + [device for device in available if device != current])
+        if size > len(devices):
+            raise ValueError(f"Tensor parallel size {size} exceeds {len(devices)} available devices")
+        devices = devices[:size]
     return load_diffusion_model_tensor_parallel(
-        unet_path, devices[:size], model_options=model_options, disable_dynamic=disable_dynamic
+        unet_path,
+        devices,
+        model_options=model_options,
+        disable_dynamic=disable_dynamic,
+        external_runtime=external_runtime,
     )

@@ -24,6 +24,10 @@ offloading; their weights are not split across ranks. Select INT8 encoder files
 for 24 GiB cards, or BF16 files when preserving encoder precision is preferable
 to reducing offload traffic.
 
+MAGI-2 Preview splits its attention heads and its twelve routed MoE heads (each with
+its 256 experts) across TP ranks, so a TP size must divide those heads and the 1280-wide
+shared experts: 2 or 4. The refiner's eight key/value heads allow 2, 4 or 8.
+
 ## Defaults
 
 Hardware guessing is enabled by default. On Linux, when all visible NVIDIA GPUs
@@ -50,12 +54,14 @@ and supported parallel sizes. Use its findings when selecting devices.
 | Krea 2 | Yes | — | — |
 | MiniMax H3 | Yes | Yes | Yes |
 | MiniMax H3 Image | Yes | Yes | — |
+| MAGI-2 Preview and refiner | Yes | Yes | — |
 | Qwen Image / Layered | — | Yes | Yes |
 | Kandinsky 6 Pro custom node | Yes | — | — |
 | HunyuanImage3 custom node | Yes, with expert parallelism | Yes | — |
 
-TP requires safetensors checkpoints and CUDA/NCCL on one host, using the internal
-multiprocessing executor. Kandinsky 6 TP requires unquantized weights. Native
+TP requires safetensors checkpoints and CUDA/NCCL. The default executor uses
+multiprocessing on one host; an external launcher can place one TP rank on each
+host. Kandinsky 6 requires unquantized weights. Native
 quantized TP preserves the quantizer's input domain by gathering complete inputs
 before output-channel shards; checkpoint layout helpers handle packed projections,
 scalar/channel/blocked scales, and tiled SVDQuant weights. Hunyuan's streaming
@@ -80,11 +86,26 @@ comfyui serve --cuda-device 0,1 --ring-degree 2
 The same options apply to `run-workflow` and workers. Select a workflow from a
 supported family before enabling a mode.
 
-External launch supports PP only. Canonical launcher variables are `RANK`,
+External launch supports PP or TP. Canonical launcher variables are `RANK`,
 `WORLD_SIZE`, `LOCAL_RANK`, `LOCAL_WORLD_SIZE`, `MASTER_ADDR`, and `MASTER_PORT`.
 Common PMI, Open MPI, MVAPICH, and Slurm aliases are also accepted. Launcher
 variables identify processes; CLI/Configuration values select model parallelism.
-Multi-node TP is not supported.
+For external TP, `WORLD_SIZE` must equal the TP size and the PP size must be one.
+Rank zero runs the workflow and every other rank serves its TP shard. The ranks
+keep their Gloo control and NCCL device groups across model unload/reload.
+
+For example, run the same command on two hosts with `torchrun`:
+
+```console
+torchrun --nnodes=2 --nproc-per-node=1 \
+  --rdzv-backend=c10d --rdzv-endpoint=host-0:29500 \
+  comfyui --tensor-parallel-size 2 \
+  --pipeline-parallel-size 1 \
+  --distributed-executor-backend external_launcher \
+  workflows run workflow.json
+```
+
+Hybrid PP+TP remains unsupported.
 
 ## Memory and limitations
 
@@ -101,7 +122,9 @@ storage reduces weight capacity requirements but does not guarantee faster math.
 See [quantization contracts](../QUANTIZATION.md).
 
 Pipeline boundaries begin with checkpoint geometry and are refined against
-DynamicVRAM geometry on each device. Text encoders and other dependencies can
+DynamicVRAM geometry on each device. On unified-memory devices such as the DGX
+Spark, each stage's budget is the host's available system memory, and stages
+are built directly on the device. Text encoders and other dependencies can
 be ejected by the normal memory manager. Reduced offloading can improve latency,
 but sequential pipeline stages do not execute different layers of one sample
 simultaneously. Slow checkpoint storage can dominate startup and streaming.

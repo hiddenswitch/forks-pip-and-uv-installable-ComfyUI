@@ -9,6 +9,7 @@ from safetensors.torch import save_file
 
 from comfy import ops, quant_ops, sd, utils
 from tests.inference.mini_weights import miniature_models
+from tests.mini_weights import random_state
 
 
 def test_lora_checkpoint_changes_and_restores_real_model_weight(checkpoint_header, tmp_path):
@@ -124,3 +125,16 @@ def test_quantized_checkpoint_loads_real_resized_weight(tmp_path, dtype, descrip
         # INT8's native linear also dynamically quantizes activations row-wise.
         tolerance = {'atol': 0.01, 'rtol': 0.01} if dtype == torch.int8 else {}
         torch.testing.assert_close(actual, expected, **tolerance)
+
+
+def test_random_state_initializes_weight_norm_parametrizations():
+    """Checkpoints store weight_g / weight_v; torch's parametrization exposes original0 / original1 and maps them on load."""
+    module = torch.nn.utils.parametrizations.weight_norm(torch.nn.Conv1d(8, 4, 3))
+    with torch.no_grad():
+        for parameter in module.parameters():
+            parameter.fill_(float("nan"))
+    state = {"weight_g": torch.empty(4, 1, 1, device="meta"), "weight_v": torch.empty(4, 8, 3, device="meta"), "bias": torch.zeros(4)}
+    weights = random_state(state, module.state_dict())
+    assert weights.keys() == state.keys()
+    module.load_state_dict(weights)
+    assert torch.isfinite(module.weight).all() and module.weight.abs().sum() > 0

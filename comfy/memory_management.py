@@ -46,7 +46,7 @@ class FileBackedConcat(torch.Tensor):
     def __torch_dispatch__(cls, func, types, args=(), kwargs=None):
         if func in (torch.ops.aten.detach.default, torch.ops.aten.alias.default):
             return args[0]
-        if func.overloadpacket == torch.ops.aten.to:
+        if func.overloadpacket == torch.ops.aten.to or func == torch.ops.aten._to_copy.default:
             options = {arg.name: arg.default_value for arg in func._schema.arguments}
             options.update(zip((arg.name for arg in func._schema.arguments), args))
             options.update(kwargs or {})
@@ -58,6 +58,38 @@ class FileBackedConcat(torch.Tensor):
                     and not options.get("copy", False)
                     and options.get("memory_format") in (None, torch.preserve_format, torch.contiguous_format)):
                 return tensor
+            if (isinstance(tensor, cls) and tensor._materialized is None
+                    and options.get("layout") in (None, torch.strided)
+                    and options.get("memory_format") in (
+                        None, torch.preserve_format, torch.contiguous_format
+                    )):
+                dtype = tensor.dtype if dtype is None else dtype
+                device = tensor.device if device is None else device
+                pin_memory = bool(options.get("pin_memory", False))
+                non_blocking = bool(options.get("non_blocking", False))
+                out = torch.empty(tensor.shape, dtype=dtype, device=device, pin_memory=pin_memory)
+                offset = 0
+                for part in tensor._parts:
+                    count = part.shape[0]
+                    out.narrow(0, offset, count).copy_(part, non_blocking=non_blocking)
+                    offset += count
+                return out
+        if (
+            func == torch.ops.aten.copy_.default
+            and len(args) >= 2
+            and not isinstance(args[0], cls)
+            and isinstance(args[1], cls)
+            and args[1]._materialized is None
+            and args[0].shape == args[1].shape
+        ):
+            dst, src = args[0], args[1]
+            non_blocking = bool(args[2]) if len(args) > 2 else bool((kwargs or {}).get("non_blocking", False))
+            offset = 0
+            for part in src._parts:
+                count = part.shape[0]
+                dst.narrow(0, offset, count).copy_(part, non_blocking=non_blocking)
+                offset += count
+            return dst
         # Ordinary tensor operations (including mutations) share one materialized
         # value. The streaming loader does not need to allocate that value.
         def unwrap(value):
@@ -71,8 +103,11 @@ def concatenate_tensors(tensors, dim=0):
         tensor.dtype == tensors[0].dtype and tensor.device == tensors[0].device
         and tensor.shape[1:] == tensors[0].shape[1:]
         and not tensor.requires_grad and tensor.is_contiguous()
-        and hasattr(tensor.untyped_storage(), "_comfy_tensor_file_slice")
-        and hasattr(tensor.untyped_storage(), "_comfy_tensor_mmap_refs")
+        and (
+            (hasattr(tensor.untyped_storage(), "_comfy_tensor_file_slice")
+             and hasattr(tensor.untyped_storage(), "_comfy_tensor_mmap_refs"))
+            or is_file_backed(tensor)
+        )
         for tensor in tensors
     ):
         parts = tuple(slice_tensor(tensor, (slice(None),) * tensor.ndim) for tensor in tensors)
@@ -83,10 +118,14 @@ def concatenate_tensors(tensors, dim=0):
 def slice_tensor(tensor, selection):
     """Own a slice's storage, retaining bounded file backing when it is contiguous."""
     selected = tensor[selection]
+    if not selected.is_contiguous() or selected.numel() == 0:
+        return selected.clone()
     storage = tensor.untyped_storage()
     info = getattr(storage, "_comfy_tensor_file_slice", None)
     refs = getattr(storage, "_comfy_tensor_mmap_refs", None)
-    if info is None or refs is None or not selected.is_contiguous() or selected.numel() == 0:
+    if info is None or refs is None:
+        if not isinstance(tensor, (FileBackedConcat, QuantizedTensor)) and is_file_backed(tensor):
+            return selected
         return selected.clone()
     offset = selected.storage_offset() * selected.element_size()
     buffer = (ctypes.c_ubyte * selected.nbytes).from_address(selected.data_ptr())
@@ -215,6 +254,118 @@ def read_tensor_file_slice_into(tensor, destination, stream=None, destination2=N
         return True
     finally:
         view.release()
+
+
+def mark_file_backed(tensor):
+    tensor.untyped_storage()._comfy_file_backed = True
+
+
+def is_file_backed(tensor) -> bool:
+    """A tensor whose storage is a copy-on-write mapping of a checkpoint file."""
+    if not isinstance(tensor, torch.Tensor):
+        return False
+    if isinstance(tensor, FileBackedConcat):
+        return tensor._materialized is None and all(is_file_backed(part) for part in tensor._parts)
+    if isinstance(tensor, QuantizedTensor):
+        return is_file_backed(tensor._qdata)
+    return getattr(tensor.untyped_storage(), "_comfy_file_backed", False)
+
+
+def _compatible_file_source(source, target):
+    if source is None or isinstance(source, QuantizedTensor) or not is_file_backed(source):
+        return None
+    if source.numel() != target.numel() or source.element_size() != target.element_size():
+        return None
+    if source.dtype != target.dtype:
+        if isinstance(source, FileBackedConcat):
+            return None
+        source = source.view(target.dtype)
+    if source.shape != target.shape:
+        if isinstance(source, FileBackedConcat) or not source.is_contiguous():
+            return None
+        source = source.reshape(target.shape)
+    return source
+
+
+def _set_parameter_source(param, source):
+    if isinstance(param.data, QuantizedTensor):
+        param.data = QuantizedTensor(source, param.data._layout_cls, param.data._params)
+        param._qdata = source
+    else:
+        param.data = source
+
+
+def record_file_backing(module, state_dict, prefix=""):
+    """Remember which of ``module``'s parameters equal a file-backed tensor of ``state_dict``.
+
+    On unified memory such a parameter can be released by pointing it back at the mapping,
+    so the checkpoint file is its backing store. A parameter that is still on the CPU is
+    pointed at the mapping right away, dropping its anonymous copy. Device parameters are
+    compared on their device with one synchronization for the whole module.
+    """
+    backing = module.__dict__.setdefault("_comfy_file_backing", {})
+    pending = []
+    with torch.no_grad():
+        for name, param in module.named_parameters():
+            target = param.data._qdata if isinstance(param.data, QuantizedTensor) else param.data
+            source = _compatible_file_source(state_dict.get(prefix + name), target)
+            if source is None:
+                continue
+            if target.device.type == "cpu":
+                if isinstance(source, FileBackedConcat):
+                    if not torch.equal(target, source.to(device="cpu", dtype=target.dtype)):
+                        continue
+                    _set_parameter_source(param, source)
+                elif target.data_ptr() != source.data_ptr():
+                    if not torch.equal(target, source):
+                        continue
+                    _set_parameter_source(param, source)
+                backing[name] = source
+            else:
+                pending.append((name, source, torch.eq(target, source.to(device=target.device, dtype=target.dtype)).all()))
+        if pending:
+            equal = torch.stack([flag for _, _, flag in pending]).cpu().tolist()
+            for (name, source, _), same in zip(pending, equal):
+                if same:
+                    backing[name] = source
+
+
+def _file_backed_parameters(root):
+    """(backing, name, parameter) for every recorded parameter in ``root`` and its submodules."""
+    for module in root.modules():
+        backing = module.__dict__.get("_comfy_file_backing")
+        if not backing:
+            continue
+        for name, param in module.named_parameters():
+            if name in backing:
+                yield backing, name, param
+
+
+def file_backed_device_bytes(module) -> int:
+    """Bytes of ``module``'s device-resident parameters that the checkpoint file backs."""
+    total = 0
+    for backing, name, param in _file_backed_parameters(module):
+        source = backing[name]
+        target = param.data._qdata if isinstance(param.data, QuantizedTensor) else param.data
+        if target.device.type != "cpu" and source.dtype == target.dtype and source.shape == target.shape:
+            total += target.nbytes
+    return total
+
+
+def release_file_backed_weights(module) -> int:
+    """Point every file-backed device parameter back at its mapping; returns the bytes freed."""
+    freed = 0
+    for backing, name, param in list(_file_backed_parameters(module)):
+        source = backing[name]
+        target = param.data._qdata if isinstance(param.data, QuantizedTensor) else param.data
+        if target.device.type == "cpu":
+            continue
+        if source.dtype != target.dtype or source.shape != target.shape:
+            del backing[name]
+            continue
+        freed += target.nbytes
+        _set_parameter_source(param, source)
+    return freed
 
 
 class TensorGeometry(NamedTuple):

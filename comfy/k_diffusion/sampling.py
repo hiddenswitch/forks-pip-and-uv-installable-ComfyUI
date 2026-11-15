@@ -1561,6 +1561,74 @@ def res_multistep(model, x, sigmas, extra_args=None, callback=None, disable=None
     return x
 
 
+def _uni_pc_flow_coefficients(sigmas, outputs, step, sigma_t, sigma_s0, order, history_offset):
+    """UniPC B(h)=expm1 (bh2) terms on rectified-flow sigmas, as diffusers' FlowUniPCMultistepScheduler computes them."""
+    lambda_ = lambda sigma: torch.log(1 - sigma) - torch.log(sigma)
+    lambda_s0 = lambda_(sigma_s0)
+    h = lambda_(sigma_t) - lambda_s0
+    m0 = outputs[-1]
+    rks, differences = [], []
+    for k in range(1, order):
+        rk = (lambda_(sigmas[step - k - history_offset]) - lambda_s0) / h
+        rks.append(rk)
+        differences.append((outputs[-(k + 1)] - m0) / rk)
+    rks.append(1.0)
+    rks = torch.tensor(rks)
+    hh = -h
+    h_phi_1 = torch.expm1(hh)
+    h_phi_k = h_phi_1 / hh - 1
+    b_h = torch.expm1(hh)
+    factorial = 1
+    r, b = [], []
+    for k in range(1, order + 1):
+        r.append(torch.pow(rks, k - 1))
+        b.append(h_phi_k * factorial / b_h)
+        factorial *= k + 1
+        h_phi_k = h_phi_k / hh - 1 / factorial
+    differences = torch.stack(differences, dim=1) if differences else None
+    return m0, h_phi_1, b_h, torch.stack(r), torch.tensor(b), differences
+
+
+@torch.no_grad()
+def sample_uni_pc_flow(model, x, sigmas, extra_args=None, callback=None, disable=None, order=2):
+    """Multistep UniPC (bh2, x0 updates, lower order final) as in diffusers' FlowUniPCMultistepScheduler, which Wan and MAGI-2 use.
+
+    alpha_t = 1 - sigma_t; the corrector runs after every model call but the first.
+    """
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+    schedule = sigmas.detach().float().cpu()
+    steps = len(sigmas) - 1
+    outputs = []
+    last_sample = None
+    this_order = 1
+    lower_order_nums = 0
+    for i in trange(steps, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+        if last_sample is not None:
+            sigma_t, sigma_s0 = schedule[i], schedule[i - 1]
+            m0, h_phi_1, b_h, r, b, differences = _uni_pc_flow_coefficients(schedule, outputs, i, sigma_t, sigma_s0, this_order, 1)
+            rhos = torch.tensor([0.5], dtype=x.dtype) if this_order == 1 else torch.linalg.solve(r, b).to(x.dtype)
+            rhos = rhos.to(x.device)
+            correction = 0 if differences is None else torch.einsum("k,bkc...->bc...", rhos[:-1], differences)
+            x = (sigma_t / sigma_s0 * last_sample - (1 - sigma_t) * h_phi_1 * m0
+                 - (1 - sigma_t) * b_h * (correction + rhos[-1] * (denoised - m0))).to(x.dtype)
+        outputs = (outputs + [denoised])[-order:]
+        this_order = min(order, steps - i, lower_order_nums + 1)
+        last_sample = x
+        sigma_t, sigma_s0 = schedule[i + 1], schedule[i]
+        m0, h_phi_1, b_h, r, b, differences = _uni_pc_flow_coefficients(schedule, outputs, i, sigma_t, sigma_s0, this_order, 0)
+        prediction = 0
+        if differences is not None:
+            rhos = torch.tensor([0.5], dtype=x.dtype) if this_order == 2 else torch.linalg.solve(r[:-1, :-1], b[:-1]).to(x.dtype)
+            prediction = torch.einsum("k,bkc...->bc...", rhos.to(x.device), differences)
+        x = (sigma_t / sigma_s0 * x - (1 - sigma_t) * h_phi_1 * m0 - (1 - sigma_t) * b_h * prediction).to(x.dtype)
+        lower_order_nums = min(lower_order_nums + 1, order)
+    return x
+
+
 @torch.no_grad()
 def sample_res_multistep(model, x, sigmas, extra_args=None, callback=None, disable=None, s_noise=1., noise_sampler=None):
     return res_multistep(model, x, sigmas, extra_args=extra_args, callback=callback, disable=disable, s_noise=s_noise, noise_sampler=noise_sampler, eta=0., cfg_pp=False)

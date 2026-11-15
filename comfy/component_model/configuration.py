@@ -42,6 +42,7 @@ MODEL_MANAGEMENT_ARGS: frozenset[str] = frozenset({
     "highvram",
     "gpu_only",
     "disable_dynamic_vram",
+    "unified_memory_allocator",
     "fast_disk",
     "force_fp32",
     "force_fp16",

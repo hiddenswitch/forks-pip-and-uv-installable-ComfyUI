@@ -42,6 +42,7 @@ import psutil
 import torch
 
 from . import interruption
+from . import managed_memory
 from . import memory_management
 from . import quant_ops
 from . import system_memory
@@ -341,14 +342,54 @@ def cuda_device_context(device):
         if prev is not None:
             torch.cuda.set_device(prev)
 
+_UNIFIED_MEMORY_DEVICES = {}
+
+
+def is_unified_memory_device(device=None) -> bool:
+    """Whether allocations on ``device`` come out of the same physical memory as CPU allocations.
+
+    True for Apple MPS and for integrated CUDA/ROCm GPUs (DGX Spark GB10, AMD APUs). On these a
+    CPU-side copy of a weight is a second copy in the same pool, moving a model to the CPU frees
+    nothing, and free memory is system memory.
+    """
+    if device is None:
+        device = get_torch_device()
+    device = torch.device(device)
+    if device.type == "mps":
+        return True
+    if device.type != "cuda":
+        return False
+    index = device.index if device.index is not None else torch.cuda.current_device()
+    unified = _UNIFIED_MEMORY_DEVICES.get(index)
+    if unified is None:
+        unified = bool(torch.cuda.get_device_properties(index).is_integrated)
+        _UNIFIED_MEMORY_DEVICES[index] = unified
+    return unified
+
+
+def _unified_allocator_memory(dev):
+    """(reserved, reusable) bytes held by torch's allocator on a unified-memory device."""
+    if managed_memory.is_active():
+        return managed_memory.held_bytes(), managed_memory.cached_bytes()
+    if dev.type == "mps":
+        reserved = torch.mps.driver_allocated_memory()
+        return reserved, max(0, reserved - torch.mps.current_allocated_memory())
+    stats = torch.cuda.memory_stats(dev)
+    reserved = stats['reserved_bytes.all.current']
+    return reserved, reserved - stats['active_bytes.all.current']
+
+
 def get_total_memory(dev=None, torch_total_too=False):
     if dev is None:
         dev = get_torch_device()
 
     mem_total_torch = 0
-    if hasattr(dev, 'type') and (dev.type == 'cpu' or dev.type == 'mps'):
+    if hasattr(dev, 'type') and dev.type == 'cpu':
         mem_total = system_memory.virtual_memory_total()
         mem_total_torch = mem_total
+    elif is_unified_memory_device(dev):
+        mem_total = system_memory.virtual_memory_total()
+        mem_total_torch, _ = _unified_allocator_memory(dev)
     else:
         if is_intel_xpu():
             stats = torch.xpu.memory_stats(dev)
@@ -644,11 +685,23 @@ if args.force_bf16:
 if set_vram_to in (VRAMState.LOW_VRAM, VRAMState.NO_VRAM):
     vram_state = set_vram_to
 
-if cpu_state != CPUState.GPU:
-    vram_state = VRAMState.DISABLED
 
-if cpu_state == CPUState.MPS:
-    vram_state = VRAMState.SHARED
+def vram_state_for_device(requested: VRAMState, state: CPUState, device) -> VRAMState:
+    """Unified-memory devices are always SHARED: there is no separate VRAM to size for."""
+    if state == CPUState.MPS:
+        return VRAMState.SHARED
+    if state != CPUState.GPU:
+        return VRAMState.DISABLED
+    if is_unified_memory_device(device):
+        return VRAMState.SHARED
+    return requested
+
+
+try:
+    vram_state = vram_state_for_device(vram_state, cpu_state, get_torch_device())
+except (RuntimeError, AssertionError):
+    if cpu_state != CPUState.GPU:
+        vram_state = VRAMState.DISABLED
 
 logger.info(f"Set vram state to: {vram_state.name}")
 
@@ -959,12 +1012,18 @@ class LoadedModel:
         return False
 
     def model_unload(self, memory_to_free=None, unpatch_weights=True):
-        if memory_to_free is not None:
+        shared_pool = not getattr(self.model, "is_dynamic", lambda: False)() and offload_shares_device_memory(self.device)
+        if memory_to_free is not None and not shared_pool:
             if memory_to_free < self.model.loaded_size():
                 freed = self.model.partially_unload(self.model.offload_device, memory_to_free)
                 if freed >= memory_to_free:
                     return False
         self.model.detach(unpatch_weights)
+        if shared_pool and unpatch_weights and isinstance(getattr(self.model, "model", None), torch.nn.Module):
+            # Moving weights to the CPU frees nothing here; release them to the checkpoint
+            # mapping they were loaded from instead.
+            released = memory_management.release_file_backed_weights(self.model.model)
+            detail("Released file-backed weights: model=%s mb=%.1f", self.model.model.__class__.__name__, released / (1024 ** 2))
         self.model_finalizer.detach()
         self.model_finalizer = None
         self.real_model = None
@@ -1029,6 +1088,10 @@ if args.reserve_vram is not None:
 
 
 def extra_reserved_memory():
+    if is_unified_memory_device():
+        # Device allocations on unified memory are RAM the OS can neither reclaim nor swap,
+        # which is exactly what the pinned-memory reserve protects against.
+        return EXTRA_RESERVED_VRAM + pinned_memory_reserve()
     return EXTRA_RESERVED_VRAM
 
 
@@ -1462,8 +1525,24 @@ def dtype_size(dtype):
     return dtype_size
 
 
+def offload_shares_device_memory(load_device=None) -> bool:
+    """Whether offloading from ``load_device`` to the CPU would only copy within one memory pool.
+
+    DynamicVRAM keeps offloaded weights as the checkpoint's file-backed mapping, which is the
+    right offload on unified memory too; without it an offload is an anonymous copy.
+    """
+    return is_unified_memory_device(load_device) and not memory_management.aimdo_enabled
+
+
+def offload_device_for(load_device, offload_device=torch.device("cpu")):
+    """The offload device a loader should use for a model that runs on ``load_device``."""
+    if offload_shares_device_memory(load_device):
+        return load_device
+    return offload_device
+
+
 def unet_offload_device():
-    if vram_state == VRAMState.HIGH_VRAM:
+    if vram_state == VRAMState.HIGH_VRAM or offload_shares_device_memory():
         return get_torch_device()
     else:
         return torch.device("cpu")
@@ -1572,8 +1651,9 @@ def unet_manual_cast(weight_dtype, inference_device, supported_dtypes=(torch.flo
 def text_encoder_offload_device():
     if args.gpu_only:
         return get_torch_device()
-    else:
-        return torch.device("cpu")
+    if offload_shares_device_memory():
+        return text_encoder_device()
+    return torch.device("cpu")
 
 
 def text_encoder_device():
@@ -1581,7 +1661,7 @@ def text_encoder_device():
         return get_torch_device()
     if memory_management.aimdo_enabled:
         return get_torch_device()
-    elif vram_state in (VRAMState.HIGH_VRAM, VRAMState.NORMAL_VRAM):
+    elif vram_state in (VRAMState.HIGH_VRAM, VRAMState.NORMAL_VRAM) or (vram_state == VRAMState.SHARED and cpu_state == CPUState.GPU):
         if should_use_fp16(prioritize_performance=False):
             return get_torch_device()
         else:
@@ -1597,7 +1677,7 @@ def text_encoder_initial_device(load_device, offload_device, model_size=0):
     if load_device == offload_device or model_size <= 1024 * 1024 * 1024:
         return offload_device
 
-    if is_device_mps(load_device):
+    if is_unified_memory_device(load_device):
         return load_device
 
     mem_l = get_free_memory(load_device)
@@ -1648,8 +1728,9 @@ def vae_device():
 def vae_offload_device():
     if args.gpu_only:
         return get_torch_device()
-    else:
-        return torch.device("cpu")
+    if offload_shares_device_memory():
+        return vae_device()
+    return torch.device("cpu")
 
 
 def vae_dtype(device=None, allowed_dtypes=[]):
@@ -2102,13 +2183,13 @@ def compute_max_pinned_memory() -> int:
     return max(0, ceiling)
 
 
-def is_integrated_gpu():
-    device = get_torch_device()
-    return device.type == "cuda" and bool(torch.cuda.get_device_properties(device).is_integrated)
+def pinned_memory_disabled_for_device(device=None) -> bool:
+    """A unified-memory device reads host memory in place, so a pinned staging copy only takes RAM from it."""
+    return is_unified_memory_device(device)
+
 
 DISABLE_PINNED_MEMORY = args.disable_pinned_memory
-if not DISABLE_PINNED_MEMORY and is_integrated_gpu():
-    # Integrated GPU VRAM is carved out of system RAM, so pinning host memory only takes RAM from the GPU.
+if not DISABLE_PINNED_MEMORY and pinned_memory_disabled_for_device():
     DISABLE_PINNED_MEMORY = True
 
 if not DISABLE_PINNED_MEMORY:
@@ -2383,9 +2464,15 @@ def get_free_memory(dev=None, torch_free_too=False):
     if dev is None:
         dev = get_torch_device()
 
-    if hasattr(dev, 'type') and (dev.type == 'cpu' or dev.type == 'mps'):
+    if hasattr(dev, 'type') and dev.type == 'cpu':
         mem_free_total = system_memory.virtual_memory_available()
         mem_free_torch = mem_free_total
+    elif is_unified_memory_device(dev):
+        # cudaMemGetInfo on an integrated GPU reports MemFree, which ignores reclaimable page
+        # cache and the kernel's reserves; MemAvailable (capped by the cgroup) is what can
+        # actually be allocated, and is what comfy-aimdo's integrated budget polls.
+        _, mem_free_torch = _unified_allocator_memory(dev)
+        mem_free_total = system_memory.virtual_memory_available() + mem_free_torch
     else:
         if is_intel_xpu():
             stats = torch.xpu.memory_stats(dev)
@@ -2758,6 +2845,7 @@ def _soft_empty_cache(force=False):
     elif torch.cuda.is_available():
         torch.cuda.synchronize()
         torch.cuda.empty_cache()
+        managed_memory.release_cached()
         torch.cuda.ipc_collect()
 
 
@@ -2800,6 +2888,9 @@ def _unload_model_and_clones(model: ModelPatcher, unload_additional_models=True,
             free_memory(1e30, device, keep_loaded)
 
 def debug_memory_summary():
+    if managed_memory.is_active():
+        return "managed memory allocator: system memory {} available of {}".format(
+            system_memory.virtual_memory_available(), system_memory.virtual_memory_total())
     if is_amd() or is_nvidia():
         return torch.cuda.memory.memory_summary()
     return ""
