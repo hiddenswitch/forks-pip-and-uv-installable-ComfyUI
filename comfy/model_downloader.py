@@ -850,6 +850,7 @@ KNOWN_VAES: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/MiniMax-H3", "vae/minimax_h3_video_vae_fp16.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-H3-Image", "vae/minimax_h3_image_vae_fp16.safetensors"),
     HuggingFile("Comfy-Org/RelayVSR", "vae/relayvsr_flash_vae_x2_fp32.safetensors"),
+    HuggingFile("Comfy-Org/RelayVSR", "vae/relayvsr_flash_vae_x4_fp32.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-H3", "vae/minimax_h3_audio_vae_fp32.safetensors"),
     HuggingFile("Comfy-Org/Mage-Flow", "vae/mage_flow_vae_bf16.safetensors"),
     HuggingFile("stabilityai/sdxl-vae", "sdxl_vae.safetensors", alternate_filenames=("sdxl.fp16.vae.safetensors",)),
@@ -959,6 +960,7 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/MiniMax-H3-Image", "diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-H3-Image", "diffusion_models/minimax_h3_image_pruned_bf16.safetensors"),
     HuggingFile("Comfy-Org/RelayVSR", "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors"),
+    HuggingFile("Comfy-Org/RelayVSR", "diffusion_models/relayvsr_x4_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-H3", "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Mage-Flow", "diffusion_models/mage_flow_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Mage-Flow", "diffusion_models/mage_flow_turbo_int8_convrot.safetensors"),
@@ -1300,6 +1302,10 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
 ], folder_names=["diffusion_models", "unet"])
 KNOWN_CLIP_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/Ming-Image", "text_encoders/ming_image_0.1_ling_mini_2.0_int8_convrot.safetensors"),
+    HuggingFile("Comfy-Org/WeVisOne-VL", "text_encoders/wevisone_vl_2b_bf16.safetensors"),
+    HuggingFile("Comfy-Org/WeVisOne-VL", "text_encoders/wevisone_vl_2b_int8_convrot.safetensors"),
+    HuggingFile("Comfy-Org/WeVisOne-VL", "text_encoders/wevisone_vl_4b_bf16.safetensors"),
+    HuggingFile("Comfy-Org/WeVisOne-VL", "text_encoders/wevisone_vl_4b_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Qwen3.8-27B", "text_encoders/qwen3.8_27b_w4a8.safetensors"),
     HuggingFile("Comfy-Org/Qwen-Image-2.1", "text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Qwen-Image-2.1", "text_encoders/qwen3.5_9b_qwen_image_2.1_pe_t2i.int8_convrot.safetensors"),
