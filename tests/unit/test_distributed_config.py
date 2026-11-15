@@ -73,13 +73,20 @@ def test_unavailable_comfy_kitchen_attention_fails_when_requested(monkeypatch):
 
 
 @pytest.mark.parametrize("rank", [0, 1])
-def test_external_tensor_parallel_fails_before_running_a_workflow(rank):
+def test_external_tensor_parallel_initializes_the_rank_runtime(monkeypatch, rank):
     configuration = DistributedConfiguration(
         rank=rank, world_size=2, tensor_parallel_size=2,
         executor_backend="external_launcher", externally_launched=True,
     )
-    with pytest.raises(NotImplementedError, match="single host"):
-        CudaDistributedRuntimeBootstrap().initialize(configuration)
+    runtime = object()
+    seen = []
+    monkeypatch.setattr(
+        "comfy.tensor_parallel.external.initialize_external_tensor_parallel_runtime",
+        lambda value: seen.append(value) or runtime,
+    )
+
+    assert CudaDistributedRuntimeBootstrap().initialize(configuration) is runtime
+    assert seen == [configuration]
 
 
 def test_torchrun_environment_is_the_canonical_process_identity():

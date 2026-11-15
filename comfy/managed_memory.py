@@ -97,6 +97,7 @@ _FREE_FN = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int
 
 _SMALL_BLOCK = 1 << 20
 _LARGE_GRANULE = 2 << 20
+_CACHE_RELEASE_HEADROOM = 8 << 30
 
 
 def size_class(size: int) -> int:
@@ -181,6 +182,9 @@ def _managed_alloc(size, device, stream):
         pointer = _cache.take(device, block)
         if pointer:
             return pointer
+        if _cache.cached and _available_for_managed_allocation() < block + _CACHE_RELEASE_HEADROOM:
+            released = _cache.release()
+            logger.info("Released %d MiB of cached managed memory under pressure", released >> 20)
         pointer, result = _allocate_managed(_driver, block, device)
         if not pointer:
             _cache.release()
@@ -190,6 +194,13 @@ def _managed_alloc(size, device, stream):
             return 0
         _cache.sizes[pointer] = block
         return pointer
+
+
+def _available_for_managed_allocation() -> int:
+    """Memory this process can commit, capped by its cgroup limits."""
+    from . import system_memory
+
+    return system_memory.virtual_memory_available()
 
 
 def _managed_free(pointer, size, device, stream):

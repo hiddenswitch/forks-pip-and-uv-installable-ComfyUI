@@ -28,10 +28,9 @@ class CudaDistributedRuntimeBootstrap(AbstractBaseDistributedRuntimeBootstrap):
 
     def initialize(self, configuration: DistributedConfiguration):
         if configuration.externally_launched and configuration.tensor_parallel_size > 1:
-            raise NotImplementedError(
-                "External-launcher tensor parallelism is not implemented; "
-                "use the internal multiprocessing executor on a single host"
-            )
+            from ..tensor_parallel.external import initialize_external_tensor_parallel_runtime
+
+            return initialize_external_tensor_parallel_runtime(configuration)
         if (
             not configuration.externally_launched
             or configuration.pipeline_parallel_size == 1
