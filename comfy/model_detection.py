@@ -442,6 +442,53 @@ def detect_unet_config(state_dict, key_prefix, metadata=None):
             dit_config.update(json.loads(metadata["config"]).get("transformer", {}))
         return dit_config
 
+    if '{}pre_adapter.video_embedder.weight'.format(key_prefix) in state_dict_keys and '{}post_adapter.final_linear_video.weight'.format(key_prefix) in state_dict_keys and '{}post_adapter.final_linear_audio.weight'.format(key_prefix) in state_dict_keys:  # SandAI MAGI-2
+        layer = '{}block.layers.'.format(key_prefix) + '{}.'
+        num_layers = count_blocks(state_dict_keys, layer)
+        multimodal = tuple(i for i in range(num_layers) if (layer + 'attention.linear_qkv.0.weight').format(i) in state_dict_keys)
+        qkv_key = layer.format(0) + ('attention.linear_qkv.0.weight' if 0 in multimodal else 'attention.linear_qkv.weight')
+        q_norm_key = layer.format(0) + 'attention.q_norm.weight'
+        if num_layers == 0 or qkv_key not in state_dict_keys or q_norm_key not in state_dict_keys:
+            return None
+        width = state_dict['{}pre_adapter.video_embedder.weight'.format(key_prefix)].shape[0]
+        streams_key = layer.format(0) + 'mhc_bias_pre_attn'
+        streams = state_dict[streams_key].shape[0] if streams_key in state_dict_keys else 1
+        hidden_size = width // streams
+        head_dim = state_dict[q_norm_key].shape[0] // (3 if 0 in multimodal else 1)
+        dit_config = {
+            "image_model": "magi2" if streams > 1 else "magi2_refiner",
+            "num_layers": num_layers,
+            "hidden_size": hidden_size,
+            "head_dim": head_dim,
+            "num_query_groups": (state_dict[qkv_key].shape[0] - hidden_size) // (2 * head_dim),
+            "video_in_channels": state_dict['{}post_adapter.final_linear_video.weight'.format(key_prefix)].shape[0],
+            "audio_in_channels": state_dict['{}post_adapter.final_linear_audio.weight'.format(key_prefix)].shape[0],
+            "multimodal_layers": multimodal,
+        }
+        dense = next((i for i in range(num_layers) if (layer + 'mlp.up_gate_proj.weight').format(i) in state_dict_keys
+                      or (layer + 'mlp.up_gate_proj.0.weight').format(i) in state_dict_keys), None)
+        if dense is not None:
+            up_gate = (layer + ('mlp.up_gate_proj.0.weight' if dense in multimodal else 'mlp.up_gate_proj.weight')).format(dense)
+            dit_config["intermediate_size"] = state_dict[up_gate].shape[0] // 2
+        if streams > 1:
+            dit_config["num_streams"] = streams
+            moe_layers = tuple(i for i in range(num_layers) if (layer + 'mlp.moe_mlp.router.weight').format(i) in state_dict_keys)
+            dit_config["moe_layers"] = moe_layers
+            if moe_layers:
+                moe = layer.format(moe_layers[0]) + 'mlp.'
+                expert_keys = (moe + 'moe_mlp.gate_proj.weight', moe + 'shared_expert_fc1.weight', moe + 'modality_specific_shared_expert_fc1.0.weight', moe + 'moe_mlp.router.weight')
+                if any(key not in state_dict_keys for key in expert_keys):
+                    return None
+                router = state_dict[expert_keys[3]].shape  # fp32 [heads * experts, head width], never quantized
+                dit_config["moe_heads"] = hidden_size // router[1]
+                dit_config["num_experts"] = router[0] // dit_config["moe_heads"]
+                dit_config["expert_intermediate_size"] = state_dict[expert_keys[0]].shape[1]
+                dit_config["shared_expert_intermediate_size"] = state_dict[expert_keys[1]].shape[0] // 2
+                dit_config["modality_shared_expert_intermediate_size"] = state_dict[expert_keys[2]].shape[0] // 2
+        if metadata is not None and "config" in metadata:
+            dit_config.update(json.loads(metadata["config"]).get("transformer", {}))
+        return dit_config
+
     if '{}adaln_single.emb.timestep_embedder.linear_1.bias'.format(key_prefix) in state_dict_keys:  # Lightricks ltxv
         dit_config = {}
         dit_config["image_model"] = "ltxav" if f'{key_prefix}audio_adaln_single.linear.weight' in state_dict_keys else "ltxv"

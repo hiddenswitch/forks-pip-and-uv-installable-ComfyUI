@@ -18,6 +18,9 @@
 
 from .ldm.wan import model_vsr
 from .ldm.minimax import sampling as minimax_sampling
+from .ldm.magi2 import model as magi2_model
+from .ldm.magi2 import refiner as magi2_refiner
+from .ldm.magi2 import sampling as magi2_sampling
 from .ldm.pan2.model import PAN2 as PAN2Model
 from enum import Enum
 from typing import Any
@@ -34,6 +37,7 @@ from .ldm.minimax.model import FRAME_PER_TOKEN, FRAME_RESCALE
 from . import conds
 from . import latent_formats
 from . import model_management
+from . import memory_management
 from . import model_prefetch
 from . import nested_tensor
 from . import ops
@@ -532,6 +536,7 @@ class BaseModel(torch.nn.Module):
         to_load = self.model_config.process_unet_state_dict(to_load)
         _preserve_mixed_precision_storage(self.diffusion_model, to_load)
         m, u = self.diffusion_model.load_state_dict(to_load, strict=False, assign=assign)
+        memory_management.record_file_backing(self.diffusion_model, to_load)
         if len(m) > 0:
             logger.warning("unet missing: {}".format(m))
 
@@ -2672,6 +2677,38 @@ class MiniMaxH3Image(MiniMaxH3):
             payload["layout"] = minimax_model.PackedLayout(
                 out['c_crossattn'].cond.shape[1], shape[2], (shape[3] + 1) // 2 * 2, (shape[4] + 1) // 2 * 2, 0, refs=payload.get("refs"))
         return out
+
+class Magi2(BaseModel):
+    """MAGI-2 Preview: a packed [video, audio] latent, both streams in the model's normalized basis (latent_formats.Magi2)."""
+
+    def __init__(self, model_config, model_type=ModelType.FLOW, device=None, unet_model=magi2_model.Magi2Model):
+        super().__init__(model_config, model_type, device=device, unet_model=unet_model)
+        self.model_sampling = magi2_sampling.Magi2ModelSampling(model_config)
+
+    def get_dtype_inference(self):
+        # the reference feeds fp32 latents, text features and coordinates to its fp32 adapters
+        return torch.float32
+
+    def extra_conds(self, **kwargs):
+        out = super().extra_conds(**kwargs)
+        cross_attn = kwargs.get("cross_attn")
+        if cross_attn is not None:
+            out["c_crossattn"] = CONDRegular(cross_attn)
+        latent_shapes = kwargs.get("latent_shapes")
+        if latent_shapes is not None and len(latent_shapes) > 1:
+            out["latent_shapes"] = CONDConstant(latent_shapes)
+        references = kwargs.get("magi2_reference_images")
+        if references:
+            # Magi2ImageToVideo stores the reference latents already normalized
+            out["magi2_refs"] = CONDConstant([{"latent": reference["latent"], "token": reference["token"]} for reference in references])
+        return out
+
+
+class Magi2Refiner(Magi2):
+    def __init__(self, model_config, model_type=ModelType.FLOW, device=None):
+        super().__init__(model_config, model_type, device=device, unet_model=magi2_refiner.Magi2RefinerModel)
+        self.model_sampling = magi2_sampling.Magi2RefinerModelSampling(model_config)
+
 
 class TripoSplat(BaseModel):
     def __init__(self, model_config, model_type=ModelType.FLOW, device=None):
