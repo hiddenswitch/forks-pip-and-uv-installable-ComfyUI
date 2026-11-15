@@ -38,6 +38,7 @@ from .stages import (
     Flux2PipelineStageSpec,
     HunyuanImage3PipelineStageSpec,
     MiniMaxH3PipelineStageSpec,
+    PAN2PipelineStageSpec,
     QwenImagePipelineStageSpec,
     get_pipeline_stage_spec,
 )
@@ -84,6 +85,7 @@ __all__ = [
     "Flux2PipelineStageSpec",
     "HunyuanImage3PipelineStageSpec",
     "MiniMaxH3PipelineStageSpec",
+    "PAN2PipelineStageSpec",
     "PipelineIntermediateSchema",
     "PipelineDeviceMemoryBudget",
     "PipelineIntermediateTensors",

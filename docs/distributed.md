@@ -50,6 +50,7 @@ and supported parallel sizes. Use its findings when selecting devices.
 | Krea 2 | Yes | — | — |
 | MiniMax H3 | Yes | Yes | Yes |
 | MiniMax H3 Image | Yes | Yes | — |
+| PAN 2 | Yes | Yes | — |
 | Qwen Image / Layered | — | Yes | Yes |
 | Kandinsky 6 Pro custom node | Yes | — | — |
 | HunyuanImage3 custom node | Yes, with expert parallelism | Yes | — |

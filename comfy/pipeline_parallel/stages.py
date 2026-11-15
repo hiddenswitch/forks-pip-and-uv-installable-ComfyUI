@@ -171,6 +171,13 @@ class MiniMaxH3ImagePipelineStageSpec(MiniMaxH3PipelineStageSpec):
     model_family = "minimax_h3_image"
 
 
+class PAN2PipelineStageSpec(_ContiguousBlockStageSpec):
+    model_family = "pan2"
+    block_count = 44
+    block_prefix = "transformer_blocks."
+    exit_prefixes = ("norm_out.", "proj_out.")
+
+
 class HunyuanImage3PipelineStageSpec(_ContiguousBlockStageSpec):
     """The HunyuanImage3 custom node's transformer, in its ComfyUI checkpoint layout.
 
@@ -250,6 +257,8 @@ def get_pipeline_stage_spec(image_model: str) -> AbstractBasePipelineStageSpec:
         return MiniMaxH3PipelineStageSpec()
     if image_model == "flux2":
         return Flux2PipelineStageSpec()
+    if image_model == "pan2":
+        return PAN2PipelineStageSpec()
     if image_model == "hunyuan_image3":
         return HunyuanImage3PipelineStageSpec()
     raise ValueError(f"Pipeline parallel loading is not supported for {image_model}")

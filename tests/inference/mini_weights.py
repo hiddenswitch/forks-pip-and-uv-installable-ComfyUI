@@ -187,7 +187,7 @@ def _smaller(config, width, depth, alignment=1):
             continue
         heads_key = next((k for k in ('num_heads', 'n_heads', 'num_attention_heads', 'heads', 'num_groups') if isinstance(config.get(k), int) and config[k] > 0), None)
         head_dim = old // config[heads_key] if heads_key else 64
-        for axes in ('axes_dim', 'axes_dims'):
+        for axes in ('axes_dim', 'axes_dims', 'rope_axes_dim'):
             if axes in config:
                 head_dim = sum(config[axes])
         quantum = math.lcm(32, head_dim) if key == 'model_channels' else head_dim

@@ -40,6 +40,7 @@ from .text_encoders import minimax
 from .text_encoders import minimax_music
 from .text_encoders import moss_image
 from .text_encoders import omnigen2
+from .text_encoders import pan2
 from .text_encoders import pixart_t5
 from .text_encoders import pixeldit
 from .text_encoders import qwen_image
@@ -2156,6 +2157,35 @@ class Fibo2(supported_models_base.BASE):
         return supported_models_base.ClipTarget(fibo2.Fibo2Tokenizer, fibo2.te(**hunyuan_detect))
 
 
+class PAN2(supported_models_base.BASE):
+    unet_config = {
+        "image_model": "pan2",
+    }
+
+    sampling_settings = {
+        "multiplier": 1.0,
+        "shift": 9.0,
+    }
+
+    memory_usage_factor = 3.5
+
+    unet_extra_config = {}
+    latent_format = latent_formats.Wan22
+
+    supported_inference_dtypes = [torch.bfloat16, torch.float32]
+
+    vae_key_prefix = ["vae."]
+    text_encoder_key_prefix = ["text_encoders."]
+
+    def get_model(self, state_dict, prefix="", device=None):
+        out = model_base.PAN2(self, device=device)
+        return out
+
+    def clip_target(self, state_dict={}):
+        pref = self.text_encoder_key_prefix[0]
+        hunyuan_detect = hunyuan_video.llama_detect(state_dict, "{}qwen35_9b.transformer.".format(pref))
+        return supported_models_base.ClipTarget(pan2.PAN2Tokenizer, pan2.te(**hunyuan_detect))
+
 class MageFlow(supported_models_base.BASE):
     unet_config = {"image_model": "mage_flow"}
     sampling_settings = {"multiplier": 1.0, "shift": 6.0}
@@ -2907,6 +2937,7 @@ models = [
     Krea2,
     MOSSImage,
     Fibo2,
+    PAN2,
     Flux2,
     Flux3,
     Lens,
