@@ -852,6 +852,7 @@ KNOWN_VAES: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/MiniMax-H3", "vae/minimax_h3_video_vae_fp16.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-H3-Image", "vae/minimax_h3_image_vae_fp16.safetensors"),
     HuggingFile("Comfy-Org/RelayVSR", "vae/relayvsr_flash_vae_x2_fp32.safetensors"),
+    HuggingFile("Comfy-Org/RelayVSR", "vae/relayvsr_flash_vae_x4_fp32.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-H3", "vae/minimax_h3_audio_vae_fp32.safetensors"),
     HuggingFile("Comfy-Org/Mage-Flow", "vae/mage_flow_vae_bf16.safetensors"),
     HuggingFile("stabilityai/sdxl-vae", "sdxl_vae.safetensors", alternate_filenames=("sdxl.fp16.vae.safetensors",)),
@@ -964,6 +965,7 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/MiniMax-H3-Image", "diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-H3-Image", "diffusion_models/minimax_h3_image_pruned_bf16.safetensors"),
     HuggingFile("Comfy-Org/RelayVSR", "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors"),
+    HuggingFile("Comfy-Org/RelayVSR", "diffusion_models/relayvsr_x4_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-H3", "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Mage-Flow", "diffusion_models/mage_flow_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Mage-Flow", "diffusion_models/mage_flow_turbo_int8_convrot.safetensors"),
@@ -1276,6 +1278,9 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     ),
     HuggingFile("Comfy-Org/Ideogram-4", "diffusion_models/ideogram4_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Ideogram-4", "diffusion_models/ideogram4_unconditional_int8_convrot.safetensors"),
+    # PAN2
+    HuggingFile("Comfy-Org/PAN2", "diffusion_models/pan2_int8_convrot.safetensors", size=26680974884),
+    HuggingFile("Comfy-Org/PAN2", "diffusion_models/pan2_bf16.safetensors", size=67369650976),
     # Void video inpainting
     HuggingFile("Comfy-Org/void-model", "diffusion_models/void_pass1.safetensors"),
     HuggingFile("Comfy-Org/void-model", "diffusion_models/void_pass2.safetensors"),
@@ -1306,6 +1311,10 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
 KNOWN_CLIP_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("appmana/Qwen3.5-27B-int8", "text_encoders/qwen3.5_27b_int8_convrot.safetensors", revision="a266f9737edfef5faf6bcac207b5ae3a27406ec9", size=27929049739),
     HuggingFile("Comfy-Org/Ming-Image", "text_encoders/ming_image_0.1_ling_mini_2.0_int8_convrot.safetensors"),
+    HuggingFile("Comfy-Org/WeVisOne-VL", "text_encoders/wevisone_vl_2b_bf16.safetensors"),
+    HuggingFile("Comfy-Org/WeVisOne-VL", "text_encoders/wevisone_vl_2b_int8_convrot.safetensors"),
+    HuggingFile("Comfy-Org/WeVisOne-VL", "text_encoders/wevisone_vl_4b_bf16.safetensors"),
+    HuggingFile("Comfy-Org/WeVisOne-VL", "text_encoders/wevisone_vl_4b_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Qwen3.8-27B", "text_encoders/qwen3.8_27b_w4a8.safetensors"),
     HuggingFile("Comfy-Org/Qwen-Image-2.1", "text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Qwen-Image-2.1", "text_encoders/qwen3.5_9b_qwen_image_2.1_pe_t2i.int8_convrot.safetensors"),
@@ -1319,6 +1328,7 @@ KNOWN_CLIP_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/MiniMax-H3", "text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-H3", "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Qwen3.5", "text_encoders/qwen3.5_9b_int8_convrot.safetensors"),
+    HuggingFile("Comfy-Org/PAN2", "text_encoders/qwen3.5_9b_bf16.safetensors", size=19306312328),
     HuggingFile("Comfy-Org/Mage-Flow", "text_encoders/qwen3vl_4b_bf16.safetensors"),
     # todo: is this correct?
     HuggingFile("comfyanonymous/flux_text_encoders", "t5xxl_fp16.safetensors"),

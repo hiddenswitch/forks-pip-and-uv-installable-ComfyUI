@@ -96,6 +96,7 @@ enhancer instructions, not diffusion tokenizer limits or sampling parameters.
 | Wan Dancer — `WAN22_WanDancer` | Restricted: [author card](https://huggingface.co/Wan-AI/Wan2.2-Dancer-14B); [public workflow card](https://huggingface.co/Comfy-Org/Wan-Dancer). |
 | Kandinsky 5 — `Kandinsky5` | Published: [I2V expansion instruction](#kandinsky), distinct from encoder prefixes. |
 | CogVideoX — `CogVideoX_T2V`, `CogVideoX_I2V`, `CogVideoX_Inpaint` | Published: [T2V/I2V converter](#other-video-enhancers). No separate inpainting enhancer located. |
+| PAN 2 — `PAN2` | Not located: [public workflow card](https://huggingface.co/Comfy-Org/PAN2). |
 
 ## Native audio and other input tasks
 

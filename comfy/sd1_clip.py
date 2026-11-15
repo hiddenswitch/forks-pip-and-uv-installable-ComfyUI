@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Tuple, Sequence, TypeVar, Callable, Optional, Union
 
 import torch
+from tokenizers import Tokenizer
+from transformers import PreTrainedTokenizerFast
 
 from .transformers_compat import CLIPTokenizer, PreTrainedTokenizerBase
 
@@ -594,7 +596,12 @@ class SDTokenizer:
         self.tokenizer_class = tokenizer_class
         self.tokenizer_path = tokenizer_path
         self.tokenizer_args = tokenizer_args
-        self.tokenizer: PreTrainedTokenizerBase | SPieceTokenizer = tokenizer_class.from_pretrained(tokenizer_path, **tokenizer_args)
+        tokenizer_json = tokenizer_data.get("{}_tokenizer_json".format(embedding_key))
+        if tokenizer_json is not None:
+            self.tokenizer = PreTrainedTokenizerFast(tokenizer_object=Tokenizer.from_str(tokenizer_json))
+            self.tokenizer_args = {**tokenizer_args, "tokenizer_object": True}
+        else:
+            self.tokenizer: PreTrainedTokenizerBase | SPieceTokenizer = tokenizer_class.from_pretrained(tokenizer_path, **tokenizer_args)
         self.max_length = tokenizer_data.get("{}_max_length".format(embedding_key), max_length)
         self.min_length = tokenizer_data.get("{}_min_length".format(embedding_key), min_length)
         self.end_token = None

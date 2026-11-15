@@ -103,6 +103,15 @@ _FLUX2_ROW = re.compile(
 )
 _FLUX2_SINGLE_IN = re.compile(r"(?:^|\.)single_blocks\.\d+\.linear1$")
 _FLUX2_SINGLE_OUT = re.compile(r"(?:^|\.)single_blocks\.\d+\.linear2$")
+_PAN2_SWIGLU = re.compile(r"(?:^|\.)context_refiner\.\d+\.ff\.net\.0\.proj$")
+_PAN2_COLUMN = re.compile(
+    r"(?:^|\.)(?:context_refiner\.\d+\.attn\.to_(?:q|k|v)|"
+    r"transformer_blocks\.\d+\.(?:attn\.(?:to_(?:q|k|v)|add_(?:q|k|v)_proj)|(?:ff|ff_context)\.net\.0\.proj))$"
+)
+_PAN2_ROW = re.compile(
+    r"(?:^|\.)(?:context_refiner\.\d+\.(?:attn\.to_out\.0|ff\.net\.2)|"
+    r"transformer_blocks\.\d+\.(?:attn\.(?:to_out\.0|to_add_out)|(?:ff|ff_context)\.net\.2))$"
+)
 
 
 _MAGI2_LAYER = r"(?:^|\.)block\.layers\.\d+\."
@@ -146,6 +155,11 @@ def _column_sections(model_family, module, rows, weights, formats):
             hidden = output_rows(weights[output], formats[output])
             mlp = (rows - 3 * hidden) // 2
             return (hidden, hidden, hidden, mlp, mlp)
+    if model_family == "pan2":
+        if _PAN2_SWIGLU.search(module):
+            return (rows // 2,) * 2
+        if _PAN2_COLUMN.search(module):
+            return (rows,)
     return None
 
 
@@ -160,6 +174,8 @@ def _is_row_parallel(model_family: str, module: str) -> bool:
         return _IDEOGRAM4_ROW.search(module) is not None
     if model_family == "flux2":
         return _FLUX2_ROW.search(module) is not None
+    if model_family == "pan2":
+        return _PAN2_ROW.search(module) is not None
     return False
 
 

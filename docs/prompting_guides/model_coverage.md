@@ -83,6 +83,7 @@ reference; this review does not claim to have read the restricted author cards.
 | Wan Dancer — `WAN22_WanDancer` | [Author card (access required)](https://huggingface.co/Wan-AI/Wan2.2-Dancer-14B), [public workflow reference](https://huggingface.co/Comfy-Org/Wan-Dancer) |
 | Kandinsky 5 Video — `Kandinsky5` | [Official task examples](https://github.com/kandinskylab/kandinsky-5) |
 | CogVideoX — `CogVideoX_T2V`, `CogVideoX_I2V`, `CogVideoX_Inpaint` | [Official caption and prompt-optimization instructions](https://github.com/THUDM/CogVideo); inpainting also requires its mask/video inputs |
+| PAN 2 — `PAN2` | [ComfyUI model and workflow reference](https://huggingface.co/Comfy-Org/PAN2) |
 
 ## Audio and music
 
