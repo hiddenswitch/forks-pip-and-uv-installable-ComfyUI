@@ -1273,6 +1273,9 @@ KNOWN_UNET_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     ),
     HuggingFile("Comfy-Org/Ideogram-4", "diffusion_models/ideogram4_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Ideogram-4", "diffusion_models/ideogram4_unconditional_int8_convrot.safetensors"),
+    # PAN2
+    HuggingFile("Comfy-Org/PAN2", "diffusion_models/pan2_int8_convrot.safetensors", size=26680974884),
+    HuggingFile("Comfy-Org/PAN2", "diffusion_models/pan2_bf16.safetensors", size=67369650976),
     # Void video inpainting
     HuggingFile("Comfy-Org/void-model", "diffusion_models/void_pass1.safetensors"),
     HuggingFile("Comfy-Org/void-model", "diffusion_models/void_pass2.safetensors"),
@@ -1319,6 +1322,7 @@ KNOWN_CLIP_MODELS: Final[KnownDownloadables] = KnownDownloadables([
     HuggingFile("Comfy-Org/MiniMax-H3", "text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors"),
     HuggingFile("Comfy-Org/MiniMax-H3", "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors"),
     HuggingFile("Comfy-Org/Qwen3.5", "text_encoders/qwen3.5_9b_int8_convrot.safetensors"),
+    HuggingFile("Comfy-Org/PAN2", "text_encoders/qwen3.5_9b_bf16.safetensors", size=19306312328),
     HuggingFile("Comfy-Org/Mage-Flow", "text_encoders/qwen3vl_4b_bf16.safetensors"),
     # todo: is this correct?
     HuggingFile("comfyanonymous/flux_text_encoders", "t5xxl_fp16.safetensors"),

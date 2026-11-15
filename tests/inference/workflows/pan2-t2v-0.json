@@ -1,0 +1,107 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "pan2_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load PAN 2 Diffusion Model"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3.5_9b_bf16.safetensors",
+      "type": "pan2",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Load PAN 2 Text Encoder"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "wan2.2_vae.safetensors"
+    },
+    "_meta": {
+      "title": "Load Wan 2.2 VAE"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "a red lantern swinging gently on a wooden porch at dusk, soft warm light",
+      "clip": ["2", 0]
+    },
+    "_meta": {
+      "title": "Positive Prompt"
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "low quality, blur, artifacts",
+      "clip": ["2", 0]
+    },
+    "_meta": {
+      "title": "Negative Prompt"
+    }
+  },
+  "6": {
+    "class_type": "Wan22ImageToVideoLatent",
+    "inputs": {
+      "vae": ["3", 0],
+      "width": 128,
+      "height": 128,
+      "length": 5,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "Empty PAN 2 Latent Video"
+    }
+  },
+  "7": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 424242,
+      "steps": 2,
+      "cfg": 5.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["1", 0],
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "latent_image": ["6", 0]
+    },
+    "_meta": {
+      "title": "Sample PAN 2 T2V"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["7", 0],
+      "vae": ["3", 0]
+    },
+    "_meta": {
+      "title": "Decode Video"
+    }
+  },
+  "9": {
+    "class_type": "SaveAnimatedWEBP",
+    "inputs": {
+      "filename_prefix": "pan2-t2v",
+      "fps": 24,
+      "lossless": false,
+      "quality": 80,
+      "method": "default",
+      "images": ["8", 0]
+    },
+    "_meta": {
+      "title": "Save PAN 2 T2V WEBP"
+    }
+  }
+}

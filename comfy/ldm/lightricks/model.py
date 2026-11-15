@@ -17,6 +17,7 @@ from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimi
 from ... import model_management, ops, quant_ops
 from ...ops import disable_weight_init
 from ...patcher_extension import WrapperExecutor, get_all_wrappers, WrappersMP
+from ...tensor_parallel.operations import column_parallel_linear, local_size, row_parallel_linear
 
 logger = logging.getLogger(__name__)
 
@@ -307,7 +308,8 @@ class NormSingleLinearTextProjection(nn.Module):
 class GELU_approx(nn.Module):
     def __init__(self, dim_in, dim_out, bias=True, dtype=None, device=None, operations=None):
         super().__init__()
-        self.proj = operations.Linear(dim_in, dim_out, bias=bias, dtype=dtype, device=device)
+        local_size(operations, dim_out, "GELU_approx output width")
+        self.proj = column_parallel_linear(operations, dim_in, dim_out, bias=bias, dtype=dtype, device=device)
 
     def forward(self, x):
         return torch.nn.functional.gelu(self.proj(x), approximate="tanh")
@@ -320,7 +322,7 @@ class FeedForward(nn.Module):
         project_in = GELU_approx(dim, inner_dim, bias=ff_bias, dtype=dtype, device=device, operations=operations)
 
         self.net = nn.Sequential(
-            project_in, nn.Dropout(dropout), operations.Linear(inner_dim, dim_out, bias=ff_bias, dtype=dtype, device=device)
+            project_in, nn.Dropout(dropout), row_parallel_linear(operations, inner_dim, dim_out, bias=ff_bias, dtype=dtype, device=device)
         )
 
     def forward(self, x):
