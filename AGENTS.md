@@ -175,6 +175,12 @@
 - Treat dtype, device placement, VRAM usage, and offloading behavior as core
   correctness concerns. Check CPU, CUDA, ROCm, MPS, XPU, NPU, and low
   VRAM implications when touching shared execution or loading code.
+- Unified memory (MPS, integrated CUDA/ROCm) is one concept:
+  `model_management.is_unified_memory_device()`. There, free memory is system
+  memory, CPU offload is never a copy (offload devices are the load devices),
+  and unloading releases weights to the checkpoint mapping
+  (`memory_management.release_file_backed_weights`). Do not add device-type
+  checks for these devices elsewhere.
 - Prefer native ComfyUI formats and existing quantization/offload helpers over
   adding parallel code paths. Use `comfy.quant_ops`, `comfy.model_management`,
   `comfy.memory_management`, `comfy.pinned_memory`, `comfy_aimdo`, and

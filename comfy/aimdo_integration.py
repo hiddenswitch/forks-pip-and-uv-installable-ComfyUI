@@ -3,6 +3,7 @@ import importlib
 
 logger = logging.getLogger(__name__)
 
+from . import managed_memory
 from . import memory_management
 from . import model_management
 
@@ -15,7 +16,25 @@ import torch
 
 from .cli_args import args, dynamic_vram_requested, dynamic_vram_supported, enables_dynamic_vram
 
-if dynamic_vram_requested() and not dynamic_vram_supported():
+if managed_memory.is_active():
+    # Managed memory is pageable system memory the kernel reclaims and swaps; DynamicVRAM's
+    # pinned VMM pages and its MemAvailable floor are the failure mode it replaces.
+    if args.enable_dynamic_vram:
+        logger.warning("DynamicVRAM is off: --unified-memory-allocator manages device memory")
+    else:
+        logger.info("DynamicVRAM is off: the unified memory allocator manages device memory")
+    memory_management.aimdo_allocator = None
+elif model_management.is_unified_memory_device(model_management.get_torch_device()):
+    # Measured on a GB10: comfy-aimdo's VMM pages held MemAvailable at its integrated floor
+    # (7.8 GB) until the driver's own allocations failed (NV_ERR_NO_MEMORY) and the next kernel
+    # faulted (Xid 31). On unified memory the SHARED path loads weights once and releases them
+    # to the checkpoint mapping instead.
+    if args.enable_dynamic_vram:
+        logger.warning("DynamicVRAM is off on unified-memory devices")
+    else:
+        logger.info("DynamicVRAM is off on unified-memory devices")
+    memory_management.aimdo_allocator = None
+elif dynamic_vram_requested() and not dynamic_vram_supported():
     logger.warning("Unsupported Pytorch detected. DynamicVRAM support requires Pytorch version 2.8 or later (2.12+ is recommended). Falling back to legacy ModelPatcher. VRAM estimates may be unreliable especially on Windows")
     memory_management.aimdo_allocator = None
 elif enables_dynamic_vram() and model_management.get_torch_device().type == "cuda":

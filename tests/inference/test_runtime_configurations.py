@@ -30,9 +30,9 @@ CASES += [(name, mode, {flag: True, "use_pytorch_cross_attention": False})
           for mode, flag in (("sage", "use_sage_attention"), ("kitchen", "use_ck_attention"))]
 CASES += [("moss-image", "int8", {})]
 CASES += [(name, "tp2", {"tensor_parallel_size": 2})
-          for name in ("flux2", "ideogram4", "krea2", "minimax-h3-fl2va", "minimax-h3-image")]
+          for name in ("flux2", "ideogram4", "krea2", "minimax-h3-fl2va", "minimax-h3-image", "magi2-t2va")]
 CASES += [(name, "pp2", {"pipeline_parallel_size": 2})
-          for name in ("flux2", "qwen-image", "minimax-h3-fl2va", "minimax-h3-image")]
+          for name in ("flux2", "qwen-image", "minimax-h3-fl2va", "minimax-h3-image", "magi2-t2va")]
 CASES += [("qwen-image", mode, {flag: 2})
           for mode, flag in (("ulysses2", "ulysses_degree"), ("ring2", "ring_degree"))]
 CASES += [("qwen-image-multigpu-cfg", "cfg2", {}), ("flux-compile", "compile", {})]

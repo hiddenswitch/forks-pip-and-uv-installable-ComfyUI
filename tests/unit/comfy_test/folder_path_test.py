@@ -96,6 +96,12 @@ def test_filter_files_extensions():
     assert folder_paths.filter_files_extensions(files, []) == files
 
 
+def test_filter_files_extensions_lists_sharded_safetensors_indexes():
+    files = ["model.safetensors.index.json", "model-00001-of-00002.safetensors", "config.json", "model.sft"]
+    assert folder_paths.filter_files_extensions(files, folder_paths.supported_pt_extensions) == [
+        "model-00001-of-00002.safetensors", "model.safetensors.index.json", "model.sft"]
+
+
 def test_get_filename_list(temp_dir):
     base_path = Path(temp_dir)
     fn = FolderNames(base_paths=[base_path])
