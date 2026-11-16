@@ -95,3 +95,38 @@ def test_ieee_fp32_matmul_restores_the_previous_precision():
         assert torch.get_float32_matmul_precision() == "high"
     finally:
         torch.set_float32_matmul_precision(previous)
+
+
+def test_batched_route_all_matches_per_head_route():
+    torch.manual_seed(7)
+    module = MultiHeadMoE(512, 4, 8, 2, 128, 4.9, dtype=torch.bfloat16, operations=comfy_ops.disable_weight_init)
+    with torch.no_grad():
+        module.router.weight.normal_(0, 128 ** -0.5)
+        module.router.bias.uniform_(-0.1, 0.1)
+    x = torch.randn(32, 4, 128, dtype=torch.bfloat16)
+    all_probs, all_indices = module.route_all(x)
+    for head in range(module.heads):
+        probs, indices = module.route(x[:, head].contiguous(), head)
+        torch.testing.assert_close(all_probs[head], probs, rtol=1e-6, atol=1e-6)
+        assert torch.equal(all_indices[head], indices)
+
+
+def test_grouped_gate_up_rotates_shared_convrot_input_once(monkeypatch):
+    import comfy.ldm.magi2.model as magi2_model
+
+    calls = []
+    real_rotate = magi2_model._rotate_activation
+
+    def counting_rotate(x, h, group):
+        calls.append(group)
+        return real_rotate(x, h, group)
+
+    monkeypatch.setattr(magi2_model, "_rotate_activation", counting_rotate)
+    x = torch.randn(12, 64, dtype=torch.bfloat16)
+    offsets = torch.tensor([4, 12], dtype=torch.int32)
+    gate_bank = (torch.randn(2, 32, 64, dtype=torch.float32), 64)
+    up_bank = (torch.randn(2, 32, 64, dtype=torch.float32), 64)
+    gate, up = magi2_model._grouped_gate_up(x, gate_bank, up_bank, offsets)
+    assert calls == [64]
+    torch.testing.assert_close(gate, magi2_model._grouped_projection(x, gate_bank, offsets))
+    torch.testing.assert_close(up, magi2_model._grouped_projection(x, up_bank, offsets))

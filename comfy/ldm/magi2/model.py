@@ -77,9 +77,9 @@ def swiglu7(x):
 
 def swiglu7_pair(gate, up):
     """SwiGLU7 over separate fp32 gate and up projections; the result stays fp32."""
-    gate = gate.clamp(max=7.0)
-    up = up.clamp(min=-7.0, max=7.0)
-    return gate * torch.sigmoid(1.702 * gate) * (up + 1.0)
+    gate = gate.clamp_(max=7.0)
+    up = up.clamp_(min=-7.0, max=7.0).add_(1.0)
+    return gate.mul_(torch.sigmoid(1.702 * gate)).mul_(up)
 
 
 def sinusoidal_embedding(t, dim=TIME_CHANNELS):
@@ -111,10 +111,31 @@ def fourier_rope(coords, bands):
     return torch.stack((cos, -sin, sin, cos), dim=-1).unflatten(-1, (2, 2))
 
 
+def modality_linear_local(module, x, groups):
+    """Apply one linear (or per-modality linears) without the row-parallel output collective."""
+    if not isinstance(module, nn.ModuleList):
+        return module.forward_local(x) if hasattr(module, "forward_local") else module(x)
+    parts = x.split(groups, dim=1)
+    outputs = [
+        (linear.forward_local(part) if hasattr(linear, "forward_local") else linear(part))
+        if part.shape[1] else None
+        for linear, part in zip(module, parts)
+    ]
+    width = next(output.shape[-1] for output in outputs if output is not None)
+    return torch.cat(
+        [part.new_empty(part.shape[:-1] + (width,)) if output is None else output for output, part in zip(outputs, parts)],
+        dim=1,
+    )
+
+
 def modality_linear(module, x, groups):
     """Apply one linear, or one linear per modality group of the token axis."""
     if not isinstance(module, nn.ModuleList):
         return module(x)
+    first = module[0]
+    if hasattr(first, "start_input_gather") and hasattr(first, "forward_local") and hasattr(first, "reduce_output"):
+        full_x = first.start_input_gather(x)()
+        return first.reduce_output(modality_linear_local(module, full_x, groups))
     parts = x.split(groups, dim=1)
     outputs = [linear(part) if part.shape[1] else None for linear, part in zip(module, parts)]
     # a parallel linear's output width is not its local out_features, so empty groups take a computed group's width
@@ -275,7 +296,14 @@ def _expert_rows(bank, weight, start, count):
         scale = scale.view(-1, bank.out_features, 1)[start:start + count]
     params = weight.params
     group = params.convrot_groupsize if getattr(params, "convrot", False) else 0
-    return rows.float() * scale.float(), group
+    return rows.float().mul_(scale.float()), group
+
+
+def _prepare_grouped_input(x, group):
+    x = x.float()
+    if group:
+        x = _rotate_activation(x, _build_hadamard(group, device=x.device, dtype=torch.float32), group)
+    return x
 
 
 def _grouped_projection(x, bank, offsets):
@@ -286,10 +314,19 @@ def _grouped_projection(x, bank, offsets):
     is that accumulation.
     """
     weight, group = bank
-    x = x.float()
-    if group:
-        x = _rotate_activation(x, _build_hadamard(group, device=x.device, dtype=torch.float32), group)
-    return torch._grouped_mm(x, weight.transpose(1, 2), offs=offsets)
+    return torch._grouped_mm(_prepare_grouped_input(x, group), weight.transpose(1, 2), offs=offsets)
+
+
+def _grouped_gate_up(x, gate_bank, up_bank, offsets):
+    """Project gate and up from the same routed token rows, rotating activations only once when shared."""
+    gate_weight, gate_group = gate_bank
+    up_weight, up_group = up_bank
+    gate_in = _prepare_grouped_input(x, gate_group)
+    up_in = gate_in if up_group == gate_group else _prepare_grouped_input(x, up_group)
+    return (
+        torch._grouped_mm(gate_in, gate_weight.transpose(1, 2), offs=offsets),
+        torch._grouped_mm(up_in, up_weight.transpose(1, 2), offs=offsets),
+    )
 
 
 class MultiHeadMoE(nn.Module):
@@ -320,10 +357,26 @@ class MultiHeadMoE(nn.Module):
         probs = F.normalize(scores.gather(-1, indices), p=1, dim=-1, eps=1e-12) * self.route_scale
         return probs, indices
 
+    def route_all(self, x):
+        """Batched sigmoid routing across all local MoE heads [tokens, heads, head_dim]."""
+        weight = model_management.cast_to(self.router.weight, torch.float32, x.device).view(
+            self.heads, self.num_experts, self.head_dim
+        )
+        bias = model_management.cast_to(self.router.bias, torch.float32, x.device).view(
+            self.heads, 1, self.num_experts
+        )
+        scores = torch.sigmoid(torch.bmm(x.float().transpose(0, 1), weight.transpose(1, 2)))
+        indices = torch.topk(scores + bias, self.top_k, dim=-1).indices
+        probs = F.normalize(scores.gather(-1, indices), p=1, dim=-1, eps=1e-12) * self.route_scale
+        return probs, indices
+
     def forward(self, x):
         batch, tokens, _ = x.shape
         x = x.reshape(batch * tokens, self.heads, self.head_dim)
         out = torch.empty_like(x)
+        all_probs, all_indices = self.route_all(x)
+        flat_indices = all_indices.flatten(1)
+        all_orders = flat_indices.argsort(dim=-1, stable=True)
         # a quantized bank that the ops dequantize up front (full precision matmul) is dequantized in fp32, not rounded to bf16
         resident = lambda bank: x[:0].float() if isinstance(bank.weight, QuantizedTensor) else x
         with (self.gate_proj.bank_resident(resident(self.gate_proj)), self.up_proj.bank_resident(resident(self.up_proj)),
@@ -331,25 +384,33 @@ class MultiHeadMoE(nn.Module):
             banks = tuple((bank, bank._resident_bank[0]) for bank in (self.gate_proj, self.up_proj, self.down_proj))
             for head in range(self.heads):
                 x_head = x[:, head].contiguous()
-                probs, indices = self.route(x_head, head)
-                order = indices.flatten().argsort(stable=True)
+                indices = flat_indices[head]
+                order = all_orders[head]
                 token_ids = order // self.top_k
-                offsets = torch.bincount(indices.flatten(), minlength=self.num_experts).cumsum(0).to(torch.int32)
+                offsets = torch.bincount(indices, minlength=self.num_experts).cumsum(0).to(torch.int32)
                 rows = x_head.index_select(0, token_ids)
-                weights = probs.flatten()[order].unsqueeze(-1)
+                weights = all_probs[head].flatten()[order].unsqueeze(-1)
                 start = head * self.num_experts
-                gate_bank, up_bank, down_bank = (_expert_rows(bank, weight, start, self.num_experts) for bank, weight in banks)
-                y = torch.empty_like(rows)
-                for chunk in range(0, rows.shape[0], MOE_ROW_CHUNK):
-                    end = min(chunk + MOE_ROW_CHUNK, rows.shape[0])
-                    chunk_offsets = offsets.clamp(min=chunk, max=end) - chunk
-                    part = rows[chunk:end]
-                    # the kernel rounds SwiGLU7's fp32 output once, to the down projection's dtype
-                    hidden = swiglu7_pair(_grouped_projection(part, gate_bank, chunk_offsets),
-                                          _grouped_projection(part, up_bank, chunk_offsets)).to(x.dtype)
-                    y[chunk:end] = _grouped_projection(hidden, down_bank, chunk_offsets) * weights[chunk:end]
-                    del hidden
-                del rows, gate_bank, up_bank, down_bank
+                if rows.shape[0] <= MOE_ROW_CHUNK:
+                    gate_bank = _expert_rows(banks[0][0], banks[0][1], start, self.num_experts)
+                    up_bank = _expert_rows(banks[1][0], banks[1][1], start, self.num_experts)
+                    hidden = swiglu7_pair(*_grouped_gate_up(rows, gate_bank, up_bank, offsets)).to(x.dtype)
+                    del rows, gate_bank, up_bank
+                    down_bank = _expert_rows(banks[2][0], banks[2][1], start, self.num_experts)
+                    y = _grouped_projection(hidden, down_bank, offsets).mul_(weights).to(x.dtype)
+                    del hidden, down_bank
+                else:
+                    gate_bank, up_bank, down_bank = (_expert_rows(bank, weight, start, self.num_experts) for bank, weight in banks)
+                    y = torch.empty_like(rows)
+                    for chunk in range(0, rows.shape[0], MOE_ROW_CHUNK):
+                        end = min(chunk + MOE_ROW_CHUNK, rows.shape[0])
+                        chunk_offsets = offsets.clamp(min=chunk, max=end) - chunk
+                        part = rows[chunk:end]
+                        # the kernel rounds SwiGLU7's fp32 output once, to the down projection's dtype
+                        hidden = swiglu7_pair(*_grouped_gate_up(part, gate_bank, up_bank, chunk_offsets)).to(x.dtype)
+                        y[chunk:end] = _grouped_projection(hidden, down_bank, chunk_offsets).mul_(weights[chunk:end])
+                        del hidden
+                    del rows, gate_bank, up_bank, down_bank
                 head_out = torch.zeros_like(x_head)
                 head_out.index_add_(0, token_ids, y)
                 out[:, head] = head_out
@@ -373,13 +434,47 @@ class MoELayer(nn.Module):
         self.modality_specific_shared_expert_fc2 = make_modality_linear(3, lambda: row_parallel_linear(
             operations, modality_shared_expert_intermediate_size, hidden_size, bias=False, device=device, dtype=dtype))
 
+    def _start_shared_input_gather(self, shared_act, specific_act):
+        specific_first = self.modality_specific_shared_expert_fc2[0]
+        if (
+            shared_act.shape == specific_act.shape
+            and getattr(self.shared_expert_fc2, "tensor_parallel_input_sections", None) == (shared_act.shape[-1],)
+            and getattr(specific_first, "tensor_parallel_input_sections", None) == (specific_act.shape[-1],)
+        ):
+            finish_both = self.shared_expert_fc2.start_input_gather(torch.stack((shared_act, specific_act), dim=0))
+            return lambda: finish_both().unbind(0)
+        finish_shared = self.shared_expert_fc2.start_input_gather(shared_act)
+        finish_specific = specific_first.start_input_gather(specific_act)
+        return lambda: (finish_shared(), finish_specific())
+
     def forward(self, x, groups):
         normed = self.pre_norm(x, groups)
-        routed = self.merge_linear(self.moe_mlp(self.split_linear(normed)))
-        shared = self.shared_expert_fc2(swiglu7(self.shared_expert_fc1(normed)))
-        specific = modality_linear(self.modality_specific_shared_expert_fc2,
-                                   swiglu7(modality_linear(self.modality_specific_shared_expert_fc1, normed, groups)), groups)
-        return routed + (shared + specific)
+        moe_in = self.split_linear(normed)
+        if not (hasattr(self.merge_linear, "start_input_gather") and hasattr(self.merge_linear, "forward_local") and hasattr(self.merge_linear, "reduce_output")):
+            routed = self.merge_linear(self.moe_mlp(moe_in))
+            shared = self.shared_expert_fc2(swiglu7(self.shared_expert_fc1(normed)))
+            specific = modality_linear(self.modality_specific_shared_expert_fc2,
+                                       swiglu7(modality_linear(self.modality_specific_shared_expert_fc1, normed, groups)), groups)
+            return routed + (shared + specific)
+
+        shared_act = swiglu7(self.shared_expert_fc1(normed))
+        specific_act = swiglu7(modality_linear(self.modality_specific_shared_expert_fc1, normed, groups))
+        finish_shared_gather = self._start_shared_input_gather(shared_act, specific_act)
+        del normed, shared_act, specific_act
+
+        moe_out = self.moe_mlp(moe_in)
+        del moe_in
+        finish_routed_gather = self.merge_linear.start_input_gather(moe_out)
+        del moe_out
+
+        shared_full, specific_full = finish_shared_gather()
+        shared_local = self.shared_expert_fc2.forward_local(shared_full)
+        del shared_full
+        specific_local = modality_linear_local(self.modality_specific_shared_expert_fc2, specific_full, groups)
+        del specific_full
+
+        routed_local = self.merge_linear.forward_local(finish_routed_gather())
+        return self.merge_linear.reduce_output(routed_local + (shared_local + specific_local))
 
 
 def sinkhorn(logits, iterations, eps):
