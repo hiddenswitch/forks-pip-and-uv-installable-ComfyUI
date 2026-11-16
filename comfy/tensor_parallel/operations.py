@@ -98,9 +98,20 @@ def tensor_parallel_operations(base_operations, parallel: TensorParallelConfig):
                     device=device, dtype=dtype,
                 )
                 self.tensor_parallel_in_features = in_features
+                self.tensor_parallel_out_features = out_features
 
-            def forward(self, *args, **kwargs):
-                return parallel.operations.sum(super().forward(*args, **kwargs))
+            def start_input_gather(self, input):
+                return lambda: input
+
+            def forward_local(self, full_input, *args, **kwargs):
+                return super().forward(full_input, *args, **kwargs)
+
+            def reduce_output(self, local_output):
+                return parallel.operations.sum(local_output)
+
+            def forward(self, input, *args, **kwargs):
+                full_input = self.start_input_gather(input)()
+                return self.reduce_output(self.forward_local(full_input, *args, **kwargs))
 
     TensorParallelOperations.__name__ = f"TensorParallel{base_operations.__name__}"
     return TensorParallelOperations
@@ -141,16 +152,25 @@ def full_domain_tensor_parallel_operations(base_operations, parallel: TensorPara
                 self.tensor_parallel_out_features = out_features
                 self.tensor_parallel_input_sections = tuple(section // parallel.size for section in sections)
 
-            def forward(self, input, *args, **kwargs):
+            def start_input_gather(self, input):
                 if len(self.tensor_parallel_input_sections) == 1:
-                    full_input = parallel.operations.gather(input)
-                else:
-                    full_input = torch.cat([
-                        parallel.operations.gather(section)
-                        for section in input.split(self.tensor_parallel_input_sections, dim=-1)
-                    ], dim=-1)
-                local_output = super().forward(full_input, *args, **kwargs)
+                    return parallel.operations.start_gather(input)
+                finishes = [
+                    parallel.operations.start_gather(section)
+                    for section in input.split(self.tensor_parallel_input_sections, dim=-1)
+                ]
+                return lambda: torch.cat([finish() for finish in finishes], dim=-1)
+
+            def forward_local(self, full_input, *args, **kwargs):
+                return super().forward(full_input, *args, **kwargs)
+
+            def reduce_output(self, local_output):
                 return parallel.operations.gather(local_output)
+
+            def forward(self, input, *args, **kwargs):
+                full_input = self.start_input_gather(input)()
+                local_output = self.forward_local(full_input, *args, **kwargs)
+                return self.reduce_output(local_output)
 
     FullDomainTensorParallelOperations.__name__ = (
         f"FullDomainTensorParallel{base_operations.__name__}"
