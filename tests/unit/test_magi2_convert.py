@@ -9,7 +9,6 @@ import safetensors.torch
 import torch
 
 from comfy import sd
-from comfy.ldm.magi2.model import ieee_fp32_matmul
 from comfy.quant_ops import QuantizedTensor
 from comfy_kitchen.tensor.int8_utils import _build_hadamard
 
@@ -128,12 +127,14 @@ def _assert_int8_experts_follow_the_kernel_contract(module):
     expected = kernel_contract(**inputs, hidden_dtype=torch.bfloat16).reshape(x.shape[1:])
     rounded = kernel_contract(**inputs, hidden_dtype=torch.bfloat16, gate_up_dtype=torch.bfloat16).reshape(x.shape[1:])
     assert relative_error(rounded, expected) > 4 * INT8_MOE_TOLERANCE
-    for full_precision_mm in (True, False):
-        for bank in banks:
-            bank._full_precision_mm = full_precision_mm
-        with ieee_fp32_matmul(), torch.no_grad():
-            actual = module(x)[0]
-        assert relative_error(actual, expected) < INT8_MOE_TOLERANCE, full_precision_mm
+    for device in ["cpu"] + (["cuda"] if torch.cuda.is_available() else []):
+        x_dev = x.to(device)
+        for full_precision_mm in (True, False):
+            for bank in banks:
+                bank._full_precision_mm = full_precision_mm
+            with torch.no_grad():
+                actual = module(x_dev)[0].cpu()
+            assert relative_error(actual, expected) < INT8_MOE_TOLERANCE, (device, full_precision_mm)
 
 
 def test_wan_vae_is_kept_in_fp32_and_checked_against_the_fp16_copy(tmp_path, capsys):

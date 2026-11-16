@@ -9,10 +9,11 @@ Each token picks one expert per head: with several, the bf16 scatter-add of thei
 in whatever order the adds land (the kernel adds atomically), which is not what this test is about.
 """
 
+import pytest
 import torch
 
 import comfy.ops as comfy_ops
-from comfy.ldm.magi2.model import MultiHeadMoE, ieee_fp32_matmul
+from comfy.ldm.magi2.model import MultiHeadMoE
 
 from . import magi2_reference
 
@@ -30,7 +31,7 @@ def contract_inputs(module, x, gate, up, down):
         gather_ids.append(order // module.top_k)
         probs.append(head_probs.flatten()[order])
         counts.append(torch.bincount(indices.flatten(), minlength=module.num_experts))
-    offsets = torch.cat((torch.zeros(1, dtype=torch.int64), torch.cat(counts).cumsum(0)))
+    offsets = torch.cat((torch.zeros(1, dtype=torch.int64, device=x.device), torch.cat(counts).cumsum(0)))
     return dict(x=x_heads, gather_ids=torch.cat(gather_ids).to(torch.int32), probs=torch.cat(probs), expert_offsets=offsets,
                 W_gate=gate.transpose(1, 2), W_up=up.transpose(1, 2), W_down=down.transpose(1, 2))
 
@@ -62,18 +63,19 @@ def relative_error(actual, expected):
     return ((actual.double() - expected.double()).norm() / expected.double().norm()).item()
 
 
-def test_routed_experts_follow_the_kernel_contract():
+@pytest.mark.parametrize("device", ["cpu"] + (["cuda"] if torch.cuda.is_available() else []))
+def test_routed_experts_follow_the_kernel_contract(device):
     torch.manual_seed(0)
-    module = MultiHeadMoE(512, 2, 8, 1, 128, 4.9, dtype=torch.bfloat16, operations=comfy_ops.disable_weight_init)
+    module = MultiHeadMoE(512, 2, 8, 1, 128, 4.9, dtype=torch.bfloat16, device=device, operations=comfy_ops.disable_weight_init)
     with torch.no_grad():
         module.router.weight.normal_(0, 256 ** -0.5)
         module.router.bias.uniform_(-0.1, 0.1)
         for bank in (module.gate_proj, module.up_proj, module.down_proj):
             bank.weight.uniform_(-(3.0 / bank.in_features) ** 0.5, (3.0 / bank.in_features) ** 0.5)
-    x = torch.randn(1, 200, 512).to(torch.bfloat16)
+    x = torch.randn(1, 200, 512, device=device).to(torch.bfloat16)
     experts = lambda bank: bank.weight.view(-1, bank.out_features, bank.in_features)
     inputs = contract_inputs(module, x[0], experts(module.gate_proj), experts(module.up_proj), experts(module.down_proj))
-    with ieee_fp32_matmul(), torch.no_grad():
+    with torch.no_grad():
         actual = module(x)[0]
         expected = magi2_reference._mh_moe_fwd(**inputs).reshape(200, 512)
         contract = kernel_contract(**inputs, hidden_dtype=torch.bfloat16).reshape(200, 512)
@@ -82,19 +84,6 @@ def test_routed_experts_follow_the_kernel_contract():
     torch.testing.assert_close(contract, expected, rtol=0, atol=0)
     assert relative_error(actual, expected) < TOLERANCE
     assert relative_error(rounded, expected) > 10 * TOLERANCE
-
-
-def test_ieee_fp32_matmul_restores_the_previous_precision():
-    previous = torch.get_float32_matmul_precision()
-    torch.set_float32_matmul_precision("high")
-    try:
-        with ieee_fp32_matmul():
-            with ieee_fp32_matmul():
-                assert torch.get_float32_matmul_precision() == "highest"
-            assert torch.get_float32_matmul_precision() == "highest"
-        assert torch.get_float32_matmul_precision() == "high"
-    finally:
-        torch.set_float32_matmul_precision(previous)
 
 
 def test_batched_route_all_matches_per_head_route():
