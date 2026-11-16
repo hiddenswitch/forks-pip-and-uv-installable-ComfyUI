@@ -103,3 +103,11 @@ Check the selected workflow and model before applying a provider-specific recipe
 
 ## ACE-Step
 - [ACE-Step 1.5 tutorial](ace_step_1_5_tutorial.md) ([source](https://github.com/ace-step/ACE-Step-1.5/blob/main/docs/en/Tutorial.md))
+
+## Sand.ai
+- [MAGI-2 Preview prompting guide](sandai_magi2_prompting.md) ([source](https://github.com/SandAI-org/MAGI-2-preview/tree/f68a0f9bbccbea56e0177a9bd912abc3b18ffe61); README, complete I2V system prompt, ComfyUI flattening contract, and official enhanced examples)
+- [MAGI-2 Preview T2V prompt-enhancement system prompt](sandai_magi2_t2v_system_prompt.md) ([source](https://github.com/SandAI-org/MAGI-2-preview/blob/f68a0f9bbccbea56e0177a9bd912abc3b18ffe61/inference/prompt_enhancement/prompts/t2v.md); complete T2V JSON compiler specification)
+
+## IFM / MBZUAI
+- [PAN 2 prompting and conceptual-reasoner guide](ifm_pan2_prompting.md) ([source](https://github.com/ifm-ai/PAN2/tree/0fb907b6e16a82ead6d691d1de2eef6299c71e9a); README, inference guide, Conceptual Reasoner skill, and the four-paragraph `Qwen3.5-9B` rewriter system prompt)
+- [PAN 2 Conceptual Reasoner system prompt and fixed negative template](ifm_pan2_system_prompt.md) ([source](https://github.com/ifm-ai/PAN2/blob/0fb907b6e16a82ead6d691d1de2eef6299c71e9a/inference/pan-prompt-rewriter/system_prompt.md); complete 7-key world-state JSON system prompt, fixed generic negative, and examples)
