@@ -26,6 +26,14 @@ from torch import nn
 import comfy_kitchen
 from comfy_kitchen.tensor.int8_utils import _build_hadamard, _rotate_activation
 
+try:
+    import triton
+    import triton.language as tl
+
+    _HAS_TRITON = True
+except ImportError:
+    _HAS_TRITON = False
+
 from ... import model_management, model_prefetch, patcher_extension
 from ...pipeline_parallel import PipelineIntermediateTensors, PipelineMissingLayer, PipelineStageConfig
 from ...pipeline_parallel.types import pack_pipeline_value, prepare_model_parallel_value, unpack_pipeline_value
@@ -66,20 +74,105 @@ def ieee_fp32_matmul():
                 torch.set_float32_matmul_precision(_precision_previous)
 
 
+if _HAS_TRITON:
+    @triton.jit
+    def _dequant_rowwise_fp32_kernel(
+        q_ptr, s_ptr, out_ptr, n_cols, s_is_scalar: tl.constexpr, BLOCK_C: tl.constexpr
+    ):
+        row = tl.program_id(0)
+        scale = tl.load(s_ptr).to(tl.float32) if s_is_scalar else tl.load(s_ptr + row).to(tl.float32)
+        cols = tl.arange(0, BLOCK_C)
+        mask = cols < n_cols
+        q = tl.load(q_ptr + row * n_cols + cols, mask=mask, other=0).to(tl.float32)
+        tl.store(out_ptr + row * n_cols + cols, q * scale, mask=mask)
+
+    @triton.jit
+    def _dequant_pair_rowwise_fp32_kernel(
+        q0_ptr, s0_ptr, q1_ptr, s1_ptr, out_ptr,
+        out_features, in_features,
+        s0_scalar: tl.constexpr, s1_scalar: tl.constexpr, BLOCK_C: tl.constexpr,
+    ):
+        pid = tl.program_id(0)
+        expert = pid // (2 * out_features)
+        rem = pid % (2 * out_features)
+        is_second = rem >= out_features
+        row_in_expert = rem - tl.where(is_second, out_features, 0)
+        src_row = expert * out_features + row_in_expert
+        cols = tl.arange(0, BLOCK_C)
+        mask = cols < in_features
+        if is_second:
+            scale = tl.load(s1_ptr).to(tl.float32) if s1_scalar else tl.load(s1_ptr + src_row).to(tl.float32)
+            q = tl.load(q1_ptr + src_row * in_features + cols, mask=mask, other=0).to(tl.float32)
+        else:
+            scale = tl.load(s0_ptr).to(tl.float32) if s0_scalar else tl.load(s0_ptr + src_row).to(tl.float32)
+            q = tl.load(q0_ptr + src_row * in_features + cols, mask=mask, other=0).to(tl.float32)
+        tl.store(out_ptr + pid * in_features + cols, q * scale, mask=mask)
+
+    @triton.jit
+    def _swiglu7_interleaved_kernel(
+        x_ptr, out_ptr, stride_x, stride_o, out_cols, BLOCK_C: tl.constexpr
+    ):
+        row = tl.program_id(0)
+        cols = tl.arange(0, BLOCK_C)
+        mask = cols < out_cols
+        base = row * stride_x + cols * 2
+        g = tl.load(x_ptr + base, mask=mask, other=0.0).to(tl.float32)
+        u = tl.load(x_ptr + base + 1, mask=mask, other=0.0).to(tl.float32)
+        g = tl.minimum(g, 7.0)
+        u = tl.minimum(tl.maximum(u, -7.0), 7.0) + 1.0
+        sig = 1.0 / (1.0 + tl.exp(-1.702 * g))
+        res = (g * sig * u).to(out_ptr.dtype.element_ty)
+        tl.store(out_ptr + row * stride_o + cols, res, mask=mask)
+
+    @triton.jit
+    def _swiglu7_pair_kernel(
+        g_ptr, u_ptr, out_ptr, stride_g, stride_u, stride_o, n_cols, BLOCK_C: tl.constexpr
+    ):
+        row = tl.program_id(0)
+        cols = tl.arange(0, BLOCK_C)
+        mask = cols < n_cols
+        g = tl.load(g_ptr + row * stride_g + cols, mask=mask, other=0.0).to(tl.float32)
+        u = tl.load(u_ptr + row * stride_u + cols, mask=mask, other=0.0).to(tl.float32)
+        g = tl.minimum(g, 7.0)
+        u = tl.minimum(tl.maximum(u, -7.0), 7.0) + 1.0
+        sig = 1.0 / (1.0 + tl.exp(-1.702 * g))
+        res = (g * sig * u).to(out_ptr.dtype.element_ty)
+        tl.store(out_ptr + row * stride_o + cols, res, mask=mask)
+
+
 def swiglu7(x):
     """GPT-OSS clamped SwiGLU over interleaved [gate, linear] pairs, evaluated in fp32."""
     dtype = x.dtype
+    if _HAS_TRITON and x.is_cuda and x.is_contiguous() and x.shape[-1] > 0 and x.shape[-1] <= 16384:
+        out_cols = x.shape[-1] // 2
+        flat = x.view(-1, x.shape[-1])
+        out = torch.empty((flat.shape[0], out_cols), device=x.device, dtype=dtype)
+        block_c = max(16, triton.next_power_of_2(out_cols))
+        _swiglu7_interleaved_kernel[(flat.shape[0],)](
+            flat, out, flat.stride(0), out.stride(0), out_cols, BLOCK_C=block_c, num_warps=8
+        )
+        return out.view(*x.shape[:-1], out_cols)
     x = x.float()
     gate = x[..., ::2].clamp(max=7.0)
     linear = x[..., 1::2].clamp(min=-7.0, max=7.0)
     return (gate * torch.sigmoid(1.702 * gate) * (linear + 1.0)).to(dtype)
 
 
-def swiglu7_pair(gate, up):
-    """SwiGLU7 over separate fp32 gate and up projections; the result stays fp32."""
+def swiglu7_pair(gate, up, out_dtype=None):
+    """SwiGLU7 over separate fp32 gate and up projections; defaults to fp32 output."""
+    target_dtype = gate.dtype if out_dtype is None else out_dtype
+    if _HAS_TRITON and gate.is_cuda and up.is_cuda and gate.ndim == 2 and gate.shape[-1] > 0 and gate.shape[-1] <= 8192:
+        n_rows, n_cols = gate.shape
+        out = torch.empty((n_rows, n_cols), device=gate.device, dtype=target_dtype)
+        block_c = max(16, triton.next_power_of_2(n_cols))
+        _swiglu7_pair_kernel[(n_rows,)](
+            gate, up, out, gate.stride(0), up.stride(0), out.stride(0), n_cols, BLOCK_C=block_c, num_warps=8
+        )
+        return out
     gate = gate.clamp_(max=7.0)
     up = up.clamp_(min=-7.0, max=7.0).add_(1.0)
-    return gate.mul_(torch.sigmoid(1.702 * gate)).mul_(up)
+    res = gate.mul_(torch.sigmoid(1.702 * gate)).mul_(up)
+    return res if out_dtype is None else res.to(out_dtype)
 
 
 def sinusoidal_embedding(t, dim=TIME_CHANNELS):
@@ -282,6 +375,19 @@ class MLP(nn.Module):
         return modality_linear(self.down_proj, x, groups)
 
 
+def _dequantize_rows(rows: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
+    if _HAS_TRITON and rows.is_cuda and rows.is_contiguous() and scale.is_contiguous() and rows.shape[-1] <= 4096:
+        out = torch.empty(rows.shape, device=rows.device, dtype=torch.float32)
+        n_cols = rows.shape[-1]
+        n_rows = rows.numel() // n_cols
+        block_c = max(16, triton.next_power_of_2(n_cols))
+        _dequant_rowwise_fp32_kernel[(n_rows,)](
+            rows, scale, out, n_cols, s_is_scalar=(scale.numel() == 1), BLOCK_C=block_c, num_warps=4
+        )
+        return out
+    return rows.float().mul_(scale.float())
+
+
 def _expert_rows(bank, weight, start, count):
     """Experts [start, start + count) of a bank as a [count, out, in] fp32 tensor and its ConvRot group size.
 
@@ -296,7 +402,43 @@ def _expert_rows(bank, weight, start, count):
         scale = scale.view(-1, bank.out_features, 1)[start:start + count]
     params = weight.params
     group = params.convrot_groupsize if getattr(params, "convrot", False) else 0
-    return rows.float().mul_(scale.float()), group
+    return _dequantize_rows(rows, scale), group
+
+
+def _expert_rows_pair(gate_entry, up_entry, start, count):
+    """Fused [count, 2 * out, in] fp32 expert bank when gate and up share quantization and ConvRot group."""
+    gate_bank, gate_weight = gate_entry
+    up_bank, up_weight = up_entry
+    out_f, in_f = gate_bank.out_features, gate_bank.in_features
+    if gate_bank.out_features != up_bank.out_features or gate_bank.in_features != up_bank.in_features:
+        return _expert_rows(gate_bank, gate_weight, start, count), _expert_rows(up_bank, up_weight, start, count)
+    if not isinstance(gate_weight, QuantizedTensor) and not isinstance(up_weight, QuantizedTensor):
+        r0 = gate_weight.view(-1, out_f, in_f)[start:start + count]
+        r1 = up_weight.view(-1, out_f, in_f)[start:start + count]
+        return (torch.cat((r0, r1), dim=1).float(), 0), None
+    if isinstance(gate_weight, QuantizedTensor) and isinstance(up_weight, QuantizedTensor):
+        g_params, u_params = gate_weight.params, up_weight.params
+        g_group = g_params.convrot_groupsize if getattr(g_params, "convrot", False) else 0
+        u_group = u_params.convrot_groupsize if getattr(u_params, "convrot", False) else 0
+        if g_group == u_group:
+            q0, s0 = gate_weight.layout_cls.get_plain_tensors(gate_weight)
+            q1, s1 = up_weight.layout_cls.get_plain_tensors(up_weight)
+            r0 = q0.view(-1, out_f, in_f)[start:start + count]
+            r1 = q1.view(-1, out_f, in_f)[start:start + count]
+            if s0.numel() > 1:
+                s0 = s0.view(-1, out_f, 1)[start:start + count]
+            if s1.numel() > 1:
+                s1 = s1.view(-1, out_f, 1)[start:start + count]
+            if _HAS_TRITON and r0.is_cuda and r0.is_contiguous() and r1.is_contiguous() and s0.is_contiguous() and s1.is_contiguous() and in_f <= 4096:
+                out = torch.empty((count, 2 * out_f, in_f), device=r0.device, dtype=torch.float32)
+                block_c = max(16, triton.next_power_of_2(in_f))
+                _dequant_pair_rowwise_fp32_kernel[(count * 2 * out_f,)](
+                    r0, s0, r1, s1, out, out_f, in_f,
+                    s0_scalar=(s0.numel() == 1), s1_scalar=(s1.numel() == 1),
+                    BLOCK_C=block_c, num_warps=4,
+                )
+                return (out, g_group), None
+    return _expert_rows(gate_bank, gate_weight, start, count), _expert_rows(up_bank, up_weight, start, count)
 
 
 def _prepare_grouped_input(x, group):
@@ -319,6 +461,10 @@ def _grouped_projection(x, bank, offsets):
 
 def _grouped_gate_up(x, gate_bank, up_bank, offsets):
     """Project gate and up from the same routed token rows, rotating activations only once when shared."""
+    if up_bank is None:
+        gu_weight, group = gate_bank
+        gu = torch._grouped_mm(_prepare_grouped_input(x, group), gu_weight.transpose(1, 2), offs=offsets)
+        return gu.chunk(2, dim=-1)
     gate_weight, gate_group = gate_bank
     up_weight, up_group = up_bank
     gate_in = _prepare_grouped_input(x, gate_group)
@@ -392,22 +538,22 @@ class MultiHeadMoE(nn.Module):
                 weights = all_probs[head].flatten()[order].unsqueeze(-1)
                 start = head * self.num_experts
                 if rows.shape[0] <= MOE_ROW_CHUNK:
-                    gate_bank = _expert_rows(banks[0][0], banks[0][1], start, self.num_experts)
-                    up_bank = _expert_rows(banks[1][0], banks[1][1], start, self.num_experts)
-                    hidden = swiglu7_pair(*_grouped_gate_up(rows, gate_bank, up_bank, offsets)).to(x.dtype)
+                    gate_bank, up_bank = _expert_rows_pair(banks[0], banks[1], start, self.num_experts)
+                    hidden = swiglu7_pair(*_grouped_gate_up(rows, gate_bank, up_bank, offsets), out_dtype=x.dtype)
                     del rows, gate_bank, up_bank
                     down_bank = _expert_rows(banks[2][0], banks[2][1], start, self.num_experts)
                     y = _grouped_projection(hidden, down_bank, offsets).mul_(weights).to(x.dtype)
                     del hidden, down_bank
                 else:
-                    gate_bank, up_bank, down_bank = (_expert_rows(bank, weight, start, self.num_experts) for bank, weight in banks)
+                    gate_bank, up_bank = _expert_rows_pair(banks[0], banks[1], start, self.num_experts)
+                    down_bank = _expert_rows(banks[2][0], banks[2][1], start, self.num_experts)
                     y = torch.empty_like(rows)
                     for chunk in range(0, rows.shape[0], MOE_ROW_CHUNK):
                         end = min(chunk + MOE_ROW_CHUNK, rows.shape[0])
                         chunk_offsets = offsets.clamp(min=chunk, max=end) - chunk
                         part = rows[chunk:end]
                         # the kernel rounds SwiGLU7's fp32 output once, to the down projection's dtype
-                        hidden = swiglu7_pair(*_grouped_gate_up(part, gate_bank, up_bank, chunk_offsets)).to(x.dtype)
+                        hidden = swiglu7_pair(*_grouped_gate_up(part, gate_bank, up_bank, chunk_offsets), out_dtype=x.dtype)
                         y[chunk:end] = _grouped_projection(hidden, down_bank, chunk_offsets).mul_(weights[chunk:end])
                         del hidden
                     del rows, gate_bank, up_bank, down_bank
