@@ -19,7 +19,6 @@ from PIL import Image
 
 from comfy import latent_formats, model_management, nested_tensor, node_helpers
 from comfy.ldm.magi2.latents import LATENT_FORMAT
-from comfy.ldm.magi2.model import ieee_fp32_matmul
 from comfy.nodes.common import MAX_RESOLUTION
 from comfy_api.latest import ComfyExtension, io
 
@@ -75,8 +74,7 @@ def encode_reference(vae, pixels):
     """
     signed = (pixels * 2.0 - 1.0).to(torch.bfloat16).float()
     vae = vae.float32_copy()
-    with ieee_fp32_matmul():
-        latent = vae.encode((signed + 1.0) / 2.0)
+    latent = vae.encode((signed + 1.0) / 2.0)
     return latent_formats.Magi2().normalize(latent[:, :, :1])
 
 

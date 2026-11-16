@@ -157,15 +157,13 @@ def _install_stubs():
 
 @contextlib.contextmanager
 def _eager():
-    """Eager mode at PyTorch's default fp32 matmul precision, which SandAI's pipeline keeps (ComfyUI sets "high" at import)."""
-    previous, precision = torch._dynamo.config.disable, torch.get_float32_matmul_precision()
+    """Eager mode with dynamo disabled."""
+    previous = torch._dynamo.config.disable
     torch._dynamo.config.disable = True
-    torch.set_float32_matmul_precision("highest")
     try:
         yield
     finally:
         torch._dynamo.config.disable = previous
-        torch.set_float32_matmul_precision(precision)
 
 
 def load():

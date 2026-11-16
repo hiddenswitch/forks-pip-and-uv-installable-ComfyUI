@@ -14,10 +14,8 @@ reference's per-modality permutation; positions come from each token's coordinat
 
 from __future__ import annotations
 
-import contextlib
 from dataclasses import dataclass
 import math
-import threading
 
 import torch
 import torch.nn.functional as F
@@ -46,35 +44,422 @@ SINK_PAD = 8
 MHC_CHUNK = 8192
 MOE_ROW_CHUNK = 1 << 16
 
-_precision_lock = threading.Lock()
-_precision_users = 0
-_precision_previous = None
-
-
-@contextlib.contextmanager
-def ieee_fp32_matmul():
-    """Run fp32 matmuls in IEEE fp32 instead of TF32.
-
-    SandAI's pipeline keeps PyTorch's default "highest" fp32 matmul precision, so its fp32 adapters,
-    router, hyper-connection logits and expert GEMMs are full fp32; ComfyUI sets "high" at import.
-    The setting is process wide, so concurrent tensor-parallel ranks share one reference count.
-    """
-    global _precision_users, _precision_previous
-    with _precision_lock:
-        if _precision_users == 0:
-            _precision_previous = torch.get_float32_matmul_precision()
-            torch.set_float32_matmul_precision("highest")
-        _precision_users += 1
-    try:
-        yield
-    finally:
-        with _precision_lock:
-            _precision_users -= 1
-            if _precision_users == 0:
-                torch.set_float32_matmul_precision(_precision_previous)
-
 
 if _HAS_TRITON:
+    SWIGLU7_ALPHA = tl.constexpr(1.702)
+    SWIGLU7_LIMIT = tl.constexpr(7.0)
+    SWIGLU7_BIAS = tl.constexpr(1.0)
+
+    @triton.jit
+    def _swiglu7_fwd(gate, up, out_dtype: tl.constexpr):
+        gate_clamped = tl.minimum(gate, SWIGLU7_LIMIT)
+        up_clamped = tl.maximum(tl.minimum(up, SWIGLU7_LIMIT), -SWIGLU7_LIMIT)
+        sig = tl.sigmoid(SWIGLU7_ALPHA * gate_clamped)
+        swish = gate_clamped * sig
+        return (swish * (up_clamped + SWIGLU7_BIAS)).to(out_dtype)
+
+    @triton.jit
+    def _binary_search_expert_id(
+        cu_expert_tile_counts_ptr,
+        tile_id,
+        NUM_EXPERTS: tl.constexpr,
+        LOG2_NUM_EXPERTS: tl.constexpr,
+    ):
+        lo = 0
+        hi = NUM_EXPERTS
+        for _ in tl.static_range(0, LOG2_NUM_EXPERTS + 1):
+            mid = (lo + hi + 1) // 2
+            below = tl.load(cu_expert_tile_counts_ptr + mid) <= tile_id
+            lo = tl.where(below, mid, lo)
+            hi = tl.where(below, hi, mid - 1)
+        return lo
+
+    @triton.jit
+    def _split_fp32_to_bf16_pair_kernel(
+        x_ptr, hi_ptr, lo_ptr, n_elements, BLOCK: tl.constexpr
+    ):
+        pid = tl.program_id(0)
+        offs = pid * BLOCK + tl.arange(0, BLOCK)
+        mask = offs < n_elements
+        x = tl.load(x_ptr + offs, mask=mask, other=0.0).to(tl.float32)
+        hi = x.to(tl.bfloat16)
+        lo = (x - hi.to(tl.float32)).to(tl.bfloat16)
+        tl.store(hi_ptr + offs, hi, mask=mask)
+        tl.store(lo_ptr + offs, lo, mask=mask)
+
+    @triton.jit
+    def _mh_moe_fwd_kernel(
+        x_ptr,
+        wg_ptr,
+        wu_ptr,
+        wd_ptr,
+        y_ptr,
+        gather_ids_ptr,
+        probs_ptr,
+        expert_offsets_ptr,
+        cu_expert_tile_counts_ptr,
+        stride_x_s,
+        stride_x_h,
+        stride_x_dh,
+        stride_wg_ne,
+        stride_wg_dh,
+        stride_wg_de,
+        stride_wu_ne,
+        stride_wu_dh,
+        stride_wu_de,
+        stride_wd_ne,
+        stride_wd_de,
+        stride_wd_dh,
+        stride_y_s,
+        stride_y_h,
+        stride_y_dh,
+        D_HEAD: tl.constexpr,
+        D_EXPERT: tl.constexpr,
+        NUM_HEADS: tl.constexpr,
+        NUM_EXPERTS: tl.constexpr,
+        LOG2_NUM_EXPERTS: tl.constexpr,
+        BLOCK_T: tl.constexpr,
+        BLOCK_DH: tl.constexpr,
+        BLOCK_DE: tl.constexpr,
+        HIDDEN_DTYPE: tl.constexpr = tl.bfloat16,
+        FP32_WEIGHTS: tl.constexpr = False,
+        DETERMINISTIC: tl.constexpr = False,
+    ):
+        tile_id = tl.program_id(0)
+        total_tiles = tl.load(cu_expert_tile_counts_ptr + NUM_EXPERTS)
+        if tile_id >= total_tiles:
+            return
+
+        expert_id = _binary_search_expert_id(
+            cu_expert_tile_counts_ptr, tile_id, NUM_EXPERTS, LOG2_NUM_EXPERTS
+        )
+        expert_id_i64 = expert_id.to(tl.int64)
+        head_id = expert_id // (NUM_EXPERTS // NUM_HEADS)
+
+        tile_in_expert = tile_id - tl.load(cu_expert_tile_counts_ptr + expert_id)
+        token_start = tl.load(expert_offsets_ptr + expert_id) + tile_in_expert * BLOCK_T
+        expert_end = tl.load(expert_offsets_ptr + expert_id + 1)
+        n = tl.minimum(token_start + BLOCK_T, expert_end) - token_start
+
+        block_dh_offs = tl.arange(0, BLOCK_DH)
+        block_de_offs = tl.arange(0, BLOCK_DE)
+        block_t_offs = tl.arange(0, BLOCK_T)
+        dh_offs = tl.arange(0, D_HEAD)
+
+        block_token_offs = token_start + block_t_offs
+        block_token_mask = block_t_offs < n
+
+        gather_ids = tl.load(
+            gather_ids_ptr + block_token_offs, mask=block_token_mask, other=0
+        )
+        probs = tl.load(
+            probs_ptr + block_token_offs, mask=block_token_mask, other=0.0
+        ).to(tl.float32)
+        x_offs = gather_ids * stride_x_s + head_id * stride_x_h
+
+        y_acc = tl.zeros([BLOCK_T, D_HEAD], dtype=tl.float32)
+        for dexpert_start in tl.range(0, D_EXPERT, BLOCK_DE):
+            dexpert_block_offs = dexpert_start + block_de_offs
+            gate_acc = tl.zeros([BLOCK_T, BLOCK_DE], dtype=tl.float32)
+            up_acc = tl.zeros([BLOCK_T, BLOCK_DE], dtype=tl.float32)
+            for dhead_start in tl.static_range(0, D_HEAD, BLOCK_DH):
+                dhead_block_offs = dhead_start + block_dh_offs
+                x_block = tl.load(
+                    x_ptr + x_offs[:, None] + dhead_block_offs[None, :] * stride_x_dh,
+                    mask=block_token_mask[:, None],
+                    other=0.0,
+                )
+                w_gate = tl.load(
+                    wg_ptr
+                    + expert_id_i64 * stride_wg_ne
+                    + dhead_block_offs[:, None] * stride_wg_dh
+                    + dexpert_block_offs[None, :] * stride_wg_de
+                )
+                w_up = tl.load(
+                    wu_ptr
+                    + expert_id_i64 * stride_wu_ne
+                    + dhead_block_offs[:, None] * stride_wu_dh
+                    + dexpert_block_offs[None, :] * stride_wu_de
+                )
+                if FP32_WEIGHTS:
+                    x_bf16 = x_block.to(tl.bfloat16)
+                    wg_hi = w_gate.to(tl.bfloat16)
+                    wg_lo = (w_gate.to(tl.float32) - wg_hi.to(tl.float32)).to(tl.bfloat16)
+                    wu_hi = w_up.to(tl.bfloat16)
+                    wu_lo = (w_up.to(tl.float32) - wu_hi.to(tl.float32)).to(tl.bfloat16)
+                    gate_acc += tl.dot(x_bf16, wg_hi) + tl.dot(x_bf16, wg_lo)
+                    up_acc += tl.dot(x_bf16, wu_hi) + tl.dot(x_bf16, wu_lo)
+                else:
+                    gate_acc += tl.dot(x_block, w_gate)
+                    up_acc += tl.dot(x_block, w_up)
+
+            hidden = _swiglu7_fwd(gate_acc, up_acc, HIDDEN_DTYPE)
+            w_down = tl.load(
+                wd_ptr
+                + expert_id_i64 * stride_wd_ne
+                + dexpert_block_offs[:, None] * stride_wd_de
+                + dh_offs[None, :] * stride_wd_dh
+            )
+            if FP32_WEIGHTS:
+                h_bf16 = hidden.to(tl.bfloat16)
+                wd_hi = w_down.to(tl.bfloat16)
+                wd_lo = (w_down.to(tl.float32) - wd_hi.to(tl.float32)).to(tl.bfloat16)
+                y_acc += tl.dot(h_bf16, wd_hi) + tl.dot(h_bf16, wd_lo)
+            else:
+                y_acc += tl.dot(hidden, w_down.to(HIDDEN_DTYPE))
+
+        y_acc = y_acc * probs[:, None]
+        if DETERMINISTIC:
+            y_ptrs = (
+                y_ptr
+                + block_token_offs[:, None] * stride_y_s
+                + dh_offs[None, :] * stride_y_dh
+            )
+            tl.store(
+                y_ptrs,
+                y_acc.to(y_ptr.dtype.element_ty),
+                mask=block_token_mask[:, None],
+            )
+        else:
+            y_offs = gather_ids * stride_y_s + head_id * stride_y_h
+            y_ptrs = y_ptr + y_offs[:, None] + dh_offs[None, :] * stride_y_dh
+            tl.atomic_add(
+                y_ptrs,
+                y_acc.to(y_ptr.dtype.element_ty),
+                mask=block_token_mask[:, None],
+            )
+
+    @triton.jit
+    def _mh_moe_gate_up_swiglu7_int8_kernel(
+        x_hi_ptr,
+        x_lo_ptr,
+        qg_ptr,
+        sg_ptr,
+        qu_ptr,
+        su_ptr,
+        hidden_ptr,
+        gather_ids_ptr,
+        expert_offsets_ptr,
+        cu_expert_tile_counts_ptr,
+        stride_x_s,
+        stride_x_h,
+        stride_x_dh,
+        stride_qg_ne,
+        stride_qg_dh,
+        stride_qg_de,
+        stride_qu_ne,
+        stride_qu_dh,
+        stride_qu_de,
+        stride_h_t,
+        stride_h_de,
+        D_HEAD: tl.constexpr,
+        D_EXPERT: tl.constexpr,
+        NUM_HEADS: tl.constexpr,
+        NUM_EXPERTS: tl.constexpr,
+        LOG2_NUM_EXPERTS: tl.constexpr,
+        BLOCK_T: tl.constexpr,
+        BLOCK_DH: tl.constexpr,
+        BLOCK_DE: tl.constexpr,
+        SG_SCALAR: tl.constexpr,
+        SU_SCALAR: tl.constexpr,
+    ):
+        tile_id = tl.program_id(0)
+        de_block = tl.program_id(1)
+        total_tiles = tl.load(cu_expert_tile_counts_ptr + NUM_EXPERTS)
+        if tile_id >= total_tiles:
+            return
+
+        expert_id = _binary_search_expert_id(
+            cu_expert_tile_counts_ptr, tile_id, NUM_EXPERTS, LOG2_NUM_EXPERTS
+        )
+        expert_id_i64 = expert_id.to(tl.int64)
+        head_id = expert_id // (NUM_EXPERTS // NUM_HEADS)
+
+        tile_in_expert = tile_id - tl.load(cu_expert_tile_counts_ptr + expert_id)
+        token_start = tl.load(expert_offsets_ptr + expert_id) + tile_in_expert * BLOCK_T
+        expert_end = tl.load(expert_offsets_ptr + expert_id + 1)
+        n = tl.minimum(token_start + BLOCK_T, expert_end) - token_start
+
+        block_dh_offs = tl.arange(0, BLOCK_DH)
+        block_de_offs = de_block * BLOCK_DE + tl.arange(0, BLOCK_DE)
+        de_mask = block_de_offs < D_EXPERT
+        block_t_offs = tl.arange(0, BLOCK_T)
+
+        block_token_offs = token_start + block_t_offs
+        block_token_mask = block_t_offs < n
+
+        gather_ids = tl.load(
+            gather_ids_ptr + block_token_offs, mask=block_token_mask, other=0
+        )
+        x_offs = gather_ids * stride_x_s + head_id * stride_x_h
+
+        gate_acc = tl.zeros([BLOCK_T, BLOCK_DE], dtype=tl.float32)
+        up_acc = tl.zeros([BLOCK_T, BLOCK_DE], dtype=tl.float32)
+
+        for dhead_start in tl.static_range(0, D_HEAD, BLOCK_DH):
+            dhead_block_offs = dhead_start + block_dh_offs
+            offs_x = x_offs[:, None] + dhead_block_offs[None, :] * stride_x_dh
+            x_hi = tl.load(x_hi_ptr + offs_x, mask=block_token_mask[:, None], other=0.0)
+            x_lo = tl.load(x_lo_ptr + offs_x, mask=block_token_mask[:, None], other=0.0)
+            qg = tl.load(
+                qg_ptr
+                + expert_id_i64 * stride_qg_ne
+                + dhead_block_offs[:, None] * stride_qg_dh
+                + block_de_offs[None, :] * stride_qg_de,
+                mask=de_mask[None, :],
+                other=0,
+            ).to(tl.bfloat16)
+            qu = tl.load(
+                qu_ptr
+                + expert_id_i64 * stride_qu_ne
+                + dhead_block_offs[:, None] * stride_qu_dh
+                + block_de_offs[None, :] * stride_qu_de,
+                mask=de_mask[None, :],
+                other=0,
+            ).to(tl.bfloat16)
+            gate_acc += tl.dot(x_hi, qg) + tl.dot(x_lo, qg)
+            up_acc += tl.dot(x_hi, qu) + tl.dot(x_lo, qu)
+
+        sg = (
+            tl.load(sg_ptr).to(tl.float32)
+            if SG_SCALAR
+            else tl.load(
+                sg_ptr + expert_id_i64 * D_EXPERT + block_de_offs,
+                mask=de_mask,
+                other=0.0,
+            ).to(tl.float32)
+        )
+        su = (
+            tl.load(su_ptr).to(tl.float32)
+            if SU_SCALAR
+            else tl.load(
+                su_ptr + expert_id_i64 * D_EXPERT + block_de_offs,
+                mask=de_mask,
+                other=0.0,
+            ).to(tl.float32)
+        )
+        gate_acc = gate_acc * sg
+        up_acc = up_acc * su
+
+        hidden = _swiglu7_fwd(gate_acc, up_acc, hidden_ptr.dtype.element_ty)
+        tl.store(
+            hidden_ptr
+            + block_token_offs[:, None] * stride_h_t
+            + block_de_offs[None, :] * stride_h_de,
+            hidden,
+            mask=block_token_mask[:, None] & de_mask[None, :],
+        )
+
+    @triton.jit
+    def _mh_moe_down_int8_kernel(
+        h_hi_ptr,
+        h_lo_ptr,
+        qd_ptr,
+        sd_ptr,
+        y_ptr,
+        gather_ids_ptr,
+        probs_ptr,
+        expert_offsets_ptr,
+        cu_expert_tile_counts_ptr,
+        stride_h_t,
+        stride_h_de,
+        stride_qd_ne,
+        stride_qd_de,
+        stride_qd_dh,
+        stride_y_s,
+        stride_y_h,
+        stride_y_dh,
+        D_HEAD: tl.constexpr,
+        D_EXPERT: tl.constexpr,
+        NUM_HEADS: tl.constexpr,
+        NUM_EXPERTS: tl.constexpr,
+        LOG2_NUM_EXPERTS: tl.constexpr,
+        BLOCK_T: tl.constexpr,
+        BLOCK_DE: tl.constexpr,
+        BLOCK_DH: tl.constexpr,
+        SD_SCALAR: tl.constexpr,
+        DETERMINISTIC: tl.constexpr = False,
+    ):
+        tile_id = tl.program_id(0)
+        dh_block = tl.program_id(1)
+        total_tiles = tl.load(cu_expert_tile_counts_ptr + NUM_EXPERTS)
+        if tile_id >= total_tiles:
+            return
+
+        expert_id = _binary_search_expert_id(
+            cu_expert_tile_counts_ptr, tile_id, NUM_EXPERTS, LOG2_NUM_EXPERTS
+        )
+        expert_id_i64 = expert_id.to(tl.int64)
+        head_id = expert_id // (NUM_EXPERTS // NUM_HEADS)
+
+        tile_in_expert = tile_id - tl.load(cu_expert_tile_counts_ptr + expert_id)
+        token_start = tl.load(expert_offsets_ptr + expert_id) + tile_in_expert * BLOCK_T
+        expert_end = tl.load(expert_offsets_ptr + expert_id + 1)
+        n = tl.minimum(token_start + BLOCK_T, expert_end) - token_start
+
+        block_de_offs = tl.arange(0, BLOCK_DE)
+        block_t_offs = tl.arange(0, BLOCK_T)
+        dh_offs = dh_block * BLOCK_DH + tl.arange(0, BLOCK_DH)
+        dh_mask = dh_offs < D_HEAD
+
+        block_token_offs = token_start + block_t_offs
+        block_token_mask = block_t_offs < n
+
+        probs = tl.load(
+            probs_ptr + block_token_offs, mask=block_token_mask, other=0.0
+        ).to(tl.float32)
+
+        y_acc = tl.zeros([BLOCK_T, BLOCK_DH], dtype=tl.float32)
+        for dexpert_start in tl.range(0, D_EXPERT, BLOCK_DE):
+            dexpert_block_offs = dexpert_start + block_de_offs
+            offs_h = (
+                block_token_offs[:, None] * stride_h_t
+                + dexpert_block_offs[None, :] * stride_h_de
+            )
+            h_hi = tl.load(h_hi_ptr + offs_h, mask=block_token_mask[:, None], other=0.0)
+            h_lo = tl.load(h_lo_ptr + offs_h, mask=block_token_mask[:, None], other=0.0)
+            qd = tl.load(
+                qd_ptr
+                + expert_id_i64 * stride_qd_ne
+                + dexpert_block_offs[:, None] * stride_qd_de
+                + dh_offs[None, :] * stride_qd_dh,
+                mask=dh_mask[None, :],
+                other=0,
+            ).to(tl.bfloat16)
+            y_acc += tl.dot(h_hi, qd) + tl.dot(h_lo, qd)
+
+        sd = (
+            tl.load(sd_ptr).to(tl.float32)
+            if SD_SCALAR
+            else tl.load(
+                sd_ptr + expert_id_i64 * D_HEAD + dh_offs, mask=dh_mask, other=0.0
+            ).to(tl.float32)
+        )
+        y_acc = y_acc * (sd * probs[:, None])
+
+        if DETERMINISTIC:
+            y_ptrs = (
+                y_ptr
+                + block_token_offs[:, None] * stride_y_s
+                + dh_offs[None, :] * stride_y_dh
+            )
+            tl.store(
+                y_ptrs,
+                y_acc.to(y_ptr.dtype.element_ty),
+                mask=block_token_mask[:, None] & dh_mask[None, :],
+            )
+        else:
+            gather_ids = tl.load(
+                gather_ids_ptr + block_token_offs, mask=block_token_mask, other=0
+            )
+            y_offs = gather_ids * stride_y_s + head_id * stride_y_h
+            y_ptrs = y_ptr + y_offs[:, None] + dh_offs[None, :] * stride_y_dh
+            tl.atomic_add(
+                y_ptrs,
+                y_acc.to(y_ptr.dtype.element_ty),
+                mask=block_token_mask[:, None] & dh_mask[None, :],
+            )
+
     @triton.jit
     def _dequant_rowwise_fp32_kernel(
         q_ptr, s_ptr, out_ptr, n_cols, s_is_scalar: tl.constexpr, BLOCK_C: tl.constexpr
@@ -475,6 +860,333 @@ def _grouped_gate_up(x, gate_bank, up_bank, offsets):
     )
 
 
+def _rotate_and_split_bf16(x: torch.Tensor, group: int, out_hi: torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor]:
+    if not group:
+        if x.dtype == torch.bfloat16:
+            return (x if out_hi is None else out_hi.copy_(x)), torch.zeros_like(x)
+        flat = x.reshape(-1)
+        hi = torch.empty_like(flat, dtype=torch.bfloat16) if out_hi is None else out_hi.reshape(-1)
+        lo = torch.empty_like(flat, dtype=torch.bfloat16)
+        n = flat.numel()
+        _split_fp32_to_bf16_pair_kernel[(triton.cdiv(n, 1024),)](
+            flat, hi, lo, n, BLOCK=1024, num_warps=4
+        )
+        return hi.view_as(x), lo.view_as(x)
+    h = _build_hadamard(group, device=x.device, dtype=torch.float32)
+    flat = x.reshape(-1, group)
+    hi = torch.empty_like(flat, dtype=torch.bfloat16) if out_hi is None else out_hi.reshape(-1, group)
+    lo = torch.empty_like(flat, dtype=torch.bfloat16)
+    chunk = max(1, (16 << 20) // (group * 4))
+    for start in range(0, flat.shape[0], chunk):
+        end = min(start + chunk, flat.shape[0])
+        rot = flat[start:end].float() @ h
+        n = rot.numel()
+        _split_fp32_to_bf16_pair_kernel[(triton.cdiv(n, 1024),)](
+            rot, hi[start:end], lo[start:end], n, BLOCK=1024, num_warps=4
+        )
+        del rot
+    return hi.view_as(x), lo.view_as(x)
+
+
+def _triton_block_dim(size: int) -> int:
+    for block in (64, 32, 16):
+        if size % block == 0:
+            return block
+    return 0
+
+
+def _sort_routed_tokens(
+    probs_slice: torch.Tensor,
+    indices_slice: torch.Tensor,
+    tokens_count: int,
+    num_experts: int,
+    block_t: int,
+):
+    h_cur, _, top_k = indices_slice.shape
+    e_count = h_cur * num_experts
+    device = indices_slice.device
+    head_offset = torch.arange(h_cur, device=device).view(h_cur, 1, 1) * num_experts
+    global_indices = (indices_slice + head_offset).reshape(-1)
+    flat_probs = probs_slice.reshape(-1)
+    flat_token_ids = (
+        torch.arange(tokens_count, device=device)
+        .view(1, tokens_count, 1)
+        .expand(h_cur, tokens_count, top_k)
+        .reshape(-1)
+    )
+    sorted_order = global_indices.argsort(stable=True)
+    gather_ids = flat_token_ids[sorted_order].to(torch.int32)
+    probs_sorted = flat_probs[sorted_order].float()
+    expert_counts = torch.bincount(global_indices, minlength=e_count)
+    expert_offsets = torch.cat(
+        (torch.zeros(1, device=device, dtype=torch.int64), expert_counts.cumsum(0))
+    )
+    tile_counts = (expert_counts + block_t - 1) // block_t
+    cu_tiles = torch.cat(
+        (
+            torch.zeros(1, dtype=torch.int32, device=device),
+            tile_counts.cumsum(0, dtype=torch.int32),
+        )
+    )
+    return gather_ids, probs_sorted, expert_counts, expert_offsets, cu_tiles
+
+
+def _scatter_routed_tokens(
+    y_sorted: torch.Tensor,
+    gather_ids: torch.Tensor,
+    expert_counts: torch.Tensor,
+    tokens_count: int,
+    h_cur: int,
+    num_experts: int,
+) -> torch.Tensor:
+    total_routed, _, d_head = y_sorted.shape
+    e_count = h_cur * num_experts
+    head_ids = torch.repeat_interleave(
+        torch.arange(e_count, device=y_sorted.device) // num_experts, expert_counts
+    )
+    scatter_idx = (
+        (gather_ids.long() * h_cur + head_ids.long())
+        .unsqueeze(-1)
+        .expand(total_routed, d_head)
+    )
+    y = torch.zeros(tokens_count * h_cur, d_head, device=y_sorted.device, dtype=y_sorted.dtype)
+    y.scatter_add_(0, scatter_idx, y_sorted.view(total_routed, d_head))
+    return y.view(tokens_count, h_cur, d_head)
+
+
+def _flash_mh_moe_unquantized_triton(
+    x: torch.Tensor,
+    all_probs: torch.Tensor,
+    all_indices: torch.Tensor,
+    gate_entry,
+    up_entry,
+    down_entry,
+    num_experts: int,
+) -> torch.Tensor:
+    tokens_count, heads, d_head = x.shape
+    top_k = all_indices.shape[-1]
+    gate_bank, gate_weight = gate_entry
+    _, up_weight = up_entry
+    _, down_weight = down_entry
+    d_expert = gate_bank.out_features
+
+    wg = gate_weight.view(heads * num_experts, d_expert, d_head).transpose(1, 2)
+    wu = up_weight.view(heads * num_experts, d_expert, d_head).transpose(1, 2)
+    wd = down_weight.view(heads * num_experts, d_head, d_expert).transpose(1, 2)
+
+    block_dh = _triton_block_dim(d_head)
+    block_de = min(32, _triton_block_dim(d_expert))
+    block_t = 64
+    fp32_weights = wg.dtype == torch.float32 or x.dtype == torch.float32
+    hidden_tl_dtype = tl.float16 if x.dtype == torch.float16 else tl.bfloat16
+    head_chunk = max(1, MOE_ROW_CHUNK // max(1, tokens_count * top_k))
+
+    out = torch.empty_like(x)
+    for h_start in range(0, heads, head_chunk):
+        h_end = min(h_start + head_chunk, heads)
+        h_cur = h_end - h_start
+        e_start = h_start * num_experts
+        e_count = h_cur * num_experts
+        gather_ids, probs_sorted, expert_counts, expert_offsets, cu_tiles = _sort_routed_tokens(
+            all_probs[h_start:h_end], all_indices[h_start:h_end], tokens_count, num_experts, block_t
+        )
+        total_routed = gather_ids.size(0)
+        if total_routed == 0:
+            out[:, h_start:h_end].zero_()
+            continue
+
+        log2_e = max(1, math.ceil(math.log2(e_count + 1)))
+        grid = ((total_routed + block_t - 1) // block_t + e_count,)
+        x_slice = x[:, h_start:h_end]
+        wg_slice = wg[e_start:e_start + e_count]
+        wu_slice = wu[e_start:e_start + e_count]
+        wd_slice = wd[e_start:e_start + e_count]
+        y_sorted = torch.empty(total_routed, 1, d_head, device=x.device, dtype=x.dtype)
+
+        _mh_moe_fwd_kernel[grid](
+            x_slice,
+            wg_slice,
+            wu_slice,
+            wd_slice,
+            y_sorted,
+            gather_ids,
+            probs_sorted,
+            expert_offsets,
+            cu_tiles,
+            x_slice.stride(0),
+            x_slice.stride(1),
+            x_slice.stride(2),
+            wg_slice.stride(0),
+            wg_slice.stride(1),
+            wg_slice.stride(2),
+            wu_slice.stride(0),
+            wu_slice.stride(1),
+            wu_slice.stride(2),
+            wd_slice.stride(0),
+            wd_slice.stride(1),
+            wd_slice.stride(2),
+            y_sorted.stride(0),
+            y_sorted.stride(1),
+            y_sorted.stride(2),
+            D_HEAD=d_head,
+            D_EXPERT=d_expert,
+            NUM_HEADS=h_cur,
+            NUM_EXPERTS=e_count,
+            LOG2_NUM_EXPERTS=log2_e,
+            BLOCK_T=block_t,
+            BLOCK_DH=block_dh,
+            BLOCK_DE=block_de,
+            HIDDEN_DTYPE=hidden_tl_dtype,
+            FP32_WEIGHTS=fp32_weights,
+            DETERMINISTIC=True,
+            num_stages=2,
+            num_warps=4,
+        )
+        out[:, h_start:h_end] = _scatter_routed_tokens(
+            y_sorted, gather_ids, expert_counts, tokens_count, h_cur, num_experts
+        )
+        del y_sorted
+    return out
+
+
+def _quant_bank_views(bank, weight, total_experts: int):
+    qdata, scale = weight.layout_cls.get_plain_tensors(weight)
+    q_3d = qdata.view(total_experts, bank.out_features, bank.in_features).transpose(1, 2)
+    s_2d = scale.reshape(-1) if scale.numel() == 1 else scale.reshape(total_experts, bank.out_features)
+    params = weight.params
+    group = params.convrot_groupsize if getattr(params, "convrot", False) else 0
+    return q_3d, s_2d.contiguous(), group, (scale.numel() == 1)
+
+
+def _flash_mh_moe_int8_triton(
+    x: torch.Tensor,
+    all_probs: torch.Tensor,
+    all_indices: torch.Tensor,
+    banks,
+    num_experts: int,
+) -> torch.Tensor:
+    tokens_count, heads, d_head = x.shape
+    top_k = all_indices.shape[-1]
+    total_experts = heads * num_experts
+    d_expert = banks[0][0].out_features
+
+    qg_t, sg, group_g, sg_scalar = _quant_bank_views(banks[0][0], banks[0][1], total_experts)
+    qu_t, su, _, su_scalar = _quant_bank_views(banks[1][0], banks[1][1], total_experts)
+    qd_t, sd, group_d, sd_scalar = _quant_bank_views(banks[2][0], banks[2][1], total_experts)
+
+    block_dh = _triton_block_dim(d_head)
+    block_de = _triton_block_dim(d_expert)
+    block_t = 64
+    hidden_dtype = torch.float16 if x.dtype == torch.float16 else torch.bfloat16
+    head_chunk = max(1, MOE_ROW_CHUNK // max(1, tokens_count * top_k))
+
+    out = torch.empty_like(x)
+    for h_start in range(0, heads, head_chunk):
+        h_end = min(h_start + head_chunk, heads)
+        h_cur = h_end - h_start
+        e_start = h_start * num_experts
+        e_count = h_cur * num_experts
+        gather_ids, probs_sorted, expert_counts, expert_offsets, cu_tiles = _sort_routed_tokens(
+            all_probs[h_start:h_end], all_indices[h_start:h_end], tokens_count, num_experts, block_t
+        )
+        total_routed = gather_ids.size(0)
+        if total_routed == 0:
+            out[:, h_start:h_end].zero_()
+            continue
+
+        x_slice = x[:, h_start:h_end]
+        x_hi, x_lo = _rotate_and_split_bf16(x_slice, group_g)
+        log2_e = max(1, math.ceil(math.log2(e_count + 1)))
+        grid_1d = (total_routed + block_t - 1) // block_t + e_count
+
+        hidden = torch.empty(total_routed, d_expert, device=x.device, dtype=hidden_dtype)
+        qg_slice = qg_t[e_start:e_start + e_count]
+        qu_slice = qu_t[e_start:e_start + e_count]
+        qd_slice = qd_t[e_start:e_start + e_count]
+        sg_slice = sg if sg_scalar else sg[e_start:e_start + e_count]
+        su_slice = su if su_scalar else su[e_start:e_start + e_count]
+        sd_slice = sd if sd_scalar else sd[e_start:e_start + e_count]
+
+        _mh_moe_gate_up_swiglu7_int8_kernel[(grid_1d, triton.cdiv(d_expert, block_de))](
+            x_hi,
+            x_lo,
+            qg_slice,
+            sg_slice,
+            qu_slice,
+            su_slice,
+            hidden,
+            gather_ids,
+            expert_offsets,
+            cu_tiles,
+            x_hi.stride(0),
+            x_hi.stride(1),
+            x_hi.stride(2),
+            qg_slice.stride(0),
+            qg_slice.stride(1),
+            qg_slice.stride(2),
+            qu_slice.stride(0),
+            qu_slice.stride(1),
+            qu_slice.stride(2),
+            hidden.stride(0),
+            hidden.stride(1),
+            D_HEAD=d_head,
+            D_EXPERT=d_expert,
+            NUM_HEADS=h_cur,
+            NUM_EXPERTS=e_count,
+            LOG2_NUM_EXPERTS=log2_e,
+            BLOCK_T=block_t,
+            BLOCK_DH=block_dh,
+            BLOCK_DE=block_de,
+            SG_SCALAR=sg_scalar,
+            SU_SCALAR=su_scalar,
+            num_stages=2,
+            num_warps=4,
+        )
+        del x_hi, x_lo
+        h_hi, h_lo = _rotate_and_split_bf16(
+            hidden, group_d, out_hi=hidden if hidden.dtype == torch.bfloat16 else None
+        )
+        del hidden
+        y_sorted = torch.empty(total_routed, 1, d_head, device=x.device, dtype=x.dtype)
+        _mh_moe_down_int8_kernel[(grid_1d, triton.cdiv(d_head, block_dh))](
+            h_hi,
+            h_lo,
+            qd_slice,
+            sd_slice,
+            y_sorted,
+            gather_ids,
+            probs_sorted,
+            expert_offsets,
+            cu_tiles,
+            h_hi.stride(0),
+            h_hi.stride(1),
+            qd_slice.stride(0),
+            qd_slice.stride(1),
+            qd_slice.stride(2),
+            y_sorted.stride(0),
+            y_sorted.stride(1),
+            y_sorted.stride(2),
+            D_HEAD=d_head,
+            D_EXPERT=d_expert,
+            NUM_HEADS=h_cur,
+            NUM_EXPERTS=e_count,
+            LOG2_NUM_EXPERTS=log2_e,
+            BLOCK_T=block_t,
+            BLOCK_DE=block_de,
+            BLOCK_DH=block_dh,
+            SD_SCALAR=sd_scalar,
+            DETERMINISTIC=True,
+            num_stages=2,
+            num_warps=4,
+        )
+        del h_hi, h_lo
+        out[:, h_start:h_end] = _scatter_routed_tokens(
+            y_sorted, gather_ids, expert_counts, tokens_count, h_cur, num_experts
+        )
+        del y_sorted
+    return out
+
+
 class MultiHeadMoE(nn.Module):
     """Twelve routed heads: each head's 256-wide slice of a token picks top_k of its own experts."""
 
@@ -519,15 +1231,34 @@ class MultiHeadMoE(nn.Module):
     def forward(self, x):
         batch, tokens, _ = x.shape
         x = x.reshape(batch * tokens, self.heads, self.head_dim)
-        out = torch.empty_like(x)
         all_probs, all_indices = self.route_all(x)
-        flat_indices = all_indices.flatten(1)
-        all_orders = flat_indices.argsort(dim=-1, stable=True)
         # a quantized bank that the ops dequantize up front (full precision matmul) is dequantized in fp32, not rounded to bf16
         resident = lambda bank: x[:0].float() if isinstance(bank.weight, QuantizedTensor) else x
         with (self.gate_proj.bank_resident(resident(self.gate_proj)), self.up_proj.bank_resident(resident(self.up_proj)),
               self.down_proj.bank_resident(resident(self.down_proj))):
             banks = tuple((bank, bank._resident_bank[0]) for bank in (self.gate_proj, self.up_proj, self.down_proj))
+            if (
+                _HAS_TRITON
+                and x.is_cuda
+                and _triton_block_dim(self.head_dim) > 0
+                and _triton_block_dim(self.gate_proj.out_features) > 0
+                and self.gate_proj.out_features == self.up_proj.out_features
+            ):
+                if all(not isinstance(weight, QuantizedTensor) for _, weight in banks):
+                    out = _flash_mh_moe_unquantized_triton(
+                        x, all_probs, all_indices, banks[0], banks[1], banks[2], self.num_experts
+                    )
+                    return out.reshape(batch, tokens, self.heads * self.head_dim)
+                if all(isinstance(weight, QuantizedTensor) for _, weight in banks):
+                    g_group = banks[0][1].params.convrot_groupsize if getattr(banks[0][1].params, "convrot", False) else 0
+                    u_group = banks[1][1].params.convrot_groupsize if getattr(banks[1][1].params, "convrot", False) else 0
+                    if g_group == u_group:
+                        out = _flash_mh_moe_int8_triton(x, all_probs, all_indices, banks, self.num_experts)
+                        return out.reshape(batch, tokens, self.heads * self.head_dim)
+
+            out = torch.empty_like(x)
+            flat_indices = all_indices.flatten(1)
+            all_orders = flat_indices.argsort(dim=-1, stable=True)
             for head in range(self.heads):
                 x_head = x[:, head].contiguous()
                 indices = flat_indices[head]
@@ -814,11 +1545,10 @@ class Magi2Model(nn.Module):
         if compile_allocations:
             out = [torch.empty_like(part) for part in x] if isinstance(x, (list, tuple)) else torch.empty_like(x)
             model_prefetch.malloc_graph_begin(video.device)
-        with ieee_fp32_matmul():
-            graph_out = patcher_extension.WrapperExecutor.new_class_executor(
-                self._forward, self,
-                patcher_extension.get_all_wrappers(patcher_extension.WrappersMP.DIFFUSION_MODEL, transformer_options),
-            ).execute(x, timestep, context, transformer_options, magi2_refs=magi2_refs, **kwargs)
+        graph_out = patcher_extension.WrapperExecutor.new_class_executor(
+            self._forward, self,
+            patcher_extension.get_all_wrappers(patcher_extension.WrappersMP.DIFFUSION_MODEL, transformer_options),
+        ).execute(x, timestep, context, transformer_options, magi2_refs=magi2_refs, **kwargs)
         if not compile_allocations:
             return graph_out
         if isinstance(out, list):
@@ -896,9 +1626,8 @@ class Magi2Model(nn.Module):
         tensors, metadata = intermediate.tensors, intermediate.metadata
         layout = Magi2Layout(*unpack_pipeline_value(metadata["layout"], tensors))
         transformer_options = unpack_pipeline_value(metadata["transformer_options"], tensors)
-        with ieee_fp32_matmul():
-            hidden = self._run_layers(tensors["hidden_states"], tensors["freqs"], layout.groups, transformer_options,
-                                      self.pipeline_stage.start_layer, self.pipeline_stage.end_layer)
-            if not self.pipeline_stage.is_last:
-                return PipelineIntermediateTensors({**tensors, "hidden_states": hidden}, metadata)
-            return self._output(hidden, layout, unpack_pipeline_value(metadata["output_dtypes"], tensors), metadata["nested"])
+        hidden = self._run_layers(tensors["hidden_states"], tensors["freqs"], layout.groups, transformer_options,
+                                  self.pipeline_stage.start_layer, self.pipeline_stage.end_layer)
+        if not self.pipeline_stage.is_last:
+            return PipelineIntermediateTensors({**tensors, "hidden_states": hidden}, metadata)
+        return self._output(hidden, layout, unpack_pipeline_value(metadata["output_dtypes"], tensors), metadata["nested"])
