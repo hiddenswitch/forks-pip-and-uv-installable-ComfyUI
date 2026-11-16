@@ -5,7 +5,7 @@ with instructions shipped by model authors for rewriting, expanding, or
 structuring prompts. These can be the most precise available prompting guide,
 even when embedded in a Python module, demo Space, or authoring skill.
 
-The tables account for all 108 native registrations, followed by the additional
+The tables account for all 112 native registrations, followed by the additional
 families in the coverage index. A public instruction is linked at the reviewed
 revision where available. Read the entire linked prompt, including examples and
 the calling code: the short descriptions here do not replace it. Upstream skills
@@ -75,6 +75,7 @@ enhancer instructions, not diffusion tokenizer limits or sampling parameters.
 | Kandinsky 5 Image — `Kandinsky5Image` | Related: [image/edit encoder prefixes](#kandinsky); the published generative expansion method is I2V-specific. |
 | LongCat Image — `LongCatImage` | Published: [bilingual T2I rewrite instructions](#other-image-enhancers). Do not automatically apply them to the Edit checkpoint. |
 | ERNIE — `ErnieImage` | Published: [PE JSON contract](#other-image-enhancers). |
+| MiniMax Image — `MiniMaxH3Image` | Not located: [author card](https://huggingface.co/MiniMaxAI/MiniMax-H3-Image). |
 
 ## Native video models
 
@@ -83,6 +84,7 @@ enhancer instructions, not diffusion tokenizer limits or sampling parameters.
 | Mochi — `GenmoMochi` | Not located: [author inference repository](https://github.com/genmoai/models). |
 | LTX — `LTXV`, `LTXAV` | Published: [LTX-Video and four encoder/task-specific LTX-2 prompts](#ltx). |
 | MiniMax — `MiniMaxH3` | Skill: [official H3 base/keyframe and full-reference rewrite guides](#minimax). |
+| MAGI-2 — `Magi2`, `Magi2Refiner` | Published: [complete T2V and I2V JSON enhancer system prompts and Markdown renderers](#magi-2). |
 | HunyuanVideo — `HunyuanVideo`, `HunyuanVideoI2V`, `HunyuanVideoSkyreelsI2V` | Published for original T2V: [normal/master rewrite](#hunyuan-video). No separate I2V or SkyReels-specific enhancer located in [I2V](https://github.com/Tencent-Hunyuan/HunyuanVideo-I2V) / [SkyReels](https://github.com/SkyworkAI/SkyReels-V1) sources. |
 | HunyuanVideo 1.5 — `HunyuanVideo15`, `HunyuanVideo15_SR_Distilled` | Published: [distinct T2V and I2V rewrites](#hunyuan-video); no independent SR enhancer. |
 | Cosmos — `CosmosT2V`, `CosmosI2V`, `CosmosT2IPredict2`, `CosmosI2VPredict2` | Published/related: [Cosmos 1 upsampler and Predict2 visual refiner](#cosmos). Predict2's image encoder prefix is not the refiner. |
@@ -96,7 +98,7 @@ enhancer instructions, not diffusion tokenizer limits or sampling parameters.
 | Wan Dancer — `WAN22_WanDancer` | Restricted: [author card](https://huggingface.co/Wan-AI/Wan2.2-Dancer-14B); [public workflow card](https://huggingface.co/Comfy-Org/Wan-Dancer). |
 | Kandinsky 5 — `Kandinsky5` | Published: [I2V expansion instruction](#kandinsky), distinct from encoder prefixes. |
 | CogVideoX — `CogVideoX_T2V`, `CogVideoX_I2V`, `CogVideoX_Inpaint` | Published: [T2V/I2V converter](#other-video-enhancers). No separate inpainting enhancer located. |
-| PAN 2 — `PAN2` | Not located: [public workflow card](https://huggingface.co/Comfy-Org/PAN2). |
+| PAN 2 — `PAN2` | Published / Skill: [conceptual reasoner skill, 7-key world-state JSON system prompt, fixed negative, and four-paragraph Qwen3.5-9B rewriter](#pan-2). |
 
 ## Native audio and other input tasks
 
@@ -362,6 +364,41 @@ uses the original image and editing instruction to generate an approximately
 80–100-word task analysis beginning with “The user wants to”. It distinguishes
 ordinary edits from moving an identity into a new scene. This is the author's
 specialized edit-conditioning format, not a generic final-image caption.
+
+### MAGI-2
+
+Sand.ai's [prompt_enhancement](https://github.com/SandAI-org/MAGI-2-preview/tree/f68a0f9bbccbea56e0177a9bd912abc3b18ffe61/inference/prompt_enhancement)
+ships distinct T2V ([t2v.md](sandai_magi2_t2v_system_prompt.md)) and I2V
+([i2v.md](sandai_magi2_prompting.md#2-image-to-video-system-prompt-inferenceprompt_enhancementpromptsi2vmd))
+JSON compilers for 10-second audiovisual clips. T2V emits `global_layer` and
+`dynamic_layer` (`T2VEnhanceResult`), which ComfyUI's `Magi2Tokenizer`
+(`comfy/text_encoders/magi2.py`) flattens automatically to the compact
+training-time text form (`json_to_compact_markdown`). I2V emits `global_caption`,
+`reference_bank`, `shot_timeline`, `audio_event_timeline`, `visible_text` and
+`generation_requirements` (`I2VEnhanceResult`), rendered to Markdown by
+`pe_markdown.render_markdown`, while `Magi2ImageToVideo` appends the `<Figure 1>`
+reference layer. See the [vendored MAGI-2 guide](sandai_magi2_prompting.md).
+
+### PAN 2
+
+IFM / MBZUAI's [PAN 2 repository](https://github.com/ifm-ai/PAN2/tree/0fb907b6e16a82ead6d691d1de2eef6299c71e9a)
+publishes two rewriting paths, both vendored in the [PAN 2 prompting guide](ifm_pan2_prompting.md)
+and [system-prompt snapshot](ifm_pan2_system_prompt.md):
+
+1. The [Conceptual Reasoner skill](ifm_pan2_prompting.md#3-conceptual-reasoner-skill-inferencepan-prompt-rewriterskillmd)
+   and [system_prompt.md](ifm_pan2_system_prompt.md#1-positive-authoring-system-prompt-inferencepan-prompt-rewritersystem_promptmd)
+   emit `{"refined_prompt":"<serialized JSON>"}` whose inner string decodes to the
+   seven-key world-state schema (`video_style`, `lighting`, `perspective_view`,
+   `subjects_lifecycle`, `init_frame_visual_description`, `events`, `quality`)
+   within a 1,480-token soft limit (1,536-token hard capacity) on `Qwen3.5-9B`,
+   paired with the duration-substituted [fixed generic negative JSON](ifm_pan2_system_prompt.md#2-fixed-generic-negative-prompt-template-inferencepan-prompt-rewriterassetsgeneric_negativetxt).
+   Pass the inner serialized JSON string of `refined_prompt` to `CLIPTextEncode`,
+   not the outer wrapper object.
+2. [prompts_rewritter.py](https://github.com/ifm-ai/PAN2/blob/0fb907b6e16a82ead6d691d1de2eef6299c71e9a/inference/prompts_rewritter.py)
+   also defines `REWRITE_SYSTEM_PROMPT` ([vendored in Section 4](ifm_pan2_prompting.md#4-four-paragraph-rewriter-system-prompt-inferenceprompts_rewritterpy)),
+   which runs with `Qwen/Qwen3.5-9B` (`enable_thinking=False`) to produce a
+   four-paragraph prose rewrite (`Summary`, `Initial state`, `Dynamic motion`,
+   `Other key attributes`).
 
 ### MiniMax
 

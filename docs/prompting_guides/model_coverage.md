@@ -69,7 +69,7 @@ reference; this review does not claim to have read the restricted author cards.
 | LTX — `LTXV`, `LTXAV` | [LTX-Video snapshot](ltx_video_readme.md), [current LTX-2 family prompting](ltx_2_readme.md) |
 | MiniMax image — `MiniMaxH3Image` | [H3 Image model card](https://huggingface.co/MiniMaxAI/MiniMax-H3-Image); use natural-language scene descriptions, or refer to edit inputs as Picture 1, Picture 2 |
 | MiniMax — `MiniMaxH3` | [H3 prompting and hosted/local distinctions](minimax_h3_video_generation.md) |
-| MAGI-2 — `Magi2`, `Magi2Refiner` | Long structured captions: SandAI's prompt-enhancer system prompts for [text to video](https://github.com/SandAI-org/MAGI-2-preview/blob/main/inference/prompt_enhancement/prompts/t2v.md) and [image to video](https://github.com/SandAI-org/MAGI-2-preview/blob/main/inference/prompt_enhancement/prompts/i2v.md) write the JSON scene, audio and timeline layers the text encoder flattens; MAGI-2 Image to Video points the prompt at `<Figure 1>` |
+| MAGI-2 — `Magi2`, `Magi2Refiner` | [MAGI-2 prompting guide and I2V system prompt](sandai_magi2_prompting.md), [complete T2V system prompt](sandai_magi2_t2v_system_prompt.md); T2V JSON (`global_layer`, `dynamic_layer`) is flattened automatically by `Magi2Tokenizer`, and `Magi2ImageToVideo` points the prompt at `<Figure 1>` |
 | HunyuanVideo — `HunyuanVideo`, `HunyuanVideoI2V`, `HunyuanVideoSkyreelsI2V` | [Original video guide](https://github.com/Tencent-Hunyuan/HunyuanVideo), [I2V guide](https://github.com/Tencent-Hunyuan/HunyuanVideo-I2V), [SkyReels variant](https://github.com/SkyworkAI/SkyReels-V1) |
 | HunyuanVideo 1.5 — `HunyuanVideo15`, `HunyuanVideo15_SR_Distilled` | [1.5 prompt handbook](hunyuan_video_1_5_prompt_handbook.md); super-resolution reuses the source video's conditioning |
 | Cosmos — `CosmosT2V`, `CosmosI2V`, `CosmosT2IPredict2`, `CosmosI2VPredict2` | [Cosmos 1](https://github.com/NVIDIA/Cosmos), [Predict2 generation and prompt upsampling](https://github.com/nvidia-cosmos/cosmos-predict2) |
@@ -83,7 +83,7 @@ reference; this review does not claim to have read the restricted author cards.
 | Wan Dancer — `WAN22_WanDancer` | [Author card (access required)](https://huggingface.co/Wan-AI/Wan2.2-Dancer-14B), [public workflow reference](https://huggingface.co/Comfy-Org/Wan-Dancer) |
 | Kandinsky 5 Video — `Kandinsky5` | [Official task examples](https://github.com/kandinskylab/kandinsky-5) |
 | CogVideoX — `CogVideoX_T2V`, `CogVideoX_I2V`, `CogVideoX_Inpaint` | [Official caption and prompt-optimization instructions](https://github.com/THUDM/CogVideo); inpainting also requires its mask/video inputs |
-| PAN 2 — `PAN2` | [ComfyUI model and workflow reference](https://huggingface.co/Comfy-Org/PAN2) |
+| PAN 2 — `PAN2` | [PAN 2 prompting and conceptual-reasoner guide](ifm_pan2_prompting.md), [complete 7-key world-state JSON system prompt and fixed negative](ifm_pan2_system_prompt.md), [ComfyUI model reference](https://huggingface.co/Comfy-Org/PAN2) |
 
 ## Audio and music
 
