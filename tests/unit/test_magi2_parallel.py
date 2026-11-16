@@ -101,3 +101,53 @@ def test_tensor_parallel_matches_full_model(decorator, family):
     for output in _run_parallel([lambda _, model=model: run(model) for model in ranks], None):
         for value, reference in zip(output if isinstance(output, list) else [output], expected if isinstance(expected, list) else [expected]):
             torch.testing.assert_close(value, reference, rtol=1e-4, atol=1e-4)
+
+
+@pytest.mark.parametrize(
+    ("decorator", "expected_moe_collectives", "expected_attn_collectives"),
+    [
+        (tensor_parallel_operations, 1, 1),
+        (full_domain_tensor_parallel_operations, 3, 2),
+    ],
+)
+def test_magi2_fuses_moe_and_multimodal_row_parallel_collectives(
+    decorator, expected_moe_collectives, expected_attn_collectives
+):
+    full = _randomized(Magi2Model(**PREVIEW, dtype=torch.float32, device="cpu", operations=comfy_ops.disable_weight_init))
+    state = full.state_dict()
+    collective = ThreadCollective(2)
+    ops_per_rank = []
+    ranks = []
+    for rank in range(2):
+        tp_ops = ThreadTensorParallelOperations(collective, rank)
+        ops_per_rank.append(tp_ops)
+        operations = decorator(comfy_ops.disable_weight_init, TensorParallelConfig(tp_ops))
+        model = Magi2Model(**PREVIEW, dtype=torch.float32, device="cpu", operations=operations)
+        model.load_state_dict(
+            shard_tensor_parallel_state_dict(
+                state, "magi2", rank, 2, full_domain_rows=decorator is full_domain_tensor_parallel_operations
+            ),
+            strict=True,
+        )
+        ranks.append(model.requires_grad_(False))
+
+    groups = (12, 4, 4)
+    x_moe = torch.randn(1, sum(groups), PREVIEW["hidden_size"], generator=torch.Generator().manual_seed(11))
+    before = [op.index for op in ops_per_rank]
+    moe_outputs = _run_parallel([lambda _, m=m: m.block.layers[1].mlp(x_moe, groups) for m in ranks], None)
+    after_moe = [op.index - start for op, start in zip(ops_per_rank, before)]
+    assert after_moe == [expected_moe_collectives, expected_moe_collectives]
+    expected_moe = full.block.layers[1].mlp(x_moe, groups)
+    for out in moe_outputs:
+        torch.testing.assert_close(out, expected_moe, rtol=1e-4, atol=1e-4)
+
+    freqs = torch.zeros(1, sum(groups), 1, PREVIEW["head_dim"] // 2, 2, 2)
+    freqs[..., 0, 0] = 1.0
+    freqs[..., 1, 1] = 1.0
+    before_attn = [op.index for op in ops_per_rank]
+    attn_outputs = _run_parallel([lambda _, m=m: m.block.layers[0].attention(x_moe, freqs, groups, {}) for m in ranks], None)
+    after_attn = [op.index - start for op, start in zip(ops_per_rank, before_attn)]
+    assert after_attn == [expected_attn_collectives, expected_attn_collectives]
+    expected_attn = full.block.layers[0].attention(x_moe, freqs, groups, {})
+    for out in attn_outputs:
+        torch.testing.assert_close(out, expected_attn, rtol=1e-4, atol=1e-4)
