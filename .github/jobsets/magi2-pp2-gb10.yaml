@@ -1,5 +1,8 @@
 # Hilton cluster: two DGX Spark (GB10, sm121, arm64) hosts, one GPU each, joined over RoCE.
-# Pipeline parallel MAGI-2 Preview (+ refiner) with the external launcher; TP is single-host only.
+# Pipeline or tensor parallel MAGI-2 Preview (+ refiner) with the external launcher.
+# Queued in Kueue (`gb10`, priority `experiment`): submitting this JobSet automatically
+# preempts the `serving`-priority `deepseek-v4-int4-int8` LeaderWorkerSet on both Sparks
+# and restores `deepseek-v4-int4-int8` as soon as the JobSet completes or is deleted.
 # The image is NVIDIA's arm64 PyTorch container (26.10): it supplies torch and NCCL for GB10, and
 # ComfyUI installs into it with uv, keeping the container's torch, torchvision, torchaudio and triton.
 # Weights download with --local-dir into a ComfyUI models/ tree on each host's own disk; set
@@ -12,6 +15,9 @@ kind: JobSet
 metadata:
   name: comfy-magi2-pp2-gb10
   namespace: inference
+  labels:
+    kueue.x-k8s.io/queue-name: gb10
+    kueue.x-k8s.io/priority-class: experiment
 spec:
   failurePolicy:
     maxRestarts: 0
@@ -107,7 +113,7 @@ spec:
                 exit "${status}"
               env:
               - name: COMFYUI_REVISION
-                value: 8140dd8a6804d718d5df6a81ee1233464e1f818c
+                value: 7f546b54d42045a3de96b0a1ca2903ec2cbae15c
               - name: WORKFLOW
                 value: magi2-t2va-0
               - name: RESULT_HOLD_SECONDS
