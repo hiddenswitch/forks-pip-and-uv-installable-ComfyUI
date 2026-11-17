@@ -404,8 +404,8 @@ class _ObjectCoordinator:
             **self._group_kwargs(),
         )
 
-    def receive_object(self, source_rank):
-        values = [None]
+    def receive_object(self, source_rank) -> dict:
+        values: list = [None]
         dist.recv_object_list(
             values,
             src=source_rank,
