@@ -379,8 +379,9 @@ class RemoteModelParallelRankModel(ModelManageableStub):
 
 
 class _ObjectCoordinator:
-    def __init__(self, control_process_group=None):
+    def __init__(self, control_process_group=None, model_id=None):
         self.control_process_group = control_process_group
+        self.model_id = model_id
 
     def _group_kwargs(self):
         if self.control_process_group is None:
@@ -389,6 +390,8 @@ class _ObjectCoordinator:
 
     def broadcast_command(self, command=None):
         if command is not None:
+            if self.model_id is not None and "model_id" not in command:
+                command = {**command, "model_id": self.model_id}
             command = inject_trace_context(command)
         values = [command]
         dist.broadcast_object_list(values, src=0, **self._group_kwargs())

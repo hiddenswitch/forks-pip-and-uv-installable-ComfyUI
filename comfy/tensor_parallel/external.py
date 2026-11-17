@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 from datetime import timedelta
 import gc
 import logging
@@ -13,10 +14,14 @@ from ..distributed.process_group import (
     create_independent_process_groups,
     destroy_independent_process_groups,
 )
+from ..distributed.tracing import distributed_command_span
 from .distributed import (
     TorchDistributedModelParallelExecutor,
     _ObjectCoordinator,
-    _run_worker,
+    _abort_device_group,
+    _broadcast_tensors,
+    _send_worker_error,
+    unpack_pipeline_value,
 )
 from .runtime import TorchDistributedTensorParallelOperations
 
@@ -61,8 +66,11 @@ class ExternalTensorParallelRuntime:
             self.process_groups.control_process_group,
         )
         self.coordinator = _ObjectCoordinator(self.process_groups.control_process_group)
-        self._executor: TorchDistributedModelParallelExecutor | None = None
+        self._executors: dict[int, TorchDistributedModelParallelExecutor] = {}
+        self._next_model_id = 0
         self._closed = False
+        if self.is_driver:
+            atexit.register(self.close)
 
         from .. import model_management
 
@@ -85,10 +93,14 @@ class ExternalTensorParallelRuntime:
     def load_executor(self, load_spec, load_root):
         if not self.is_driver:
             raise RuntimeError("Only tensor-parallel rank zero can create the driver executor")
-        if self._executor is not None and not self._executor._closed:
-            self._executor.close()
+        self._next_model_id += 1
+        model_id = self._next_model_id
 
-        self.coordinator.broadcast_command({"kind": "load_tensor", "load_spec": load_spec})
+        self.coordinator.broadcast_command({
+            "kind": "load_tensor",
+            "model_id": model_id,
+            "load_spec": load_spec,
+        })
         rank_sizes = []
         for rank in range(1, self.configuration.world_size):
             response = self.coordinator.receive_object(rank)
@@ -100,10 +112,10 @@ class ExternalTensorParallelRuntime:
             rank_sizes.append(int(response["size"]))
 
         root = load_root(self.operations)
-        self._executor = TorchDistributedModelParallelExecutor(
+        executor = TorchDistributedModelParallelExecutor(
             root.model.diffusion_model,
             self.operations,
-            self.coordinator,
+            _ObjectCoordinator(self.process_groups.control_process_group, model_id=model_id),
             (),
             (),
             self.logical_devices,
@@ -112,55 +124,138 @@ class ExternalTensorParallelRuntime:
             close_command="unload_tensor",
             preserve_process_groups=True,
         )
-        return root, self._executor
+        self._executors[model_id] = executor
+        return root, executor
 
     def run_worker_service(self) -> None:
         if self.is_driver:
             raise RuntimeError("Tensor-parallel rank zero is the ComfyUI driver, not a worker")
         from .loader import load_tensor_parallel_rank
+        from .. import model_management
 
+        loaded_models: dict[int, list] = {}
         while True:
             command = self.coordinator.broadcast_command()
             if command["kind"] == "close":
                 break
-            if command["kind"] != "load_tensor":
+            model_id = int(command.get("model_id", 1))
+            if command["kind"] == "load_tensor":
+                try:
+                    patcher = load_tensor_parallel_rank(
+                        command["load_spec"],
+                        self.configuration.tensor_rank,
+                        self.device,
+                        self.operations,
+                    )
+                    loaded_models[model_id] = [patcher, patcher.model.diffusion_model, []]
+                    self.coordinator.send_object(
+                        {"kind": "ready", "size": patcher.model_size()}, 0
+                    )
+                except Exception:
+                    self.coordinator.send_object(
+                        {"kind": "error", "traceback": traceback.format_exc()}, 0
+                    )
+                    raise
+                continue
+            if command["kind"] == "unload_tensor":
+                entry = loaded_models.pop(model_id, None)
+                if entry is not None:
+                    del entry
+                    gc.collect()
+                    model_management.soft_empty_cache()
+                continue
+            if model_id not in loaded_models:
                 self.coordinator.send_object(
-                    {"kind": "error", "traceback": f"Unexpected command: {command!r}"},
+                    {"kind": "error", "traceback": f"Unknown model_id {model_id} in {command!r}"},
                     0,
                 )
-                raise RuntimeError(
-                    f"External tensor-parallel rank {self.configuration.rank} expected load_tensor, "
-                    f"got {command!r}"
-                )
-            try:
-                patcher = load_tensor_parallel_rank(
-                    command["load_spec"],
-                    self.configuration.tensor_rank,
-                    self.device,
-                    self.operations,
-                )
-                self.coordinator.send_object(
-                    {"kind": "ready", "size": patcher.model_size()}, 0
-                )
-                result = _run_worker(
-                    self.operations,
-                    self.coordinator,
-                    patcher,
-                    "External Tensor Parallel Rank Command",
-                    close_commands=("unload_tensor", "close"),
-                )
-                del patcher
-                gc.collect()
-                from .. import model_management
-
-                model_management.soft_empty_cache()
-                if result == "close":
-                    break
-            except Exception:
-                self.coordinator.send_object(
-                    {"kind": "error", "traceback": traceback.format_exc()}, 0
-                )
-                raise
+                continue
+            patcher, execution_model, ctx_stack = loaded_models[model_id]
+            with distributed_command_span(
+                command,
+                "External Tensor Parallel Rank Command",
+                {
+                    "distributed.rank": self.operations.rank,
+                    "distributed.world_size": self.operations.world_size,
+                    "comfy.command.kind": command["kind"],
+                },
+            ):
+                if command["kind"] == "model_context":
+                    try:
+                        cm = getattr(execution_model, command["method"])()
+                        scoped_model = cm.__enter__()
+                        ctx_stack.append((cm, execution_model))
+                        loaded_models[model_id][1] = scoped_model
+                        self.coordinator.send_object({"kind": "done"}, 0)
+                    except Exception:
+                        _send_worker_error(self.coordinator, self.operations.rank)
+                    continue
+                if command["kind"] == "end_model_context":
+                    try:
+                        if ctx_stack:
+                            cm, prev_model = ctx_stack.pop()
+                            loaded_models[model_id][1] = prev_model
+                            cm.__exit__(None, None, None)
+                        self.coordinator.send_object({"kind": "done"}, 0)
+                    except Exception:
+                        _send_worker_error(self.coordinator, self.operations.rank)
+                    continue
+                if command["kind"] == "rank_model":
+                    if command["rank"] != self.operations.rank:
+                        continue
+                    try:
+                        model_command = command["command"]
+                        if model_command["kind"] == "load":
+                            if model_command.get("manage_device_memory", False):
+                                model_management.load_models_gpu(
+                                    [patcher],
+                                    memory_required=model_command.get("memory_required", 0),
+                                    minimum_memory_required=model_command.get("minimum_memory_required"),
+                                    force_full_load=model_command.get("force_full_load", False),
+                                    force_patch_weights=model_command["force_patch_weights"],
+                                )
+                            else:
+                                patcher.partially_load(
+                                    self.operations.device,
+                                    model_command["extra_memory"],
+                                    force_patch_weights=model_command["force_patch_weights"],
+                                )
+                        elif model_command["kind"] == "unload":
+                            patcher.partially_unload(patcher.offload_device, model_command["memory_to_free"])
+                        elif model_command["kind"] == "reset_dynamic_buffers":
+                            patcher.reset_dynamic_buffers()
+                        elif model_command["kind"] == "configure_torch_compile":
+                            from comfy_api.torch_helpers.torch_compile import compile_model_for_execution
+                            new_exec_model, strategy = compile_model_for_execution(
+                                patcher, execution_model, model_command["compile_kwargs"]
+                            )
+                            loaded_models[model_id][1] = new_exec_model
+                            self.coordinator.send_object({"kind": "rank_model", "strategy": strategy}, 0)
+                            continue
+                        self.coordinator.send_object({"kind": "rank_model", "loaded_size": patcher.loaded_size()}, 0)
+                    except Exception:
+                        _send_worker_error(self.coordinator, self.operations.rank)
+                    continue
+                if command["kind"] == "finish_execution":
+                    try:
+                        from .. import model_prefetch
+                        model_prefetch.finish_model_execution()
+                        self.coordinator.send_object({"kind": "done"}, 0)
+                    except Exception:
+                        _send_worker_error(self.coordinator, self.operations.rank)
+                    continue
+                try:
+                    tensors = _broadcast_tensors(self.operations, descriptors=command["descriptors"])
+                    args, kwargs = unpack_pipeline_value(command["structure"], tensors)
+                    getattr(execution_model, command["method"])(*args, **kwargs)
+                    self.coordinator.send_object({"kind": "done"}, 0)
+                except Exception:
+                    _abort_device_group(self.operations.process_group)
+                    _send_worker_error(self.coordinator, self.operations.rank)
+                finally:
+                    tensors = args = kwargs = None
+        loaded_models.clear()
+        gc.collect()
         self.close()
 
     def close(self) -> None:
@@ -168,9 +263,9 @@ class ExternalTensorParallelRuntime:
         if self._closed:
             return
         self._closed = True
-        if self._executor is not None:
-            self._executor.close()
-            self._executor = None
+        for executor in list(self._executors.values()):
+            executor.close()
+        self._executors.clear()
         if self.is_driver:
             try:
                 self.coordinator.broadcast_command({"kind": "close"})
