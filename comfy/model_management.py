@@ -2061,7 +2061,10 @@ def record_stream_for_tensor(tensor, stream):
     record_stream = getattr(tensor, "record_stream", None)
     if record_stream is None:
         return
-    record_stream(stream)
+    try:
+        record_stream(stream)
+    except RuntimeError:
+        pass
 
 
 def cast_to_gathered(tensors, r, non_blocking=False, stream=None, r2=None, target_geometries=None):

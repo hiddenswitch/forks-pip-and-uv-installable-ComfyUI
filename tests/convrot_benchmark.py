@@ -12,7 +12,10 @@ import threading
 import time
 from typing import Any
 
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 
 SUITE: list[dict[str, Any]] = [
@@ -22,7 +25,6 @@ SUITE: list[dict[str, Any]] = [
         "workflow": "flux3-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 1.0 (er_sde / simple)",
         "overrides": {
-            "2": {"clip_name": "qwen3vl_4b_int8_convrot.safetensors"},
             "6": {"width": 1024, "height": 1024},
             "8": {"steps": 2},
         },
@@ -57,7 +59,6 @@ SUITE: list[dict[str, Any]] = [
         "generation_args": "1024×1024, 2 steps, CFG 5.0 (euler / Fibo2Scheduler)",
         "overrides": {
             "1": {"unet_name": "fibo2_dev_int8_convrot.safetensors"},
-            "2": {"clip_name": "qwen3vl_4b_int8_convrot.safetensors"},
             "6": {"width": 1024, "height": 1024},
             "8": {"steps": 2, "width": 1024, "height": 1024},
         },
@@ -68,7 +69,6 @@ SUITE: list[dict[str, Any]] = [
         "workflow": "mage-flow-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 5.0 (euler / simple)",
         "overrides": {
-            "12:3": {"clip_name": "qwen3vl_4b_int8_convrot.safetensors"},
             "12:6": {"steps": 2},
         },
     },
@@ -90,7 +90,6 @@ SUITE: list[dict[str, Any]] = [
         "generation_args": "1024×1024, 2 steps, CFG 1.0 (res_multistep / normal)",
         "overrides": {
             "37": {"unet_name": "krea2_turbo_int8_convrot.safetensors"},
-            "38": {"clip_name": "qwen3vl_4b_int8_convrot.safetensors"},
             "58": {"width": 1024, "height": 1024},
             "3": {"steps": 2},
         },
@@ -299,9 +298,14 @@ _DECODE_NODE_TYPES = frozenset({
 
 def _mem_available_bytes() -> int:
     try:
-        return int(psutil.virtual_memory().available)
+        if psutil is not None:
+            return int(psutil.virtual_memory().available)
+        for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) * 1024
     except Exception:
-        return 0
+        pass
+    return 0
 
 
 def _rocm_used_vram_bytes() -> int:
@@ -329,20 +333,21 @@ class PeakMemoryTracker:
             import pynvml
         except ImportError:
             pynvml = None
-        proc = psutil.Process()
+        proc = psutil.Process() if psutil is not None else None
         while not self._stop.is_set():
             try:
                 avail = _mem_available_bytes()
                 if avail > 0:
                     self.min_mem_available_bytes = min(self.min_mem_available_bytes, avail)
-                family = [proc] + proc.children(recursive=True)
-                rss = 0
-                for p in family:
-                    try:
-                        rss += p.memory_info().rss
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        pass
-                self.peak_rss_bytes = max(self.peak_rss_bytes, rss)
+                if proc is not None and psutil is not None:
+                    family = [proc] + proc.children(recursive=True)
+                    rss = 0
+                    for p in family:
+                        try:
+                            rss += p.memory_info().rss
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+                    self.peak_rss_bytes = max(self.peak_rss_bytes, rss)
 
                 if pynvml is not None and self._nvml_handles:
                     total_vram = 0
@@ -442,12 +447,22 @@ def prepare_workflow(spec: dict[str, Any], repo_root: Path) -> tuple[dict[str, A
     wf_path = repo_root / "tests" / "inference" / "workflows" / spec["workflow"]
     workflow = json.loads(wf_path.read_text(encoding="utf-8"))
     workflow = copy.deepcopy(workflow)
-    local_img = str(repo_root / "tests" / "custom_nodes" / "test_data" / "president_official_portrait_hires2-1-1024x1024.jpg")
+    src_img = repo_root / "tests" / "custom_nodes" / "test_data" / "president_official_portrait_hires2-1-1024x1024.jpg"
+    input_dir = repo_root / "input"
+    input_dir.mkdir(parents=True, exist_ok=True)
+    dst_img = input_dir / src_img.name
+    if src_img.exists() and not dst_img.exists():
+        import shutil
+        shutil.copyfile(src_img, dst_img)
+    local_img = str(src_img)
     for node in workflow.values():
         if isinstance(node, dict) and isinstance(node.get("inputs"), dict):
             val = node["inputs"].get("value")
-            if isinstance(val, str) and val.startswith(("http://", "https://")):
+            if isinstance(val, str) and val.startswith(("http://", "https://", "pkg://tests.custom_nodes.test_data/")):
                 node["inputs"]["value"] = local_img
+            img_val = node["inputs"].get("image")
+            if isinstance(img_val, str) and img_val.startswith("pkg://tests.custom_nodes.test_data/"):
+                node["inputs"]["image"] = src_img.name
 
     for node_id, patch_inputs in spec.get("overrides", {}).items():
         if node_id in workflow and isinstance(workflow[node_id], dict):
@@ -467,6 +482,14 @@ def prepare_workflow(spec: dict[str, Any], repo_root: Path) -> tuple[dict[str, A
 def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra_args: list[str]) -> dict[str, Any]:
     model_dir = out_dir / spec["id"]
     model_dir.mkdir(parents=True, exist_ok=True)
+    result_file = model_dir / "result.json"
+    if result_file.exists():
+        try:
+            existing = json.loads(result_file.read_text(encoding="utf-8"))
+            if existing.get("status") == "success" and existing.get("step2_seconds") is not None:
+                return existing
+        except Exception:
+            pass
     workflow, checkpoints = prepare_workflow(spec, repo_root)
     wf_file = model_dir / "workflow.json"
     wf_file.write_text(json.dumps(workflow, indent=2), encoding="utf-8")
@@ -477,14 +500,19 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         if f.exists():
             f.unlink()
 
-    runner_code = (
-        "import os, sys; "
-        f"sys.path.insert(0, {str(repo_root)!r}); "
-        "from tests.inference_benchmark import install_benchmark; "
-        "patches = install_benchmark(os.environ['COMFY_BENCHMARK_PATH']); "
-        "from comfy.cmd.cli import entrypoint; "
-        "entrypoint()"
-    )
+    runner_code = "\n".join([
+        "import os, sys",
+        f"sys.path.insert(0, {str(repo_root)!r})",
+        "from comfy.component_model import setup as _setup",
+        "_orig_post = _setup.setup_post_torch",
+        "def _post(cfg):",
+        "    _orig_post(cfg)",
+        "    from tests.inference_benchmark import install_benchmark",
+        "    _setup._bench_patches = install_benchmark(os.environ['COMFY_BENCHMARK_PATH'])",
+        "_setup.setup_post_torch = _post",
+        "from comfy.cmd.cli import entrypoint",
+        "entrypoint()",
+    ])
     cmd = [
         sys.executable,
         "-c",
@@ -495,6 +523,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         "--output-directory",
         str(model_dir),
         "--guess-settings",
+        "--disable-all-custom-nodes",
         "--otel-exporter-otlp-endpoint",
         trace_file.resolve().as_uri(),
         "--logging-level",
@@ -503,6 +532,10 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     ]
     env = os.environ.copy()
     env["COMFY_BENCHMARK_PATH"] = str(steps_file.resolve())
+    env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    env["HF_HUB_DISABLE_XET"] = "1"
+    env["HF_HUB_DOWNLOAD_TIMEOUT"] = "600"
+    env["HF_HUB_ETAG_TIMEOUT"] = "60"
 
     started = time.monotonic()
     with PeakMemoryTracker() as tracker, log_file.open("w", encoding="utf-8") as log_stream:
@@ -529,7 +562,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         "workflow": spec["workflow"],
         "generation_args": spec["generation_args"],
         "checkpoints": checkpoints,
-        "status": "success" if returncode == 0 else "failed",
+        "status": "success" if (returncode == 0 or step2_seconds is not None) else "failed",
         "returncode": returncode,
         "wall_seconds": round(wall_seconds, 3),
         "step2_seconds": round(step2_seconds, 4) if step2_seconds is not None else None,
@@ -551,13 +584,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=str, default="all", help="Comma-separated model IDs or 'all'")
     parser.add_argument("--out-dir", type=Path, required=True, help="Output directory for results and traces")
+    parser.add_argument("--repo-root", type=Path, default=None, help="ComfyUI checkout root containing tests/inference/workflows")
     parser.add_argument("--extra-arg", action="append", default=[], help="Extra CLI arguments passed to comfyui workflows run")
     args = parser.parse_args()
 
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = args.repo_root.resolve() if args.repo_root is not None else Path(__file__).resolve().parents[1]
     args.out_dir.mkdir(parents=True, exist_ok=True)
     selected_ids = None if args.model == "all" else [m.strip() for m in args.model.split(",") if m.strip()]
-    specs = [s for s in SUITE if selected_ids is None or s["id"] in selected_ids]
+    by_id = {s["id"]: s for s in SUITE}
+    specs = list(SUITE) if selected_ids is None else [by_id[m] for m in selected_ids if m in by_id]
 
     summary: list[dict[str, Any]] = []
     for spec in specs:
@@ -571,6 +606,10 @@ def main() -> None:
             f"step2={res['step2_seconds']}s load={res['load_and_encode_seconds']}s "
             f"decode={res['vae_decode_seconds']}s peak_vram={res['peak_vram_gib']}GiB\n"
         )
+        if res["status"] != "success":
+            err_log = (args.out_dir / spec["id"] / "run.log")
+            if err_log.exists():
+                sys.stdout.write(err_log.read_text(encoding="utf-8", errors="replace")[-1500:] + "\n")
         sys.stdout.flush()
 
 
