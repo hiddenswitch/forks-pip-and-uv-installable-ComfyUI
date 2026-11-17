@@ -69,9 +69,10 @@ def _setup_worker_process(configuration: Configuration) -> None:
     if _worker_process_setup_done or multiprocessing.parent_process() is None:
         return
     _worker_process_setup_done = True
-    from ..component_model.setup import setup_post_torch
+    from ..component_model.setup import prepare_distributed_environment, setup_post_torch
     from ..execution_context import context_configuration
     with context_configuration(configuration):
+        prepare_distributed_environment(configuration)
         setup_post_torch(configuration)
 
 

@@ -246,7 +246,20 @@ def _guess_tensor_parallel_size(configuration: Configuration) -> None:
     if any(f"COMFYUI_{name.upper()}" in os.environ for name in _MODEL_PARALLEL_SETTINGS):
         return
     distributed = resolve_distributed_configuration(configuration)
+    names = _nvidia_gpu_names()
+    selected = [names[index] for index in _selected_gpu_indexes(configuration, len(names), os.environ)]
     if distributed.externally_launched or distributed.world_size > 1:
+        if (
+            distributed.world_size >= 2
+            and (distributed.world_size & (distributed.world_size - 1)) == 0
+            and selected
+            and all("GB10" in name for name in selected)
+        ):
+            logger.info(
+                f"External launch across {distributed.world_size} NVIDIA GB10 ranks detected, enabling tensor parallelism across {distributed.world_size}"
+            )
+            configuration.tensor_parallel_size = distributed.world_size
+            configuration.pipeline_parallel_size = 1
         return
     if max(
         distributed.tensor_parallel_size,
@@ -254,8 +267,6 @@ def _guess_tensor_parallel_size(configuration: Configuration) -> None:
         distributed.ulysses_degree * distributed.ring_degree,
     ) > 1:
         return
-    names = _nvidia_gpu_names()
-    selected = [names[index] for index in _selected_gpu_indexes(configuration, len(names), os.environ)]
     size = default_tensor_parallel_size(selected)
     if size > 1:
         logger.info(f"{len(selected)} identical NVIDIA GPUs detected ({selected[0]}), enabling tensor parallelism across {size}")

@@ -459,8 +459,9 @@ def _application_runtime(config: Configuration):
         setup_pre_torch,
     )
 
-    distributed = prepare_distributed_environment(config)
+    prepare_distributed_environment(config)
     setup_pre_torch(config)
+    distributed = prepare_distributed_environment(config)
     setup_distributed_device(distributed)
     _set_config_context(config)
     runtime = setup_distributed_runtime(distributed)

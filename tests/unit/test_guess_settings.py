@@ -463,6 +463,11 @@ class TestGuessSettingsTensorParallel:
         cfg = self._apply(_config(), ["NVIDIA RTX A5000"] * 2, {"RANK": "0", "WORLD_SIZE": "2"})
         assert cfg.tensor_parallel_size is None
 
+    def test_external_launcher_on_gb10_defaults_to_tensor_parallel(self):
+        cfg = self._apply(_config(), ["NVIDIA GB10"], {"RANK": "0", "WORLD_SIZE": "2", "LOCAL_RANK": "0", "LOCAL_WORLD_SIZE": "1"})
+        assert cfg.tensor_parallel_size == 2
+        assert cfg.pipeline_parallel_size == 1
+
     def test_cuda_device_selection_limits_the_group(self):
         cfg = self._apply(_config(cuda_device="0"), ["NVIDIA RTX A5000"] * 2)
         assert cfg.tensor_parallel_size is None

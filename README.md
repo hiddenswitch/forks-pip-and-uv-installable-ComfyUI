@@ -27,7 +27,28 @@ Take ComfyUI from a creative workspace to an application, a command-line job, or
 - **Scale throughput independently.** RabbitMQ workers execute queued jobs behind a separate frontend; shared storage keeps inputs and outputs accessible across hosts.
 - **Connect existing infrastructure.** Discover local models, resolve supported model URLs, use object-storage integrations, and deploy packaged NVIDIA or AMD containers.
 
-You also get upstream ComfyUI capabilities such as native text generation, DynamicVRAM, and HDR/high-bit-depth media nodes. These are part of the product, not exclusive fork features. See the [workflow guide](docs/workflows.md) and [performance guide](docs/distributed.md) for practical limits.
+You also get upstream ComfyUI capabilities such as native text generation, DynamicVRAM, and HDR/high-bit-depth media nodes. These are part of the product, not exclusive fork features. See the [supported models and benchmarks guide](docs/models.md), [workflow guide](docs/workflows.md), and [performance guide](docs/distributed.md) for practical limits.
+
+## Supported Models (`This Fork` vs. `Upstream`)
+
+The table below highlights models and execution modes supported in **This Fork** compared with **Upstream**, along with peak VRAM / unified-memory requirements (`Resident` / `DynamicVRAM offloaded floor`) and measured `2× GB10` (`TP=2`) sampling speed (`s/it`) for models whose full unoffloaded pipeline exceeds 128 GiB. For the full 113-model catalog and trace-separated `INT8 ConvRot` benchmarks across `8G` (RX 7600), `12G` (RTX 3060), `24G` (RTX 3090), `2×24G` (2× RTX A5000), `1× GB10`, `2× GB10`, and `M3 Ultra`, see [Supported Models and Hardware Benchmarks](docs/models.md).
+
+| Model / Family | Generation Args | This Fork | Upstream |
+| --- | --- | --- | --- |
+| **MAGI-2 Preview (35.9B MoE)**<br>`magi2_preview_int8_convrot` + `qwen3.5_27b_int8_convrot` + `magi2_turbo_vae` + `stable-audio-open-1.0` | `896×512`, 25 frames (`2.0 s` @ 12.5 fps) + stereo audio (`11,472` tokens) | **Yes** (`TP=2/4`, `PP≥2`, fused Triton `flash_mh_moe`)<br>• Full `BF16` pipeline: **~136 GiB** (`INT8 ConvRot` `TP=2`: **33.3 GiB** R0 / **48.1 GiB** R1)<br>• **`2× GB10` (`TP=2`)**: **`36.5 s/it` avg (`28.0–31.0 s/it` steady-state)** | **No** |
+| **MAGI-2 Preview + Refiner (35.9B MoE + 6.9B)**<br>`magi2_preview_int8_convrot` + `magi2_refiner_int8_convrot` | `896×512` $\rightarrow$ `1920×1088`, 25 frames (`2.0 s` @ 12.5 fps) + stereo audio | **Yes** (`TP=2/4/8`, `PP≥2`, fused Triton `flash_mh_moe`)<br>• Full `BF16` pipeline: **~154 GiB** (`INT8 ConvRot` `TP=2`: **~42 GiB / rank**)<br>• **`2× GB10` (`TP=2`)**: **`36.5 s/it` preview + `~9.4 s/it` refiner** | **No** |
+| **HunyuanImage 3.0 Instruct (80B MoE)**<br>`hunyuan_image_3_instruct_w4a8` | `1024×1024`, 20 steps | **Yes** (`TP` + Expert Parallelism, `PP≥2`, `W4A8` streaming)<br>• Full `BF16` pipeline: **~164 GiB** (`2× GB10`: **`~6.8 s/it`**; `W4A8` `TP=2`: **~22 GiB/GPU**) | **No** |
+| **Kandinsky 6 Pro**<br>`Kandinsky-6.0-Pro-5s` | `832×480`, 121 frames (`5.0 s`) | **Yes** (Native `TP=2/4` + `MagCache` transport, **~66 GiB** total / **~34 GiB/GPU** at `TP=2`) | **No** |
+| **PAN 2 (27B AR Chunked World Model)**<br>`pan2_int8_convrot` + `qwen3.5_9b_int8_convrot` | `832×480`, 21 frames (5 latent frames), CFG 5.0 | **Yes** (Single-GPU + **`TP=2/4`** + **`PP≥2`**)<br>• Peak VRAM: **~36.5 GiB** `INT8 ConvRot` (**~19.2 GiB/GPU** at `TP=2`; **12 GiB** offloaded) | **Single-GPU only** |
+| **MiniMax H3 Video+Audio (`FL2VA` / `Ref2VA`)**<br>`minimax_h3_fl2va_pruned_int8_convrot` + `qwen3vl_32b_minimax_h3_int8_convrot` | `1280×704`, 124 frames (`24 fps`) + stereo audio | **Yes** (Single-GPU + **`TP=2/4`** + **`PP≥2`** + **`Ulysses/Ring`**)<br>• Full `BF16` pipeline: **~132 GiB** (`2× GB10` `TP=2`: **`~19.5 s/it`**; `INT8 ConvRot` `TP=2`: **~22.8 GiB/GPU**; **12 GiB** offloaded) | **Single-GPU only** |
+| **MiniMax H3 Image**<br>`minimax_h3_image_pruned_int8_convrot` | `1024×1024`, 6 steps | **Yes** (Single-GPU + **`TP=2/4`** + **`PP≥2`**, **~53 GiB** resident / **~21.5 GiB/GPU** at `TP=2` / **12 GiB** offloaded) | **Single-GPU only** |
+| **Flux.2 Dev (32B)**<br>`flux2-dev-int8-convrot-simple` | `1024×1024`, 20 steps (`Flux2Scheduler`) | **Yes** (Single-GPU + **`TP=2/4`** + **`PP≥2`** + **`Ulysses/Ring`**, **~46 GiB** `INT8 ConvRot` / **~21.4 GiB/GPU** at `TP=2` / **12 GiB** offloaded) | **Single-GPU only** |
+| **Ideogram 4**<br>`ideogram4_int8_convrot` (cond + uncond) | `1024×1024`, 20 steps (`Ideogram4Scheduler`) | **Yes** (Single-GPU + **`TP=2/4`**, **~28.5 GiB** resident / **16.4 GiB/GPU** at `TP=2`, **`3.16 s/it`** on `2× A5000`; **8–12 GiB** offloaded) | **Single-GPU only** |
+| **Krea 2 Turbo**<br>`krea2_turbo_int8_convrot` | `1024×1024`, 4–8 steps | **Yes** (Single-GPU + **`TP=2/4`**, **~18.2 GiB** resident / **9.2 GiB/GPU** at `TP=2`, **`0.738 s/it`** on `2× A5000`; **8 GiB** offloaded) | **Single-GPU only** |
+| **Qwen-Image / Layered / 2.1**<br>`qwen_image_2.1_int8_convrot` / `qwen-image-Q4_K_M.gguf` | `1024×1024` / `1328×1328` | **Yes** (Single-GPU + **`PP≥2`** + **`Ulysses/Ring`** + **Native `GGUF`**, **~25.4 GiB** `INT8 ConvRot` / **8–12 GiB** offloaded) | **Single-GPU safetensors only** |
+| **Native `SVDQuant W4A4` & `AWQ W4A16`** | `1024×1024` (`Flux.1`, `Qwen-Image`) | **Yes** (`comfy_kitchen` Nunchaku 4-bit + low-rank SVD, **6.5–11.8 GiB** VRAM) | **No** |
+| **Native `TransformersLoader` LLMs/VLMs & SVG (`StarVector`/`VTracer`, `TextDiffuser`)** | Text / VLM / Raster $\leftrightarrow$ SVG | **Yes** (`Phi-4`, `Qwen2-VL`, `LLaVA`, `Florence-2`, `PaliGemma`, `Pixtral-12B`, **1.5–28 GiB** VRAM) | **No** |
+| **All Upstream Diffusion, Video, Audio, 3D & Vision Models** (`Flux.1`, `Flux.3 Klein`, `Fibo 2.0`, `MOSS-Image`, `Mage-Flow`, `Ming-Image`, `Z-Image`, `JoyImage`, `Boogu`, `Ernie-Image`, `Chroma`, `HiDream`, `SenseNova U1.5`, `HunyuanImage 2.1`, `LTX-2/2.5`, `Wan 2.1/2.2`, `HunyuanVideo 1.5`, `Cosmos 1/2`, `Mochi`, `SeedVR2`, `YuE2`, `MiniMax Music 3`, `ACE-Step`, `Stable Audio`, `TRELLIS.2`, `Hunyuan3D`, `TripoSplat`, `SAM 3.1`, `DepthAnything 3`, `MoGe 3`, `Marigold V2`) | Image (`1024×1024`), Video (`480p`–`720p`), Audio (`30–47 s`), 3D | **Yes** (with native `INT8 ConvRot`, `--guess-settings`, and `DynamicVRAM`; **2.2–36 GiB** resident / **4–12 GiB** offloaded — see [full table](docs/models.md)) | **Yes** |
 
 ## Install
 
@@ -91,6 +112,7 @@ Full documentation is available in [docs/index.md](docs/index.md).
 
 ### Core
 - [Installation & Getting Started](docs/installing.md)
+- [Supported Models & Hardware Benchmarks](docs/models.md)
 - [Hardware Compatibility](docs/compatibility.md)
 - [Configuration](docs/configuration.md)
 - [Troubleshooting](docs/troubleshooting.md)
