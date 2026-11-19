@@ -1506,7 +1506,9 @@ class VAE:
                         model_management.load_models_gpu([self.patcher], memory_required=tile_memory, force_full_load=self.disable_offload)
                         pixel_samples = self._decode_tiled_owned(samples_in, tile_x=tile, tile_y=tile, overlap=overlap)
                     else:
-                        pixel_samples = self.decode_tiled_(samples_in)
+                        # Size tiles in output pixels for higher-compression VAEs.
+                        tile = min(64, max(2, 512 // self.spacial_compression_decode()))
+                        pixel_samples = self.decode_tiled_(samples_in, tile_x=tile, tile_y=tile, overlap=tile // 4)
                 elif dims == 3:
                     tile = 256 // self.spacial_compression_decode()
                     # A VAE that can size its own tiles raises the 256-pixel floor.
