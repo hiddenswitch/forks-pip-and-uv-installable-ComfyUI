@@ -250,6 +250,7 @@ SUITE: list[dict[str, Any]] = [
     },
     {
         "id": "yue2",
+        "expected_audio_rate": 48000,
         "label": "YuE2 3B Music",
         "workflow": "yue2-int8-convrot-0.json",
         "generation_args": "Up to 30 s stereo audio, 2 steps, CFG 1.0 (euler / simple)",
@@ -260,6 +261,7 @@ SUITE: list[dict[str, Any]] = [
     },
     {
         "id": "minimax_music3",
+        "expected_audio_rate": 44100,
         "label": "MiniMax Music 3",
         "workflow": "minimax-music3-0.json",
         "generation_args": "Up to 30 s stereo audio, 2 steps, basic guider (res_multistep / simple)",
@@ -608,6 +610,26 @@ def _video_output_error(output: Path, expected: tuple[int, int, int, float], aud
     return None
 
 
+def _music_output_error(output, rate, max_seconds):
+    import av
+
+    try:
+        with av.open(str(output)) as music:
+            if len(music.streams) != 1 or len(music.streams.audio) != 1:
+                return "Expected one music track"
+            track = music.streams.audio[0]
+            if track.rate != rate or track.layout.name != "stereo":
+                return f"Expected {rate} Hz stereo audio, got {track.rate} Hz {track.layout.name}"
+            samples = sum(frame.samples for frame in music.decode(track))
+            if not 0 < samples <= round(rate * max_seconds):
+                return f"Decoded {samples / rate:.3f} seconds of music with a {max_seconds} second cap"
+            if track.duration is not None and samples != round(track.duration * track.time_base * rate):
+                return "Decoded music length differs from the audio stream duration"
+    except (OSError, ValueError, av.error.FFmpegError) as error:
+        return f"Could not decode benchmark music: {error}"
+    return None
+
+
 def _animation_output_error(output, latent_inputs, fps):
     from PIL import Image
 
@@ -663,6 +685,11 @@ def _output_error(spec, workflow, directory, names):
         if len(names) != 1:
             return "Expected one video with audio"
         return _video_output_error(directory / names[0], spec["expected_video"], spec["expected_audio_rate"])
+    if "expected_audio_rate" in spec:
+        if len(names) != 1:
+            return "Expected one music file"
+        max_seconds = next(node["inputs"]["max_duration"] for node in workflow.values() if "max_duration" in node["inputs"])
+        return _music_output_error(directory / names[0], spec["expected_audio_rate"], max_seconds)
     if spec["id"] == "seedvr2_3b":
         for name in names:
             if error := _seedvr_restoration_error(workflow, directory / name):
