@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from ... import ops
+from ... import managed_memory, ops
 
 ops = ops.disable_weight_init
 
@@ -131,6 +131,11 @@ class Decoder(nn.Module):
 
 
 class TurboVAEDecoder(nn.Module):
+    @property
+    def comfy_decode_estimate_is_reliable(self):
+        # Managed allocations can exhaust host RAM before the GPU reports OOM.
+        return managed_memory.is_active()
+
     def __init__(self, latent_channels=48, out_channels=3, block_out_channels=(64, 128, 256, 512), layers_per_block=(2, 2, 2, 3, 3),
                  upsample=(False, True, True, True), spatial_only=(False, True, False, False), patch_size=2, first_chunk_size=7, step_size=7,
                  temporal_compression=4, dtype=None, device=None, operations=ops):
