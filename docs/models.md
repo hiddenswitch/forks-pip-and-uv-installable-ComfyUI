@@ -69,6 +69,8 @@ These model families are available in both versions. Memory estimates vary with 
 
 Each stage runs two steps. Cells show **seconds for step 2 · peak GiB** and link to the output. GB10 memory is estimated per host. For the two-GB10 MiniMax H3 Image and MAGI-2 Preview runs, the second GPU also hosted an inference server. A dash means no verified result.
 
+Per-run settings, attention backends, and time spent loading, sampling, and decoding are in the [timings CSV](convrot-benchmark-timings.csv). Sampling includes first-step weight transfers.
+
 The 2× GB10 column covers models that can split inference across both GPUs. These are Flux.2 Dev, Ideogram 4, Krea 2, MiniMax H3, PAN 2, MAGI-2, and Qwen-Image Layered. Layered uses pipeline parallelism (PP). The other measured runs use tensor parallelism.
 
 ### Images
@@ -118,6 +120,8 @@ SeedVR2 restored the 512×512 portrait on the RX 7600 with a CPU VAE and local N
 
 The RTX cards used local NVMe for the 1024×1024 JoyAI and Marigold runs, PAN 2 on the 3060, and MiniMax H3 Video+Audio on both cards.
 
+MiniMax Music 3 on the RX 7600 used local NVMe and staged host transfers.
+
 The RTX 3060 MAGI-2 Preview run used local NVMe with DynamicVRAM and pinned memory disabled. Both RTX cards hit a CUDA error with DynamicVRAM enabled. The RX 7600 run exhausted host RAM.
 
 All four PAN 2 clips show the same dark red scene. The two-step Wan clips are blurry on all three devices. Both two-step MAGI-2 Preview clips are dark, and the café scene is indistinct. SandAI’s preview recipe uses 100 steps. [MAGI-2 settings](prompting_guides/sandai_magi2_prompting.md)
@@ -137,8 +141,6 @@ All four PAN 2 clips show the same dark red scene. The two-step Wan clips are bl
 | YuE2 3B | 1 s audio, CFG 1, Euler / simple | 0.100 · 2.4 | 0.043 · 2.7 | 0.033 · 3.9 | 0.019 · 7.4 | — |
 
 </details>
-
-The [full timings](convrot-benchmark-timings.csv) include load and encode, both sampling steps, VAE decode, and attention calls during step 2. When attention falls back to another backend, both calls appear. Sampling includes first-step weight transfers.
 
 ```console
 python tests/convrot_benchmark.py --model all --out-dir ./benchmark-output
