@@ -15,10 +15,10 @@ Flux.3 Klein 4B,RX 7600,"1024×1024, CFG 1, er_sde / simple, CPU VAE",2,12345,--
 Flux.3 Klein 4B,RTX 3060,"1024×1024, CFG 1, er_sde / simple",2,12345,None (launch record),"Comfy Kitchen INT8, SageAttention",552.842,122.137,5.095,0.686,7.6,,benchmark-samples/flux3-rtx3060-1024x1024.webp
 Flux.3 Klein 4B,RTX 3090,"1024×1024, CFG 1, er_sde / simple",2,12345,None (launch record),"Comfy Kitchen INT8, SageAttention",824.921,702.211,23.637,0.340,6.2,,benchmark-samples/flux3-rtx3090-1024x1024.webp
 Flux.3 Klein 4B,1× GB10,"1024×1024, CFG 1, er_sde / simple",2,12345,None (launch record),"Comfy Kitchen INT8, PyTorch SDPA",140.280,2.923,0.751,0.665,17.8,,benchmark-samples/flux3-1xgb10-1024x1024.webp
-Ideogram 4,RTX 3060,"1024×1024, CFG 7, res_multistep / Ideogram4",2,12345,None,SageAttention,194.161,464.822,11.227,4.291,10.7,,benchmark-samples/ideogram4-rtx3060-1024x1024.webp
-Ideogram 4,RTX 3090,"1024×1024, CFG 7, res_multistep / Ideogram4",2,12345,None,SageAttention,157.749,420.522,4.873,1.838,11.0,,benchmark-samples/ideogram4-rtx3090-1024x1024.webp
-Ideogram 4,1× GB10,"1024×1024, CFG 7, res_multistep / Ideogram4",2,12345,--unified-memory-allocator,PyTorch SDPA,43.406,8.313,0.984,3.400,34.4,,benchmark-samples/ideogram4-1xgb10-1024x1024.webp
-Ideogram 4,2× GB10,"1024×1024, CFG 7, res_multistep / Ideogram4",2,12345,--tensor-parallel-size=2 --pipeline-parallel-size=1,PyTorch SDPA,36.755,10.330,0.774,2.920,29.0,16.4,benchmark-samples/ideogram4-2xgb10-1024x1024.webp
+Ideogram 4,RTX 3060,"1024×1024, CFG 7, res_multistep / Ideogram4 Turbo, μ 0.5, std 1.75",2,12345,None,SageAttention,194.161,464.822,11.227,4.291,10.7,,benchmark-samples/ideogram4-rtx3060-1024x1024.webp
+Ideogram 4,RTX 3090,"1024×1024, CFG 7, res_multistep / Ideogram4 Turbo, μ 0.5, std 1.75",2,12345,None,SageAttention,157.749,420.522,4.873,1.838,11.0,,benchmark-samples/ideogram4-rtx3090-1024x1024.webp
+Ideogram 4,1× GB10,"1024×1024, CFG 7, res_multistep / Ideogram4 Turbo, μ 0.5, std 1.75",2,12345,--unified-memory-allocator,PyTorch SDPA,43.406,8.313,0.984,3.400,34.4,,benchmark-samples/ideogram4-1xgb10-1024x1024.webp
+Ideogram 4,2× GB10,"1024×1024, CFG 7, res_multistep / Ideogram4 Turbo, μ 0.5, std 1.75",2,12345,--tensor-parallel-size=2 --pipeline-parallel-size=1,PyTorch SDPA,36.755,10.330,0.774,2.920,29.0,16.4,benchmark-samples/ideogram4-2xgb10-1024x1024.webp
 JoyAI Image Edit,RTX 3060,"1024×1024, CFG 4, Euler / simple, local NVMe",2,42,--fast-disk,SageAttention,11.993,23.792,0.456,9.287,11.8,,benchmark-samples/joyimage-rtx3060-1024x1024.webp
 JoyAI Image Edit,RTX 3090,"1024×1024, CFG 4, Euler / simple, local NVMe",2,42,--fast-disk,SageAttention,8.409,9.632,0.210,3.317,17.4,,benchmark-samples/joyimage-rtx3090-1024x1024.webp
 JoyAI Image Edit,1× GB10,"1024×1024, CFG 4, Euler / simple",2,42,--unified-memory-allocator,PyTorch SDPA,44.733,19.353,1.345,9.225,34.5,,benchmark-samples/joyimage-1xgb10-1024x1024.webp
