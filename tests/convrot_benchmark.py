@@ -522,6 +522,32 @@ def _media_files(directory: Path) -> dict[str, tuple[int, int]]:
     return media
 
 
+def _seedvr_restoration_error(workflow: dict, output: Path) -> str | None:
+    import numpy as np
+    from PIL import Image
+
+    resize = workflow["2"]["inputs"]
+    scale = workflow.get("upscale", {}).get("inputs", {}).get("scale_by", 1)
+    expected = (round(resize["width"] * scale), round(resize["height"] * scale))
+    try:
+        with Image.open(workflow["1"]["inputs"]["value"]) as source, Image.open(output) as restored:
+            if restored.size != expected:
+                return f"Expected a {expected[0]}×{expected[1]} restoration, got {restored.width}×{restored.height}"
+            reference, actual = (
+                np.asarray(im.convert("RGB").resize((64, 64), Image.Resampling.BOX), dtype=np.float32)
+                for im in (source, restored)
+            )
+    except OSError as error:
+        return f"Could not read the SeedVR2 reference or output: {error}"
+
+    # At thumbnail scale a successful restoration preserves the source portrait.
+    # A solid fill using the source's mean color is the baseline for this check.
+    baseline = np.square(reference - reference.mean(axis=(0, 1))).mean()
+    if np.square(actual - reference).mean() >= baseline:
+        return "Restored portrait differs from the reference as much as a solid fill or more"
+    return None
+
+
 def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra_args: list[str]) -> dict[str, Any]:
     model_dir = out_dir / spec["id"]
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -548,7 +574,10 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
                 and existing.get("extra_args") == extra_args
                 and json.loads(wf_file.read_text(encoding="utf-8")) == workflow
             ):
-                return existing
+                if spec["id"] != "seedvr2_3b" or all(
+                    _seedvr_restoration_error(workflow, model_dir / name) is None for name in outputs
+                ):
+                    return existing
         except (OSError, json.JSONDecodeError):
             pass
     result_file.unlink(missing_ok=True)
@@ -618,6 +647,13 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         name for name, state in _media_files(model_dir).items() if previous_media.get(name) != state
     )
     success = returncode == 0 and not missing_sampler_ids and (is_worker or bool(output_files))
+    output_error = None
+    if success and not is_worker and spec["id"] == "seedvr2_3b":
+        for name in output_files:
+            output_error = _seedvr_restoration_error(workflow, model_dir / name)
+            if output_error:
+                success = False
+                break
     unified_delta_gib = max(0.0, (tracker.start_mem_available_bytes - tracker.min_mem_available_bytes) / (1024 ** 3))
     peak_vram_gib = tracker.peak_vram_bytes / (1024 ** 3) if tracker.peak_vram_bytes > 0 else unified_delta_gib
 
@@ -630,6 +666,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         "extra_args": extra_args,
         "status": "success" if success else "failed",
         "output_files": output_files,
+        "output_error": output_error,
         "returncode": returncode,
         "missing_sampler_ids": missing_sampler_ids,
         "wall_seconds": round(wall_seconds, 3),

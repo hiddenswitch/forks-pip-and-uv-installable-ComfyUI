@@ -132,3 +132,24 @@ def test_convrot_resume_requires_output_from_the_recorded_run(tmp_path, monkeypa
     (directory / "images/current.png").unlink()
     assert run()["status"] == "failed"
     assert len(calls) == 3
+
+
+def test_seedvr_restoration_rejects_flat_and_wrong_size_images(tmp_path):
+    from PIL import Image
+    from tests.convrot_benchmark import _seedvr_restoration_error
+
+    source = tmp_path / "source.png"
+    output = tmp_path / "restored.png"
+    image = Image.new("RGB", (64, 64), (30, 40, 50))
+    image.paste((225, 210, 180), (32, 0, 64, 64))
+    image.save(source)
+    workflow = {
+        "1": {"inputs": {"value": str(source)}},
+        "2": {"inputs": {"width": 64, "height": 64}},
+        "upscale": {"inputs": {"scale_by": 4.0}},
+    }
+    image.resize((256, 256)).save(output)
+    assert _seedvr_restoration_error(workflow, output) is None
+    assert "Expected a 256×256" in _seedvr_restoration_error(workflow, source)
+    Image.new("RGB", (256, 256), (110, 98, 100)).save(output)
+    assert "solid fill" in _seedvr_restoration_error(workflow, output)
