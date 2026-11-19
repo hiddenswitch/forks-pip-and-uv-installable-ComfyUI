@@ -36,9 +36,9 @@ Mage-Flow,1× GB10,"1024×1024, CFG 5, Euler / simple",2,PyTorch SDPA,23.180,2.3
 Marigold V2 Depth,RTX 3060,"1024×1024, Euler, σ 0.5 → 0.25 → 0, local NVMe",2,"PyTorch SDPA, SageAttention",16.274,11.938,0.694,3.206,benchmark-samples/marigold-v2-depth-rtx3060-1024x1024.webp
 Marigold V2 Depth,RTX 3090,"1024×1024, Euler, σ 0.5 → 0.25 → 0, local NVMe",2,"PyTorch SDPA, SageAttention",17.948,4.653,0.221,0.693,benchmark-samples/marigold-v2-depth-rtx3090-1024x1024.webp
 Marigold V2 Depth,1× GB10,"1024×1024, Euler, σ 0.5 → 0.25 → 0",2,PyTorch SDPA,44.791,4.115,0.788,1.575,benchmark-samples/marigold-v2-depth-1xgb10-1024x1024.webp
-Marigold V2 Depth,RTX 3060,"512×512, Euler, manual sigmas",2,"PyTorch SDPA, SageAttention",265.393,85.610,0.519,1.446,benchmark-samples/marigold-v2-depth-rtx3060-512x512.webp
-Marigold V2 Depth,RTX 3090,"512×512, Euler, manual sigmas",2,"PyTorch SDPA, SageAttention",1901.337,159.278,2.507,0.228,benchmark-samples/marigold-v2-depth-rtx3090-512x512.webp
-Marigold V2 Depth,1× GB10,"512×512, Euler, manual sigmas",2,PyTorch SDPA,421.056,1.405,0.164,0.569,benchmark-samples/marigold-v2-depth-1xgb10-512x512.webp
+Marigold V2 Depth,RTX 3060,"512×512, Euler, σ 0.5 → 0.25 → 0",2,"PyTorch SDPA, SageAttention",265.393,85.610,0.519,1.446,benchmark-samples/marigold-v2-depth-rtx3060-512x512.webp
+Marigold V2 Depth,RTX 3090,"512×512, Euler, σ 0.5 → 0.25 → 0",2,"PyTorch SDPA, SageAttention",1901.337,159.278,2.507,0.228,benchmark-samples/marigold-v2-depth-rtx3090-512x512.webp
+Marigold V2 Depth,1× GB10,"512×512, Euler, σ 0.5 → 0.25 → 0",2,PyTorch SDPA,421.056,1.405,0.164,0.569,benchmark-samples/marigold-v2-depth-1xgb10-512x512.webp
 Ming-Image 0.1 Design,RTX 3060,"1024×1024, CFG 4, Euler / simple",2,"Comfy Kitchen INT8, SageAttention",453.610,144.339,3.478,1.050,benchmark-samples/ming-image-rtx3060-1024x1024.webp
 Ming-Image 0.1 Design,RTX 3090,"1024×1024, CFG 4, Euler / simple",2,"Comfy Kitchen INT8, SageAttention",1044.581,224.191,4.307,0.470,benchmark-samples/ming-image-rtx3090-1024x1024.webp
 Ming-Image 0.1 Design,1× GB10,"1024×1024, CFG 4, Euler / simple",2,"Comfy Kitchen INT8, PyTorch SDPA",427.961,3.497,1.229,1.086,benchmark-samples/ming-image-1xgb10-1024x1024.webp
