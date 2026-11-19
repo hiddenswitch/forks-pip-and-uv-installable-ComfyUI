@@ -1,5 +1,8 @@
+import ctypes
+import shutil
 import subprocess
 import sys
+import sysconfig
 import textwrap
 from types import SimpleNamespace
 
@@ -104,6 +107,82 @@ def test_install_changes_the_allocator_only_when_resolved_on(monkeypatch, fresh_
 
     assert managed_memory.install(None) is True
     assert installed == ["managed-allocator"]
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux") or shutil.which("cc") is None,
+                    reason="requires a Linux C toolchain")
+def test_allocator_free_preserves_a_pending_native_python_error(tmp_path, monkeypatch):
+    source = tmp_path / "pending_error.c"
+    source.write_text(textwrap.dedent("""
+        #include <Python.h>
+        typedef void (*free_fn)(void *, size_t, int, void *);
+
+        int free_with_pending_error(free_fn callback, void *pointer) {
+            PyErr_SetString(PyExc_ValueError, "original error");
+            callback(pointer, 4096, 0, NULL);
+            int preserved = PyErr_ExceptionMatches(PyExc_ValueError);
+            PyErr_Clear();
+            return preserved;
+        }
+    """))
+    filename = tmp_path / "pending_error.so"
+    subprocess.run(
+        ["cc", "-shared", "-fPIC", "-I", sysconfig.get_path("include"),
+         str(source), "-o", str(filename)],
+        check=True, capture_output=True,
+    )
+    native_probe = ctypes.PyDLL(str(filename)).free_with_pending_error
+    native_probe.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    native_probe.restype = ctypes.c_int
+    cache = managed_memory._BlockCache()
+    cache.sizes[123] = 4096
+    monkeypatch.setattr(managed_memory, "_driver", object())
+    monkeypatch.setattr(managed_memory, "_cache", cache)
+    bridge = managed_memory._load_callback_bridge()
+    free = ctypes.cast(bridge.managed_bridge_free, ctypes.c_void_p)
+    try:
+        assert native_probe(free, 123) == 1
+        assert cache.pending == [((0, 4096), 123)]
+    finally:
+        bridge.managed_bridge_stop()
+
+    assert native_probe(free, 123) == 1
+    assert cache.pending == [((0, 4096), 123)]
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux") or shutil.which("cc") is None,
+                    reason="requires a Linux C toolchain")
+def test_native_allocator_callbacks_survive_python_finalization():
+    script = textwrap.dedent("""
+        import ctypes
+        import gc
+        import os
+        import sys
+        import types
+
+        from comfy import managed_memory
+
+        bridge = managed_memory._load_callback_bridge()
+        alloc = managed_memory._ALLOC_FN(ctypes.cast(bridge.managed_bridge_alloc, ctypes.c_void_p).value)
+        free = managed_memory._FREE_FN(ctypes.cast(bridge.managed_bridge_free, ctypes.c_void_p).value)
+
+        class Allocation:
+            def __del__(self, alloc=alloc, free=free, write=os.write, is_finalizing=sys.is_finalizing):
+                assert is_finalizing()
+                assert alloc(4096, 0, None) is None
+                free(123, 4096, 0, None)
+                write(1, b"allocator callbacks survived\\n")
+
+        owner = types.ModuleType("shutdown_probe")
+        sys.modules[owner.__name__] = owner
+        owner.allocation = Allocation()
+        del managed_memory._c_alloc, managed_memory._c_free
+        gc.collect()
+    """)
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "allocator callbacks survived"
+    assert "Exception ignored" not in result.stderr
 
 
 def test_install_refuses_an_explicit_request_after_cuda_initialized(monkeypatch, fresh_allocator_state):

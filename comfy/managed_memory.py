@@ -8,10 +8,16 @@ installed before torch initializes CUDA, so detection talks to the driver API di
 """
 from __future__ import annotations
 
+import atexit
 import ctypes
 import logging
 import os
+from pathlib import Path
+import shlex
+import subprocess
 import sys
+import sysconfig
+import tempfile
 import threading
 from typing import Optional
 
@@ -235,13 +241,38 @@ _c_alloc = _ALLOC_FN(_managed_alloc)
 _c_free = _FREE_FN(_managed_free)
 
 
+def _load_callback_bridge():
+    source = Path(__file__).with_name("managed_memory_bridge.c")
+    compiler = shlex.split(os.environ.get("CC") or "cc")
+    with tempfile.TemporaryDirectory(prefix="comfy-managed-memory-") as directory:
+        library = Path(directory) / "bridge.so"
+        subprocess.run(
+            [*compiler, "-shared", "-fPIC", "-O2", "-I", sysconfig.get_path("include"),
+             str(source), "-o", str(library)],
+            capture_output=True, text=True, check=True,
+        )
+        # PyTorch stores raw pointers and can invoke them after Python drops the CDLL.
+        bridge = ctypes.CDLL(str(library), mode=os.RTLD_NODELETE)
+    bridge.managed_bridge_start.argtypes = [_ALLOC_FN, _FREE_FN]
+    bridge.managed_bridge_start.restype = None
+    bridge.managed_bridge_stop.argtypes = []
+    bridge.managed_bridge_stop.restype = None
+    bridge.managed_bridge_start(_c_alloc, _c_free)
+    # Retain the Python callbacks until atexit disables the native entry points.
+    atexit.register(bridge.managed_bridge_stop)
+    bridge.callbacks = (_c_alloc, _c_free)
+    return bridge
+
+
 def _build_allocator():
     import torch
 
+    bridge = _load_callback_bridge()
+
     class ManagedMemoryAllocator(torch.cuda.memory.CUDAPluggableAllocator):
         def __init__(self):  # pylint: disable=super-init-not-called
-            alloc = ctypes.cast(_c_alloc, ctypes.c_void_p).value
-            free = ctypes.cast(_c_free, ctypes.c_void_p).value
+            alloc = ctypes.cast(bridge.managed_bridge_alloc, ctypes.c_void_p).value
+            free = ctypes.cast(bridge.managed_bridge_free, ctypes.c_void_p).value
             self._allocator = torch._C._cuda_customAllocator(alloc, free)
 
     return ManagedMemoryAllocator()
@@ -284,10 +315,18 @@ def install(configured: Optional[bool]) -> bool:
         if _resolved:
             if _load_driver() is None:
                 raise RuntimeError("--unified-memory-allocator requires the NVIDIA driver library libcuda.so.1")
-            _allocator = _build_allocator()
-            torch.cuda.memory.change_current_allocator(_allocator)
-            _use_stock_nccl_backend()
-            _active = True
+            try:
+                _allocator = _build_allocator()
+            except (OSError, subprocess.CalledProcessError) as error:
+                detail = getattr(error, "stderr", None) or str(error)
+                if configured:
+                    raise RuntimeError(f"Could not build the managed CUDA allocator bridge: {detail}") from error
+                logger.warning("Managed CUDA allocator unavailable: %s", detail)
+                _resolved = False
+            else:
+                torch.cuda.memory.change_current_allocator(_allocator)
+                _use_stock_nccl_backend()
+                _active = True
         logger.info("Unified memory allocator: %s (%s)", "managed memory" if _active else "off",
                     "auto" if configured is None else "configured")
         return _active
