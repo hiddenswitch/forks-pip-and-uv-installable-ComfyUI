@@ -10,7 +10,7 @@ Throughput uses the second step. Sampling time includes both steps per stage.
 | MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 0.0016 | 0.0041 | 0.0019 | 0.0012 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 0.0008 | 0.0011 | 0.0015 | 0.0004 |
 | MiniMax H3 Image | 0.0881 | 0.7332 | 3.0191 | 2.1201 | 1.2980 |
-| Fibo 2.0 Dev | — | 0.3847 | 0.7410 | 0.3754 | — |
+| Fibo 2.0 Dev | — | 0.3848 | 0.7410 | 0.3754 | — |
 | MOSS-Image SFT | 0.2535 | 0.6259 | 1.3060 | 0.6251 | — |
 | Flux.3 Klein 4B | 0.6079 | 1.4568 | 2.9381 | 1.5043 | — |
 | Ming-Image 0.1 Design | — | 0.9527 | 2.1273 | 0.9208 | — |
@@ -42,7 +42,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 43.91 | 44.43 | 186.87 | 445.38 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 252.94 | 235.92 | 184.60 | 442.83 |
 | MiniMax H3 Image | 47.73 | 758.37 | 840.30 | 78.19 | — |
-| Fibo 2.0 Dev | — | — | 286.11 | 24.36 | — |
+| Fibo 2.0 Dev | — | 218.55 | 286.11 | 24.36 | — |
 | MOSS-Image SFT | 26.14 | 557.11 | 11.81 | — | — |
 | Flux.3 Klein 4B | 361.48 | 552.84 | 824.92 | — | — |
 | Ming-Image 0.1 Design | — | 453.61 | 1044.58 | — | — |
@@ -70,7 +70,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 1278.23 | 484.26 | 1197.66 | 1670.86 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 4797.66 | 3604.49 | 2875.35 | 10144.17 |
 | MiniMax H3 Image | 27.42 | 496.42 | 385.27 | 1.66 | 2.38 |
-| Fibo 2.0 Dev | — | 169.64 | 187.79 | 7.07 | — |
+| Fibo 2.0 Dev | — | 238.02 | 187.79 | 7.07 | — |
 | MOSS-Image SFT | 8.85 | 124.38 | 570.61 | 4.32 | — |
 | Flux.3 Klein 4B | 4.20 | 122.14 | 702.21 | 2.92 | — |
 | Ming-Image 0.1 Design | — | 144.34 | 224.19 | 3.50 | — |
@@ -98,7 +98,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 22.47 | 7.25 | 16.25 | 68.05 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 288.93 | 105.44 | 128.08 | 422.19 |
 | MiniMax H3 Image | 3.58 | 28.51 | 16.11 | 0.74 | 1.15 |
-| Fibo 2.0 Dev | — | 3.87 | 0.68 | 0.68 | — |
+| Fibo 2.0 Dev | — | 9.31 | 0.68 | 0.68 | — |
 | MOSS-Image SFT | 30.65 | 3.44 | 20.34 | 1.02 | — |
 | Flux.3 Klein 4B | 19.81 | 5.09 | 23.64 | 0.75 | — |
 | Ming-Image 0.1 Design | — | 3.48 | 4.31 | 1.23 | — |
