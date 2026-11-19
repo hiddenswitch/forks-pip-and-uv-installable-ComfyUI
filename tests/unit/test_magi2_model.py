@@ -156,3 +156,18 @@ def test_preview_sparse_routing_layers_match_sandai_reference():
     for index, output in outputs.items():
         expected = captured[index][1][:output.shape[0]]
         assert _relative_error(output, expected) < TOLERANCE, index
+
+
+def test_shared_experts_chunk_video_and_text_with_empty_audio(monkeypatch):
+    from comfy.ldm.magi2 import model as magi2
+
+    reference = _reference_preview(magi2_reference.load(), "cuda", top_k=1)
+    model = _comfy_preview(reference, "cuda", top_k=1)
+    mlp = model.block.layers[1].mlp
+    x = torch.randn(2, 21, PREVIEW["hidden_size"], device="cuda", dtype=torch.bfloat16)
+    groups = (16, 0, 5)
+    with torch.inference_mode():
+        expected = mlp(x, groups)
+        monkeypatch.setattr(magi2, "MLP_GATE_CHUNK_BYTES", 1536)
+        actual = mlp(x, groups)
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)

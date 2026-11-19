@@ -1405,6 +1405,23 @@ class MoELayer(nn.Module):
         moe_in = self.split_linear(normed)
         if not (hasattr(self.merge_linear, "start_input_gather") and hasattr(self.merge_linear, "forward_local") and hasattr(self.merge_linear, "reduce_output")):
             routed = self.merge_linear(self.moe_mlp(moe_in))
+            del moe_in
+            width = max(routed.shape[-1], self.shared_expert_fc1.out_features,
+                        self.modality_specific_shared_expert_fc1[0].out_features)
+            chunk_size = max(1, MLP_GATE_CHUNK_BYTES // (normed.shape[0] * width * normed.element_size()))
+            if normed.is_cuda and not torch.is_grad_enabled() and normed.shape[1] > chunk_size:
+                # Each token uses one modality expert and the common expert. Accumulate into the routed output.
+                offset = 0
+                for length, up, down in zip(groups, self.modality_specific_shared_expert_fc1, self.modality_specific_shared_expert_fc2):
+                    for start in range(offset, offset + length, chunk_size):
+                        span = slice(start, min(start + chunk_size, offset + length))
+                        part = normed[:, span]
+                        shared = self.shared_expert_fc2(swiglu7(self.shared_expert_fc1(part)))
+                        specific = down(swiglu7(up(part)))
+                        routed[:, span].add_(shared + specific)
+                        del shared, specific
+                    offset += length
+                return routed
             shared = self.shared_expert_fc2(swiglu7(self.shared_expert_fc1(normed)))
             specific = modality_linear(self.modality_specific_shared_expert_fc2,
                                        swiglu7(modality_linear(self.modality_specific_shared_expert_fc1, normed, groups)), groups)
