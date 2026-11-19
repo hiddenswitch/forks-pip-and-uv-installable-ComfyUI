@@ -67,7 +67,7 @@ These model families are available in both versions. Memory estimates vary with 
 
 ## INT8 ConvRot benchmarks
 
-Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. The 2× GB10 column shows memory per rank. It uses tensor parallelism unless marked PP. A dash means no verified result. Runs that crashed during cleanup are excluded.
+Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. GB10 memory is estimated from the drop in available system memory on each GPU host. For 2× GB10, the two numbers follow rank order. Runs use tensor parallelism unless marked PP. A dash means no verified result. Runs that crashed during cleanup are excluded.
 
 ### Images
 
