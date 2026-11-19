@@ -76,3 +76,28 @@ async def test_clear_cache_can_retain_then_unload_real_model(executor_cls, devic
             await client.clear_cache()
         finally:
             await loop.run_in_executor(executor, _release_cleanup_state)
+
+
+@pytest.mark.parametrize("prompt_failed", [False, True])
+async def test_client_closes_after_model_unload_fails(monkeypatch, prompt_failed):
+    from comfy.cli_args import default_configuration
+    from comfy.execution_context import current_execution_context
+
+    def fail_unload():
+        raise RuntimeError("model unload failed")
+
+    monkeypatch.setattr(model_management, "unload_all_models", fail_unload)
+    previous_context = current_execution_context()
+    configuration = default_configuration()
+    configuration.disable_manager_model_fallback = True
+    configuration.disable_civitai_model_fallback = True
+    client = Comfy(configuration=configuration)
+    message = "prompt failed" if prompt_failed else "model unload failed"
+    with pytest.raises(RuntimeError, match=message):
+        async with client:
+            if prompt_failed:
+                raise RuntimeError("prompt failed")
+    assert not client.is_running
+    assert current_execution_context() is previous_context
+    with pytest.raises(RuntimeError, match="shutdown"):
+        client._executor.submit(int)

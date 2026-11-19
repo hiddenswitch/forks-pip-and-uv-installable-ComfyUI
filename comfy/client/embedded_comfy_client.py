@@ -540,11 +540,17 @@ class Comfy:
 
         try:
             await get_event_loop().run_in_executor(self._executor, _cleanup)
-            self._is_running = False
-            await self._async_exit_stack.__aexit__(*args)
+        except Exception:
+            if exc_type is None:
+                raise
+            logger.exception("Model cleanup failed while handling a prompt error")
         finally:
-            from ..component_model.setup import flush_tracing
-            flush_tracing()
+            self._is_running = False
+            try:
+                await self._async_exit_stack.__aexit__(*args)
+            finally:
+                from ..component_model.setup import flush_tracing
+                flush_tracing()
 
     async def queue_prompt_api(self,
                                prompt: PromptDict | str | dict,
