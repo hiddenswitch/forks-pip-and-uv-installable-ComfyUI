@@ -536,9 +536,10 @@ def swiglu7(x):
         flat = x.view(-1, x.shape[-1])
         out = torch.empty((flat.shape[0], out_cols), device=x.device, dtype=dtype)
         block_c = max(16, triton.next_power_of_2(out_cols))
-        _swiglu7_interleaved_kernel[(flat.shape[0],)](
-            flat, out, flat.stride(0), out.stride(0), out_cols, BLOCK_C=block_c, num_warps=8
-        )
+        with torch.cuda.device(x.device):
+            _swiglu7_interleaved_kernel[(flat.shape[0],)](
+                flat, out, flat.stride(0), out.stride(0), out_cols, BLOCK_C=block_c, num_warps=8
+            )
         return out.view(*x.shape[:-1], out_cols)
     x = x.float()
     gate = x[..., ::2].clamp(max=7.0)
