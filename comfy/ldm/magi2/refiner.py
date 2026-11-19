@@ -96,7 +96,11 @@ def block_window_attention(q, k, v, video_shape, block_size, radius, comfy_atten
     tail_indices = torch.arange(video, tokens, device=k.device)
     window_keys = len(offsets) * block_tokens + tokens - video
     bytes_per_key = heads_kv * head_dim * (k.element_size() + v.element_size())
-    key_budget = min(WINDOW_KEY_BUDGET, WINDOW_KV_CHUNK_BYTES // bytes_per_key)
+    gather_bytes = WINDOW_KV_CHUNK_BYTES
+    if k.is_cuda:
+        # Attention may repack both gathered tensors and needs room for its score tiles.
+        gather_bytes = min(gather_bytes, model_management.get_free_memory(k.device) // 4)
+    key_budget = min(WINDOW_KEY_BUDGET, gather_bytes // bytes_per_key)
     chunk = max(1, key_budget // (window_keys * batch))
     if out is None:
         out = q.new_empty((batch, tokens + padding, heads_q, head_dim))
@@ -114,6 +118,7 @@ def block_window_attention(q, k, v, video_shape, block_size, radius, comfy_atten
         result = _attend(queries, keys, values, comfy_attention, transformer_options,
                          mask=mask.repeat(batch, 1).view(batch * count, 1, 1, -1))
         out[:, dest.flatten().to(out.device)] = result.transpose(1, 2).reshape(batch, -1, heads_q, head_dim).to(out.device)
+        del queries, keys, values, result
     if tokens > video:
         out[:, video:tokens] = _attend(q[:, video:].to(k.device).transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2),
                                        comfy_attention, transformer_options).transpose(1, 2)
