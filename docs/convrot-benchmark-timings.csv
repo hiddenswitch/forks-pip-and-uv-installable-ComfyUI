@@ -40,6 +40,7 @@ Qwen-Image 2.1,RTX 3090,"1024×1024, CFG 4, Euler / simple",2,192.842,147.434,10
 Qwen-Image 2.1,1× GB10,"1024×1024, CFG 4, Euler / simple",2,28.570,4.947,2.226,2.160
 Qwen-Image Layered,1× GB10,"640×640, 2 layers, CFG 2.5, Euler / simple",2,315.488,11.419,1.210,5.127
 Qwen-Image Layered,2× GB10,"640×640, 2 layers, CFG 2.5, Euler / simple",2,49.561,12.562,1.168,5.331
+SeedVR2 3B,RX 7600,"512×512 → 2048×2048, CFG 1, Euler / simple",2,455.666,11.328,119.754,4.763
 SeedVR2 3B,RX 7600,"512×512 restoration, CFG 1, Euler / simple",2,443.745,2.281,7.377,0.333
 SeedVR2 3B,RTX 3060,"512×512 restoration, CFG 1, Euler / simple",2,11.179,96.252,8.156,0.167
 SeedVR2 3B,RTX 3090,"512×512 restoration, CFG 1, Euler / simple",2,163.936,305.985,28.832,0.122
