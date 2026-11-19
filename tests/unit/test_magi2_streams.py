@@ -139,3 +139,24 @@ def test_input_adapter_bounds_fp32_workspace(monkeypatch, audio_tokens, with_tim
         layer.register_forward_hook(check_projection)
     actual = adapter(*tokens, time, torch.bfloat16)
     torch.testing.assert_close(actual, expected.bfloat16(), rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("modalities,out_dtype", [(1, None), (3, torch.float32)])
+@torch.no_grad()
+def test_rms_norm_bounds_fp32_workspace(monkeypatch, modalities, out_dtype):
+    groups = (11, 0, 6)
+    x = torch.randn(2, sum(groups), 4, 16).bfloat16()
+    norm = magi.MultiModalityRMSNorm(16, modalities, out_dtype=out_dtype)
+    norm.weight.uniform_(-0.5, 0.5)
+    expected = norm(x, groups)
+    limit = 2 * 3 * 4 * 16 * 4
+    monkeypatch.setattr(magi, "RMS_NORM_FP32_CHUNK_BYTES", limit)
+    original = magi.F.rms_norm
+
+    def checked(part, *args):
+        assert part.dtype == torch.float32 and part.numel() * 4 <= limit
+        return original(part, *args)
+
+    monkeypatch.setattr(magi.F, "rms_norm", checked)
+    actual = norm(x, groups)
+    assert actual.dtype == expected.dtype and torch.equal(actual, expected)

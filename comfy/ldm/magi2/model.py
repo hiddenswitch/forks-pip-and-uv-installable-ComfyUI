@@ -43,6 +43,7 @@ TIME_CHANNELS = 64
 SINK_PAD = 8
 ADAPTER_FP32_CHUNK_BYTES = 64 * 1024**2
 MHC_FP32_CHUNK_BYTES = 64 * 1024**2
+RMS_NORM_FP32_CHUNK_BYTES = 32 * 1024**2
 QK_ROPE_FP32_CHUNK_BYTES = 32 * 1024**2
 MLP_GATE_CHUNK_BYTES = 256 * 1024**2
 MOE_ROW_CHUNK = 1 << 16
@@ -663,6 +664,19 @@ class MultiModalityRMSNorm(nn.Module):
     def forward(self, x, groups=None):
         out_dtype = self.out_dtype or x.dtype
         scales = self.scales(x.device)
+        if x.ndim >= 3 and x.numel() * 4 > RMS_NORM_FP32_CHUNK_BYTES:
+            # RMSNorm reduces the last dimension independently for each token.
+            bytes_per_token = x.shape[0] * math.prod(x.shape[2:]) * 4
+            chunk_size = max(1, RMS_NORM_FP32_CHUNK_BYTES // bytes_per_token)
+            parts = (x,) if self.num_modality == 1 else x.split(groups, dim=1)
+            output = torch.empty(x.shape, dtype=out_dtype, device=x.device)
+            offset = 0
+            for part, scale in zip(parts, scales):
+                for chunk in part.split(chunk_size, dim=1):
+                    length = chunk.shape[1]
+                    output[:, offset:offset + length] = F.rms_norm(chunk.float(), (self.dim,), scale, self.eps)
+                    offset += length
+            return output
         x = x.float()
         if self.num_modality == 1:
             return F.rms_norm(x, (self.dim,), scales[0], self.eps).to(out_dtype)
