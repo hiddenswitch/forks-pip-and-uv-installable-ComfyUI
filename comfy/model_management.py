@@ -391,7 +391,7 @@ def get_total_memory(dev=None, torch_total_too=False):
     elif is_unified_memory_device(dev):
         mem_total = system_memory.virtual_memory_total()
         mem_total_torch, _ = _unified_allocator_memory(dev)
-    elif dev.type == "cuda" and managed_memory.is_active():
+    elif managed_memory.is_active() and torch.device(dev).type == "cuda":
         # Managed allocations may reside on the host. Only the driver knows physical VRAM usage.
         _, mem_total = torch.cuda.mem_get_info(dev)
     else:
@@ -2502,7 +2502,7 @@ def get_free_memory(dev=None, torch_free_too=False):
         # actually be allocated, and is what comfy-aimdo's integrated budget polls.
         _, mem_free_torch = _unified_allocator_memory(dev)
         mem_free_total = system_memory.virtual_memory_available() + mem_free_torch
-    elif dev.type == "cuda" and managed_memory.is_active():
+    elif managed_memory.is_active() and torch.device(dev).type == "cuda":
         mem_free_total, _ = torch.cuda.mem_get_info(dev)
         mem_free_torch = 0
     else:
