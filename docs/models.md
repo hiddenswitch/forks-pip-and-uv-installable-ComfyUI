@@ -119,7 +119,7 @@ Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. GB10 m
 
 </details>
 
-The benchmark saves the prepared workflow and separate timings for load and encode, sampling, and VAE decode.
+The [full timings](convrot-benchmark-timings.csv) include load and encode, both sampling steps, and VAE decode. Sampling includes first-step weight transfers.
 
 ```console
 python tests/convrot_benchmark.py --model all --out-dir ./benchmark-output

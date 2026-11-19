@@ -1,0 +1,55 @@
+Model,Hardware,Settings,Steps per stage,Load and encode (s),Sampling (s),VAE decode (s),Step 2 (s)
+Boogu Image Edit,RTX 3060,"1024×1024, CFG 1, res_multistep / normal",2,398.734,188.018,2.933,1.695
+Boogu Image Edit,RTX 3090,"1024×1024, CFG 1, res_multistep / normal",2,259.560,183.346,2.337,0.741
+Boogu Image Edit,1× GB10,"1024×1024, CFG 1, res_multistep / normal",2,349.343,4.553,1.741,1.555
+Fibo 2.0 Dev,RTX 3060,"1024×1024, CFG 5, Euler / Fibo2",2,443.930,169.640,3.870,2.600
+Fibo 2.0 Dev,RTX 3090,"1024×1024, CFG 5, Euler / Fibo2",2,286.109,187.792,0.682,1.350
+Flux.2 Dev 32B,RTX 3060,"1024×1024, CFG 1, Euler / Flux2",2,493.104,783.421,1.271,6.568
+Flux.2 Dev 32B,RTX 3090,"1024×1024, CFG 1, Euler / Flux2",2,1028.284,586.224,4.934,16.948
+Flux.2 Dev 32B,1× GB10,"1024×1024, CFG 1, Euler / Flux2",2,1027.622,12.038,0.826,5.411
+Flux.2 Dev 32B,2× GB10,"1024×1024, CFG 1, Euler / Flux2",2,511.313,9.816,0.729,3.711
+Flux.3 Klein 4B,RTX 3060,"1024×1024, CFG 1, er_sde / simple",2,552.842,122.137,5.095,0.686
+Flux.3 Klein 4B,RTX 3090,"1024×1024, CFG 1, er_sde / simple",2,824.921,702.211,23.637,0.340
+Flux.3 Klein 4B,1× GB10,"1024×1024, CFG 1, er_sde / simple",2,140.280,2.923,0.751,0.665
+Ideogram 4,RTX 3060,"1024×1024, CFG 3, res_multistep / Ideogram4",2,194.161,464.822,11.227,4.291
+Ideogram 4,RTX 3090,"1024×1024, CFG 3, res_multistep / Ideogram4",2,157.749,420.522,4.873,1.838
+Ideogram 4,2× GB10,"1024×1024, CFG 3, res_multistep / Ideogram4",2,36.755,10.330,0.774,2.920
+JoyAI Image Edit,RTX 3060,"512×512, CFG 4, Euler / simple",2,730.645,442.533,3.912,5.798
+JoyAI Image Edit,RTX 3090,"512×512, CFG 4, Euler / simple",2,343.871,389.135,3.076,2.215
+JoyAI Image Edit,1× GB10,"512×512, CFG 4, Euler / simple",2,453.357,10.889,0.174,5.275
+Krea 2 Turbo,RTX 3060,"1024×1024, CFG 1, res_multistep / normal",2,136.334,384.260,12.346,2.393
+Krea 2 Turbo,RTX 3090,"1024×1024, CFG 1, res_multistep / normal",2,187.472,350.977,3.546,0.943
+Krea 2 Turbo,1× GB10,"1024×1024, CFG 1, res_multistep / normal",2,254.653,5.508,1.302,2.388
+Krea 2 Turbo,2× GB10,"1024×1024, CFG 1, res_multistep / normal",2,30.708,8.122,1.250,1.865
+Mage-Flow,RX 7600,"1024×1024, CFG 5, Euler / simple",2,1043.571,4.104,0.504,1.837
+Mage-Flow,RTX 3060,"1024×1024, CFG 5, Euler / simple",2,203.178,104.994,3.866,0.720
+Mage-Flow,RTX 3090,"1024×1024, CFG 5, Euler / simple",2,859.365,296.718,3.951,0.266
+Marigold V2 Depth,RTX 3060,"512×512, Euler, manual sigmas",2,265.393,85.610,0.519,1.446
+Marigold V2 Depth,RTX 3090,"512×512, Euler, manual sigmas",2,1901.337,159.278,2.507,0.228
+Marigold V2 Depth,1× GB10,"512×512, Euler, manual sigmas",2,421.056,1.405,0.164,0.569
+Ming-Image 0.1 Design,RTX 3060,"1024×1024, CFG 4, Euler / simple",2,453.610,144.339,3.478,1.050
+Ming-Image 0.1 Design,RTX 3090,"1024×1024, CFG 4, Euler / simple",2,1044.581,224.191,4.307,0.470
+Ming-Image 0.1 Design,1× GB10,"1024×1024, CFG 4, Euler / simple",2,427.961,3.497,1.229,1.086
+MiniMax H3 Image,RTX 3060,"1024×1024, CFG 1, Euler / simple",2,758.371,496.417,28.512,1.364
+MiniMax H3 Image,RTX 3090,"1024×1024, CFG 1, Euler / simple",2,840.301,385.267,16.107,0.331
+MOSS-Image SFT,RTX 3060,"1024×1024, CFG 3, Euler / sgm_uniform",2,557.111,124.381,3.436,1.598
+MOSS-Image SFT,RTX 3090,"1024×1024, CFG 3, Euler / sgm_uniform",2,11.807,570.612,20.344,0.766
+MOSS-Image SFT,1× GB10,"1024×1024, CFG 3, Euler / sgm_uniform",2,605.027,4.316,1.019,1.600
+Qwen-Image 2.1,RTX 3060,"1024×1024, CFG 4, Euler / simple",2,186.035,189.404,12.197,2.250
+Qwen-Image 2.1,RTX 3090,"1024×1024, CFG 4, Euler / simple",2,192.842,147.434,10.121,0.986
+Qwen-Image 2.1,1× GB10,"1024×1024, CFG 4, Euler / simple",2,28.570,4.947,2.226,2.160
+Qwen-Image Layered,1× GB10,"640×640, 2 layers, CFG 2.5, Euler / simple",2,315.488,11.419,1.210,5.127
+Qwen-Image Layered,2× GB10,"640×640, 2 layers, CFG 2.5, Euler / simple",2,49.561,12.562,1.168,5.331
+SeedVR2 3B,RX 7600,"512×512, CFG 1, Euler / simple",2,443.745,2.281,7.377,0.333
+SeedVR2 3B,RTX 3060,"512×512, CFG 1, Euler / simple",2,11.179,96.252,8.156,0.167
+SeedVR2 3B,RTX 3090,"512×512, CFG 1, Euler / simple",2,163.936,305.985,28.832,0.122
+SeedVR2 3B,1× GB10,"512×512, CFG 1, Euler / simple",2,51.554,2.116,0.163,0.384
+Z-Image Turbo 6B,RTX 3060,"1024×1024, CFG 1, Euler / simple",2,288.450,126.081,4.898,1.079
+Z-Image Turbo 6B,RTX 3090,"1024×1024, CFG 1, Euler / simple",2,1013.295,446.540,7.753,0.475
+Z-Image Turbo 6B,1× GB10,"1024×1024, CFG 1, Euler / simple",2,156.752,3.238,1.826,1.023
+PAN 2,2× GB10,"1248×704, 241 frames at 24 fps, CFG 5, Euler / simple",2,56.590,148.278,171.052,72.070
+MiniMax Music 3,RTX 3060,"15.28 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple",2,274.407,68.802,1.085,0.245
+MiniMax Music 3,RTX 3090,"24.08 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple",2,243.713,55.514,0.597,0.349
+YuE2 3B,RX 7600,"30 s audio, CFG 1, Euler / simple",2,477.129,1.038,1.386,0.171
+YuE2 3B,RTX 3060,"30 s audio, CFG 1, Euler / simple",2,94.553,40.735,0.563,0.064
+YuE2 3B,RTX 3090,"30 s audio, CFG 1, Euler / simple",2,64.071,35.804,0.418,0.047
