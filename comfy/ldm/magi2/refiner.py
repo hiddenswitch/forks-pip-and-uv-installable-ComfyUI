@@ -117,7 +117,11 @@ class RefinerAttention(nn.Module):
     def forward(self, x, freqs, groups, video_shape, compute_dtype, transformer_options):
         batch, tokens, _ = x.shape
         x = self.pre_norm(x, groups).to(compute_dtype)
-        qkv = modality_linear(self.linear_qkv, x, groups).float()
+        qkv = modality_linear(self.linear_qkv, x, groups)
+        # Q/K normalization promotes each chunk to fp32. Keep V and the packed
+        # projection in compute precision until then.
+        if qkv.dtype != compute_dtype:
+            qkv = qkv.float()
         gates = modality_linear(self.linear_g, x, groups).float()
         del x
         q, k, v = qkv.split((self.heads_q * self.head_dim, self.heads_kv * self.head_dim, self.heads_kv * self.head_dim), dim=-1)
