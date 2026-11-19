@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from functools import partial
 import logging
 import threading
 import warnings
@@ -102,16 +103,16 @@ def cleanup_malloc_graph():
     global MALLOC_GRAPH_ROGUES
 
     graph = MALLOC_GRAPHS.pop(threading.get_ident(), None)
-    if graph is not None:
+    if graph is None:
+        return
+    releases = [partial(_drop_graph, module) for module in graph._comfy_cuda_graph_modules]
+    with cleanup_on_exit(*releases):
         if graph._comfy_active:
             graph.abort()
             graph._comfy_active = False
         else:
             model_management.synchronize()
-        for module in graph._comfy_cuda_graph_modules:
-            _drop_graph(module)
-        MALLOC_GRAPH_ROGUES += graph.rogue_count
-        del graph
+    MALLOC_GRAPH_ROGUES += graph.rogue_count
 
 def _dynamic_vbar_modules(module):
     roots = module if isinstance(module, (list, tuple)) else (module,)
@@ -197,13 +198,14 @@ def _drop_graph(module):
     graph = getattr(module, "_comfy_graph", None)
     if graph is None:
         return
+    # An aborted graph must never be reused, including when its native reset fails.
+    del module._comfy_graph
     # reset() through the bound method surfaces the allocator's benign
     # "uncaptured free of a captured allocation" as catchable Python warnings;
     # a plain del frees from the C++ dealloc path and spams stderr instead
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         graph["graph"].reset()
-    del module._comfy_graph
 
 def cleanup_prefetch_queues():
     global PREFETCH_QUEUES

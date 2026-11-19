@@ -173,3 +173,30 @@ def test_malloc_graph_scope_reports_kernel_failure_when_abort_fails(monkeypatch)
             raise primary
     assert result.value is primary
     abort.assert_called_once()
+
+
+def test_native_abort_failure_discards_all_module_graphs(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    failed = torch.nn.Linear(1, 1)
+    later = torch.nn.Linear(1, 1)
+    first_reset = Mock(side_effect=RuntimeError("reset failed"))
+    last_reset = Mock()
+    failed._comfy_graph = {"graph": SimpleNamespace(reset=first_reset)}
+    later._comfy_graph = {"graph": SimpleNamespace(reset=last_reset)}
+    abort_error = RuntimeError("aimdo memory compile error")
+    graph = SimpleNamespace(_comfy_active=True, abort=Mock(side_effect=abort_error),
+                            _comfy_cuda_graph_modules=[failed, later])
+    key = model_prefetch.threading.get_ident()
+    monkeypatch.setitem(model_prefetch.MALLOC_GRAPHS, key, graph)
+
+    with pytest.raises(RuntimeError) as result:
+        model_prefetch.cleanup_malloc_graph()
+
+    assert result.value is abort_error
+    assert key not in model_prefetch.MALLOC_GRAPHS
+    assert not hasattr(failed, "_comfy_graph")
+    assert not hasattr(later, "_comfy_graph")
+    first_reset.assert_called_once()
+    last_reset.assert_called_once()
