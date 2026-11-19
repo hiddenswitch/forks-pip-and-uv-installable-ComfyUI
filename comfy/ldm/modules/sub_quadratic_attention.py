@@ -128,6 +128,24 @@ def _query_chunk_attention(
 
         return summarize_chunk(query, key_chunk, value_chunk, mask=mask)
 
+    if not torch.is_grad_enabled() and k_tokens > 2 * kv_chunk_size:
+        # Each partial softmax uses its own maximum. Rebase both sums when the maximum changes.
+        first = chunk_scanner(0, mask)
+        accum_dtype = torch.promote_types(value.dtype, torch.float32)
+        values = first.exp_values.to(accum_dtype)
+        weights = first.exp_weights_sum.to(accum_dtype)
+        maximum = first.max_score.to(accum_dtype)
+        for offset in range(kv_chunk_size, k_tokens, kv_chunk_size):
+            part = chunk_scanner(offset, mask)
+            part_max = part.max_score.to(accum_dtype)
+            new_max = torch.maximum(maximum, part_max)
+            old_scale = (maximum - new_max).exp()
+            part_scale = (part_max - new_max).exp()
+            values.mul_(old_scale.unsqueeze(-1)).addcmul_(part.exp_values, part_scale.unsqueeze(-1))
+            weights.mul_(old_scale).addcmul_(part.exp_weights_sum, part_scale)
+            maximum = new_max
+        return values.div_(weights.unsqueeze(-1)).to(value.dtype)
+
     chunks: List[AttnChunk] = [
         chunk_scanner(chunk, mask) for chunk in torch.arange(0, k_tokens, kv_chunk_size)
     ]
@@ -274,8 +292,14 @@ def efficient_dot_product_attention(
             mask=mask,
         )
 
-    # TODO: maybe we should use torch.empty_like(query) to allocate storage in-advance,
-    # and pass slices to be mutated, instead of torch.cat()ing the returned slices
+    if not torch.is_grad_enabled():
+        out = value.new_empty((batch_x_heads, q_tokens, value.shape[-1]))
+        for start in range(0, q_tokens, query_chunk_size):
+            out[:, start:start + query_chunk_size] = compute_query_chunk_attn(
+                query=get_query_chunk(start), key_t=key_t, value=value, mask=get_mask_chunk(start)
+            )
+        return out
+
     res = torch.cat([
         compute_query_chunk_attn(
             query=get_query_chunk(i * query_chunk_size),

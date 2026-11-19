@@ -389,6 +389,10 @@ def attention_sub_quad(query, key, value, heads, mask=None, attn_precision=None,
 
     if query_chunk_size is None:
         query_chunk_size = 512
+        if not torch.is_grad_enabled():
+            # Fit one score tile and its softmax workspace when even 256 full-key rows exceed VRAM.
+            tile_bytes_per_key = batch_x_heads * min(q_tokens, query_chunk_size) * bytes_per_token * 4
+            kv_chunk_size = min(k_tokens, max(1, int(mem_free_total) // max(1, tile_bytes_per_key)))
 
     if mask is not None:
         if len(mask.shape) == 2:
