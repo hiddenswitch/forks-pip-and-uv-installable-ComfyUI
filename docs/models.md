@@ -121,6 +121,8 @@ On the RX 7600, the SeedVR2 GPU VAE produced a [distorted portrait at 512×512](
 | MAGI-2 Preview + Refiner | Image to video, 896×512, 125 frames at 12.5 fps (video CFG 5, audio CFG 7) → 1920×1088, 249 frames at 25 fps (CFG 2), 44.1 kHz stereo, UniPC Flow | — | — | — | [568.657 / 791.074 · 66.1](benchmark-samples/magi2-refiner-1xgb10.mp4) | [527.469 / 4518.399 · 94.0 / 78.3](benchmark-samples/magi2-refiner-2xgb10.mp4) |
 | Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal, shift 8 | — | [77.461 · 11.8](benchmark-samples/wan21-scail2-rtx3060-832x480.webp) | [26.946 · 22.0](benchmark-samples/wan21-scail2-rtx3090-832x480.webp) | [54.047 · 38.4](benchmark-samples/wan21-scail2-1xgb10-832x480.webp) | — |
 
+The two-GB10 MiniMax H3 clip has about 30 dB more audio level than the single-GB10 and RTX clips at the same seed.
+
 Both two-step MAGI-2 refiner clips start with a clear portrait. The middle and final frames are heavily blurred.
 
 The RTX cards used local NVMe for the 1024×1024 JoyAI and Marigold runs, PAN 2 on the 3060, and MiniMax H3 Video+Audio on both cards.
