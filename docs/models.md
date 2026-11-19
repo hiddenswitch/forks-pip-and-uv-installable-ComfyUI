@@ -133,7 +133,7 @@ The RTX 3060 PAN 2 run used local NVMe. The 241-frame animation lasts 10.042 sec
 
 </details>
 
-The [full timings](convrot-benchmark-timings.csv) include load and encode, both sampling steps, and VAE decode. Sampling includes first-step weight transfers.
+The [full timings](convrot-benchmark-timings.csv) include load and encode, both sampling steps, VAE decode, and the attention backends observed during step 2. Sampling includes first-step weight transfers.
 
 ```console
 python tests/convrot_benchmark.py --model all --out-dir ./benchmark-output
