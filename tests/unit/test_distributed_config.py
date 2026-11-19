@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -13,7 +14,10 @@ from comfy.distributed.device import CudaAcceleratorDeviceProvider
 from comfy.distributed.runtime import CudaDistributedRuntimeBootstrap
 from comfy.distributed.executors import ContextVarProcessPoolExecutor
 from comfy.distributed.process_group import (
+    IndependentProcessGroups,
     TorchDistributedCudaIndependentProcessGroupFactory,
+    _create_independent_process_group,
+    destroy_independent_process_groups,
     create_device_process_group,
 )
 from comfy.component_model.setup import prepare_distributed_environment
@@ -480,3 +484,20 @@ def test_independent_process_groups_do_not_initialize_default_world(monkeypatch)
         "executor-8-control",
         "executor-8-device",
     ]
+
+
+def test_cleanup_after_device_group_abort():
+    dist = torch.distributed
+    store = dist.HashStore()
+
+    def group(name):
+        return _create_independent_process_group(
+            store, 0, 1, "gloo", name, timedelta(seconds=5)
+        )
+
+    control = group("abort-test-control")
+    device = group("abort-test-device")
+    groups = IndependentProcessGroups(store, control, device)
+    dist.distributed_c10d._abort_process_group(device)
+    destroy_independent_process_groups(groups)
+    assert control not in dist.distributed_c10d._world.pg_map

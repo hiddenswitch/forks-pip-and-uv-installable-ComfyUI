@@ -224,6 +224,9 @@ def destroy_independent_process_groups(groups: IndependentProcessGroups):
         groups.device_process_group,
         groups.control_process_group,
     ):
+        # Aborting a failed collective already unregisters its device group.
+        if group not in dist.distributed_c10d._world.pg_map:
+            continue
         try:
             dist.destroy_process_group(group)
         except Exception as error:  # Preserve cleanup of the remaining group.
