@@ -67,7 +67,7 @@ These model families are available in both versions. Memory estimates vary with 
 
 ## INT8 ConvRot benchmarks
 
-Each stage runs two steps. Cells show **seconds for step 2 · peak GiB** and link to the output. GB10 memory is estimated per host. A dash means no verified result.
+Each stage runs two steps. Cells show **seconds for step 2 · peak GiB** and link to the output. GB10 memory is estimated per host. For the two-GB10 MiniMax H3 Image and MAGI-2 Preview runs, the second GPU also hosted an inference server. A dash means no verified result.
 
 The 2× GB10 column covers models that can split inference across both GPUs. These are Flux.2 Dev, Ideogram 4, Krea 2, MiniMax H3, PAN 2, MAGI-2, and Qwen-Image Layered. Layered uses pipeline parallelism (PP). The other measured runs use tensor parallelism.
 
@@ -81,7 +81,7 @@ The 2× GB10 column covers models that can split inference across both GPUs. The
 | Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2, local NVMe | — | [6.752 · 11.8](benchmark-samples/flux2-dev-rtx3060-1024x1024-local.webp) | [3.259 · 23.8](benchmark-samples/flux2-dev-rtx3090-1024x1024-local.webp) | — | — |
 | Flux.3 Klein 4B | 1024×1024, CFG 1, er_sde / simple | [1.645 · 6.2](benchmark-samples/flux3-rx7600-1024x1024.webp) | [0.686 · 7.6](benchmark-samples/flux3-rtx3060-1024x1024.webp) | [0.340 · 6.2](benchmark-samples/flux3-rtx3090-1024x1024.webp) | [0.665 · 17.8](benchmark-samples/flux3-1xgb10-1024x1024.webp) | — |
 | Ideogram 4 | 1024×1024, CFG 3, res_multistep / Ideogram4 | — | [4.291 · 10.7](benchmark-samples/ideogram4-rtx3060-1024x1024.webp) | [1.838 · 11.0](benchmark-samples/ideogram4-rtx3090-1024x1024.webp) | [3.400 · 34.4](benchmark-samples/ideogram4-1xgb10-1024x1024.webp) | [2.920 · 29.0 / 16.4](benchmark-samples/ideogram4-2xgb10-1024x1024.webp) |
-| JoyAI Image Edit | 1024×1024, CFG 4, Euler / simple | — | [9.287 · 11.8](benchmark-samples/joyimage-rtx3060-1024x1024.webp) | [3.317 · 17.4](benchmark-samples/joyimage-rtx3090-1024x1024.webp) | — | — |
+| JoyAI Image Edit | 1024×1024, CFG 4, Euler / simple | — | [9.287 · 11.8](benchmark-samples/joyimage-rtx3060-1024x1024.webp) | [3.317 · 17.4](benchmark-samples/joyimage-rtx3090-1024x1024.webp) | [9.225 · 34.5](benchmark-samples/joyimage-1xgb10-1024x1024.webp) | — |
 | JoyAI Image Edit | 512×512, CFG 4, Euler / simple | — | [5.798 · 11.8](benchmark-samples/joyimage-rtx3060-512x512.webp) | [2.215 · 17.0](benchmark-samples/joyimage-rtx3090-512x512.webp) | [5.275 · 32.6](benchmark-samples/joyimage-1xgb10-512x512.webp) | — |
 | Krea 2 Turbo | 1024×1024, CFG 1, res_multistep / normal | — | [2.393 · 11.8](benchmark-samples/krea2-rtx3060-1024x1024.webp) | [0.943 · 14.1](benchmark-samples/krea2-rtx3090-1024x1024.webp) | [2.388 · 27.0](benchmark-samples/krea2-1xgb10-1024x1024.webp) | [1.865 · 24.0 / 14.4](benchmark-samples/krea2-2xgb10-1024x1024.webp) |
 | Mage-Flow | 1024×1024, CFG 5, Euler / simple | [1.837 · 7.0](benchmark-samples/mage-flow-rx7600-1024x1024.webp) | [0.720 · 11.7](benchmark-samples/mage-flow-rtx3060-1024x1024.webp) | [0.266 · 16.1](benchmark-samples/mage-flow-rtx3090-1024x1024.webp) | [0.591 · 18.1](benchmark-samples/mage-flow-1xgb10-1024x1024.webp) | — |
