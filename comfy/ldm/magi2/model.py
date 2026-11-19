@@ -1285,9 +1285,23 @@ class MultiHeadMoE(nn.Module):
         bias = model_management.cast_to(self.router.bias, torch.float32, x.device).view(
             self.heads, 1, self.num_experts
         )
-        scores = torch.sigmoid(torch.bmm(x.float().transpose(0, 1), weight.transpose(1, 2)))
-        indices = torch.topk(scores + bias, self.top_k, dim=-1).indices
-        probs = F.normalize(scores.gather(-1, indices), p=1, dim=-1, eps=1e-12) * self.route_scale
+        def select(tokens):
+            scores = torch.sigmoid(torch.bmm(tokens.float().transpose(0, 1), weight.transpose(1, 2)))
+            indices = torch.topk(scores + bias, self.top_k, dim=-1).indices
+            probs = F.normalize(scores.gather(-1, indices), p=1, dim=-1, eps=1e-12) * self.route_scale
+            return probs, indices
+
+        # The FP32 input and expert scores are only needed until each token's top-k is known.
+        bytes_per_token = 4 * self.heads * (self.head_dim + 2 * self.num_experts)
+        chunk_size = max(1, MLP_GATE_CHUNK_BYTES // bytes_per_token)
+        if torch.is_grad_enabled() or not x.is_cuda or x.shape[0] <= chunk_size:
+            return select(x)
+        shape = (self.heads, x.shape[0], self.top_k)
+        probs = x.new_empty(shape, dtype=torch.float32)
+        indices = x.new_empty(shape, dtype=torch.long)
+        for start in range(0, x.shape[0], chunk_size):
+            span = slice(start, start + chunk_size)
+            probs[:, span], indices[:, span] = select(x[span])
         return probs, indices
 
     def forward(self, x):

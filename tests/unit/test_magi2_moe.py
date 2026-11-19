@@ -86,13 +86,17 @@ def test_routed_experts_follow_the_kernel_contract(device):
     assert relative_error(rounded, expected) > 10 * TOLERANCE
 
 
-def test_batched_route_all_matches_per_head_route():
+@pytest.mark.parametrize("device", ["cpu"] + (["cuda"] if torch.cuda.is_available() else []))
+@torch.no_grad()
+def test_batched_route_all_matches_per_head_route(device, monkeypatch):
+    # Force several token chunks and a short final chunk on the GPU.
+    monkeypatch.setattr("comfy.ldm.magi2.model.MLP_GATE_CHUNK_BYTES", 9 * 4 * 4 * (128 + 16))
     torch.manual_seed(7)
-    module = MultiHeadMoE(512, 4, 8, 2, 128, 4.9, dtype=torch.bfloat16, operations=comfy_ops.disable_weight_init)
+    module = MultiHeadMoE(512, 4, 8, 2, 128, 4.9, device=device, dtype=torch.bfloat16, operations=comfy_ops.disable_weight_init)
     with torch.no_grad():
         module.router.weight.normal_(0, 128 ** -0.5)
         module.router.bias.uniform_(-0.1, 0.1)
-    x = torch.randn(32, 4, 128, dtype=torch.bfloat16)
+    x = torch.randn(32, 4, 128, device=device, dtype=torch.bfloat16)
     all_probs, all_indices = module.route_all(x)
     for head in range(module.heads):
         probs, indices = module.route(x[:, head].contiguous(), head)
