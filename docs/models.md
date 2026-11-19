@@ -96,7 +96,7 @@ The 2048×2048 SeedVR2 links open at full resolution. Other stills link to thumb
 | MOSS-Image SFT | 1024×1024, CFG 3, Euler / sgm_uniform | [3.944 · 7.3](benchmark-samples/moss-image-rx7600-1024x1024.webp) (256 px VAE tiles, 64 px overlap) | [1.598 · 8.8](benchmark-samples/moss-image-rtx3060-1024x1024.webp) | [0.766 · 8.5](benchmark-samples/moss-image-rtx3090-1024x1024.webp) | [1.600 · 22.0](benchmark-samples/moss-image-1xgb10-1024x1024.webp) | — |
 | Qwen-Image 2.1 | 1024×1024, CFG 4, Euler / simple | — | [2.250 · 7.9](benchmark-samples/qwen-image21-rtx3060-1024x1024.webp) | [0.986 · 8.1](benchmark-samples/qwen-image21-rtx3090-1024x1024.webp) | [2.177 · 27.0](benchmark-samples/qwen-image21-1xgb10-1024x1024.webp) | — |
 | Qwen-Image Layered | 640×640, 2 layers, CFG 2.5, Euler / simple, shift 1 | — | [8.160 · 11.8](benchmark-samples/qwen-image-layered-rtx3060-640x640.webp) | [2.298 · 20.6](benchmark-samples/qwen-image-layered-rtx3090-640x640.webp) | [5.127 · 36.3](benchmark-samples/qwen-image-layered-1xgb10-640x640.webp) | [5.331 · 29.3 / 12.8 (PP)](benchmark-samples/qwen-image-layered-2xgb10-640x640.webp) |
-| SeedVR2 3B | 512×512 → 2048×2048, CFG 1, Euler / simple | — | [2.036 · 4.9](benchmark-samples/seedvr2-3b-rtx3060-2048x2048.webp) | [1.023 · 7.0](benchmark-samples/seedvr2-3b-rtx3090-2048x2048.webp) | [2.553 · 24.2](benchmark-samples/seedvr2-3b-1xgb10-2048x2048.webp) | — |
+| SeedVR2 3B | 512×512 → 2048×2048, CFG 1, Euler / simple | [4.751 · 5.2](benchmark-samples/seedvr2-3b-rx7600-2048x2048-cpu-vae.webp) (CPU VAE, local NVMe) | [2.036 · 4.9](benchmark-samples/seedvr2-3b-rtx3060-2048x2048.webp) | [1.023 · 7.0](benchmark-samples/seedvr2-3b-rtx3090-2048x2048.webp) | [2.553 · 24.2](benchmark-samples/seedvr2-3b-1xgb10-2048x2048.webp) | — |
 | SeedVR2 3B | 512×512 restoration, CFG 1, Euler / simple | [0.408 · 3.7](benchmark-samples/seedvr2-3b-rx7600-512x512-cpu-vae.webp) (CPU VAE, local NVMe) | [0.167 · 4.0](benchmark-samples/seedvr2-3b-rtx3060-512x512.webp) | [0.122 · 4.5](benchmark-samples/seedvr2-3b-rtx3090-512x512.webp) | [0.384 · 7.9](benchmark-samples/seedvr2-3b-1xgb10-512x512.webp) | — |
 | Z-Image Turbo 6B | 1024×1024, CFG 1, Euler / simple | [2.865 · 7.2](benchmark-samples/z-image-turbo-rx7600-1024x1024.webp) (split attention) | [1.079 · 12.0](benchmark-samples/z-image-turbo-rtx3060-1024x1024.webp) | [0.475 · 21.9](benchmark-samples/z-image-turbo-rtx3090-1024x1024.webp) | [1.023 · 25.4](benchmark-samples/z-image-turbo-1xgb10-1024x1024.webp) | — |
 
@@ -106,7 +106,7 @@ The first Flux.2 row uses shared storage on the RTX cards. The local NVMe row st
 
 Qwen-Image 2.1 produced a colored silhouette on all three measured configurations. A [BF16 run on the RTX 3090](benchmark-samples/qwen-image21-rtx3090-bf16-1024x1024.webp) produced the same silhouette with the same prompt, seed, and two steps.
 
-On the RX 7600, the SeedVR2 GPU VAE produced a [distorted portrait at 512×512](benchmark-samples/seedvr2-3b-rx7600-512x512.webp) and a [nearly flat image at 2048×2048](benchmark-samples/seedvr2-3b-rx7600-2048x2048.webp). Enabling MIOpen recovered most of the 2048×2048 portrait but left a gray band across the top.
+On the RX 7600, the SeedVR2 GPU VAE produced a [distorted portrait at 512×512](benchmark-samples/seedvr2-3b-rx7600-512x512.webp) and a [nearly flat image at 2048×2048](benchmark-samples/seedvr2-3b-rx7600-2048x2048.webp). With MIOpen enabled, the GPU encoder still lost a band of the portrait before sampling. Both CPU VAE runs preserved the full portrait.
 
 ### Video and audio
 
