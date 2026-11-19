@@ -57,7 +57,8 @@ def test_unified_memory_devices_get_the_shared_vram_state(monkeypatch):
     _cuda_properties(monkeypatch, integrated=True)
     gpu = model_management.CPUState.GPU
     for requested in model_management.VRAMState:
-        assert model_management.vram_state_for_device(requested, gpu, torch.device("cuda", 0)) == model_management.VRAMState.SHARED
+        expected = requested if requested == model_management.VRAMState.NO_VRAM else model_management.VRAMState.SHARED
+        assert model_management.vram_state_for_device(requested, gpu, torch.device("cuda", 0)) == expected
     assert model_management.vram_state_for_device(
         model_management.VRAMState.DISABLED, model_management.CPUState.MPS, torch.device("mps")
     ) == model_management.VRAMState.SHARED
@@ -144,6 +145,16 @@ def test_unified_memory_offload_devices_are_the_load_devices(monkeypatch):
     assert model_management.unet_offload_device() == device
     assert model_management.vae_offload_device() == model_management.vae_device()
     assert model_management.text_encoder_offload_device() == model_management.text_encoder_device()
+
+
+def test_integrated_cuda_novram_keeps_offloaded_weights_on_cpu(monkeypatch):
+    device = torch.device("cuda", 0)
+    _cuda_properties(monkeypatch, integrated=True)
+    monkeypatch.setattr(model_management, "get_torch_device", lambda: device)
+    monkeypatch.setattr(model_management, "vram_state", model_management.VRAMState.NO_VRAM)
+    assert model_management.unet_offload_device() == torch.device("cpu")
+    assert model_management.unet_initial_load_device(1024, torch.float32) == torch.device("cpu")
+    assert model_management.offload_device_for(device) == torch.device("cpu")
 
 
 def test_discrete_offload_devices_are_unchanged(monkeypatch):

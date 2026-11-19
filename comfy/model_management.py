@@ -711,12 +711,12 @@ if set_vram_to in (VRAMState.LOW_VRAM, VRAMState.NO_VRAM):
 
 
 def vram_state_for_device(requested: VRAMState, state: CPUState, device) -> VRAMState:
-    """Unified-memory devices are always SHARED: there is no separate VRAM to size for."""
+    """Use the shared pool by default and honor explicit per-layer offload on integrated GPUs."""
     if state == CPUState.MPS:
         return VRAMState.SHARED
     if state != CPUState.GPU:
         return VRAMState.DISABLED
-    if is_unified_memory_device(device):
+    if requested != VRAMState.NO_VRAM and is_unified_memory_device(device):
         return VRAMState.SHARED
     return requested
 
@@ -1555,7 +1555,7 @@ def offload_shares_device_memory(load_device=None) -> bool:
     DynamicVRAM keeps offloaded weights as the checkpoint's file-backed mapping, which is the
     right offload on unified memory too; without it an offload is an anonymous copy.
     """
-    return is_unified_memory_device(load_device) and not memory_management.aimdo_enabled
+    return vram_state != VRAMState.NO_VRAM and is_unified_memory_device(load_device) and not memory_management.aimdo_enabled
 
 
 def offload_device_for(load_device, offload_device=torch.device("cpu")):

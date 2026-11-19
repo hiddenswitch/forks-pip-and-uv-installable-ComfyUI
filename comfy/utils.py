@@ -324,7 +324,7 @@ def _file_backed_loads() -> bool:
         model_management.offload_shares_device_memory()
         or model_management.is_amd()
         # Unpinned static weights can stay on the checkpoint mapping between GPU copies.
-        or (model_management.is_nvidia() and args.disable_pinned_memory and not memory_management.aimdo_enabled)
+        or (model_management.is_nvidia() and model_management.DISABLE_PINNED_MEMORY and not memory_management.aimdo_enabled)
     )
 
 

@@ -88,7 +88,7 @@ def test_discrete_nvidia_weight_backing_without_pins(tmp_path, monkeypatch, disa
     monkeypatch.setattr(model_management, "offload_shares_device_memory", lambda: False)
     monkeypatch.setattr(model_management, "is_amd", lambda: False)
     monkeypatch.setattr(model_management, "is_nvidia", lambda: True)
-    monkeypatch.setattr(utils.args, "disable_pinned_memory", disable_pins)
+    monkeypatch.setattr(model_management, "DISABLE_PINNED_MEMORY", disable_pins)
     monkeypatch.setattr(utils, "DISABLE_MMAP", disable_mmap)
     state = utils.load_torch_file(str(path))
     module = _fresh_module()
