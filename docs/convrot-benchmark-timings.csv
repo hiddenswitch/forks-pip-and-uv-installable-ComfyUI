@@ -53,3 +53,4 @@ MiniMax Music 3,RTX 3090,"24.08 s stereo (30 s cap), AR CFG 1.5, res_multistep /
 YuE2 3B,RX 7600,"30 s audio, CFG 1, Euler / simple",2,477.129,1.038,1.386,0.171
 YuE2 3B,RTX 3060,"30 s audio, CFG 1, Euler / simple",2,94.553,40.735,0.563,0.064
 YuE2 3B,RTX 3090,"30 s audio, CFG 1, Euler / simple",2,64.071,35.804,0.418,0.047
+Wan 2.1 SCAIL-2,RTX 3060,"832×480, 81 frames at 8 fps, CFG 6, Euler / normal",2,188.650,578.885,45.387,77.461
