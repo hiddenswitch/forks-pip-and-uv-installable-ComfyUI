@@ -264,3 +264,23 @@ def test_managed_allocator_cache_counts_as_free(monkeypatch):
     device = torch.device("cuda", 0)
     assert model_management.get_free_memory(device, torch_free_too=True) == (93 * GiB, 3 * GiB)
     assert model_management.get_total_memory(device, torch_total_too=True) == (121 * GiB, 40 * GiB)
+
+
+@pytest.mark.parametrize("device", [torch.device("cuda", 1), "cuda:1"])
+def test_discrete_managed_allocations_use_physical_vram(monkeypatch, device):
+    from comfy import managed_memory
+
+    _cuda_properties(monkeypatch, integrated=False)
+    monkeypatch.setattr(managed_memory, "_active", True)
+    monkeypatch.setattr(managed_memory, "held_bytes", lambda: 20 * GiB)
+    monkeypatch.setattr(managed_memory, "cached_bytes", lambda: 8 * GiB)
+    monkeypatch.setattr(torch.cuda, "memory_stats",
+                        lambda dev: pytest.fail("pluggable allocators have no device stats"))
+
+    def physical_memory(dev):
+        assert torch.device(dev) == torch.device("cuda", 1)
+        return 4 * GiB, 12 * GiB
+
+    monkeypatch.setattr(torch.cuda, "mem_get_info", physical_memory)
+    assert model_management.get_total_memory(device, torch_total_too=True) == (12 * GiB, 0)
+    assert model_management.get_free_memory(device, torch_free_too=True) == (4 * GiB, 0)
