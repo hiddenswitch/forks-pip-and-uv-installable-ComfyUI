@@ -106,6 +106,9 @@ def test_convrot_resume_requires_output_from_the_recorded_run(tmp_path, monkeypa
     def launch(*args, env, **kwargs):
         calls.append(None)
         Path(env["COMFY_BENCHMARK_PATH"]).write_text(json.dumps({"node_id": "8", "second_step_seconds": 1}))
+        (directory / "traces.jsonl").write_text(json.dumps({
+            "name": "Sampler Invoke", "attributes": {"sampling.steps": 2},
+        }))
         if len(calls) == 2:
             media = directory / "images"
             media.mkdir()
@@ -153,3 +156,15 @@ def test_seedvr_restoration_rejects_flat_and_wrong_size_images(tmp_path):
     assert "Expected a 256×256" in _seedvr_restoration_error(workflow, source)
     Image.new("RGB", (256, 256), (110, 98, 100)).save(output)
     assert "solid fill" in _seedvr_restoration_error(workflow, output)
+
+
+def test_two_step_measurements_require_both_refiner_stages():
+    from tests.convrot_benchmark import _sampling_error
+
+    nodes = {"10", "40"}
+    rows = [{"node_id": "10"}, {"node_id": "40"}]
+    trace = {"sampler_spans": [{"steps": 2}, {"steps": 2}]}
+    assert _sampling_error(nodes, rows, trace) is None
+    assert _sampling_error(nodes, rows[:1], trace)
+    assert _sampling_error(nodes, rows * 2, trace)
+    assert _sampling_error(nodes, rows, {"sampler_spans": [{"steps": 2}, {"steps": 4}]})

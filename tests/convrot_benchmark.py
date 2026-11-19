@@ -600,6 +600,17 @@ def _output_error(spec, workflow, directory, names):
     return None
 
 
+def _sampling_error(sampler_ids, measurements, trace):
+    expected = sorted(sampler_ids)
+    measured = sorted(str(row.get("node_id")) for row in measurements)
+    if not expected or measured != expected:
+        return f"Expected step 2 timings for nodes {expected}, measured {measured}"
+    steps = [span.get("steps") for span in trace.get("sampler_spans", [])]
+    if steps != [2] * len(expected):
+        return f"Expected two steps per sampler, trace recorded {steps}"
+    return None
+
+
 def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra_args: list[str]) -> dict[str, Any]:
     model_dir = out_dir / spec["id"]
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -608,6 +619,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     is_distributed = int(os.environ.get("WORLD_SIZE", "1")) > 1
     is_worker = is_distributed and int(os.environ["RANK"]) != 0
     wf_file = model_dir / "workflow.json"
+    sampler_ids = {node_id for node_id, node in workflow.items() if node["class_type"] in _SAMPLER_NODE_TYPES}
     previous_media = _media_files(model_dir) if not is_worker else {}
     if not is_distributed and result_file.exists():
         try:
@@ -622,6 +634,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
                 outputs and all(name in previous_media for name in outputs)
                 and existing.get("status") == "success"
                 and existing.get("step2_seconds") is not None
+                and _sampling_error(sampler_ids, existing.get("step_measurements", []), existing.get("trace_summary", {})) is None
                 and existing.get("generation_args") == spec["generation_args"]
                 and existing.get("extra_args") == extra_args
                 and json.loads(wf_file.read_text(encoding="utf-8")) == workflow
@@ -689,14 +702,14 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     ] if steps_file.exists() else []
     trace_summary = parse_trace_phases(trace_file)
     step2_seconds = step_rows[-1]["second_step_seconds"] if step_rows else None
-    sampler_ids = {node_id for node_id, node in workflow.items() if node["class_type"] in _SAMPLER_NODE_TYPES}
     measured_ids = {str(row["node_id"]) for row in step_rows}
     missing_sampler_ids = sorted(sampler_ids - measured_ids) if not is_worker else []
 
     output_files = [] if is_worker else sorted(
         name for name, state in _media_files(model_dir).items() if previous_media.get(name) != state
     )
-    success = returncode == 0 and not missing_sampler_ids and (is_worker or bool(output_files))
+    sampling_error = None if is_worker else _sampling_error(sampler_ids, step_rows, trace_summary)
+    success = returncode == 0 and sampling_error is None and (is_worker or bool(output_files))
     output_error = None
     if success and not is_worker:
         output_error = _output_error(spec, workflow, model_dir, output_files)
@@ -716,6 +729,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         "output_error": output_error,
         "returncode": returncode,
         "missing_sampler_ids": missing_sampler_ids,
+        "sampling_error": sampling_error,
         "wall_seconds": round(wall_seconds, 3),
         "step2_seconds": round(step2_seconds, 4) if step2_seconds is not None else None,
         "iterations_per_second": round(1.0 / step2_seconds, 4) if step2_seconds and step2_seconds > 0 else None,
@@ -761,8 +775,8 @@ def main() -> None:
             f"decode={res['vae_decode_seconds']}s peak_vram={res['peak_vram_gib']}GiB\n"
         )
         if res["status"] != "success":
-            if res["missing_sampler_ids"]:
-                sys.stdout.write(f"[BENCHMARK] Missing step 2 timing for sampler nodes {res['missing_sampler_ids']}\n")
+            if res.get("sampling_error"):
+                sys.stdout.write(f"[BENCHMARK] {res['sampling_error']}\n")
             err_log = (args.out_dir / spec["id"] / "run.log")
             if err_log.exists():
                 sys.stdout.write(err_log.read_text(encoding="utf-8", errors="replace")[-1500:] + "\n")
