@@ -67,44 +67,44 @@ These model families are available in both versions. Memory estimates vary with 
 
 ## INT8 ConvRot benchmarks
 
-Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. GB10 memory is estimated from the drop in available system memory on each GPU host. For 2× GB10, the two numbers follow rank order. Runs use tensor parallelism unless marked PP. A dash means no verified result. Runs that crashed during cleanup are excluded.
+Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. Select a timing to open the output preview. GB10 memory is estimated from the drop in available system memory on each GPU host. For 2× GB10, the two numbers follow rank order. Runs use tensor parallelism unless marked PP. A dash means no verified result. Runs that crashed during cleanup are excluded.
 
 ### Images
 
 | Model | Settings | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Boogu Image Edit | 1024×1024, CFG 1, res_multistep / normal | — | 1.695 · 11.3 | 0.741 · 11.5 | 1.555 · 32.9 | — |
-| Fibo 2.0 Dev | 1024×1024, CFG 5, Euler / Fibo2 | — | 2.600 · 12.0 | 1.350 · 22.3 | — | — |
-| Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2 | — | 6.568 · 11.8 | 16.948 · 23.8 | 5.411 · 56.9 | 3.711 · 44.1 / 23.6 |
-| Flux.3 Klein 4B | 1024×1024, CFG 1, er_sde / simple | — | 0.686 · 7.6 | 0.340 · 6.2 | 0.665 · 17.8 | — |
-| Ideogram 4 | 1024×1024, CFG 3, res_multistep / Ideogram4 | — | 4.291 · 10.7 | 1.838 · 11.0 | — | 2.920 · 29.0 / 16.4 |
+| Boogu Image Edit | 1024×1024, CFG 1, res_multistep / normal | — | [1.695 · 11.3](benchmark-samples/boogu-rtx3060-1024x1024.webp) | [0.741 · 11.5](benchmark-samples/boogu-rtx3090-1024x1024.webp) | [1.555 · 32.9](benchmark-samples/boogu-1xgb10-1024x1024.webp) | — |
+| Fibo 2.0 Dev | 1024×1024, CFG 5, Euler / Fibo2 | — | [2.600 · 12.0](benchmark-samples/fibo2-rtx3060-1024x1024.webp) | [1.350 · 22.3](benchmark-samples/fibo2-rtx3090-1024x1024.webp) | — | — |
+| Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2 | — | [6.568 · 11.8](benchmark-samples/flux2-dev-rtx3060-1024x1024.webp) | [16.948 · 23.8](benchmark-samples/flux2-dev-rtx3090-1024x1024.webp) | [5.411 · 56.9](benchmark-samples/flux2-dev-1xgb10-1024x1024.webp) | [3.711 · 44.1 / 23.6](benchmark-samples/flux2-dev-2xgb10-1024x1024.webp) |
+| Flux.3 Klein 4B | 1024×1024, CFG 1, er_sde / simple | — | [0.686 · 7.6](benchmark-samples/flux3-rtx3060-1024x1024.webp) | [0.340 · 6.2](benchmark-samples/flux3-rtx3090-1024x1024.webp) | [0.665 · 17.8](benchmark-samples/flux3-1xgb10-1024x1024.webp) | — |
+| Ideogram 4 | 1024×1024, CFG 3, res_multistep / Ideogram4 | — | [4.291 · 10.7](benchmark-samples/ideogram4-rtx3060-1024x1024.webp) | [1.838 · 11.0](benchmark-samples/ideogram4-rtx3090-1024x1024.webp) | — | [2.920 · 29.0 / 16.4](benchmark-samples/ideogram4-2xgb10-1024x1024.webp) |
 | JoyAI Image Edit | 1024×1024, CFG 4, Euler / simple | — | — | — | — | — |
-| JoyAI Image Edit | 512×512, CFG 4, Euler / simple | — | 5.798 · 11.8 | 2.215 · 17.0 | 5.275 · 32.6 | — |
-| Krea 2 Turbo | 1024×1024, CFG 1, res_multistep / normal | — | 2.393 · 11.8 | 0.943 · 14.1 | 2.388 · 27.0 | 1.865 · 24.0 / 14.4 |
-| Mage-Flow | 1024×1024, CFG 5, Euler / simple | 1.837 · 7.0 | 0.720 · 11.7 | 0.266 · 16.1 | — | — |
+| JoyAI Image Edit | 512×512, CFG 4, Euler / simple | — | [5.798 · 11.8](benchmark-samples/joyimage-rtx3060-512x512.webp) | [2.215 · 17.0](benchmark-samples/joyimage-rtx3090-512x512.webp) | [5.275 · 32.6](benchmark-samples/joyimage-1xgb10-512x512.webp) | — |
+| Krea 2 Turbo | 1024×1024, CFG 1, res_multistep / normal | — | [2.393 · 11.8](benchmark-samples/krea2-rtx3060-1024x1024.webp) | [0.943 · 14.1](benchmark-samples/krea2-rtx3090-1024x1024.webp) | [2.388 · 27.0](benchmark-samples/krea2-1xgb10-1024x1024.webp) | [1.865 · 24.0 / 14.4](benchmark-samples/krea2-2xgb10-1024x1024.webp) |
+| Mage-Flow | 1024×1024, CFG 5, Euler / simple | [1.837 · 7.0](benchmark-samples/mage-flow-rx7600-1024x1024.webp) | [0.720 · 11.7](benchmark-samples/mage-flow-rtx3060-1024x1024.webp) | [0.266 · 16.1](benchmark-samples/mage-flow-rtx3090-1024x1024.webp) | — | — |
 | Marigold V2 Depth | 1024×1024, Euler, manual sigmas | — | — | — | — | — |
-| Marigold V2 Depth | 512×512, Euler, manual sigmas | — | 1.446 · 11.8 | 0.228 · 20.5 | 0.569 · 36.1 | — |
-| Ming-Image 0.1 Design | 1024×1024, CFG 4, Euler / simple | — | 1.050 · 11.8 | 0.470 · 21.9 | 1.086 · 37.7 | — |
-| MiniMax H3 Image | 1024×1024, CFG 1, Euler / simple | — | 1.364 · 11.8 | 0.331 · 23.7 | — | — |
-| MOSS-Image SFT | 1024×1024, CFG 3, Euler / sgm_uniform | — | 1.598 · 8.8 | 0.766 · 8.5 | 1.600 · 22.0 | — |
-| Qwen-Image 2.1 | 1024×1024, CFG 4, Euler / simple | — | 2.250 · 7.9 | 0.986 · 8.1 | 2.160 · 26.5 | — |
-| Qwen-Image Layered | 640×640, 2 layers, CFG 2.5, Euler / simple | — | — | — | 5.127 · 36.3 | 5.331 · 29.3 / 12.8 (PP) |
-| SeedVR2 3B | 512×512 → 2048×2048, CFG 1, Euler / simple | 4.763 · 7.4 | — | — | — | — |
-| SeedVR2 3B | 512×512 restoration, CFG 1, Euler / simple | 0.333 · 5.7 | 0.167 · 4.0 | 0.122 · 4.5 | 0.384 · 7.9 | — |
-| Z-Image Turbo 6B | 1024×1024, CFG 1, Euler / simple | — | 1.079 · 12.0 | 0.475 · 21.9 | 1.023 · 25.4 | — |
+| Marigold V2 Depth | 512×512, Euler, manual sigmas | — | [1.446 · 11.8](benchmark-samples/marigold-v2-depth-rtx3060-512x512.webp) | [0.228 · 20.5](benchmark-samples/marigold-v2-depth-rtx3090-512x512.webp) | [0.569 · 36.1](benchmark-samples/marigold-v2-depth-1xgb10-512x512.webp) | — |
+| Ming-Image 0.1 Design | 1024×1024, CFG 4, Euler / simple | — | [1.050 · 11.8](benchmark-samples/ming-image-rtx3060-1024x1024.webp) | [0.470 · 21.9](benchmark-samples/ming-image-rtx3090-1024x1024.webp) | [1.086 · 37.7](benchmark-samples/ming-image-1xgb10-1024x1024.webp) | — |
+| MiniMax H3 Image | 1024×1024, CFG 1, Euler / simple | — | [1.364 · 11.8](benchmark-samples/minimax-h3-image-rtx3060-1024x1024.webp) | [0.331 · 23.7](benchmark-samples/minimax-h3-image-rtx3090-1024x1024.webp) | — | — |
+| MOSS-Image SFT | 1024×1024, CFG 3, Euler / sgm_uniform | — | [1.598 · 8.8](benchmark-samples/moss-image-rtx3060-1024x1024.webp) | [0.766 · 8.5](benchmark-samples/moss-image-rtx3090-1024x1024.webp) | [1.600 · 22.0](benchmark-samples/moss-image-1xgb10-1024x1024.webp) | — |
+| Qwen-Image 2.1 | 1024×1024, CFG 4, Euler / simple | — | [2.250 · 7.9](benchmark-samples/qwen-image21-rtx3060-1024x1024.webp) | [0.986 · 8.1](benchmark-samples/qwen-image21-rtx3090-1024x1024.webp) | [2.160 · 26.5](benchmark-samples/qwen-image21-1xgb10-1024x1024.webp) | — |
+| Qwen-Image Layered | 640×640, 2 layers, CFG 2.5, Euler / simple | — | — | — | [5.127 · 36.3](benchmark-samples/qwen-image-layered-1xgb10-640x640.webp) | [5.331 · 29.3 / 12.8 (PP)](benchmark-samples/qwen-image-layered-2xgb10-640x640.webp) |
+| SeedVR2 3B | 512×512 → 2048×2048, CFG 1, Euler / simple | [4.763 · 7.4](benchmark-samples/seedvr2-3b-rx7600-2048x2048.webp) | — | — | — | — |
+| SeedVR2 3B | 512×512 restoration, CFG 1, Euler / simple | [0.333 · 5.7](benchmark-samples/seedvr2-3b-rx7600-512x512.webp) | [0.167 · 4.0](benchmark-samples/seedvr2-3b-rtx3060-512x512.webp) | [0.122 · 4.5](benchmark-samples/seedvr2-3b-rtx3090-512x512.webp) | [0.384 · 7.9](benchmark-samples/seedvr2-3b-1xgb10-512x512.webp) | — |
+| Z-Image Turbo 6B | 1024×1024, CFG 1, Euler / simple | — | [1.079 · 12.0](benchmark-samples/z-image-turbo-rtx3060-1024x1024.webp) | [0.475 · 21.9](benchmark-samples/z-image-turbo-rtx3090-1024x1024.webp) | [1.023 · 25.4](benchmark-samples/z-image-turbo-1xgb10-1024x1024.webp) | — |
 
 ### Video and audio
 
 | Model | Settings | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | — | — | — | 72.070 · 95.5 / 22.2 |
-| MiniMax Music 3 | 15.28 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | 0.245 · 10.2 | — | — | — |
-| MiniMax Music 3 | 24.08 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | — | 0.349 · 11.3 | — | — |
-| YuE2 3B | 30 s audio, CFG 1, Euler / simple | 0.171 · 4.9 | 0.064 · 2.8 | 0.047 · 3.1 | — | — |
+| PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | — | — | — | [72.070 · 95.5 / 22.2](benchmark-samples/pan2-t2v-2xgb10-1248x704.webp) |
+| MiniMax Music 3 | 15.28 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | [0.245 · 10.2](benchmark-samples/minimax-music3-rtx3060-15279ms.mp3) | — | — | — |
+| MiniMax Music 3 | 24.08 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | — | [0.349 · 11.3](benchmark-samples/minimax-music3-rtx3090-24079ms.mp3) | — | — |
+| YuE2 3B | 30 s audio, CFG 1, Euler / simple | [0.171 · 4.9](benchmark-samples/yue2-rx7600-30000ms.mp3) | [0.064 · 2.8](benchmark-samples/yue2-rtx3060-30000ms.mp3) | [0.047 · 3.1](benchmark-samples/yue2-rtx3090-30000ms.mp3) | — | — |
 | MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, CFG 1, res_multistep / simple | — | — | — | — | — |
 | MAGI-2 Preview | 896×512, 125 frames at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow | — | — | — | — | — |
 | MAGI-2 Preview + Refiner | Same preview, then 1920×1088, 249 frames at 25 fps, refiner CFG 2, UniPC Flow | — | — | — | — | — |
-| Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | 77.461 · 11.8 | 26.946 · 22.0 | — | — |
+| Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | [77.461 · 11.8](benchmark-samples/wan21-scail2-rtx3060-832x480.webp) | [26.946 · 22.0](benchmark-samples/wan21-scail2-rtx3090-832x480.webp) | — | — |
 
 <details>
 <summary>Earlier runs at smaller settings</summary>
