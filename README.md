@@ -27,11 +27,15 @@ Take ComfyUI from a creative workspace to an application, a command-line job, or
 - **Scale throughput independently.** RabbitMQ workers execute queued jobs behind a separate frontend; shared storage keeps inputs and outputs accessible across hosts.
 - **Connect existing infrastructure.** Discover local models, resolve supported model URLs, use object-storage integrations, and deploy packaged NVIDIA or AMD containers.
 
-You also get upstream ComfyUI capabilities such as native text generation, DynamicVRAM, and HDR/high-bit-depth media nodes. These are part of the product, not exclusive fork features. See the [supported models and benchmarks guide](docs/models.md), [workflow guide](docs/workflows.md), and [performance guide](docs/distributed.md) for practical limits.
+You also get upstream ComfyUI capabilities such as native text generation, DynamicVRAM, and HDR/high-bit-depth media nodes. These are part of the product, not exclusive fork features. See the [model catalog](docs/models.md), [workflow guide](docs/workflows.md), and [performance guide](docs/distributed.md) for practical limits.
 
 ## Supported Models
 
-See the [model catalog](docs/models.md#supported-models) for fork and upstream support. The [INT8 ConvRot benchmarks](docs/models.md#int8-convrot-benchmarks) list inference settings, seconds per step, and peak memory by GPU.
+The [model catalog](docs/models.md) lists fork and upstream support.
+
+## Benchmarks
+
+Compare step 2 time, peak memory, and samples across Radeon, GeForce, and GB10 hardware. [Image results](docs/benchmarks.md#images) · [Video results](docs/benchmarks.md#video) · [Audio results](docs/benchmarks.md#audio)
 
 ## Install
 
@@ -95,7 +99,7 @@ Full documentation is available in [docs/index.md](docs/index.md).
 
 ### Core
 - [Installation & Getting Started](docs/installing.md)
-- [Supported Models & Hardware Benchmarks](docs/models.md)
+- [Supported Models](docs/models.md)
 - [Hardware Compatibility](docs/compatibility.md)
 - [Configuration](docs/configuration.md)
 - [Troubleshooting](docs/troubleshooting.md)

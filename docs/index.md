@@ -2,10 +2,19 @@
 
 ## Core
 - [Installation & Getting Started](installing.md)
-- [Supported Models & Hardware Benchmarks](models.md)
+- [Supported Models](models.md)
 - [Hardware Compatibility](compatibility.md)
 - [Configuration](configuration.md)
 - [Troubleshooting](troubleshooting.md)
+
+## Benchmarks
+
+[INT8 ConvRot inference results](benchmarks.md) by workload.
+
+- [Images](benchmarks.md#images)
+- [Video](benchmarks.md#video)
+- [Audio](benchmarks.md#audio)
+- [Run the benchmarks](benchmarks.md#run-the-benchmarks)
 
 ## Features & Workflows
 - [Interactive and Headless Workflows](workflows.md)
