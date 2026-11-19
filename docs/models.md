@@ -127,7 +127,7 @@ The RTX cards used local NVMe for the 1024×1024 JoyAI and Marigold runs, PAN 2 
 
 MiniMax Music 3 on the RX 7600 used local NVMe and staged host transfers.
 
-The single-GB10 MAGI-2 runs used per-layer offload with 24 GiB reserved. The RTX 3060 and RTX 3090 MAGI-2 Preview runs used local NVMe with DynamicVRAM and pinned memory disabled. Both RTX cards hit a CUDA error with DynamicVRAM enabled. The RX 7600 run exhausted host RAM.
+The single-GB10 MAGI-2 runs used per-layer offload with 24 GiB reserved. The RTX 3060 and RTX 3090 MAGI-2 Preview runs used local NVMe with DynamicVRAM and pinned memory disabled. Both RTX cards hit a CUDA error with DynamicVRAM enabled. On the RX 7600, the latest MAGI-2 Preview run stopped during sampling with a GPU kernel error.
 
 All four PAN 2 clips show the same dark red scene. The two-step Wan clips are blurry on all three devices. The two-step MAGI-2 Preview clips are dark, and the café scene is indistinct. SandAI’s preview recipe uses 100 steps. [MAGI-2 settings](prompting_guides/sandai_magi2_prompting.md)
 
