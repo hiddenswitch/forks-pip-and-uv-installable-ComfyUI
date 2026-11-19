@@ -48,6 +48,7 @@ SeedVR2 3B,1× GB10,"512×512 restoration, CFG 1, Euler / simple",2,51.554,2.116
 Z-Image Turbo 6B,RTX 3060,"1024×1024, CFG 1, Euler / simple",2,288.450,126.081,4.898,1.079,benchmark-samples/z-image-turbo-rtx3060-1024x1024.webp
 Z-Image Turbo 6B,RTX 3090,"1024×1024, CFG 1, Euler / simple",2,1013.295,446.540,7.753,0.475,benchmark-samples/z-image-turbo-rtx3090-1024x1024.webp
 Z-Image Turbo 6B,1× GB10,"1024×1024, CFG 1, Euler / simple",2,156.752,3.238,1.826,1.023,benchmark-samples/z-image-turbo-1xgb10-1024x1024.webp
+PAN 2,RTX 3090,"1248×704, 241 frames at 24 fps, CFG 5, Euler / simple",2,34.976,703.925,90.989,55.184,benchmark-samples/pan2-t2v-rtx3090-1248x704.webp
 PAN 2,2× GB10,"1248×704, 241 frames at 24 fps, CFG 5, Euler / simple",2,56.590,148.278,171.052,72.070,benchmark-samples/pan2-t2v-2xgb10-1248x704.webp
 MiniMax Music 3,RTX 3060,"15.28 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple",2,274.407,68.802,1.085,0.245,benchmark-samples/minimax-music3-rtx3060-15279ms.mp3
 MiniMax Music 3,RTX 3090,"24.08 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple",2,243.713,55.514,0.597,0.349,benchmark-samples/minimax-music3-rtx3090-24079ms.mp3

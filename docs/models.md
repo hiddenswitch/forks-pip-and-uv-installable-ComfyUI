@@ -97,7 +97,7 @@ Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. Select
 
 | Model | Settings | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | — | — | — | [72.070 · 95.5 / 22.2](benchmark-samples/pan2-t2v-2xgb10-1248x704.webp) |
+| PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | — | [55.184 · 23.9](benchmark-samples/pan2-t2v-rtx3090-1248x704.webp) | — | [72.070 · 95.5 / 22.2](benchmark-samples/pan2-t2v-2xgb10-1248x704.webp) |
 | MiniMax Music 3 | 15.28 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | [0.245 · 10.2](benchmark-samples/minimax-music3-rtx3060-15279ms.mp3) | — | — | — |
 | MiniMax Music 3 | 24.08 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | — | [0.349 · 11.3](benchmark-samples/minimax-music3-rtx3090-24079ms.mp3) | — | — |
 | YuE2 3B | 30 s audio, CFG 1, Euler / simple | [0.171 · 4.9](benchmark-samples/yue2-rx7600-30000ms.mp3) | [0.064 · 2.8](benchmark-samples/yue2-rtx3060-30000ms.mp3) | [0.047 · 3.1](benchmark-samples/yue2-rtx3090-30000ms.mp3) | — | — |
