@@ -116,8 +116,8 @@ SeedVR2 restored the 512×512 portrait on the RX 7600 with a CPU VAE and local N
 | MiniMax Music 3 | 30 s cap, 44.1 kHz stereo, AR CFG 1.5, sampler CFG 1, res_multistep / simple | [1.233 · 7.6](benchmark-samples/minimax-music3-rx7600-26749ms.mp3) (26.75 s clip) | [0.245 · 10.2](benchmark-samples/minimax-music3-rtx3060-15279ms.mp3) (15.28 s clip) | [0.349 · 11.3](benchmark-samples/minimax-music3-rtx3090-24079ms.mp3) (24.08 s clip) | [0.375 · 28.2](benchmark-samples/minimax-music3-1xgb10-24393ms.mp3) (24.39 s clip) | — |
 | YuE2 3B | 30 s, 48 kHz stereo, CFG 1, Euler / simple | [0.171 · 4.9](benchmark-samples/yue2-rx7600-30000ms.mp3) | [0.064 · 2.8](benchmark-samples/yue2-rtx3060-30000ms.mp3) | [0.047 · 3.1](benchmark-samples/yue2-rtx3090-30000ms.mp3) | [0.044 · 11.2](benchmark-samples/yue2-1xgb10-30000ms.mp3) | — |
 | MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, 32 kHz stereo, CFG 1, res_multistep / simple | — | [65.063 · 11.8](benchmark-samples/minimax-h3-video-rtx3060.mp4) | [21.362 · 23.8](benchmark-samples/minimax-h3-video-rtx3090.mp4) | [59.806 · 67.0](benchmark-samples/minimax-h3-video-1xgb10.mp4) | [28.498 · 65.3 / 22.9](benchmark-samples/minimax-h3-video-2xgb10.mp4) |
-| MAGI-2 Preview | Text to video, 896×512, 125 frames at 12.5 fps, 44.1 kHz stereo, video CFG 5, audio CFG 7, UniPC Flow | — | [643.014 · 12.0](benchmark-samples/magi2-preview-rtx3060.mp4) | — | — | [826.074 · 94.5 / 97.7](benchmark-samples/magi2-preview-2xgb10.mp4) |
-| MAGI-2 Preview | Text to video, 896×512, 125 frames at 12.5 fps, 44.1 kHz stereo, video CFG 5, audio CFG 7, UniPC Flow, PyTorch SDPA only | — | [542.648 · 12.0](benchmark-samples/magi2-preview-rtx3060-sdpa.mp4) |  [241.043 · 23.9](benchmark-samples/magi2-preview-rtx3090-sdpa.mp4) | — | — |
+| MAGI-2 Preview | Text to video, 896×512, 125 frames at 12.5 fps, 44.1 kHz stereo, video CFG 5, audio CFG 7, UniPC Flow | — | [643.014 · 12.0](benchmark-samples/magi2-preview-rtx3060.mp4) | — | [531.146 · 21.1](benchmark-samples/magi2-preview-1xgb10.mp4) | [826.074 · 94.5 / 97.7](benchmark-samples/magi2-preview-2xgb10.mp4) |
+| MAGI-2 Preview | Text to video, 896×512, 125 frames at 12.5 fps, 44.1 kHz stereo, video CFG 5, audio CFG 7, UniPC Flow, PyTorch SDPA only | — | [542.648 · 12.0](benchmark-samples/magi2-preview-rtx3060-sdpa.mp4) | [241.043 · 23.9](benchmark-samples/magi2-preview-rtx3090-sdpa.mp4) | — | — |
 | MAGI-2 Preview + Refiner | Image to video, 896×512, 125 frames at 12.5 fps (video CFG 5, audio CFG 7) → 1920×1088, 249 frames at 25 fps (CFG 2), 44.1 kHz stereo, UniPC Flow | — | — | — | [568.657 / 791.074 · 66.1](benchmark-samples/magi2-refiner-1xgb10.mp4) | [527.469 / 4518.399 · 94.0 / 78.3](benchmark-samples/magi2-refiner-2xgb10.mp4) |
 | Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | [77.461 · 11.8](benchmark-samples/wan21-scail2-rtx3060-832x480.webp) | [26.946 · 22.0](benchmark-samples/wan21-scail2-rtx3090-832x480.webp) | [54.047 · 38.4](benchmark-samples/wan21-scail2-1xgb10-832x480.webp) | — |
 
@@ -127,7 +127,7 @@ The RTX cards used local NVMe for the 1024×1024 JoyAI and Marigold runs, PAN 2 
 
 MiniMax Music 3 on the RX 7600 used local NVMe and staged host transfers.
 
-The RTX 3060 and RTX 3090 MAGI-2 Preview runs used local NVMe with DynamicVRAM and pinned memory disabled. Both RTX cards hit a CUDA error with DynamicVRAM enabled. The RX 7600 run exhausted host RAM.
+The single-GB10 MAGI-2 runs used per-layer offload with 24 GiB reserved. The RTX 3060 and RTX 3090 MAGI-2 Preview runs used local NVMe with DynamicVRAM and pinned memory disabled. Both RTX cards hit a CUDA error with DynamicVRAM enabled. The RX 7600 run exhausted host RAM.
 
 All four PAN 2 clips show the same dark red scene. The two-step Wan clips are blurry on all three devices. The two-step MAGI-2 Preview clips are dark, and the café scene is indistinct. SandAI’s preview recipe uses 100 steps. [MAGI-2 settings](prompting_guides/sandai_magi2_prompting.md)
 
