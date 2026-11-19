@@ -21,7 +21,7 @@ Throughput uses the second step. Sampling time includes both steps per stage.
 | MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 0.0154 | 0.0468 | 0.0167 | 0.0306 |
 | Mage-Flow | 0.5444 | 1.3895 | 3.7536 | 1.6922 | — |
 | JoyAI Image Edit | — | 0.1077 | 0.3015 | 0.1084 | — |
-| Boogu Image Edit | — | 0.5901 | 1.3499 | 0.6431 | — |
+| Boogu Image Edit | — | 0.5908 | 1.3499 | 0.6431 | — |
 | Krea 2 Turbo | — | 0.4178 | 1.0603 | 0.4188 | 0.5363 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 0.0129 | 0.0371 | 0.0185 | — |
 | Ideogram 4 | — | 0.2330 | 0.5441 | 0.2941 | 0.3425 |
@@ -53,7 +53,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 4.70 | 3.66 | 100.93 | 66.07 |
 | Mage-Flow | 1043.57 | 203.18 | 859.37 | 23.18 | — |
 | JoyAI Image Edit | — | 11.99 | 8.41 | — | — |
-| Boogu Image Edit | — | — | 259.56 | — | — |
+| Boogu Image Edit | — | 6.30 | 259.56 | — | — |
 | Krea 2 Turbo | — | 136.33 | 187.47 | — | 30.71 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 188.65 | 142.19 | — | — |
 | Ideogram 4 | — | 194.16 | 157.75 | 43.41 | 36.76 |
@@ -81,7 +81,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 139.74 | 45.77 | 115.65 | 69.65 |
 | Mage-Flow | 4.10 | 104.99 | 296.72 | 2.32 | — |
 | JoyAI Image Edit | — | 23.79 | 9.63 | 19.35 | — |
-| Boogu Image Edit | — | 188.02 | 183.35 | 4.55 | — |
+| Boogu Image Edit | — | 6.66 | 183.35 | 4.55 | — |
 | Krea 2 Turbo | — | 384.26 | 350.98 | 5.51 | 8.12 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 578.88 | 419.92 | 112.97 | — |
 | Ideogram 4 | — | 464.82 | 420.52 | 8.31 | 10.33 |
@@ -109,7 +109,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 96.27 | 29.74 | 40.23 | 41.22 |
 | Mage-Flow | 0.50 | 3.87 | 3.95 | 0.52 | — |
 | JoyAI Image Edit | — | 0.46 | 0.21 | 1.34 | — |
-| Boogu Image Edit | — | 2.93 | 2.34 | 1.74 | — |
+| Boogu Image Edit | — | 1.15 | 2.34 | 1.74 | — |
 | Krea 2 Turbo | — | 12.35 | 3.55 | 1.30 | 1.25 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 45.39 | 18.36 | 27.30 | — |
 | Ideogram 4 | — | 11.23 | 4.87 | 0.98 | 0.77 |
