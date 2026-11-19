@@ -585,6 +585,12 @@ def _seedvr_restoration_error(workflow: dict, output: Path) -> str | None:
     baseline = np.square(reference - reference.mean(axis=(0, 1))).mean()
     if np.square(actual - reference).mean() >= baseline:
         return "Restored portrait differs from the reference as much as a solid fill or more"
+    # Tiled VAE output can preserve most of the portrait while losing an entire band.
+    for axis in (0, 1):
+        for source_band, output_band in zip(np.split(reference, 4, axis), np.split(actual, 4, axis)):
+            baseline = source_band.var(axis=(0, 1)).mean()
+            if baseline > 0 and np.square(output_band - source_band).mean() >= baseline:
+                return "A band of the restored portrait differs from the reference as much as a solid fill or more"
     return None
 
 

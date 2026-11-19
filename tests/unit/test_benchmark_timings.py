@@ -158,6 +158,10 @@ def test_seedvr_restoration_rejects_flat_and_wrong_size_images(tmp_path):
     image.resize((256, 256)).save(output)
     assert _seedvr_restoration_error(workflow, output) is None
     assert "Expected a 256×256" in _seedvr_restoration_error(workflow, source)
+    partial = image.resize((256, 256))
+    partial.paste((0, 0, 0), (0, 0, 256, 64))
+    partial.save(output)
+    assert "band" in _seedvr_restoration_error(workflow, output)
     Image.new("RGB", (256, 256), (110, 98, 100)).save(output)
     assert "solid fill" in _seedvr_restoration_error(workflow, output)
 
