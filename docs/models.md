@@ -67,7 +67,7 @@ These model families are available in both versions. Memory estimates vary with 
 
 ## INT8 ConvRot benchmarks
 
-Cells show **seconds for step 2 · peak GiB**. The 2× GB10 column shows memory per rank. It uses tensor parallelism unless marked PP. A dash means no verified result. Runs that crashed during cleanup are excluded.
+Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. The 2× GB10 column shows memory per rank. It uses tensor parallelism unless marked PP. A dash means no verified result. Runs that crashed during cleanup are excluded.
 
 ### Images
 
@@ -77,17 +77,14 @@ Cells show **seconds for step 2 · peak GiB**. The 2× GB10 column shows memory 
 | Fibo 2.0 Dev | 1024×1024, CFG 5, Euler / Fibo2 | — | 2.600 · 12.0 | 1.350 · 22.3 | — | — |
 | Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2 | — | 6.568 · 11.8 | 16.948 · 23.8 | 5.411 · 56.9 | 3.711 · 44.1 / 23.6 |
 | Flux.3 Klein 4B | 1024×1024, CFG 1, er_sde / simple | — | 0.686 · 7.6 | 0.340 · 6.2 | 0.665 · 17.8 | — |
-| Ideogram 4 | 384×688, CFG 3, res_multistep / Ideogram4 | — | 1.716 · 11.7 | 0.880 · 10.5 | 0.848 · 33.4 | 1.079 · 28.8 / 15.5 |
 | Ideogram 4 | 1024×1024, CFG 3, res_multistep / Ideogram4 | — | 4.291 · 10.7 | — | — | 2.920 · 29.0 / 16.4 |
 | JoyAI Image Edit | 512×512, CFG 4, Euler / simple | — | 5.798 · 11.8 | 2.215 · 17.0 | 5.275 · 32.6 | — |
 | Krea 2 Turbo | 1024×1024, CFG 1, res_multistep / normal | — | 2.393 · 11.8 | 0.943 · 14.1 | 2.388 · 27.0 | 1.865 · 24.0 / 14.4 |
-| Mage-Flow | 512×512, CFG 5, Euler / simple | — | 0.162 · 12.0 | 0.095 · 16.1 | 0.186 · 17.0 | — |
 | Mage-Flow | 1024×1024, CFG 5, Euler / simple | 1.837 · 7.0 | 0.720 · 11.7 | 0.266 · 16.1 | — | — |
 | Marigold V2 Depth | 512×512, Euler, manual sigmas | — | 1.446 · 11.8 | 0.228 · 20.5 | 0.569 · 36.1 | — |
 | Ming-Image 0.1 Design | 1024×1024, CFG 4, Euler / simple | — | 1.050 · 11.8 | 0.470 · 21.9 | 1.086 · 37.7 | — |
 | MiniMax H3 Image | 1024×1024, CFG 1, Euler / simple | — | 1.364 · 11.8 | 0.331 · 23.7 | — | — |
 | MOSS-Image SFT | 1024×1024, CFG 3, Euler / sgm_uniform | — | 1.598 · 8.8 | 0.766 · 8.5 | 1.600 · 22.0 | — |
-| Qwen-Image 2.1 | 256×256, CFG 4, Euler / simple | — | 0.131 · 7.9 | 0.119 · 8.1 | 0.542 · 21.5 | — |
 | Qwen-Image 2.1 | 1024×1024, CFG 4, Euler / simple | — | — | — | 2.160 · 26.5 | — |
 | Qwen-Image Layered | 640×640, 2 layers, CFG 2.5, Euler / simple | — | — | — | 5.127 · 36.3 | 5.331 · 29.3 / 12.8 (PP) |
 | SeedVR2 3B | 512×512, CFG 1, Euler / simple | 0.333 · 5.7 | 0.167 · 4.0 | 0.122 · 4.5 | 0.384 · 7.9 | — |
@@ -97,23 +94,28 @@ Cells show **seconds for step 2 · peak GiB**. The 2× GB10 column shows memory 
 
 | Model | Settings | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | — | — | — | 72.070 · 95.5 / 22.2 |
+| YuE2 3B | 30 s audio, CFG 1, Euler / simple | 0.171 · 4.9 | — | — | — | — |
+| MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, CFG 1, res_multistep / simple | — | — | — | — | — |
+| MAGI-2 Preview | 896×512, 10 s target at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow | — | — | — | — | — |
+| MAGI-2 Preview + Refiner | Same preview, then 1920×1088 at 25 fps, refiner CFG 2, UniPC Flow | — | — | — | — | — |
+| Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | — | — | — | — |
+
+<details>
+<summary>Earlier runs at smaller settings</summary>
+
+| Model | Settings | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Ideogram 4 | 384×688, CFG 3, res_multistep / Ideogram4 | — | 1.716 · 11.7 | 0.880 · 10.5 | 0.848 · 33.4 | 1.079 · 28.8 / 15.5 |
+| Mage-Flow | 512×512, CFG 5, Euler / simple | — | 0.162 · 12.0 | 0.095 · 16.1 | 0.186 · 17.0 | — |
+| Qwen-Image 2.1 | 256×256, CFG 4, Euler / simple | — | 0.131 · 7.9 | 0.119 · 8.1 | 0.542 · 21.5 | — |
 | MiniMax H3 Video+Audio | 608×352, 5 frames at 24 fps, res_multistep / simple | — | — | 0.168 · 23.7 | — | — |
 | PAN 2 | 512×288, 21 frames at 24 fps, CFG 5, Euler / simple | — | 3.773 · 11.8 | 0.840 · 23.8 | 1.588 · 44.1 | 2.015 · 33.4 / 15.6 |
-| PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | — | — | — | 72.070 · 95.5 / 22.2 |
 | Wan 2.1 SCAIL-2 | 512×512, 17 frames at 8 fps, CFG 6, Euler / normal | — | 6.043 · 11.8 | 2.698 · 19.4 | 5.704 · 31.9 | — |
 | MiniMax Music 3 | 0.07 s audio, res_multistep / simple | — | 0.055 · 10.7 | 0.040 · 11.0 | 0.105 · 17.6 | — |
 | YuE2 3B | 1 s audio, CFG 1, Euler / simple | 0.100 · 2.4 | 0.043 · 2.7 | 0.033 · 3.9 | 0.019 · 7.4 | — |
-| YuE2 3B | 30 s audio, CFG 1, Euler / simple | 0.171 · 4.9 | — | — | — | — |
 
-The following 2× GB10 runs are pending.
-
-| Model | Settings |
-| --- | --- |
-| MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, res_multistep / simple |
-| MAGI-2 Preview | 896×512, 10 s target at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow |
-| MAGI-2 Preview + Refiner | Same preview, then 1920×1088 at 25 fps, refiner CFG 2, UniPC Flow |
-
-Each stage uses two steps. Qwen-Image 2.1 used one GPU at 1024×1024, even when launched across two ranks.
+</details>
 
 The benchmark saves the prepared workflow and separate timings for load and encode, sampling, and VAE decode.
 
