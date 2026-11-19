@@ -62,6 +62,13 @@ class ComputeQueryChunkAttn(Protocol):
     ) -> Tensor: ...
 
 
+def _apply_attention_mask(scores: Tensor, mask: Tensor):
+    if mask.dtype == torch.bool:
+        scores.masked_fill_(~mask, -torch.inf)
+    else:
+        scores.add_(mask)
+
+
 def _summarize_chunk(
         query: Tensor,
         key_t: Tensor,
@@ -89,11 +96,13 @@ def _summarize_chunk(
             alpha=scale,
             beta=0,
         )
-    max_score, _ = torch.max(attn_weights, -1, keepdim=True)
-    max_score = max_score.detach()
-    attn_weights -= max_score
     if mask is not None:
-        attn_weights += mask
+        _apply_attention_mask(attn_weights, mask)
+    max_score = attn_weights.amax(dim=-1, keepdim=True).detach()
+    if mask is not None:
+        # A fully masked tile contributes zero weight, including when later tiles contain valid keys.
+        max_score = max_score.clamp_min(torch.finfo(max_score.dtype).min)
+    attn_weights -= max_score
     torch.exp(attn_weights, out=attn_weights)
     exp_weights = attn_weights.to(value.dtype)
     exp_values = torch.bmm(exp_weights, value)
@@ -144,6 +153,8 @@ def _query_chunk_attention(
             values.mul_(old_scale.unsqueeze(-1)).addcmul_(part.exp_values, part_scale.unsqueeze(-1))
             weights.mul_(old_scale).addcmul_(part.exp_weights_sum, part_scale)
             maximum = new_max
+        if mask is not None:
+            weights.masked_fill_(weights == 0, 1)
         return values.div_(weights.unsqueeze(-1)).to(value.dtype)
 
     chunks: List[AttnChunk] = [
@@ -159,6 +170,8 @@ def _query_chunk_attention(
 
     all_values = chunk_values.sum(dim=0)
     all_weights = torch.unsqueeze(chunk_weights, -1).sum(dim=0)
+    if mask is not None:
+        all_weights = all_weights.masked_fill(all_weights == 0, 1)
     return all_values / all_weights
 
 
@@ -192,7 +205,10 @@ def _get_attention_scores_no_kv_chunking(
         )
 
     if mask is not None:
-        attn_scores += mask
+        _apply_attention_mask(attn_scores, mask)
+        empty_rows = (~mask.any(dim=-1, keepdim=True) if mask.dtype == torch.bool
+                      else torch.isneginf(mask.amax(dim=-1, keepdim=True)))
+        attn_scores.masked_fill_(empty_rows, 0)
     try:
         attn_probs = attn_scores.softmax(dim=-1)
         del attn_scores
@@ -206,6 +222,8 @@ def _get_attention_scores_no_kv_chunking(
         attn_probs = attn_scores
 
     hidden_states_slice = torch.bmm(attn_probs.to(value.dtype), value)
+    if mask is not None:
+        hidden_states_slice.masked_fill_(empty_rows, 0)
     return hidden_states_slice
 
 
