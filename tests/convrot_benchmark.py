@@ -355,8 +355,24 @@ def _rocm_used_vram_bytes() -> int:
     return 0
 
 
+def record_visible_cuda_devices(path: Path) -> None:
+    """Record the worker's CUDA visibility after ComfyUI has applied its device settings."""
+    import torch
+
+    if torch.version.cuda is None:
+        return
+    uuids = []
+    for index in range(torch.cuda.device_count()):
+        uuid = str(torch.cuda.get_device_properties(index).uuid)
+        uuids.append(uuid if uuid.startswith(("GPU-", "MIG-")) else f"GPU-{uuid}")
+    temporary = path.with_suffix(f".{os.getpid()}.tmp")
+    temporary.write_text(json.dumps(uuids), encoding="utf-8")
+    temporary.replace(path)
+
+
 class PeakMemoryTracker:
-    def __init__(self, interval: float = 0.1):
+    def __init__(self, cuda_devices_file: Path, interval: float = 0.1):
+        self.cuda_devices_file = cuda_devices_file
         self.interval = interval
         self.peak_rss_bytes = 0
         self.peak_vram_bytes = 0
@@ -364,13 +380,10 @@ class PeakMemoryTracker:
         self.min_mem_available_bytes = self.start_mem_available_bytes
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
-        self._nvml_handles: list[Any] = []
+        self._nvml = None
+        self._nvml_handles: list[Any] | None = None
 
     def _poll(self) -> None:
-        try:
-            import pynvml
-        except ImportError:
-            pynvml = None
         proc = psutil.Process() if psutil is not None else None
         while not self._stop.is_set():
             try:
@@ -387,13 +400,23 @@ class PeakMemoryTracker:
                             pass
                     self.peak_rss_bytes = max(self.peak_rss_bytes, rss)
 
-                if pynvml is not None and self._nvml_handles:
+                if self._nvml is not None:
+                    if self._nvml_handles is None and self.cuda_devices_file.is_file():
+                        uuids = json.loads(self.cuda_devices_file.read_text(encoding="utf-8"))
+                        handles = []
+                        for uuid in uuids:
+                            try:
+                                handle = self._nvml.nvmlDeviceGetHandleByUUID(uuid)
+                            except (self._nvml.NVMLError_NotFound, self._nvml.NVMLError_InvalidArgument):
+                                handle = self._nvml.nvmlDeviceGetHandleByUUID(uuid.replace("GPU-", "MIG-", 1))
+                            handles.append(handle)
+                        self._nvml_handles = handles
                     total_vram = 0
-                    for handle in self._nvml_handles:
+                    for handle in self._nvml_handles or ():
                         try:
-                            info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                            info = self._nvml.nvmlDeviceGetMemoryInfo(handle)
                             total_vram += int(info.used)
-                        except Exception:
+                        except self._nvml.NVMLError:
                             pass
                     self.peak_vram_bytes = max(self.peak_vram_bytes, total_vram)
                 else:
@@ -409,10 +432,10 @@ class PeakMemoryTracker:
             import pynvml
 
             pynvml.nvmlInit()
-            count = pynvml.nvmlDeviceGetCount()
-            self._nvml_handles = [pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(count)]
+            if pynvml.nvmlDeviceGetCount():
+                self._nvml = pynvml
         except Exception:
-            self._nvml_handles = []
+            pass
         self._thread = threading.Thread(target=self._poll, daemon=True)
         self._thread.start()
         return self
@@ -774,7 +797,8 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     trace_file = model_dir / "traces.jsonl"
     steps_file = model_dir / "steps.jsonl"
     log_file = model_dir / "run.log"
-    for f in (trace_file, steps_file):
+    cuda_devices_file = model_dir / "cuda-devices.json"
+    for f in (trace_file, steps_file, cuda_devices_file):
         if f.exists():
             f.unlink()
 
@@ -785,6 +809,9 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         "_orig_post = _setup.setup_post_torch",
         "def _post(cfg):",
         "    _orig_post(cfg)",
+        "    from tests.convrot_benchmark import record_visible_cuda_devices",
+        "    from pathlib import Path",
+        "    record_visible_cuda_devices(Path(os.environ['COMFY_BENCHMARK_CUDA_DEVICES']))",
         "    from tests.inference_benchmark import install_benchmark",
         "    _setup._bench_patches = install_benchmark(os.environ['COMFY_BENCHMARK_PATH'])",
         "_setup.setup_post_torch = _post",
@@ -810,13 +837,14 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     ]
     env = os.environ.copy()
     env["COMFY_BENCHMARK_PATH"] = str(steps_file.resolve())
+    env["COMFY_BENCHMARK_CUDA_DEVICES"] = str(cuda_devices_file.resolve())
     env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     env["HF_HUB_DISABLE_XET"] = "1"
     env["HF_HUB_DOWNLOAD_TIMEOUT"] = "600"
     env["HF_HUB_ETAG_TIMEOUT"] = "60"
 
     started = time.monotonic()
-    with PeakMemoryTracker() as tracker, log_file.open("w", encoding="utf-8") as log_stream:
+    with PeakMemoryTracker(cuda_devices_file) as tracker, log_file.open("w", encoding="utf-8") as log_stream:
         proc = subprocess.Popen(cmd, cwd=str(repo_root), env=env, stdout=log_stream, stderr=subprocess.STDOUT)
         returncode = proc.wait()
     wall_seconds = time.monotonic() - started

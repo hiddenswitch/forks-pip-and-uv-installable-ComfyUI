@@ -67,7 +67,7 @@ These model families are available in both versions. Memory estimates vary with 
 
 ## INT8 ConvRot benchmarks
 
-Each stage runs two steps. Cells show **seconds for step 2 · peak GiB** and link to the output. The MAGI-2 refiner row gives preview and refiner times in that order. GB10 memory is estimated per host. For the two-GB10 MiniMax H3 Image and MAGI-2 runs, the second GPU also hosted an inference server. A dash means no verified result.
+Each stage runs two steps. Cells show **seconds for step 2 · peak GiB** and link to the output. The MAGI-2 refiner row gives preview and refiner times in that order. RTX and Radeon peaks include other processes on the measured GPU. GB10 memory is estimated per host. For the two-GB10 MiniMax H3 Image and MAGI-2 runs, the second GPU also hosted an inference server. A dash means no verified result.
 
 Sampling seeds, per-run settings, attention backends, and time spent loading, sampling, and decoding are in the [timings CSV](convrot-benchmark-timings.csv). Sampling includes first-step weight transfers.
 

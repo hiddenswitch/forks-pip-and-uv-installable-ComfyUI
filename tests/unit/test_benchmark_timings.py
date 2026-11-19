@@ -229,3 +229,24 @@ def test_ideogram_rejects_decodable_black_output(tmp_path):
     preset = next(spec for spec in SUITE if spec["id"] == "ideogram4")
     Image.new("RGB", preset["expected_image_size"]).save(tmp_path / "sample.png")
     assert _output_error(preset, {}, tmp_path, ["sample.png"]) == "All output pixels are black"
+
+
+def test_peak_memory_counts_only_worker_visible_nvidia_devices(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from tests import convrot_benchmark as benchmark
+
+    # NVML can see the busy desktop GPU even when the worker is restricted to another card.
+    used = {"GPU-desktop": 6000, "GPU-worker": 150}
+    fake_nvml = SimpleNamespace(
+        nvmlDeviceGetHandleByUUID=lambda uuid: uuid,
+        nvmlDeviceGetMemoryInfo=lambda handle: SimpleNamespace(used=used[handle]),
+    )
+    monkeypatch.setattr(benchmark, "psutil", None)
+    path = tmp_path / "cuda-devices.json"
+    for visible in ([], ["GPU-worker"], ["GPU-worker", "GPU-desktop"]):
+        path.write_text(json.dumps(visible))
+        tracker = benchmark.PeakMemoryTracker(path)
+        tracker._nvml = fake_nvml
+        monkeypatch.setattr(benchmark.time, "sleep", lambda _: tracker._stop.set())
+        tracker._poll()
+        assert tracker.peak_vram_bytes == sum(used[uuid] for uuid in visible)
