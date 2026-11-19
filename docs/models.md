@@ -120,6 +120,8 @@ SeedVR2 restored the 512×512 portrait on the RX 7600 with a CPU VAE and local N
 
 The RTX cards used local NVMe for the 1024×1024 JoyAI and Marigold runs, PAN 2 on the 3060, and MiniMax H3 Video+Audio on both cards.
 
+MAGI-2 Preview exhausted host RAM on the RX 7600 system. Both RTX cards hit a CUDA error during sampling with DynamicVRAM enabled.
+
 All four PAN 2 clips show the same dark red scene. The two-step Wan clips are blurry on all three devices. The two-step MAGI-2 Preview clip is dark, and the café scene is indistinct. SandAI’s preview recipe uses 100 steps. [MAGI-2 settings](prompting_guides/sandai_magi2_prompting.md)
 
 <details>
