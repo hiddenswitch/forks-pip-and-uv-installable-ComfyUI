@@ -1535,17 +1535,29 @@ class VAE:
                             and estimate_tile(tile_t, tile * 2) <= budget
                         ):
                             tile *= 2
-                        overlap = tile // 4
-                        pixel_samples = self.decode_tiled_3d(
-                            samples_in,
-                            tile_t=tile_t,
-                            tile_x=tile,
-                            tile_y=tile,
-                            overlap=(1, overlap, overlap),
-                        )
+                        pixel_samples = self._retry_video_tiles(samples_in, tile_t, tile)
 
         pixel_samples = pixel_samples.to(self.output_device).movedim(1, -1)
         return pixel_samples
+
+    def _retry_video_tiles(self, samples, tile_t, tile):
+        # Preserve temporal context while reducing spatial workspace. A single
+        # decoded frame may still need smaller spatial tiles on low-memory GPUs.
+        min_tile = max(2, 128 // self.spacial_compression_decode())
+        while True:
+            try:
+                return self.decode_tiled_3d(samples, tile_t=tile_t, tile_x=tile, tile_y=tile,
+                                            overlap=(1, tile // 4, tile // 4))
+            except Exception as error:
+                model_management.raise_non_oom(error)
+                if tile > min_tile:
+                    tile = max(min_tile, tile // 2)
+                elif tile_t > 2:
+                    tile_t = (tile_t + 1) // 2
+                else:
+                    raise
+            model_management.soft_empty_cache()
+            logger.warning("Retrying video VAE decode with latent tiles %dx%dx%d", tile_t, tile, tile)
 
     def prepare_decode(self, sample_shape, memory_required=None):
         """Prepare VAEs whose real decode entry point bypasses ``decode()``."""

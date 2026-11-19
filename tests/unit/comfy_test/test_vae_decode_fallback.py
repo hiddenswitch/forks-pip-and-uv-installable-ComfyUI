@@ -58,3 +58,55 @@ def test_magi_managed_decode_tiles_only_when_full_clip_exceeds_memory(monkeypatc
     assert vae.decode_tiled_3d.called == tiled
     assert full.called != tiled
     assert "Ran out of memory" not in caplog.text
+
+
+def test_video_decode_retries_smaller_tiles_when_the_estimate_is_too_low(monkeypatch):
+    vae = VAE(no_init=True)
+    vae.first_stage_model = torch.nn.Identity()
+    vae.first_stage_model.decode = Mock(side_effect=torch.OutOfMemoryError())
+    vae.latent_dim = 3
+    vae.extra_1d_channel = None
+    vae.handles_tiling = vae.disable_offload = False
+    vae.upscale_ratio = (lambda t: 4 * t - 3, 16, 16)
+    vae.device = vae.output_device = torch.device("cpu")
+    vae.vae_dtype = torch.float32
+    vae.patcher = Mock()
+    vae.patcher.get_free_memory.return_value = 8 * 1024**3
+    vae.memory_used_decode = lambda shape, dtype: 8000 * shape[-2] * shape[-1] * 256 * dtype.itemsize
+    pixels = torch.zeros(1, 3, 9, 16, 16)
+    vae.decode_tiled_3d = Mock(side_effect=[torch.OutOfMemoryError(), pixels])
+    monkeypatch.setattr(model_management, "get_total_memory", lambda device: 8 * 1024**3)
+    monkeypatch.setattr(model_management, "load_models_gpu", Mock())
+    monkeypatch.setattr(model_management, "soft_empty_cache", Mock())
+    latent = torch.zeros(1, 48, 61, 44, 78)
+
+    assert vae.decode(latent).shape == (1, 9, 16, 16, 3)
+    first, retry = [call.kwargs for call in vae.decode_tiled_3d.call_args_list]
+    assert (first["tile_x"], first["tile_y"], first["tile_t"]) == (16, 16, 61)
+    assert (retry["tile_x"], retry["tile_y"], retry["tile_t"]) == (8, 8, 61)
+    assert retry["overlap"] == (1, 2, 2)
+
+
+def test_video_tile_retry_preserves_frame_order_across_temporal_boundaries(monkeypatch):
+    vae = VAE(no_init=True)
+    vae.upscale_ratio = (lambda t: 4 * t - 3, 16, 16)
+    vae.upscale_index_formula = (4, 16, 16)
+    vae.device = vae.output_device = torch.device("cpu")
+    vae.vae_dtype = torch.float32
+    vae.output_channels = 1
+    vae.process_output = lambda pixels: pixels
+    monkeypatch.setattr(vae, "vae_output_dtype", lambda: torch.float32)
+    monkeypatch.setattr(model_management, "soft_empty_cache", Mock())
+
+    def decode(tile):
+        if tile.shape[2] > 8:
+            raise torch.OutOfMemoryError()
+        frames = torch.arange(4 * tile.shape[2] - 3) + 4 * tile[0, 0, 0, 0, 0]
+        return frames.reshape(1, 1, -1, 1, 1).expand(-1, -1, -1, 16, 16)
+
+    vae.first_stage_model = Mock()
+    vae.first_stage_model.decode.side_effect = decode
+    latent = torch.arange(61, dtype=torch.float32).reshape(1, 1, 61, 1, 1)
+    result = vae._retry_video_tiles(latent, tile_t=61, tile=8)
+    expected = torch.arange(241, dtype=torch.float32).reshape(1, 1, 241, 1, 1)
+    torch.testing.assert_close(result, expected.expand(1, 1, 241, 16, 16))
