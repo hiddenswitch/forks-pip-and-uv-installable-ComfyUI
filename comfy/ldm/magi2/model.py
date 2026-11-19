@@ -41,6 +41,7 @@ from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimi
 
 TIME_CHANNELS = 64
 SINK_PAD = 8
+ADAPTER_FP32_CHUNK_BYTES = 64 * 1024**2
 MHC_FP32_CHUNK_BYTES = 64 * 1024**2
 QK_ROPE_FP32_CHUNK_BYTES = 32 * 1024**2
 MLP_GATE_CHUNK_BYTES = 256 * 1024**2
@@ -1515,16 +1516,21 @@ class PreAdapter(nn.Module):
         self.rope = nn.Module()
         self.rope.register_buffer("bands", torch.empty(head_dim // 8, dtype=torch.float32, device=device))
 
-    def forward(self, video, audio, text, time_embedding):
+    def forward(self, video, audio, text, time_embedding, output_dtype=torch.float32):
+        batch = video.shape[0]
         width = self.video_embedder.weight.shape[0]
-        out = torch.empty(video.shape[0], video.shape[1] + audio.shape[1] + text.shape[1], width, dtype=torch.float32, device=video.device)
+        out = torch.empty(batch, video.shape[1] + audio.shape[1] + text.shape[1], width,
+                          dtype=output_dtype, device=video.device)
+        # Project in fp32, then store each token directly in the residual stream's dtype.
+        chunk_size = max(1, ADAPTER_FP32_CHUNK_BYTES // max(1, batch * width * 4))
         start = 0
         for tokens, embedder in ((video, self.video_embedder), (audio, self.audio_embedder), (text, self.text_embedder)):
-            if tokens.shape[1]:
-                out[:, start:start + tokens.shape[1]] = embedder(tokens.float())
-            start += tokens.shape[1]
+            for offset in range(0, tokens.shape[1], chunk_size):
+                chunk = tokens[:, offset:offset + chunk_size]
+                out[:, start:start + chunk.shape[1]] = embedder(chunk.float())
+                start += chunk.shape[1]
         if time_embedding is not None:
-            out[..., :time_embedding.shape[-1]] = time_embedding
+            out[..., :time_embedding.shape[-1]] = time_embedding.float()
         return out
 
 
@@ -1612,9 +1618,8 @@ class Magi2Model(nn.Module):
         t = torch.trunc(timestep.to(torch.float64)).float() / 1000.0
         video_rows = torch.cat([video_tokens(video)] + [video_tokens(ref["latent"].to(video)).expand(batch, -1, -1) for ref in refs], dim=1)
         text_rows = torch.cat([context] + [ref["token"].to(context).view(1, 1, -1).expand(batch, -1, -1) for ref in refs], dim=1)
-        hidden = self.pre_adapter(video_rows, audio.transpose(1, 2), text_rows, sinusoidal_embedding(layout.timesteps(t)))
+        hidden = self.pre_adapter(video_rows, audio.transpose(1, 2), text_rows, sinusoidal_embedding(layout.timesteps(t)), self.dtype)
         del video_rows, text_rows
-        hidden = hidden.to(self.dtype)
         freqs = fourier_rope(layout.coords(device), model_management.cast_to(self.pre_adapter.rope.bands, torch.float32, device)).unsqueeze(0).unsqueeze(2)
 
         start = 0 if self.pipeline_stage is None else self.pipeline_stage.start_layer

@@ -240,7 +240,7 @@ class Magi2RefinerModel(nn.Module):
         layout = Magi2Layout(tuple(video.shape[2:]), (), audio.shape[-1], context.shape[1])
         device = video.device
         # the refiner carries no timestep input
-        hidden = self.pre_adapter(video_tokens(video), audio.transpose(1, 2), context, None).to(self.dtype)
+        hidden = self.pre_adapter(video_tokens(video), audio.transpose(1, 2), context, None, self.dtype)
         freqs = fourier_rope(layout.coords(device), model_management.cast_to(self.pre_adapter.rope.bands, torch.float32, device)).unsqueeze(0).unsqueeze(2)
         start = 0 if self.pipeline_stage is None else self.pipeline_stage.start_layer
         end = self.num_layers if self.pipeline_stage is None else self.pipeline_stage.end_layer
