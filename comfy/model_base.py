@@ -2689,6 +2689,16 @@ class Magi2(BaseModel):
         # the reference feeds fp32 latents, text features and coordinates to its fp32 adapters
         return torch.float32
 
+    def memory_required(self, input_shape, cond_shapes=None):
+        if len(input_shape) == 3 and input_shape[1] == 1:
+            # pack_latents flattens both channels and tokens. The narrower modality
+            # gives an upper bound on their combined token count before unpacking.
+            config = self.model_config.unet_config
+            channels = min(config.get("video_in_channels", 48), config.get("audio_in_channels", 64))
+            tokens = (input_shape[2] + channels - 1) // channels
+            input_shape = (input_shape[0], 1, tokens)
+        return super().memory_required(input_shape, cond_shapes or {})
+
     def extra_conds(self, **kwargs):
         out = super().extra_conds(**kwargs)
         cross_attn = kwargs.get("cross_attn")

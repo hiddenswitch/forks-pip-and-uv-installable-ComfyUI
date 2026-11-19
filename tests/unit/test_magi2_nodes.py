@@ -169,3 +169,23 @@ def test_magi2_latents_refuse_other_vaes():
         magi2_latents.decode_audio(_StubVae(torch.nn.Identity(), 1, 64), torch.zeros(1, 64, 4))
     with pytest.raises(ValueError, match="Unknown latent format"):
         VAEDecode().decode(_StubVae(torch.nn.Identity(), 3, 48), {"samples": torch.zeros(1, 48, 2, 2, 2), "latent_format": "other"})
+
+
+def test_packed_preview_memory_estimate_counts_tokens(monkeypatch):
+    from types import SimpleNamespace
+    from comfy.model_base import BaseModel, Magi2 as Preview
+    from comfy.utils import pack_latents
+
+    latent = EmptyMagi2Latent.execute(896, 512, 10.0, 1).result[0]["samples"]
+    video, audio = latent.unbind()
+    packed, _ = pack_latents((video, audio))
+    model = Preview.__new__(Preview)
+    torch.nn.Module.__init__(model)
+    model.model_config = SimpleNamespace(unet_config={"video_in_channels": 48, "audio_in_channels": 64})
+    monkeypatch.setattr(BaseModel, "memory_required", lambda self, shape, cond_shapes=None: (shape[0], np.prod(shape[2:])))
+    _, video_tokens = model.memory_required(video.shape)
+    assert video_tokens == 32 * 32 * 56
+    batch, estimated = model.memory_required((2, *packed.shape[1:]))
+    assert batch == 2
+    tokens = video_tokens + audio.shape[-1]
+    assert tokens <= estimated <= tokens + (audio.shape[-1] + 2) // 3
