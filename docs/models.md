@@ -22,7 +22,7 @@ Memory figures in the support tables are approximate. See the benchmark results 
 | Flux.2 Dev 32B | TP/PP, ~46 GiB INT8 resident or ~12 GiB offloaded. | Single GPU |
 | Ideogram 4 | TP, ~29 GiB INT8 resident. | Single GPU |
 | Krea 2 Turbo | TP, ~18 GiB INT8 resident. | Single GPU |
-| Qwen-Image family | PP, native GGUF, ~25 GiB INT8 resident. | Single GPU |
+| Qwen-Image and Qwen-Image Layered | PP, native GGUF, ~25 GiB INT8 resident. | Single GPU |
 | SVDQuant W4A4 and AWQ W4A16 | Native loading, ~7–12 GiB for the listed image models. | — |
 | TransformersLoader | Built-in text and vision models, ~2–28 GiB depending on model. | — |
 | Vector and layout generation | StarVector, VTracer, TextDiffuser. Under 2 GiB for VTracer, ~8 GiB for TextDiffuser. | — |
@@ -67,7 +67,9 @@ These model families are available in both versions. Memory estimates vary with 
 
 ## INT8 ConvRot benchmarks
 
-Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. Select a timing to open the output preview. GB10 memory is estimated from the drop in available system memory on each GPU host. For 2× GB10, the two numbers follow rank order. Runs use tensor parallelism unless marked PP. A dash means no verified result. Runs that crashed during cleanup are excluded.
+Each stage runs two steps. Cells show **seconds for step 2 · peak GiB** and link to the output. GB10 memory is estimated per host. A dash means no verified result.
+
+The 2× GB10 column covers models that can split inference across both GPUs. These are Flux.2 Dev, Ideogram 4, Krea 2, MiniMax H3, PAN 2, MAGI-2, and Qwen-Image Layered. Layered uses pipeline parallelism (PP). The other measured runs use tensor parallelism.
 
 ### Images
 
