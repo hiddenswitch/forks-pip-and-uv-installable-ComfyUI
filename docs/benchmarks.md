@@ -2,7 +2,7 @@
 
 **Two steps per stage.** Each result links to a sample and shows **step 2 time (s) · peak memory (GiB)**. Paired MAGI-2 times follow stage order. Paired GB10 memory figures follow device order. A dash marks an unverified result.
 
-Seeds, launch flags, attention backends, and load, sample, and decode times are in the [timings CSV](convrot-benchmark-timings.csv).
+Seeds, launch flags, attention backends, and load, sample, and decode times are in the [timings CSV](convrot-benchmark-timings.csv). A blank decode time means the trace omitted that measurement.
 
 ## Images
 

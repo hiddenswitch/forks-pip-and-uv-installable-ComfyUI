@@ -452,7 +452,7 @@ def parse_trace_phases(trace_path: Path) -> dict[str, Any]:
     load_ms = 0.0
     sampling_node_ms = 0.0
     sampler_invoke_ms = 0.0
-    decode_ms = 0.0
+    decode_ms = None
     execute_prompt_ms = 0.0
     prompt_error = None
     sampler_spans: list[dict[str, Any]] = []
@@ -505,7 +505,8 @@ def parse_trace_phases(trace_path: Path) -> dict[str, Any]:
             elif ct in _SAMPLER_NODE_TYPES or "Sampler" in ct:
                 sampling_node_ms += dur
             elif ct in _DECODE_NODE_TYPES or "Decode" in ct:
-                decode_ms += dur
+                if span.get("duration_ms") is not None:
+                    decode_ms = (decode_ms or 0.0) + dur
                 if span.get("span_id"):
                     decode_span_ids.add(span["span_id"])
 
@@ -514,7 +515,8 @@ def parse_trace_phases(trace_path: Path) -> dict[str, Any]:
         for s in all_spans
         if s.get("name") == "Load Models GPU" and s.get("parent_span_id") in decode_span_ids
     )
-    decode_ms = max(0.0, decode_ms - load_in_decode_ms)
+    if decode_ms is not None:
+        decode_ms = max(0.0, decode_ms - load_in_decode_ms)
     # In ComfyUI, lazy model loading + GPU placement often happens inside prepare_sampling
     # at the start of the KSampler / SamplerCustomAdvanced node before Sampler Invoke.
     lazy_load_in_sampler_ms = max(0.0, sampling_node_ms - sampler_invoke_ms)
@@ -526,7 +528,7 @@ def parse_trace_phases(trace_path: Path) -> dict[str, Any]:
         "explicit_loader_nodes_seconds": load_ms / 1000.0,
         "sampler_prepare_load_seconds": lazy_load_in_sampler_ms / 1000.0,
         "sampler_invoke_seconds": sampler_invoke_ms / 1000.0,
-        "vae_decode_seconds": decode_ms / 1000.0,
+        "vae_decode_seconds": decode_ms / 1000.0 if decode_ms is not None else None,
         "sampler_spans": sampler_spans,
         "node_spans": node_spans,
     }
@@ -769,6 +771,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     is_distributed = int(os.environ.get("WORLD_SIZE", "1")) > 1
     is_worker = is_distributed and int(os.environ["RANK"]) != 0
     wf_file = model_dir / "workflow.json"
+    trace_file = model_dir / "traces.jsonl"
     sampler_ids = {node_id for node_id, node in workflow.items() if node["class_type"] in _SAMPLER_NODE_TYPES}
     previous_media = _media_files(model_dir) if not is_worker else {}
     if not is_distributed and result_file.exists():
@@ -791,12 +794,18 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
                 and json.loads(wf_file.read_text(encoding="utf-8")) == workflow
             ):
                 if _output_error(spec, workflow, model_dir, outputs) is None:
+                    # Older runs used zero for an absent decode span.
+                    if existing.get("vae_decode_seconds") == 0 and trace_file.is_file():
+                        if parse_trace_phases(trace_file)["vae_decode_seconds"] is None:
+                            existing["vae_decode_seconds"] = None
+                            existing["trace_summary"]["vae_decode_seconds"] = None
+                            existing["output_files"] = outputs
+                            result_file.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
                     return existing
         except (OSError, json.JSONDecodeError):
             pass
     result_file.unlink(missing_ok=True)
     wf_file.write_text(json.dumps(workflow, indent=2), encoding="utf-8")
-    trace_file = model_dir / "traces.jsonl"
     steps_file = model_dir / "steps.jsonl"
     log_file = model_dir / "run.log"
     cuda_devices_file = model_dir / "cuda-devices.json"
@@ -857,6 +866,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         if line.strip()
     ] if steps_file.exists() else []
     trace_summary = parse_trace_phases(trace_file)
+    decode_seconds = trace_summary.get("vae_decode_seconds")
     step2_seconds = step_rows[-1]["second_step_seconds"] if step_rows else None
     measured_ids = {str(row["node_id"]) for row in step_rows}
     missing_sampler_ids = sorted(sampler_ids - measured_ids) if not is_worker else []
@@ -891,7 +901,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         "iterations_per_second": round(1.0 / step2_seconds, 4) if step2_seconds and step2_seconds > 0 else None,
         "load_and_encode_seconds": round(trace_summary.get("load_and_encode_seconds", 0.0), 3),
         "sampler_invoke_seconds": round(trace_summary.get("sampler_invoke_seconds", 0.0), 3),
-        "vae_decode_seconds": round(trace_summary.get("vae_decode_seconds", 0.0), 3),
+        "vae_decode_seconds": round(decode_seconds, 3) if decode_seconds is not None else None,
         "peak_vram_gib": round(peak_vram_gib, 2),
         "peak_rss_gib": round(tracker.peak_rss_bytes / (1024 ** 3), 2),
         "min_mem_available_gib": round(tracker.min_mem_available_bytes / (1024 ** 3), 2),
@@ -925,10 +935,12 @@ def main() -> None:
         res = run_single_model(spec, repo_root, args.out_dir, args.extra_arg)
         summary.append(res)
         (args.out_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+        decode = res.get("vae_decode_seconds")
+        decode_time = f"{decode}s" if decode is not None else "unrecorded"
         sys.stdout.write(
             f"[BENCHMARK] Finished {spec['id']}: status={res['status']} "
             f"step2={res['step2_seconds']}s load={res['load_and_encode_seconds']}s "
-            f"decode={res['vae_decode_seconds']}s peak_vram={res['peak_vram_gib']}GiB\n"
+            f"decode={decode_time} peak_vram={res['peak_vram_gib']}GiB\n"
         )
         if res["status"] != "success":
             if res.get("returncode"):

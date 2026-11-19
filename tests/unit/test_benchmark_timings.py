@@ -88,6 +88,13 @@ def test_convrot_charges_lazy_vae_load_to_loading(tmp_path):
     assert phases["vae_decode_seconds"] == 2.0
 
 
+def test_convrot_missing_decode_span_has_no_duration(tmp_path):
+    trace = tmp_path / "traces.jsonl"
+    trace.write_text(json.dumps({"name": "Execute Node", "duration_ms": 1000,
+                                 "attributes": {"class_type": "SaveImage"}}))
+    assert parse_trace_phases(trace)["vae_decode_seconds"] is None
+
+
 def test_convrot_resume_requires_output_from_the_recorded_run(tmp_path, monkeypatch):
     from types import SimpleNamespace
     from PIL import Image
@@ -133,6 +140,11 @@ def test_convrot_resume_requires_output_from_the_recorded_run(tmp_path, monkeypa
     del legacy["output_files"]
     (directory / "result.json").write_text(json.dumps(legacy))
     assert run() == legacy
+    assert len(calls) == 2
+    legacy["vae_decode_seconds"] = 0.0
+    (directory / "result.json").write_text(json.dumps(legacy))
+    assert run() == good
+    assert json.loads((directory / "result.json").read_text()) == good
     assert len(calls) == 2
     (directory / "result.json").write_text(json.dumps(dict(good, returncode=1)))
     assert run()["status"] == "failed"
