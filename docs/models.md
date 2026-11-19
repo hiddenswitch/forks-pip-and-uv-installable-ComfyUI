@@ -90,7 +90,7 @@ The 2× GB10 column covers models that can split inference across both GPUs. The
 | Ming-Image 0.1 Design | 1024×1024, CFG 4, Euler / simple | — | [1.050 · 11.8](benchmark-samples/ming-image-rtx3060-1024x1024.webp) | [0.470 · 21.9](benchmark-samples/ming-image-rtx3090-1024x1024.webp) | [1.086 · 37.7](benchmark-samples/ming-image-1xgb10-1024x1024.webp) | — |
 | MiniMax H3 Image | 1024×1024, CFG 1, Euler / simple | — | [1.364 · 11.8](benchmark-samples/minimax-h3-image-rtx3060-1024x1024.webp) | [0.331 · 23.7](benchmark-samples/minimax-h3-image-rtx3090-1024x1024.webp) | [0.472 · 52.7](benchmark-samples/minimax-h3-image-1xgb10-1024x1024.webp) | [0.770 · 48.6 / 16.9](benchmark-samples/minimax-h3-image-2xgb10-1024x1024.webp) |
 | MOSS-Image SFT | 1024×1024, CFG 3, Euler / sgm_uniform | — | [1.598 · 8.8](benchmark-samples/moss-image-rtx3060-1024x1024.webp) | [0.766 · 8.5](benchmark-samples/moss-image-rtx3090-1024x1024.webp) | [1.600 · 22.0](benchmark-samples/moss-image-1xgb10-1024x1024.webp) | — |
-| Qwen-Image 2.1 | 1024×1024, CFG 4, Euler / simple | — | [2.250 · 7.9](benchmark-samples/qwen-image21-rtx3060-1024x1024.webp) | [0.986 · 8.1](benchmark-samples/qwen-image21-rtx3090-1024x1024.webp) | [2.160 · 26.5](benchmark-samples/qwen-image21-1xgb10-1024x1024.webp) | — |
+| Qwen-Image 2.1 | 1024×1024, CFG 4, Euler / simple | — | [2.250 · 7.9](benchmark-samples/qwen-image21-rtx3060-1024x1024.webp) | [0.986 · 8.1](benchmark-samples/qwen-image21-rtx3090-1024x1024.webp) | [2.177 · 27.0](benchmark-samples/qwen-image21-1xgb10-1024x1024.webp) | — |
 | Qwen-Image Layered | 640×640, 2 layers, CFG 2.5, Euler / simple | — | [8.160 · 11.8](benchmark-samples/qwen-image-layered-rtx3060-640x640.webp) | [2.298 · 20.6](benchmark-samples/qwen-image-layered-rtx3090-640x640.webp) | [5.127 · 36.3](benchmark-samples/qwen-image-layered-1xgb10-640x640.webp) | [5.331 · 29.3 / 12.8 (PP)](benchmark-samples/qwen-image-layered-2xgb10-640x640.webp) |
 | SeedVR2 3B | 512×512 → 2048×2048, CFG 1, Euler / simple | — | [2.036 · 4.9](benchmark-samples/seedvr2-3b-rtx3060-2048x2048.webp) | — | [2.553 · 24.2](benchmark-samples/seedvr2-3b-1xgb10-2048x2048.webp) | — |
 | SeedVR2 3B | 512×512 restoration, CFG 1, Euler / simple | [0.408 · 3.7](benchmark-samples/seedvr2-3b-rx7600-512x512-cpu-vae.webp) | [0.167 · 4.0](benchmark-samples/seedvr2-3b-rtx3060-512x512.webp) | [0.122 · 4.5](benchmark-samples/seedvr2-3b-rtx3090-512x512.webp) | [0.384 · 7.9](benchmark-samples/seedvr2-3b-1xgb10-512x512.webp) | — |
@@ -99,8 +99,6 @@ The 2× GB10 column covers models that can split inference across both GPUs. The
 Flux.3 on the RX 7600 decoded on the CPU.
 
 The first Flux.2 row uses shared storage on the RTX cards. The local NVMe row starts after the weights have been copied.
-
-The Qwen-Image 2.1 GB10 run launched two processes. Only the first ran the sampler.
 
 Qwen-Image 2.1 produced a colored silhouette on all three measured configurations. A [BF16 run on the RTX 3090](benchmark-samples/qwen-image21-rtx3090-bf16-1024x1024.webp) produced the same silhouette with the same prompt, seed, and two steps.
 

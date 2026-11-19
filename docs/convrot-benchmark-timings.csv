@@ -51,7 +51,7 @@ MOSS-Image SFT,RTX 3090,"1024×1024, CFG 3, Euler / sgm_uniform",2,"Comfy Kitche
 MOSS-Image SFT,1× GB10,"1024×1024, CFG 3, Euler / sgm_uniform",2,"Comfy Kitchen INT8, PyTorch SDPA",605.027,4.316,1.019,1.600,benchmark-samples/moss-image-1xgb10-1024x1024.webp
 Qwen-Image 2.1,RTX 3060,"1024×1024, CFG 4, Euler / simple",2,SageAttention,186.035,189.404,12.197,2.250,benchmark-samples/qwen-image21-rtx3060-1024x1024.webp
 Qwen-Image 2.1,RTX 3090,"1024×1024, CFG 4, Euler / simple",2,SageAttention,192.842,147.434,10.121,0.986,benchmark-samples/qwen-image21-rtx3090-1024x1024.webp
-Qwen-Image 2.1,1× GB10,"1024×1024, CFG 4, Euler / simple, two processes launched, sampler on rank 0",2,PyTorch SDPA,28.570,4.947,2.226,2.160,benchmark-samples/qwen-image21-1xgb10-1024x1024.webp
+Qwen-Image 2.1,1× GB10,"1024×1024, CFG 4, Euler / simple",2,PyTorch SDPA,30.575,5.803,2.127,2.177,benchmark-samples/qwen-image21-1xgb10-1024x1024.webp
 Qwen-Image Layered,RTX 3060,"640×640, 2 layers, CFG 2.5, Euler / simple",2,"PyTorch SDPA, SageAttention",302.601,935.929,5.020,8.160,benchmark-samples/qwen-image-layered-rtx3060-640x640.webp
 Qwen-Image Layered,RTX 3090,"640×640, 2 layers, CFG 2.5, Euler / simple",2,"PyTorch SDPA, SageAttention",365.783,556.269,1.023,2.298,benchmark-samples/qwen-image-layered-rtx3090-640x640.webp
 Qwen-Image Layered,1× GB10,"640×640, 2 layers, CFG 2.5, Euler / simple",2,PyTorch SDPA,315.488,11.419,1.210,5.127,benchmark-samples/qwen-image-layered-1xgb10-640x640.webp
