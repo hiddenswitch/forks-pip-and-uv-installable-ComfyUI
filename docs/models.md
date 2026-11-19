@@ -100,7 +100,7 @@ Flux.3 on the RX 7600 decoded on the CPU.
 
 The first Flux.2 row uses shared storage on the RTX cards. The local NVMe row starts after the weights have been copied.
 
-Qwen-Image 2.1 produced a color silhouette on all three measured configurations with this two-step recipe.
+Qwen-Image 2.1 produced a colored silhouette on all three measured configurations. A [BF16 run on the RTX 3090](benchmark-samples/qwen-image21-rtx3090-bf16-1024x1024.webp) produced the same silhouette with the same prompt, seed, and two steps.
 
 The RX 7600 SeedVR2 runs produced a [distorted portrait at 512×512](benchmark-samples/seedvr2-3b-rx7600-512x512.webp) and a [nearly flat image at 2048×2048](benchmark-samples/seedvr2-3b-rx7600-2048x2048.webp). Their timings are excluded.
 
