@@ -41,7 +41,7 @@ from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimi
 
 TIME_CHANNELS = 64
 SINK_PAD = 8
-MHC_CHUNK = 8192
+MHC_FP32_CHUNK_BYTES = 64 * 1024**2
 MOE_ROW_CHUNK = 1 << 16
 
 
@@ -1392,9 +1392,24 @@ class TransformerLayer(nn.Module):
     def _param(self, name, device):
         return model_management.cast_to(getattr(self, name), torch.float32, device)
 
+    @staticmethod
+    def _stream_chunk_size(streams):
+        fp32_bytes_per_token = 4 * streams.shape[0] * math.prod(streams.shape[2:])
+        return max(1, MHC_FP32_CHUNK_BYTES // max(1, fp32_bytes_per_token))
+
     def _logits(self, hidden, branch, groups):
         n = self.num_streams
-        fused = self.mhc_norm(hidden, groups) @ self._param(f"mhc_phi_fused_{branch}", hidden.device)
+        projection = self._param(f"mhc_phi_fused_{branch}", hidden.device)
+        norm = self.mhc_norm
+        parts = hidden.split(groups, dim=1) if norm.num_modality > 1 else (hidden,)
+        chunk_size = self._stream_chunk_size(hidden)
+        # Project each normalized slice immediately. Only the narrow logits span the clip.
+        logits = []
+        for part, scale in zip(parts, norm.scales(hidden.device)):
+            for chunk in part.split(chunk_size, dim=1):
+                normalized = F.rms_norm(chunk.float(), (norm.dim,), scale, norm.eps)
+                logits.append(normalized @ projection)
+        fused = torch.cat(logits, dim=1)
         pre, post, res = fused.split((n, n, n * n), dim=-1)
         return pre, post, res.unflatten(-1, (n, n))
 
@@ -1411,8 +1426,9 @@ class TransformerLayer(nn.Module):
         res = sinkhorn(self._param(f"mhc_alpha_res_{branch}", device) * self.matmul_scale * res.float()
                        + self._param(f"mhc_bias_res_{branch}", device), self.sinkhorn_iterations, 1e-12).to(streams.dtype)
         out = torch.empty_like(streams)
-        for start in range(0, streams.shape[1], MHC_CHUNK):
-            end = start + MHC_CHUNK
+        chunk_size = self._stream_chunk_size(streams)
+        for start in range(0, streams.shape[1], chunk_size):
+            end = start + chunk_size
             mixed = torch.matmul(res[:, start:end].float(), streams[:, start:end].float())
             mixed.addcmul_(post[:, start:end].float().unsqueeze(-1), branch_out[:, start:end].float().unsqueeze(-2))
             out[:, start:end] = mixed
