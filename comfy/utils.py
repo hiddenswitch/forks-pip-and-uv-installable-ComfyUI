@@ -321,7 +321,10 @@ def _file_backed_loads() -> bool:
     from . import model_management
     # ROCm also dirties a writable private source mapping during host-to-device copies.
     return not DISABLE_MMAP and sys.platform != "win32" and (
-        model_management.offload_shares_device_memory() or model_management.is_amd()
+        model_management.offload_shares_device_memory()
+        or model_management.is_amd()
+        # Unpinned static weights can stay on the checkpoint mapping between GPU copies.
+        or (model_management.is_nvidia() and args.disable_pinned_memory and not memory_management.aimdo_enabled)
     )
 
 

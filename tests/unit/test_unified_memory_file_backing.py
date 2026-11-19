@@ -78,6 +78,27 @@ def test_cpu_checkpoint_mapping_policy(tmp_path, monkeypatch, unified, amd, disa
         torch.testing.assert_close(value, reference.state_dict()[key], rtol=0, atol=0)
 
 
+@pytest.mark.parametrize("disable_pins, disable_mmap, expected", [
+    (True, False, True), (False, False, False), (True, True, False),
+])
+@pytest.mark.skipif(utils.sys.platform == "win32", reason="requires POSIX mmap")
+def test_discrete_nvidia_weight_backing_without_pins(tmp_path, monkeypatch, disable_pins, disable_mmap, expected):
+    reference, path = _checkpoint(tmp_path)
+    monkeypatch.setattr(memory_management, "aimdo_allocator", None)
+    monkeypatch.setattr(model_management, "offload_shares_device_memory", lambda: False)
+    monkeypatch.setattr(model_management, "is_amd", lambda: False)
+    monkeypatch.setattr(model_management, "is_nvidia", lambda: True)
+    monkeypatch.setattr(utils.args, "disable_pinned_memory", disable_pins)
+    monkeypatch.setattr(utils, "DISABLE_MMAP", disable_mmap)
+    state = utils.load_torch_file(str(path))
+    module = _fresh_module()
+    module.load_state_dict(state)
+    memory_management.record_file_backing(module, state)
+    for name, param in module.named_parameters():
+        assert (param.data_ptr() == state[name].data_ptr()) == expected
+        torch.testing.assert_close(param, reference.state_dict()[name], rtol=0, atol=0)
+
+
 def test_recorded_cpu_weights_become_views_of_the_file(tmp_path):
     reference, path = _checkpoint(tmp_path)
     state = utils.load_safetensors_file_backed(str(path))[0]
