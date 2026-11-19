@@ -93,6 +93,8 @@ Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. Select
 | SeedVR2 3B | 512×512 restoration, CFG 1, Euler / simple | — | [0.167 · 4.0](benchmark-samples/seedvr2-3b-rtx3060-512x512.webp) | [0.122 · 4.5](benchmark-samples/seedvr2-3b-rtx3090-512x512.webp) | [0.384 · 7.9](benchmark-samples/seedvr2-3b-1xgb10-512x512.webp) | — |
 | Z-Image Turbo 6B | 1024×1024, CFG 1, Euler / simple | — | [1.079 · 12.0](benchmark-samples/z-image-turbo-rtx3060-1024x1024.webp) | [0.475 · 21.9](benchmark-samples/z-image-turbo-rtx3090-1024x1024.webp) | [1.023 · 25.4](benchmark-samples/z-image-turbo-1xgb10-1024x1024.webp) | — |
 
+Qwen-Image 2.1 produced a color silhouette on all three measured configurations with this two-step recipe.
+
 The RX 7600 SeedVR2 runs produced a [distorted portrait at 512×512](benchmark-samples/seedvr2-3b-rx7600-512x512.webp) and a [nearly flat image at 2048×2048](benchmark-samples/seedvr2-3b-rx7600-2048x2048.webp). Their timings are excluded.
 
 ### Video and audio
