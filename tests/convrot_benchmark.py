@@ -689,6 +689,7 @@ def _output_error(spec, workflow, directory, names):
         count = 3 if layered else 1  # The two-layer preset also saves its background.
         if len(names) != count:
             return f"Expected {count} benchmark images, got {len(names)}"
+        has_visible_color = False
         try:
             for name in names:
                 with Image.open(directory / name) as image:
@@ -697,6 +698,10 @@ def _output_error(spec, workflow, directory, names):
                     if layered and "A" not in image.getbands():
                         return f"Missing alpha channel in layer {name}"
                     image.load()
+                    if image.convert("RGB").getbbox() is not None:
+                        has_visible_color = True
+            if not has_visible_color:
+                return "All output pixels are black"
         except (OSError, ValueError, EOFError) as error:
             return f"Could not decode benchmark image: {error}"
     if spec["id"] in ("pan2_t2v", "wan21_scail2"):
