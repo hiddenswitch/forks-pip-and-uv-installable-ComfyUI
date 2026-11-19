@@ -1087,13 +1087,15 @@ def _flash_mh_moe_unquantized_triton(
     return out
 
 
+def _convrot_group(weight):
+    return weight.params.convrot_groupsize if getattr(weight.params, "convrot", False) else 0
+
+
 def _quant_bank_views(bank, weight, total_experts: int):
     qdata, scale = weight.layout_cls.get_plain_tensors(weight)
     q_3d = qdata.view(total_experts, bank.out_features, bank.in_features).transpose(1, 2)
     s_2d = scale.reshape(-1) if scale.numel() == 1 else scale.reshape(total_experts, bank.out_features)
-    params = weight.params
-    group = params.convrot_groupsize if getattr(params, "convrot", False) else 0
-    return q_3d, s_2d.contiguous(), group, (scale.numel() == 1)
+    return q_3d, s_2d.contiguous(), _convrot_group(weight), (scale.numel() == 1)
 
 
 def _flash_mh_moe_int8_triton(
@@ -1102,6 +1104,7 @@ def _flash_mh_moe_int8_triton(
     all_indices: torch.Tensor,
     banks,
     num_experts: int,
+    stream_heads: bool = False,
 ) -> torch.Tensor:
     tokens_count, heads, d_head = x.shape
     top_k = all_indices.shape[-1]
@@ -1116,7 +1119,7 @@ def _flash_mh_moe_int8_triton(
     block_de = _triton_block_dim(d_expert)
     block_t = 64
     hidden_dtype = torch.float16 if x.dtype == torch.float16 else torch.bfloat16
-    head_chunk = max(1, MOE_ROW_CHUNK // max(1, tokens_count * top_k))
+    head_chunk = 1 if stream_heads else max(1, MOE_ROW_CHUNK // max(1, tokens_count * top_k))
 
     out = torch.empty_like(x)
     for h_start in range(0, heads, head_chunk):
@@ -1144,6 +1147,14 @@ def _flash_mh_moe_int8_triton(
         sg_slice = sg if sg_scalar else sg[e_start:e_start + e_count]
         su_slice = su if su_scalar else su[e_start:e_start + e_count]
         sd_slice = sd if sd_scalar else sd[e_start:e_start + e_count]
+
+        if stream_heads:
+            qg_slice = qg_slice.to(x.device)
+            qu_slice = qu_slice.to(x.device)
+            qd_slice = qd_slice.to(x.device)
+            sg_slice = sg_slice.to(x.device)
+            su_slice = su_slice.to(x.device)
+            sd_slice = sd_slice.to(x.device)
 
         _mh_moe_gate_up_swiglu7_int8_kernel[(grid_1d, triton.cdiv(d_expert, block_de))](
             x_hi,
@@ -1270,27 +1281,41 @@ class MultiHeadMoE(nn.Module):
         batch, tokens, _ = x.shape
         x = x.reshape(batch * tokens, self.heads, self.head_dim)
         all_probs, all_indices = self.route_all(x)
+        use_triton = (
+            _HAS_TRITON and x.is_cuda
+            and _triton_block_dim(self.head_dim) > 0
+            and _triton_block_dim(self.gate_proj.out_features) > 0
+            and self.gate_proj.out_features == self.up_proj.out_features
+        )
+        projections = (self.gate_proj, self.up_proj, self.down_proj)
+        if use_triton and not torch.is_grad_enabled() and any(bank.weight.device.type == "cpu" for bank in projections) and all(
+            isinstance(bank.weight, QuantizedTensor) and bank.weight._qdata.dtype == torch.int8
+            and bank.weight.device in (torch.device("cpu"), x.device) and not bank._full_precision_mm
+            and not bank.weight_function and getattr(bank, "_v", None) is None
+            and getattr(bank, "weight_lowvram_function", None) is None
+            for bank in projections
+        ):
+            # Leave room for routing and SwiGLU outputs while the three banks are in use.
+            bank_bytes = sum(bank.weight._qdata.nbytes for bank in projections if bank.weight.device != x.device)
+            workspace = min(MOE_ROW_CHUNK, batch * tokens * self.top_k) * self.gate_proj.out_features * 4
+            if bank_bytes + workspace > model_management.get_free_memory(x.device):
+                banks = tuple((bank, bank.weight) for bank in projections)
+                if _convrot_group(banks[0][1]) == _convrot_group(banks[1][1]):
+                    out = _flash_mh_moe_int8_triton(x, all_probs, all_indices, banks, self.num_experts, stream_heads=True)
+                    return out.reshape(batch, tokens, self.heads * self.head_dim)
         # a quantized bank that the ops dequantize up front (full precision matmul) is dequantized in fp32, not rounded to bf16
         resident = lambda bank: x[:0].float() if isinstance(bank.weight, QuantizedTensor) else x
         with (self.gate_proj.bank_resident(resident(self.gate_proj)), self.up_proj.bank_resident(resident(self.up_proj)),
               self.down_proj.bank_resident(resident(self.down_proj))):
             banks = tuple((bank, bank._resident_bank[0]) for bank in (self.gate_proj, self.up_proj, self.down_proj))
-            if (
-                _HAS_TRITON
-                and x.is_cuda
-                and _triton_block_dim(self.head_dim) > 0
-                and _triton_block_dim(self.gate_proj.out_features) > 0
-                and self.gate_proj.out_features == self.up_proj.out_features
-            ):
+            if use_triton:
                 if all(not isinstance(weight, QuantizedTensor) for _, weight in banks):
                     out = _flash_mh_moe_unquantized_triton(
                         x, all_probs, all_indices, banks[0], banks[1], banks[2], self.num_experts
                     )
                     return out.reshape(batch, tokens, self.heads * self.head_dim)
                 if all(isinstance(weight, QuantizedTensor) for _, weight in banks):
-                    g_group = banks[0][1].params.convrot_groupsize if getattr(banks[0][1].params, "convrot", False) else 0
-                    u_group = banks[1][1].params.convrot_groupsize if getattr(banks[1][1].params, "convrot", False) else 0
-                    if g_group == u_group:
+                    if _convrot_group(banks[0][1]) == _convrot_group(banks[1][1]):
                         out = _flash_mh_moe_int8_triton(x, all_probs, all_indices, banks, self.num_experts)
                         return out.reshape(batch, tokens, self.heads * self.head_dim)
 

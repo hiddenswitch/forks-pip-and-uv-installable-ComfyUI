@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import safetensors.torch
@@ -135,6 +136,14 @@ def _assert_int8_experts_follow_the_kernel_contract(module):
             with torch.no_grad():
                 actual = module(x_dev)[0].cpu()
             assert relative_error(actual, expected) < INT8_MOE_TOLERANCE, (device, full_precision_mm)
+    if torch.cuda.is_available():
+        from comfy.ldm.magi2 import model as magi2
+        if magi2._HAS_TRITON:
+            with torch.no_grad(), patch.object(magi2.model_management, "get_free_memory", return_value=0), \
+                    patch.object(banks[0], "bank_resident", side_effect=AssertionError("staged the whole expert bank")):
+                streamed = module(x_dev)[0].cpu()
+            torch.testing.assert_close(streamed, actual, rtol=0, atol=0)
+
 
 
 def test_wan_vae_is_kept_in_fp32_and_checked_against_the_fp16_copy(tmp_path, capsys):
