@@ -1,4 +1,4 @@
-Model,Hardware,Settings,Steps per stage,Observed attention (step 2),Load and encode (s),Sampling (s),VAE decode (s),Step 2 (s),Output preview
+Model,Hardware,Settings,Steps per stage,Attention calls (step 2),Load and encode (s),Sampling (s),VAE decode (s),Step 2 (s),Output preview
 Boogu Image Edit,RTX 3060,"1024×1024, CFG 1, res_multistep / normal",2,"PyTorch SDPA, SageAttention",398.734,188.018,2.933,1.695,benchmark-samples/boogu-rtx3060-1024x1024.webp
 Boogu Image Edit,RTX 3090,"1024×1024, CFG 1, res_multistep / normal",2,"PyTorch SDPA, SageAttention",259.560,183.346,2.337,0.741,benchmark-samples/boogu-rtx3090-1024x1024.webp
 Boogu Image Edit,1× GB10,"1024×1024, CFG 1, res_multistep / normal",2,PyTorch SDPA,349.343,4.553,1.741,1.555,benchmark-samples/boogu-1xgb10-1024x1024.webp

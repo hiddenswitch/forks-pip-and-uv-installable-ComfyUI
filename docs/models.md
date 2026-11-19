@@ -138,7 +138,7 @@ All four PAN 2 clips show the same dark red scene. The two-step Wan clips are bl
 
 </details>
 
-The [full timings](convrot-benchmark-timings.csv) include load and encode, both sampling steps, VAE decode, and the attention backends observed during step 2. Sampling includes first-step weight transfers.
+The [full timings](convrot-benchmark-timings.csv) include load and encode, both sampling steps, VAE decode, and attention calls during step 2. When attention falls back to another backend, both calls appear. Sampling includes first-step weight transfers.
 
 ```console
 python tests/convrot_benchmark.py --model all --out-dir ./benchmark-output
