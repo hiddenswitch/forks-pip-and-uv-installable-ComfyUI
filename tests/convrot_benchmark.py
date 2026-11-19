@@ -588,7 +588,39 @@ def _video_output_error(output: Path, expected: tuple[int, int, int, float]) -> 
     return None
 
 
+def _animation_output_error(output, latent_inputs, fps):
+    from PIL import Image
+
+    size = (latent_inputs["width"], latent_inputs["height"])
+    frame_count = latent_inputs["length"]
+    elapsed_ms = 0
+    ticks = 0
+    try:
+        with Image.open(output) as animation:
+            if animation.size != size:
+                return f"Expected animation dimensions {size}, got {animation.size}"
+            for i in range(animation.n_frames):
+                animation.seek(i)
+                animation.load()
+                elapsed_ms += animation.info.get("duration", 0)
+                # WebP can combine consecutive identical frames into one longer frame.
+                next_tick = round(elapsed_ms * fps / 1000)
+                if next_tick <= ticks or elapsed_ms != round(next_tick * 1000 / fps):
+                    return f"Unexpected frame duration at animation frame {i}"
+                ticks = next_tick
+    except (OSError, ValueError, EOFError) as error:
+        return f"Could not decode benchmark animation: {error}"
+    if ticks != frame_count:
+        return f"Expected {frame_count} animation frames at {fps} fps, decoded {ticks} ticks"
+    return None
+
+
 def _output_error(spec, workflow, directory, names):
+    if spec["id"] in ("pan2_t2v", "wan21_scail2"):
+        if len(names) != 1:
+            return "Expected one animated WebP"
+        saver = next(node for node in workflow.values() if node["class_type"] == "SaveAnimatedWEBP")
+        return _animation_output_error(directory / names[0], workflow["6"]["inputs"], saver["inputs"]["fps"])
     if "expected_video" in spec:
         if len(names) != 1:
             return "Expected one video with audio"

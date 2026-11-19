@@ -168,3 +168,17 @@ def test_two_step_measurements_require_both_refiner_stages():
     assert _sampling_error(nodes, rows[:1], trace)
     assert _sampling_error(nodes, rows * 2, trace)
     assert _sampling_error(nodes, rows, {"sampler_spans": [{"steps": 2}, {"steps": 4}]})
+
+
+def test_animation_validation_accepts_coalesced_frames_and_rejects_timing_drift(tmp_path):
+    from PIL import Image
+    from tests.convrot_benchmark import _animation_output_error
+
+    first = Image.new("RGB", (8, 8), "white")
+    second = Image.new("RGB", (8, 8), "black")
+    inputs = {"width": 8, "height": 8, "length": 3}
+    output = tmp_path / "sample.webp"
+    first.save(output, save_all=True, append_images=[second], duration=[83, 42], lossless=True)
+    assert _animation_output_error(output, inputs, 24) is None
+    first.save(output, save_all=True, append_images=[second], duration=[82, 41], lossless=True)
+    assert _animation_output_error(output, inputs, 24)
