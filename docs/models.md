@@ -85,7 +85,7 @@ Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. GB10 m
 | Ming-Image 0.1 Design | 1024×1024, CFG 4, Euler / simple | — | 1.050 · 11.8 | 0.470 · 21.9 | 1.086 · 37.7 | — |
 | MiniMax H3 Image | 1024×1024, CFG 1, Euler / simple | — | 1.364 · 11.8 | 0.331 · 23.7 | — | — |
 | MOSS-Image SFT | 1024×1024, CFG 3, Euler / sgm_uniform | — | 1.598 · 8.8 | 0.766 · 8.5 | 1.600 · 22.0 | — |
-| Qwen-Image 2.1 | 1024×1024, CFG 4, Euler / simple | — | 2.250 · 7.9 | — | 2.160 · 26.5 | — |
+| Qwen-Image 2.1 | 1024×1024, CFG 4, Euler / simple | — | 2.250 · 7.9 | 0.986 · 8.1 | 2.160 · 26.5 | — |
 | Qwen-Image Layered | 640×640, 2 layers, CFG 2.5, Euler / simple | — | — | — | 5.127 · 36.3 | 5.331 · 29.3 / 12.8 (PP) |
 | SeedVR2 3B | 512×512, CFG 1, Euler / simple | 0.333 · 5.7 | 0.167 · 4.0 | 0.122 · 4.5 | 0.384 · 7.9 | — |
 | Z-Image Turbo 6B | 1024×1024, CFG 1, Euler / simple | — | 1.079 · 12.0 | 0.475 · 21.9 | 1.023 · 25.4 | — |
