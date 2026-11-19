@@ -27,15 +27,7 @@ Take ComfyUI from a creative workspace to an application, a command-line job, or
 - **Scale throughput independently.** RabbitMQ workers execute queued jobs behind a separate frontend; shared storage keeps inputs and outputs accessible across hosts.
 - **Connect existing infrastructure.** Discover local models, resolve supported model URLs, use object-storage integrations, and deploy packaged NVIDIA or AMD containers.
 
-You also get upstream ComfyUI capabilities such as native text generation, DynamicVRAM, and HDR/high-bit-depth media nodes. These are part of the product, not exclusive fork features. See the [model catalog](docs/models.md), [workflow guide](docs/workflows.md), and [performance guide](docs/distributed.md) for practical limits.
-
-## Supported Models
-
-The [model catalog](docs/models.md) lists fork and upstream support.
-
-## Benchmarks
-
-Compare step 2 time, peak memory, and samples across Radeon, GeForce, and GB10 hardware. [Image results](docs/benchmarks.md#images) · [Video results](docs/benchmarks.md#video) · [Audio results](docs/benchmarks.md#audio)
+Upstream features include native text generation, DynamicVRAM, and HDR/high-bit-depth media nodes.
 
 ## Install
 
@@ -100,6 +92,7 @@ Full documentation is available in [docs/index.md](docs/index.md).
 ### Core
 - [Installation & Getting Started](docs/installing.md)
 - [Supported Models](docs/models.md)
+- [Benchmarks](docs/benchmarks.md)
 - [Hardware Compatibility](docs/compatibility.md)
 - [Configuration](docs/configuration.md)
 - [Troubleshooting](docs/troubleshooting.md)
