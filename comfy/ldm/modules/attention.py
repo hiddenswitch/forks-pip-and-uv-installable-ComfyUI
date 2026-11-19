@@ -353,17 +353,24 @@ def attention_sub_quad(query, key, value, heads, mask=None, attn_precision=None,
         # Pre-scale query to match requested scale (cancels internal 1/sqrt(dim_head))
         query = query * (kwargs["scale"] * dim_head ** 0.5)
 
-    if skip_reshape:
-        if kwargs.get("enable_gqa", False):
-            key, value = comfy_ops.repeat_kv_for_gqa(key, value, query.shape[-3], -3)
-        query = query.reshape(b * heads, -1, dim_head)
-        value = value.reshape(b * heads, -1, dim_head)
-        key = key.reshape(b * heads, -1, dim_head).movedim(1, 2)
-    else:
-        query, key, value = _reshape_qkv_to_heads(query, key, value, b, heads, dim_head, kwargs.get("enable_gqa", False))
-        query = query.permute(0, 2, 1, 3).reshape(b * heads, -1, dim_head)
-        value = value.permute(0, 2, 1, 3).reshape(b * heads, -1, dim_head)
-        key = key.permute(0, 2, 3, 1).reshape(b * heads, dim_head, -1)
+    gqa = kwargs.get("enable_gqa", False)
+    if not skip_reshape:
+        query, key, value = _reshape_qkv_to_heads(query, key, value, b, heads, dim_head, gqa, expand_kv=False)
+        query, key, value = (t.transpose(1, 2) for t in (query, key, value))
+
+    query_tokens = query.shape[2]
+    kv_heads = heads
+    if gqa:
+        repeats = comfy_ops.gqa_repeat_factor(heads, key.shape[1], value.shape[1])
+        # A shared key mask also applies to every query in the folded head group.
+        shared_mask = mask is None or (mask.shape[-2] == 1 and (mask.ndim < 4 or mask.shape[1] == 1))
+        if repeats > 1 and shared_mask:
+            kv_heads = key.shape[1]
+        else:
+            key, value = comfy_ops.repeat_kv_for_gqa(key, value, heads, 1)
+    query = query.reshape(b * kv_heads, -1, dim_head)
+    value = value.reshape(b * kv_heads, -1, dim_head)
+    key = key.reshape(b * kv_heads, -1, dim_head).movedim(1, 2)
 
     dtype = query.dtype
     upcast_attention = attn_precision == torch.float32 and query.dtype != torch.float32
@@ -399,7 +406,7 @@ def attention_sub_quad(query, key, value, heads, mask=None, attn_precision=None,
             bs = 1
         else:
             bs = mask.shape[0]
-        mask = mask.reshape(bs, -1, mask.shape[-2], mask.shape[-1]).expand(b, heads, -1, -1).reshape(-1, mask.shape[-2], mask.shape[-1])
+        mask = mask.reshape(bs, -1, mask.shape[-2], mask.shape[-1]).expand(b, kv_heads, -1, -1).reshape(-1, mask.shape[-2], mask.shape[-1])
 
     hidden_states = efficient_dot_product_attention(
         query,
@@ -413,11 +420,9 @@ def attention_sub_quad(query, key, value, heads, mask=None, attn_precision=None,
         mask=mask,
     )
 
-    hidden_states = hidden_states.to(dtype)
-    if skip_output_reshape:
-        hidden_states = hidden_states.unflatten(0, (-1, heads))
-    else:
-        hidden_states = hidden_states.unflatten(0, (-1, heads)).transpose(1, 2).flatten(start_dim=2)
+    hidden_states = hidden_states.to(dtype).reshape(b, heads, query_tokens, dim_head)
+    if not skip_output_reshape:
+        hidden_states = hidden_states.transpose(1, 2).flatten(start_dim=2)
     return hidden_states
 
 

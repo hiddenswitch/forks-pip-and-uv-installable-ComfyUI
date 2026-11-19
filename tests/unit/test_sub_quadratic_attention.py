@@ -41,3 +41,23 @@ def test_masked_tiles_and_empty_query_rows(kv_chunk_size, additive):
         use_checkpoint=False, mask=mask,
     )
     torch.testing.assert_close(out, ref, rtol=1e-4, atol=1e-4)
+
+
+@pytest.mark.parametrize("layout", ["packed", "heads"])
+@pytest.mark.parametrize("mask_rows", [0, 1, 5])
+@torch.inference_mode()
+def test_grouped_query_layout_and_mask(layout, mask_rows):
+    from comfy.ldm.modules.attention import attention_sub_quad
+
+    generator = torch.Generator().manual_seed(35)
+    q = torch.randn(2, 6, 5, 8, generator=generator)
+    k, v = (torch.randn(2, 2, 15, 8, generator=generator) for _ in range(2))
+    mask = torch.rand(2, 1, mask_rows, 15, generator=generator) > .3 if mask_rows else None
+    ref = torch.nn.functional.scaled_dot_product_attention(
+        q, k.repeat_interleave(3, 1), v.repeat_interleave(3, 1), attn_mask=mask,
+    )
+    packed = layout == "packed"
+    if packed:
+        q, k, v, ref = (x.transpose(1, 2).flatten(2) for x in (q, k, v, ref))
+    actual = attention_sub_quad(q, k, v, 6, mask=mask, skip_reshape=not packed, skip_output_reshape=not packed, enable_gqa=True)
+    torch.testing.assert_close(actual, ref)
