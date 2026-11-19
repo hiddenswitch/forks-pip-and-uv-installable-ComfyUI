@@ -112,7 +112,9 @@ def test_convrot_resume_requires_output_from_the_recorded_run(tmp_path, monkeypa
         if len(calls) == 2:
             media = directory / "images"
             media.mkdir()
-            Image.new("RGB", preset["expected_image_size"], "white").save(media / "current.png")
+            image = Image.new("RGB", preset["expected_image_size"], "white")
+            image.putpixel((0, 0), (0, 0, 0))
+            image.save(media / "current.png")
         return SimpleNamespace(wait=lambda: 0)
 
     monkeypatch.setattr(benchmark.subprocess, "Popen", launch)
@@ -200,7 +202,10 @@ def test_still_benchmarks_reject_wrong_resolution_and_missing_layers(tmp_path):
     files = ["layer-0.png", "layer-1.png", "layer-2.png"]
     for index, name in enumerate(files):
         color = (32, 64, 96, 255) if index == 0 else (0, 0, 0, 0)
-        Image.new("RGBA", (640, 640), color).save(tmp_path / name)
+        image = Image.new("RGBA", (640, 640), color)
+        if index == 0:
+            image.putpixel((10, 10), (255, 255, 255, 255))
+        image.save(tmp_path / name)
     assert _output_error(specs["flux3"], {}, tmp_path, files[:1])
     layered = specs["qwen_image_layered"]
     assert _output_error(layered, {}, tmp_path, files) is None
@@ -222,13 +227,14 @@ def test_convrot_matches_seed_and_cfg_to_their_sampler_stage(tmp_path):
     assert [(stage["seed"], stage["cfg"]) for stage in stages] == [(0, 7), (41, 2)]
 
 
-def test_ideogram_rejects_decodable_black_output(tmp_path):
+def test_benchmark_rejects_uniform_images(tmp_path):
     from PIL import Image
     from tests.convrot_benchmark import _output_error
 
-    preset = next(spec for spec in SUITE if spec["id"] == "ideogram4")
-    Image.new("RGB", preset["expected_image_size"]).save(tmp_path / "sample.png")
-    assert _output_error(preset, {}, tmp_path, ["sample.png"]) == "All output pixels are black"
+    for model, color in (("ideogram4", "black"), ("minimax_h3_image", (123, 116, 103))):
+        preset = next(spec for spec in SUITE if spec["id"] == model)
+        Image.new("RGB", preset["expected_image_size"], color).save(tmp_path / "sample.png")
+        assert _output_error(preset, {}, tmp_path, ["sample.png"]) == "All benchmark images are spatially uniform"
 
 
 def test_peak_memory_counts_only_worker_visible_nvidia_devices(tmp_path, monkeypatch):
