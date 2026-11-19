@@ -117,6 +117,8 @@ The RX 7600 SeedVR2 runs produced a [distorted portrait at 512×512](benchmark-s
 
 PAN 2 on the RTX 3060 and MiniMax H3 Video+Audio on both RTX cards used local NVMe.
 
+The two-step MAGI-2 Preview clip is dark, and the café scene is indistinct. SandAI’s preview recipe uses 100 steps. [MAGI-2 settings](prompting_guides/sandai_magi2_prompting.md)
+
 <details>
 <summary>Earlier runs at smaller settings</summary>
 
