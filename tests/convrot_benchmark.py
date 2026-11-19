@@ -193,7 +193,7 @@ SUITE: list[dict[str, Any]] = [
     },
     {
         "id": "pan2_t2v",
-        "label": "PAN 2 T2V 27B",
+        "label": "PAN 2 T2V 29B",
         "workflow": "pan2-t2v-0.json",
         "generation_args": "1248×704, 241 frames at 24 fps, 2 steps, CFG 5.0 (euler / simple)",
         "overrides": {
@@ -246,7 +246,7 @@ SUITE: list[dict[str, Any]] = [
     },
     {
         "id": "magi2_t2va",
-        "label": "MAGI-2 Preview 35.9B MoE (Video+Audio)",
+        "label": "MAGI-2 Preview 114B MoE (Video+Audio)",
         "workflow": "magi2-t2va-0.json",
         "generation_args": "896×512, 10 s target at 12.5 fps + stereo audio, 2 steps (uni_pc_flow / flow_unipc)",
         "overrides": {
@@ -256,7 +256,7 @@ SUITE: list[dict[str, Any]] = [
     },
     {
         "id": "magi2_refiner",
-        "label": "MAGI-2 Preview + Refiner 6.9B (1088p)",
+        "label": "MAGI-2 Preview + Refiner (1088p)",
         "workflow": "magi2-i2va-refiner-0.json",
         "generation_args": "896×512 at 12.5 fps -> 1920×1088 at 25 fps, 10 s target + audio, 2+2 steps (uni_pc_flow / flow_unipc)",
         "overrides": {

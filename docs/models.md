@@ -12,8 +12,8 @@ Memory figures in the support tables are approximate. See the benchmark results 
 
 | Model | This Fork | Upstream |
 | --- | --- | --- |
-| MAGI-2 Preview | TP/PP, ~136 GiB BF16. 2× GB10 TP=2 ran at 36.5 s/step on average (896×512, 25 frames, 4 steps). | — |
-| MAGI-2 Preview + Refiner | TP/PP, ~154 GiB BF16 or ~42 GiB per rank with INT8 TP=2. | — |
+| MAGI-2 Preview | TP/PP, 114B MoE, 107.6 GiB of INT8 transformer weights. 2× GB10 TP=2 ran at 36.5 s/step on average (896×512, 25 frames, 4 steps). | — |
+| MAGI-2 Preview + Refiner | TP/PP, 107.6 GiB of preview weights plus 6.3 GiB of refiner weights (INT8). | — |
 | HunyuanImage 3.0 Instruct | TP/PP, ~164 GiB BF16 or ~22 GiB per GPU with W4A8 TP=2. | — |
 | Kandinsky 6 Pro | TP, ~66 GiB total. | — |
 | PAN 2 | TP/PP, ~37 GiB INT8 resident or ~12 GiB offloaded. | Single GPU |
