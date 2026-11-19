@@ -319,7 +319,10 @@ def load_safetensors_file_backed(ckpt, include_keys=None) -> tuple[dict[str, tor
 
 def _file_backed_loads() -> bool:
     from . import model_management
-    return not DISABLE_MMAP and sys.platform != "win32" and model_management.offload_shares_device_memory()
+    # ROCm also dirties a writable private source mapping during host-to-device copies.
+    return not DISABLE_MMAP and sys.platform != "win32" and (
+        model_management.offload_shares_device_memory() or model_management.is_amd()
+    )
 
 
 def load_torch_file(ckpt: str, safe_load=False, device=None, return_metadata=False, include_keys=None) -> dict[str, torch.Tensor] | tuple[dict[str, torch.Tensor], Optional[FileMetadata]]:

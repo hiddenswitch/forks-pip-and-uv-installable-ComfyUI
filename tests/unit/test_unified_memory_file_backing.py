@@ -59,15 +59,23 @@ def test_include_keys_limits_the_file_backed_state(tmp_path):
     assert list(state) == ["1.bias"]
 
 
-def test_unified_memory_loads_use_the_file_backed_reader(tmp_path, monkeypatch):
-    _, path = _checkpoint(tmp_path)
-    monkeypatch.setattr(model_management, "offload_shares_device_memory", lambda device=None: True)
+@pytest.mark.parametrize("unified, amd, disable_mmap, expected", [
+    (True, False, False, True),
+    (False, True, False, True),
+    (False, False, False, False),
+    (False, True, True, False),
+])
+@pytest.mark.skipif(utils.sys.platform == "win32", reason="requires POSIX mmap")
+def test_cpu_checkpoint_mapping_policy(tmp_path, monkeypatch, unified, amd, disable_mmap, expected):
+    reference, path = _checkpoint(tmp_path)
+    monkeypatch.setattr(memory_management, "aimdo_allocator", None)
+    monkeypatch.setattr(model_management, "offload_shares_device_memory", lambda device=None: unified)
+    monkeypatch.setattr(model_management, "is_amd", lambda: amd)
+    monkeypatch.setattr(utils, "DISABLE_MMAP", disable_mmap)
     state = utils.load_torch_file(str(path))
-    assert all(memory_management.is_file_backed(v) for v in state.values())
-
-    monkeypatch.setattr(model_management, "offload_shares_device_memory", lambda device=None: False)
-    state = utils.load_torch_file(str(path))
-    assert not any(memory_management.is_file_backed(v) for v in state.values())
+    for key, value in state.items():
+        assert memory_management.is_file_backed(value) == expected
+        torch.testing.assert_close(value, reference.state_dict()[key], rtol=0, atol=0)
 
 
 def test_recorded_cpu_weights_become_views_of_the_file(tmp_path):
