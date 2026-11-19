@@ -10,6 +10,10 @@ from __future__ import annotations
 
 import itertools
 import math
+import mmap
+import os
+from pathlib import Path
+import tempfile
 
 import torch
 from torch import nn
@@ -25,6 +29,26 @@ from .model import (MLP_GATE_CHUNK_BYTES, Magi2Layout, MultiModalityRMSNorm, Pos
 QKV_PROJECTION_CHUNK_BYTES = 128 * 1024**2
 WINDOW_KEY_BUDGET = 1 << 19
 WINDOW_KV_CHUNK_BYTES = 256 * 1024**2
+
+
+def _host_residual(shape, dtype):
+    # Reserve enough RAM for the next fp32 residual as well. A file mapping lets
+    # the OS reclaim completed token ranges when a whole pair cannot fit.
+    count = math.prod(shape)
+    if model_management.get_free_memory(torch.device("cpu")) >= count * (dtype.itemsize + 4):
+        return torch.empty(shape, dtype=dtype, device="cpu")
+    from ...cmd import folder_paths
+
+    directory = Path(folder_paths.get_temp_directory())
+    directory.mkdir(parents=True, exist_ok=True)
+    size = count * dtype.itemsize
+    with tempfile.TemporaryFile(dir=directory) as scratch:
+        if hasattr(os, "posix_fallocate"):
+            os.posix_fallocate(scratch.fileno(), 0, size)
+        else:
+            scratch.truncate(size)
+        mapping = mmap.mmap(scratch.fileno(), size, access=mmap.ACCESS_WRITE)
+    return torch.frombuffer(mapping, dtype=dtype).view(shape)
 
 
 def _attend(q, k, v, comfy_attention, transformer_options, mask=None):
@@ -147,17 +171,17 @@ class RefinerAttention(nn.Module):
         width = (self.heads_q + 2 * self.heads_kv) * self.head_dim
         chunk_size = max(1, QKV_PROJECTION_CHUNK_BYTES // (batch * width * 4))
         if tokens <= chunk_size and query_buffer is None:
-            return self._project(x, freqs, groups, compute_dtype)
+            return self._project(x.to(freqs.device), freqs, groups, compute_dtype)
 
         # Write the normalized projections directly to the window attention inputs.
         # A full packed QKV copy at 1088p takes another 5.88 GiB.
-        q = query_buffer if query_buffer is not None else x.new_empty((batch, tokens, self.heads_q, self.head_dim), dtype=compute_dtype)
-        k = x.new_empty((batch, tokens, self.heads_kv, self.head_dim), dtype=compute_dtype)
+        q = query_buffer if query_buffer is not None else freqs.new_empty((batch, tokens, self.heads_q, self.head_dim), dtype=compute_dtype)
+        k = freqs.new_empty((batch, tokens, self.heads_kv, self.head_dim), dtype=compute_dtype)
         v = torch.empty_like(k)
-        gates = x.new_empty((batch, tokens, self.heads_q), dtype=torch.float32)
+        gates = freqs.new_empty((batch, tokens, self.heads_q), dtype=torch.float32)
         for span, chunk_groups in self._token_chunks(tokens, groups, chunk_size):
             q[:, span], k[:, span], v[:, span], gates[:, span] = self._project(
-                x[:, span], freqs[:, span], chunk_groups, compute_dtype)
+                x[:, span].to(freqs.device), freqs[:, span], chunk_groups, compute_dtype)
         return q, k, v, gates
 
     def _project_output(self, attended, gates, groups, compute_dtype, reuse_attended=False):
@@ -190,7 +214,7 @@ class RefinerAttention(nn.Module):
             # that window's result. The tail still attends to the separate K/V tensors.
             padded_video = math.prod(math.ceil(n / b) * b for n, b in zip(video_shape, self.block_size))
             capacity = x.shape[1] + padded_video - math.prod(video_shape)
-            buffer = x.new_empty((x.shape[0], capacity, self.heads_q, self.head_dim), dtype=compute_dtype)
+            buffer = freqs.new_empty((x.shape[0], capacity, self.heads_q, self.head_dim), dtype=compute_dtype)
         q, k, v, gates = self._project_inputs(x, freqs, groups, compute_dtype,
                                               None if buffer is None else buffer[:, :x.shape[1]])
         del x
@@ -218,18 +242,19 @@ class RefinerMLP(nn.Module):
         def project(tokens, splits, attention):
             if attention is None:
                 return self._project(tokens, splits, compute_dtype)
-            residual = tokens + attention
+            residual = tokens.to(attention.device) + attention
             return residual + self._project(residual, splits, compute_dtype)
 
         # The fp32 gate and its activation workspace coexist during SwiGLU.
         bytes_per_token = x.shape[0] * self.gate_width * 4 * 2
         chunk_size = max(1, MLP_GATE_CHUNK_BYTES // max(1, bytes_per_token))
-        if x.shape[1] <= chunk_size:
+        host_stream = attention_output is not None and x.device != attention_output.device
+        if x.shape[1] <= chunk_size and not host_stream:
             return project(x, groups, attention_output)
 
         # The gate expands each token independently. Keep only the fp32 residual output
         # across chunks and preserve each modality's normalization and projections.
-        out = torch.empty_like(x, dtype=torch.float32)
+        out = _host_residual(x.shape, torch.float32) if host_stream else torch.empty_like(x, dtype=torch.float32)
         offset = 0
         splits = groups if self.pre_norm.num_modality > 1 else (x.shape[1],)
         for index, part in enumerate(x.split(splits, dim=1)):
@@ -315,7 +340,20 @@ class Magi2RefinerModel(nn.Module):
         layout = Magi2Layout(tuple(video.shape[2:]), (), audio.shape[-1], context.shape[1])
         device = video.device
         # the refiner carries no timestep input
-        hidden = self.pre_adapter(video_tokens(video), audio.transpose(1, 2), context, None, self.dtype)
+        shape = (video.shape[0], sum(layout.groups), self.pre_adapter.video_embedder.weight.shape[0])
+        # An fp32 input and output plus the attention result coexist in each layer.
+        residual_dtype = self.dtype or torch.get_default_dtype()
+        residual_bytes = math.prod(shape) * (8 + residual_dtype.itemsize)
+        host = None
+        if (device.type == "cuda" and self.pipeline_stage is None and not torch.is_grad_enabled()
+                and not transformer_options.get("patches_replace", {}).get("dit")
+                and not model_prefetch.malloc_graph_enabled(device)
+                and not (torch.distributed.is_initialized() and torch.distributed.get_world_size() > 1)
+                and residual_bytes > QKV_PROJECTION_CHUNK_BYTES and not model_management.is_unified_memory_device(device)
+                and residual_bytes + WINDOW_KV_CHUNK_BYTES > model_management.get_free_memory(device)):
+            host = _host_residual(shape, residual_dtype)
+        hidden = self.pre_adapter(video_tokens(video), audio.transpose(1, 2), context, None, self.dtype, out=host)
+        del host
         freqs = fourier_rope(layout.coords(device), model_management.cast_to(self.pre_adapter.rope.bands, torch.float32, device)).unsqueeze(0).unsqueeze(2)
         start = 0 if self.pipeline_stage is None else self.pipeline_stage.start_layer
         end = self.num_layers if self.pipeline_stage is None else self.pipeline_stage.end_layer
@@ -329,15 +367,15 @@ class Magi2RefinerModel(nn.Module):
                 "transformer_options": pack_pipeline_value(prepare_model_parallel_value(transformer_options), tensors, "transformer_options"),
             }
             return PipelineIntermediateTensors(tensors, metadata)
-        return self._output(hidden, layout, (video.dtype, audio.dtype), isinstance(x, (list, tuple)))
+        return self._output(hidden, layout, (video.dtype, audio.dtype), isinstance(x, (list, tuple)), device)
 
     def _run_layers(self, hidden, freqs, layout, transformer_options, start, end):
         blocks_replace = transformer_options.get("patches_replace", {}).get("dit", {})
         layers = [self.block.layers[index] for index in range(start, end)]
-        prefetch_queue = model_prefetch.make_prefetch_queue(layers, hidden.device, transformer_options)
+        prefetch_queue = model_prefetch.make_prefetch_queue(layers, freqs.device, transformer_options)
         for index in range(start, end):
             layer = self.block.layers[index]
-            model_prefetch.prefetch_queue_pop(prefetch_queue, hidden.device, layer, malloc_scope="block")
+            model_prefetch.prefetch_queue_pop(prefetch_queue, freqs.device, layer, malloc_scope="block")
             transformer_options["block_index"] = index
             if ("double_block", index) in blocks_replace:
                 def block_wrap(args, layer=layer):
@@ -347,12 +385,20 @@ class Magi2RefinerModel(nn.Module):
                     {"img": hidden, "freqs": freqs, "transformer_options": transformer_options}, {"original_block": block_wrap})["img"]
             else:
                 hidden = layer(hidden, freqs, layout.groups, layout.video_shape, self.dtype, transformer_options)
-        model_prefetch.prefetch_queue_pop(prefetch_queue, hidden.device, None, malloc_scope="block")
+        model_prefetch.prefetch_queue_pop(prefetch_queue, freqs.device, None, malloc_scope="block")
         return hidden
 
-    def _output(self, hidden, layout, dtypes, nested):
+    def _output(self, hidden, layout, dtypes, nested, device=None):
         t, h, w = layout.video_shape
-        video, audio = self.post_adapter(hidden[:, :layout.video_tokens], hidden[:, layout.groups[0]:layout.groups[0] + layout.audio_len])
+        video = hidden[:, :layout.video_tokens]
+        audio = hidden[:, layout.groups[0]:layout.groups[0] + layout.audio_len]
+        if device is not None and hidden.device != device:
+            chunk = max(1, QKV_PROJECTION_CHUNK_BYTES // (hidden.shape[0] * hidden.shape[-1] * 4))
+            pairs = [self.post_adapter(video[:, i:i + chunk].to(device), audio[:, i:i + chunk].to(device))
+                     for i in range(0, max(1, video.shape[1], audio.shape[1]), chunk)]
+            video, audio = (torch.cat(parts, dim=1) for parts in zip(*pairs))
+        else:
+            video, audio = self.post_adapter(video, audio)
         video = video.transpose(1, 2).unflatten(2, (t, h, w)).to(dtypes[0])
         if not nested:
             return video

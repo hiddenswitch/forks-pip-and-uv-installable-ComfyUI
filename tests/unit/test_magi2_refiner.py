@@ -40,7 +40,7 @@ def _reference_proxy(ref):
 
 
 @pytest.mark.parametrize("audio_len", [0, 4])
-def test_refiner_matches_sandai_reference(audio_len):
+def test_refiner_matches_sandai_reference(audio_len, monkeypatch, tmp_path):
     ref = magi2_reference.load()
     device = _device()
     generator = torch.Generator().manual_seed(3)
@@ -69,6 +69,26 @@ def test_refiner_matches_sandai_reference(audio_len):
     assert _relative_error(video, expected_video) < TOLERANCE
     if audio_len:
         assert _relative_error(out[1].transpose(1, 2), expected_audio) < TOLERANCE
+
+    from comfy.ldm.magi2 import refiner
+
+    # Force chunk transfers and disk-backed residuals on the same weights and sample.
+    monkeypatch.setattr(refiner, "QKV_PROJECTION_CHUNK_BYTES", 4096)
+    monkeypatch.setattr(refiner, "MLP_GATE_CHUNK_BYTES", 4096)
+    monkeypatch.setattr(refiner.model_management, "get_free_memory", lambda dev, *args: 0)
+    monkeypatch.setattr(refiner.model_management, "is_unified_memory_device", lambda dev: False)
+    monkeypatch.setattr(refiner.model_prefetch, "malloc_graph_enabled", lambda dev: False)
+    monkeypatch.setattr("comfy.cmd.folder_paths.get_temp_directory", lambda: str(tmp_path))
+    inputs = []
+    hook = model.block.layers[0].register_forward_pre_hook(lambda _, args: inputs.append(args[0].device.type))
+    with torch.inference_mode():
+        streamed = model(x, torch.tensor([750.0], device=device), text.float())
+    hook.remove()
+    assert inputs == ["cpu"]
+    for before, after in zip(out if audio_len else [out], streamed if audio_len else [streamed]):
+        assert after.device == before.device
+        assert _relative_error(after, before) < TOLERANCE
+    assert not list(tmp_path.iterdir())
 
 
 @pytest.mark.parametrize(("shape", "tail"), [((5, 6, 7), 3), ((4, 6, 4), 0)])

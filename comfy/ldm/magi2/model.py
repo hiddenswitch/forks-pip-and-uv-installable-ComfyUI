@@ -1530,11 +1530,12 @@ class PreAdapter(nn.Module):
         self.rope = nn.Module()
         self.rope.register_buffer("bands", torch.empty(head_dim // 8, dtype=torch.float32, device=device))
 
-    def forward(self, video, audio, text, time_embedding, output_dtype=torch.float32):
+    def forward(self, video, audio, text, time_embedding, output_dtype=torch.float32, out=None):
         batch = video.shape[0]
         width = self.video_embedder.weight.shape[0]
-        out = torch.empty(batch, video.shape[1] + audio.shape[1] + text.shape[1], width,
-                          dtype=output_dtype, device=video.device)
+        if out is None:
+            out = torch.empty(batch, video.shape[1] + audio.shape[1] + text.shape[1], width,
+                              dtype=output_dtype, device=video.device)
         # Project in fp32, then store each token directly in the residual stream's dtype.
         chunk_size = max(1, ADAPTER_FP32_CHUNK_BYTES // max(1, batch * width * 4))
         start = 0
