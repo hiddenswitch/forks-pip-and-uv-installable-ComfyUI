@@ -1981,6 +1981,8 @@ def _quantized_apply(module, fn, recurse=True):
         if param is None:
             continue
         p = fn(param)
+        if p is param and not param.requires_grad:
+            continue
         if (not torch.is_inference_mode_enabled()) and p.is_inference():
             p = p.clone()
         module.register_parameter(key, torch.nn.Parameter(p, requires_grad=False))

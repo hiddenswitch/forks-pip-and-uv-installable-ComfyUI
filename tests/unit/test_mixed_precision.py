@@ -35,6 +35,17 @@ class SimpleModel(torch.nn.Module):
 
 
 class TestMixedPrecisionOps(unittest.TestCase):
+    def test_cpu_offload_keeps_already_resident_frozen_weight(self):
+        layer = ops.mixed_precision_ops({}).Linear(2, 2, device="cpu", dtype=torch.float32)
+        with torch.inference_mode():
+            weight = torch.nn.Parameter(torch.eye(2), requires_grad=False)
+            layer.weight = weight
+        layer.to("cpu")
+        self.assertIs(layer.weight, weight)
+        layer.to(dtype=torch.float64)
+        self.assertEqual(layer.weight.dtype, torch.float64)
+        self.assertFalse(layer.weight.is_inference())
+
     @unittest.skipUnless(ops.mixed_precision_quantization_available(), "requires comfy_kitchen-backed quantized tensors")
     def test_quant_layout_class_fallbacks_exist(self):
         self.assertIsNotNone(ops.get_layout_class("TensorCoreFP8E4M3Layout"))
