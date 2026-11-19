@@ -352,7 +352,32 @@ def file_backed_device_bytes(module) -> int:
     return total
 
 
-def release_file_backed_weights(module) -> int:
+def _matches_checkpoint(target, source):
+    if isinstance(source, FileBackedConcat):
+        if source._materialized is not None:
+            return False
+        offset = 0
+        for part in source._parts:
+            if not _matches_checkpoint(target.narrow(0, offset, part.shape[0]), part):
+                return False
+            offset += part.shape[0]
+        return True
+    if not (source.is_contiguous() and target.is_contiguous()):
+        return False
+
+    # Compare bytes, including signed zeros and NaNs, without allocating a host
+    # copy of the whole parameter during memory-pressure recovery.
+    current = target.reshape(-1).view(torch.uint8)
+    saved = source.reshape(-1).view(torch.uint8)
+    chunk_bytes = 4 * 1024**2
+    for start in range(0, current.numel(), chunk_bytes):
+        span = slice(start, start + chunk_bytes)
+        if not torch.equal(current[span].cpu(), saved[span]):
+            return False
+    return True
+
+
+def release_file_backed_weights(module, *, verify_contents=False) -> int:
     """Point every file-backed device parameter back at its mapping; returns the bytes freed."""
     freed = 0
     for backing, name, param in list(_file_backed_parameters(module)):
@@ -362,6 +387,8 @@ def release_file_backed_weights(module) -> int:
             continue
         if source.dtype != target.dtype or source.shape != target.shape:
             del backing[name]
+            continue
+        if verify_contents and not _matches_checkpoint(target, source):
             continue
         freed += target.nbytes
         _set_parameter_source(param, source)

@@ -1456,7 +1456,9 @@ class ModelPatcher(ModelManageable, PatchSupport, metaclass=_ModelPatcherFactory
 
             if device_to is not None:
                 if hasattr(self.model, "to"):
-                    # todo: is this now redundant with self.model.to?
+                    if (model_management.is_device_cpu(device_to) and isinstance(self.model, torch.nn.Module)
+                            and self.loaded_size() > model_management.system_memory.virtual_memory_available()):
+                        memory_management.release_file_backed_weights(self.model, verify_contents=True)
                     self.model.to(device_to)
                 self.model_device = device_to
             self._memory_measurements.model_loaded_weight_memory = 0

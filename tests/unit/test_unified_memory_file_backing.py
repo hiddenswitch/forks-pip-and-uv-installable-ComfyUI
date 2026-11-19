@@ -310,3 +310,28 @@ def test_checkpoint_index_reads_only_requested_shards_and_keeps_their_paths(tmp_
     assert list(state) == ["1.bias"] and metadata is None
     assert state["1.bias"].untyped_storage()._comfy_source_path == str(blob)
     torch.testing.assert_close(state["1.bias"], reference[1].bias, rtol=0, atol=0)
+
+
+@accelerator
+def test_discrete_unload_under_host_pressure_restores_only_matching_weights(tmp_path, monkeypatch):
+    _, path = _checkpoint(tmp_path)
+    device = torch.device("cuda", torch.cuda.current_device())
+    state = utils.load_safetensors_file_backed(str(path))[0]
+    module = _fresh_module()
+    module.load_state_dict(state)
+    memory_management.record_file_backing(module, state)
+    patcher = ModelPatcher(module, load_device=device, offload_device=torch.device("cpu"), _force_core=True)
+    loaded = model_management.LoadedModel(patcher)
+    loaded.model_load()
+    with torch.no_grad():
+        module[0].bias.add_(1)
+    changed = module[0].bias.detach().cpu().clone()
+    monkeypatch.setattr(model_management.system_memory, "virtual_memory_available", lambda: 0)
+    loaded.model_unload()
+
+    assert module[0].weight.data_ptr() == state["0.weight"].data_ptr()
+    assert module[0].bias.data_ptr() != state["0.bias"].data_ptr()
+    torch.testing.assert_close(module[0].bias, changed, rtol=0, atol=0)
+    loaded.model_load()
+    torch.testing.assert_close(module[0].weight.cpu(), state["0.weight"], rtol=0, atol=0)
+    torch.testing.assert_close(module[0].bias.cpu(), changed, rtol=0, atol=0)
