@@ -497,7 +497,8 @@ if _HAS_TRITON:
     def _swiglu7_interleaved_kernel(
         x_ptr, out_ptr, stride_x, stride_o, out_cols, BLOCK_C: tl.constexpr
     ):
-        row = tl.program_id(0)
+        # Full-resolution video can exceed 2**31 elements per activation.
+        row = tl.program_id(0).to(tl.int64)
         cols = tl.arange(0, BLOCK_C)
         mask = cols < out_cols
         base = row * stride_x + cols * 2
