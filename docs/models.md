@@ -111,7 +111,7 @@ The RX 7600 SeedVR2 runs produced a [distorted portrait at 512×512](benchmark-s
 | MiniMax Music 3 | 24.08 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | — | [0.349 · 11.3](benchmark-samples/minimax-music3-rtx3090-24079ms.mp3) | — | — |
 | YuE2 3B | 30 s audio, CFG 1, Euler / simple | [0.171 · 4.9](benchmark-samples/yue2-rx7600-30000ms.mp3) | [0.064 · 2.8](benchmark-samples/yue2-rtx3060-30000ms.mp3) | [0.047 · 3.1](benchmark-samples/yue2-rtx3090-30000ms.mp3) | — | — |
 | MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, CFG 1, res_multistep / simple | — | — | [21.362 · 23.8](benchmark-samples/minimax-h3-video-rtx3090.mp4) | — | [28.498 · 65.3 / 22.9](benchmark-samples/minimax-h3-video-2xgb10.mp4) |
-| MAGI-2 Preview | 896×512, 125 frames at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow | — | — | — | — | — |
+| MAGI-2 Preview | 896×512, 125 frames at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow | — | — | — | — | [826.074 · 94.5 / 97.7](benchmark-samples/magi2-preview-2xgb10.mp4) |
 | MAGI-2 Preview + Refiner | Same preview, then 1920×1088, 249 frames at 25 fps, refiner CFG 2, UniPC Flow | — | — | — | — | — |
 | Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | [77.461 · 11.8](benchmark-samples/wan21-scail2-rtx3060-832x480.webp) | [26.946 · 22.0](benchmark-samples/wan21-scail2-rtx3090-832x480.webp) | — | — |
 
