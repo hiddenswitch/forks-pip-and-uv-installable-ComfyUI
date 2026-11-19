@@ -182,6 +182,7 @@ SUITE: list[dict[str, Any]] = [
     },
     {
         "id": "minimax_h3_fl2va",
+        "expected_video": (1280, 704, 124, 24),
         "label": "MiniMax H3 FL2VA (Video+Audio)",
         "workflow": "minimax-h3-fl2va-0.json",
         "generation_args": "1280×704, 124 frames at 24 fps + audio, 2 steps, CFG 1.0 (res_multistep / simple)",
@@ -253,6 +254,7 @@ SUITE: list[dict[str, Any]] = [
     },
     {
         "id": "magi2_t2va",
+        "expected_video": (896, 512, 125, 12.5),
         "label": "MAGI-2 Preview 114B MoE (Video+Audio)",
         "workflow": "magi2-t2va-0.json",
         "generation_args": "896×512, 125 frames at 12.5 fps + stereo audio, 2 steps (uni_pc_flow / flow_unipc)",
@@ -263,6 +265,7 @@ SUITE: list[dict[str, Any]] = [
     },
     {
         "id": "magi2_refiner",
+        "expected_video": (1920, 1088, 249, 25),
         "label": "MAGI-2 Preview + Refiner (1088p)",
         "workflow": "magi2-i2va-refiner-0.json",
         "generation_args": "896×512, 125 frames at 12.5 fps -> 1920×1088, 249 frames at 25 fps + audio, 2+2 steps (uni_pc_flow / flow_unipc)",
@@ -548,6 +551,55 @@ def _seedvr_restoration_error(workflow: dict, output: Path) -> str | None:
     return None
 
 
+def _video_output_error(output: Path, expected: tuple[int, int, int, float]) -> str | None:
+    import av
+
+    width, height, frames, fps = expected
+    try:
+        with av.open(str(output)) as movie:
+            if len(movie.streams.video) != 1 or len(movie.streams.audio) != 1:
+                return "Expected one video stream and one audio stream"
+            video, audio = movie.streams.video[0], movie.streams.audio[0]
+            if (video.width, video.height, video.average_rate) != (width, height, fps):
+                return f"Expected {width}×{height} at {fps} fps"
+            frame_count = 0
+            audio_seconds = 0.0
+            first_pts = None
+            for packet in movie.demux(video, audio):
+                for frame in packet.decode():
+                    if packet.stream == audio:
+                        audio_seconds += frame.samples / frame.sample_rate
+                        continue
+                    if frame.pts is None or (frame.width, frame.height) != (width, height):
+                        return "Invalid video frame timestamp or dimensions"
+                    timestamp = frame.pts * frame.time_base
+                    if first_pts is None:
+                        first_pts = timestamp
+                    if abs(float(timestamp - first_pts) - frame_count / fps) > float(frame.time_base) + 1e-9:
+                        return f"Unexpected timestamp at frame {frame_count}"
+                    frame_count += 1
+            if frame_count != frames:
+                return f"Expected {frames} frames, decoded {frame_count}"
+            # The last video tick and audio codec padding may extend either stream.
+            if audio_seconds <= 0 or abs(audio_seconds - frames / fps) > 1 / fps + 1024 / audio.rate:
+                return f"Audio duration {audio_seconds:.3f} s differs from video duration {frames / fps:.3f} s"
+    except (OSError, ValueError, av.error.FFmpegError) as error:
+        return f"Could not decode benchmark video: {error}"
+    return None
+
+
+def _output_error(spec, workflow, directory, names):
+    if "expected_video" in spec:
+        if len(names) != 1:
+            return "Expected one video with audio"
+        return _video_output_error(directory / names[0], spec["expected_video"])
+    if spec["id"] == "seedvr2_3b":
+        for name in names:
+            if error := _seedvr_restoration_error(workflow, directory / name):
+                return error
+    return None
+
+
 def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra_args: list[str]) -> dict[str, Any]:
     model_dir = out_dir / spec["id"]
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -574,9 +626,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
                 and existing.get("extra_args") == extra_args
                 and json.loads(wf_file.read_text(encoding="utf-8")) == workflow
             ):
-                if spec["id"] != "seedvr2_3b" or all(
-                    _seedvr_restoration_error(workflow, model_dir / name) is None for name in outputs
-                ):
+                if _output_error(spec, workflow, model_dir, outputs) is None:
                     return existing
         except (OSError, json.JSONDecodeError):
             pass
@@ -648,12 +698,9 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     )
     success = returncode == 0 and not missing_sampler_ids and (is_worker or bool(output_files))
     output_error = None
-    if success and not is_worker and spec["id"] == "seedvr2_3b":
-        for name in output_files:
-            output_error = _seedvr_restoration_error(workflow, model_dir / name)
-            if output_error:
-                success = False
-                break
+    if success and not is_worker:
+        output_error = _output_error(spec, workflow, model_dir, output_files)
+        success = output_error is None
     unified_delta_gib = max(0.0, (tracker.start_mem_available_bytes - tracker.min_mem_available_bytes) / (1024 ** 3))
     peak_vram_gib = tracker.peak_vram_bytes / (1024 ** 3) if tracker.peak_vram_bytes > 0 else unified_delta_gib
 
