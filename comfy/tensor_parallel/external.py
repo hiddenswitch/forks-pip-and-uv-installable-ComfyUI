@@ -5,7 +5,6 @@ import dataclasses
 from datetime import timedelta
 import gc
 import logging
-import os
 import traceback
 
 import torch
@@ -145,16 +144,10 @@ class ExternalTensorParallelRuntime:
                 try:
                     load_spec = command["load_spec"]
                     ckpt_path = getattr(load_spec, "checkpoint_path", None)
-                    if ckpt_path and not os.path.exists(ckpt_path):
-                        from ..model_downloader import KNOWN_UNET_MODELS, get_or_download
+                    if ckpt_path:
+                        from ..model_downloader import resolve_worker_checkpoint
 
-                        resolved = get_or_download(
-                            "diffusion_models",
-                            os.path.basename(ckpt_path),
-                            KNOWN_UNET_MODELS,
-                        )
-                        if resolved:
-                            load_spec = dataclasses.replace(load_spec, checkpoint_path=resolved)
+                        load_spec = dataclasses.replace(load_spec, checkpoint_path=resolve_worker_checkpoint(ckpt_path))
                     patcher = load_tensor_parallel_rank(
                         load_spec,
                         self.configuration.tensor_rank,

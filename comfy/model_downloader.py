@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+import json
 import logging
 import operator
 import os
@@ -135,6 +136,54 @@ def get_full_path(folder_name: str, filename: str) -> Optional[str]:
     return get_or_download(folder_name, filename)
 
 
+def resolve_worker_checkpoint(checkpoint_path: str) -> str:
+    """Locate a driver's checkpoint and its shards on this worker."""
+    path = Path(checkpoint_path)
+    if not path.is_file():
+        resolved = get_or_download("diffusion_models", path.name, KNOWN_UNET_MODELS)
+        if not resolved:
+            raise FileNotFoundError(checkpoint_path)
+        path = Path(resolved)
+    return _complete_checkpoint_index(path, KNOWN_UNET_MODELS, offline=args.disable_known_models)
+
+
+def _complete_checkpoint_index(path: Path, known_files, *, offline: bool) -> str:
+    if not path.name.endswith(".safetensors.index.json"):
+        return str(path)
+
+    index = path.read_bytes()
+    shards = set(json.loads(index)["weight_map"].values())
+    missing = sorted(name for name in shards if not (path.parent / name).is_file())
+    if not missing:
+        return str(path)
+
+    for model in known_files:
+        if not isinstance(model, HuggingFile) or str(model) != path.name or not model.companion_files:
+            continue
+        directory = Path(model.filename).parent
+        if {str(directory / name) for name in shards} != set(model.companion_files):
+            continue
+
+        def cached_download(filename):
+            kwargs = dict(repo_id=model.repo_id, filename=filename, revision=model.revision,
+                          repo_type=model.repo_type, token=_get_hf_token())
+            try:
+                return Path(hf_hub_download(**kwargs, local_files_only=True))
+            except LocalEntryNotFoundError:
+                if offline:
+                    raise
+                return Path(hf_hub_download(**kwargs))
+
+        snapshot_index = cached_download(model.filename)
+        if snapshot_index.read_bytes() != index:
+            continue
+        for name in sorted(shards):
+            if not (snapshot_index.parent / name).is_file():
+                cached_download(str(directory / name))
+        return str(snapshot_index)
+    raise FileNotFoundError(f"{path} is missing checkpoint shards: {', '.join(missing)}")
+
+
 def get_or_download(
     folder_name: str,
     filename: str,
@@ -162,6 +211,8 @@ def get_or_download(
     # apply_folder_paths_patches) to avoid infinite recursion.
     _get_full_path = getattr(sys.modules[__name__], '_original_get_full_path', None) or folder_paths.get_full_path
     path = _get_full_path(folder_name, filename)
+    if path and path.endswith(".safetensors.index.json"):
+        return _complete_checkpoint_index(Path(path), known_files, offline=offline or args.disable_known_models)
 
     candidate_str_match = False
     candidate_filename_match = False

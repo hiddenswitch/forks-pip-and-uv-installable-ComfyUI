@@ -176,3 +176,43 @@ def test_external_loader_uses_launcher_devices_without_enumerating_local_devices
             "external_runtime": runtime,
         },
     )]
+
+
+def test_worker_completes_cached_index_before_opening_shards(tmp_path, monkeypatch):
+    import json
+    from pathlib import Path
+
+    from safetensors.torch import save_file
+
+    from comfy import model_downloader as downloader
+    from comfy.pipeline_parallel.checkpoint import SafetensorsCheckpointReader
+
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    index = snapshot / "test.safetensors.index.json"
+    names = ("first.safetensors", "second.safetensors")
+    index.write_text(json.dumps({"weight_map": {"x": names[0], "y": names[1]}}))
+    save_file({"x": torch.ones(1)}, snapshot / names[0])
+    with pytest.raises(FileNotFoundError):
+        SafetensorsCheckpointReader(index)
+
+    model = downloader.HuggingFile("test/repo", index.name, revision="pinned", companion_files=names)
+    monkeypatch.setattr(downloader, "KNOWN_UNET_MODELS", [model])
+    downloaded = []
+
+    def fetch(filename, revision, local_files_only=False, **kwargs):
+        assert revision == model.revision
+        file = snapshot / filename
+        if file.is_file():
+            return str(file)
+        if local_files_only:
+            raise downloader.LocalEntryNotFoundError("cache miss")
+        downloaded.append(filename)
+        save_file({"y": torch.ones(1)}, file)
+        return str(file)
+
+    monkeypatch.setattr(downloader, "hf_hub_download", fetch)
+    resolved = downloader.resolve_worker_checkpoint(str(index))
+    SafetensorsCheckpointReader(resolved)
+    assert downloaded == [names[1]]
+    assert Path(resolved) == index

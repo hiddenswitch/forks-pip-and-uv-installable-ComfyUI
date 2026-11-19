@@ -5,7 +5,6 @@ from dataclasses import replace
 from datetime import timedelta
 import gc
 import logging
-import os
 import traceback
 
 import torch
@@ -253,16 +252,10 @@ class ExternalTorchDistributedRuntime(AbstractBaseExternalPipelineRuntime):
                     load_spec,
                     plan=replace(load_spec.plan, stages=tuple(stages)),
                 )
-                if load_spec.custom_node_path is None and not os.path.exists(load_spec.checkpoint_path):
-                    from ..model_downloader import KNOWN_UNET_MODELS, get_or_download
+                if load_spec.custom_node_path is None:
+                    from ..model_downloader import resolve_worker_checkpoint
 
-                    resolved = get_or_download(
-                        "diffusion_models",
-                        os.path.basename(load_spec.checkpoint_path),
-                        KNOWN_UNET_MODELS,
-                    )
-                    if resolved:
-                        load_spec = replace(load_spec, checkpoint_path=resolved)
+                    load_spec = replace(load_spec, checkpoint_path=resolve_worker_checkpoint(load_spec.checkpoint_path))
                 patcher, geometry = _load_worker_stage(load_spec, rank)
                 self.coordinator.send_object(
                     {"kind": "ready", "geometry": geometry}, 0
