@@ -2,60 +2,118 @@
 
 ## Iterations per second
 
-Two steps per stage. Throughput is measured on the second step.
+Throughput uses the second step. Sampling time includes both steps per stage.
 
 | Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Boogu Image Edit | — | 0.59 | 1.35 | 0.643 | — |
-| Fibo 2.0 Dev | — | 0.385 | 0.741 | 0.375 | — |
-| Flux.2 Dev 32B | 0.0224 | 0.152 | 0.059 | 0.185 | 0.269 |
-| Flux.3 Klein 4B | 0.608 | 1.46 | 2.94 | 1.5 | — |
-| Ideogram 4 | — | 0.233 | 0.544 | 0.294 | 0.343 |
-| JoyAI Image Edit | — | 0.108 | 0.302 | 0.108 | — |
-| Krea 2 Turbo | — | 0.418 | 1.06 | 0.419 | 0.536 |
-| Mage-Flow | 0.544 | 1.39 | 3.75 | 1.69 | — |
-| Marigold V2 Depth | 0.0363 | 0.312 | 1.44 | 0.635 | — |
-| Ming-Image 0.1 Design | — | 0.953 | 2.13 | 0.921 | — |
-| MiniMax H3 Image | 0.0881 | 0.733 | 3.02 | 2.12 | 1.3 |
-| MOSS-Image SFT | 0.254 | 0.626 | 1.31 | 0.625 | — |
-| Qwen-Image 2.1 | — | 0.444 | 1.01 | 0.459 | — |
-| Qwen-Image Layered | — | 0.123 | 0.435 | 0.195 | 0.188 |
-| SeedVR2 3B | 0.21 | 0.491 | 0.977 | 0.392 | — |
-| Z-Image Turbo 6B | 0.349 | 0.927 | 2.1 | 0.978 | — |
-| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 0.0083 | 0.0181 | 0.00894 | 0.0139 |
-| MiniMax Music 3 | 0.811 | 4.08 | 2.87 | 2.67 | — |
-| YuE2 3B | 5.84 | 15.5 | 21.1 | 22.7 | — |
+| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 0.0083 | 0.0181 | 0.0089 | 0.0139 |
+| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 0.0016 | 0.0041 | 0.0019 | 0.0012 |
+| MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 0.0008 | 0.0011 | 0.0015 | 0.0004 |
+| MiniMax H3 Image | 0.0881 | 0.7332 | 3.0191 | 2.1201 | 1.2980 |
+| Fibo 2.0 Dev | — | 0.3847 | 0.7410 | 0.3754 | — |
+| MOSS-Image SFT | 0.2535 | 0.6259 | 1.3060 | 0.6251 | — |
+| Flux.3 Klein 4B | 0.6079 | 1.4568 | 2.9381 | 1.5043 | — |
+| Ming-Image 0.1 Design | — | 0.9527 | 2.1273 | 0.9208 | — |
+| Qwen-Image 2.1 | — | 0.4444 | 1.0137 | 0.4592 | — |
+| YuE2 3B | 5.8440 | 15.5329 | 21.1258 | 22.7245 | — |
+| Marigold V2 Depth | 0.0363 | 0.3119 | 1.4433 | 0.6347 | — |
+| MiniMax Music 3 | 0.8107 | 4.0794 | 2.8680 | 2.6691 | — |
 | MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 0.0154 | 0.0468 | 0.0167 | 0.0306 |
-| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 0.00156 | 0.00415 | 0.00188 | 0.00121 |
-| MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 0.000841 | 0.00112 | 0.00147 | 0.000396 |
+| Mage-Flow | 0.5444 | 1.3895 | 3.7536 | 1.6922 | — |
+| JoyAI Image Edit | — | 0.1077 | 0.3015 | 0.1084 | — |
+| Boogu Image Edit | — | 0.5901 | 1.3499 | 0.6431 | — |
+| Krea 2 Turbo | — | 0.4178 | 1.0603 | 0.4188 | 0.5363 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 0.0129 | 0.0371 | 0.0185 | — |
+| Ideogram 4 | — | 0.2330 | 0.5441 | 0.2941 | 0.3425 |
+| Qwen-Image Layered | — | 0.1225 | 0.4352 | 0.1951 | 0.1876 |
+| Z-Image Turbo 6B | 0.3491 | 0.9267 | 2.1045 | 0.9776 | — |
+| Flux.2 Dev 32B | 0.0224 | 0.1523 | 0.0590 | 0.1848 | 0.2695 |
+| SeedVR2 3B | 0.2105 | 0.4911 | 0.9772 | 0.3916 | — |
 
-## Total seconds
+## Timing breakdown
 
-Elapsed time from process start to exit, including loading and decoding.
+Loading includes prompt encoding. A dash indicates unavailable timing, including loading runs with downloads.
+
+### Model loading (s)
 
 | Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Boogu Image Edit | — | 946.0 | 505.9 | 368.0 | — |
-| Fibo 2.0 Dev | — | 686.0 | 843.5 | 51.4 | — |
-| Flux.2 Dev 32B | 194.5 | 1371.2 | 1826.6 | 1060.0 | 542.6 |
-| Flux.3 Klein 4B | 481.7 | 754.5 | 1710.2 | 166.1 | — |
-| Ideogram 4 | — | 722.7 | 633.5 | 71.3 | 62.6 |
-| JoyAI Image Edit | — | 93.2 | 91.8 | 84.4 | — |
-| Krea 2 Turbo | — | 630.4 | 1038.2 | 273.6 | 69.9 |
-| Mage-Flow | 1102.8 | 378.2 | 1210.5 | 42.4 | — |
-| Marigold V2 Depth | 499.9 | 100.5 | 109.9 | 70.8 | — |
-| Ming-Image 0.1 Design | — | 682.5 | 1377.2 | 445.3 | — |
-| MiniMax H3 Image | 138.9 | 1444.0 | 1300.9 | 101.7 | 113.8 |
-| MOSS-Image SFT | 138.2 | 755.6 | 672.8 | 632.5 | — |
-| Qwen-Image 2.1 | — | 441.8 | 398.0 | 60.4 | — |
-| Qwen-Image Layered | — | 1401.0 | 980.9 | 346.5 | 77.1 |
-| SeedVR2 3B | 644.4 | 170.7 | 433.6 | 39.6 | — |
-| Z-Image Turbo 6B | 165.6 | 474.8 | 1484.2 | 173.6 | — |
-| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 543.9 | 920.0 | 488.7 | 405.6 |
-| MiniMax Music 3 | 317.4 | 396.3 | 346.7 | 93.1 | — |
-| YuE2 3B | 531.4 | 182.7 | 151.8 | 45.7 | — |
-| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 418.3 | 174.3 | 291.3 | 210.1 |
-| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 1410.8 | 619.5 | 1424.6 | 2216.3 |
-| MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 5427.9 | 4008.3 | 3220.5 | 11046.9 |
-| Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 870.4 | 625.6 | 439.4 | — |
+| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 9.17 | 34.98 | — | — |
+| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 43.91 | 44.43 | — | — |
+| MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 252.94 | 235.92 | — | — |
+| MiniMax H3 Image | 47.73 | 758.37 | 840.30 | — | — |
+| Fibo 2.0 Dev | — | — | 286.11 | — | — |
+| MOSS-Image SFT | 26.14 | 557.11 | 11.81 | — | — |
+| Flux.3 Klein 4B | 361.48 | 552.84 | 824.92 | — | — |
+| Ming-Image 0.1 Design | — | 453.61 | 1044.58 | — | — |
+| Qwen-Image 2.1 | — | 186.04 | 192.84 | — | — |
+| YuE2 3B | 477.13 | 94.55 | 64.07 | — | — |
+| Marigold V2 Depth | 367.82 | 16.27 | 17.95 | — | — |
+| MiniMax Music 3 | 260.95 | 274.41 | 243.71 | — | — |
+| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 4.70 | 3.66 | — | — |
+| Mage-Flow | 1043.57 | 203.18 | 859.37 | — | — |
+| JoyAI Image Edit | — | 11.99 | 8.41 | — | — |
+| Boogu Image Edit | — | — | 259.56 | — | — |
+| Krea 2 Turbo | — | 136.33 | 187.47 | — | — |
+| Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 188.65 | 142.19 | — | — |
+| Ideogram 4 | — | 194.16 | 157.75 | — | — |
+| Qwen-Image Layered | — | 302.60 | 365.78 | — | — |
+| Z-Image Turbo 6B | 24.96 | 288.45 | 1013.30 | — | — |
+| Flux.2 Dev 32B | 39.28 | 493.10 | — | — | — |
+| SeedVR2 3B | 150.17 | 9.89 | 28.25 | — | — |
+
+### Sampling (s)
+
+| Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 250.80 | 703.92 | 240.09 | 148.28 |
+| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 1278.23 | 484.26 | 1197.66 | 1670.86 |
+| MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 4797.66 | 3604.49 | 2875.35 | 10144.17 |
+| MiniMax H3 Image | 27.42 | 496.42 | 385.27 | 1.66 | 2.38 |
+| Fibo 2.0 Dev | — | 169.64 | 187.79 | 7.07 | — |
+| MOSS-Image SFT | 8.85 | 124.38 | 570.61 | 4.32 | — |
+| Flux.3 Klein 4B | 4.20 | 122.14 | 702.21 | 2.92 | — |
+| Ming-Image 0.1 Design | — | 144.34 | 224.19 | 3.50 | — |
+| Qwen-Image 2.1 | — | 189.40 | 147.43 | 5.80 | — |
+| YuE2 3B | 1.04 | 40.73 | 35.80 | 0.42 | — |
+| Marigold V2 Depth | 52.48 | 11.94 | 4.65 | 4.11 | — |
+| MiniMax Music 3 | 3.14 | 68.80 | 55.51 | 1.28 | — |
+| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 139.74 | 45.77 | 115.65 | 69.65 |
+| Mage-Flow | 4.10 | 104.99 | 296.72 | 2.32 | — |
+| JoyAI Image Edit | — | 23.79 | 9.63 | 19.35 | — |
+| Boogu Image Edit | — | 188.02 | 183.35 | 4.55 | — |
+| Krea 2 Turbo | — | 384.26 | 350.98 | 5.51 | 8.12 |
+| Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 578.88 | 419.92 | 112.97 | — |
+| Ideogram 4 | — | 464.82 | 420.52 | 8.31 | 10.33 |
+| Qwen-Image Layered | — | 935.93 | 556.27 | 11.42 | 12.56 |
+| Z-Image Turbo 6B | 7.71 | 126.08 | 446.54 | 3.24 | — |
+| Flux.2 Dev 32B | 89.26 | 783.42 | 586.22 | 12.04 | 9.82 |
+| SeedVR2 3B | 11.44 | 82.07 | 285.24 | 7.49 | — |
+
+### Decode (s)
+
+| Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 208.04 | 90.99 | 150.05 | 171.05 |
+| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 22.47 | 7.25 | 16.25 | 68.05 |
+| MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 288.93 | 105.44 | 128.08 | 422.19 |
+| MiniMax H3 Image | 3.58 | 28.51 | 16.11 | 0.74 | 1.15 |
+| Fibo 2.0 Dev | — | 3.87 | 0.68 | 0.68 | — |
+| MOSS-Image SFT | 30.65 | 3.44 | 20.34 | 1.02 | — |
+| Flux.3 Klein 4B | 19.81 | 5.09 | 23.64 | 0.75 | — |
+| Ming-Image 0.1 Design | — | 3.48 | 4.31 | 1.23 | — |
+| Qwen-Image 2.1 | — | 12.20 | 10.12 | 2.13 | — |
+| YuE2 3B | 1.39 | 0.56 | 0.42 | 1.16 | — |
+| Marigold V2 Depth | 0.00 | 0.69 | 0.22 | 0.79 | — |
+| MiniMax Music 3 | 4.68 | 1.08 | 0.60 | 3.96 | — |
+| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 96.27 | 29.74 | 40.23 | 41.22 |
+| Mage-Flow | 0.50 | 3.87 | 3.95 | 0.52 | — |
+| JoyAI Image Edit | — | 0.46 | 0.21 | 1.34 | — |
+| Boogu Image Edit | — | 2.93 | 2.34 | 1.74 | — |
+| Krea 2 Turbo | — | 12.35 | 3.55 | 1.30 | 1.25 |
+| Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 45.39 | 18.36 | 27.30 | — |
+| Ideogram 4 | — | 11.23 | 4.87 | 0.98 | 0.77 |
+| Qwen-Image Layered | — | 5.02 | 1.02 | 1.21 | 1.17 |
+| Z-Image Turbo 6B | 31.30 | 4.90 | 7.75 | 1.83 | — |
+| Flux.2 Dev 32B | 20.75 | 1.27 | 4.93 | 0.83 | 0.73 |
+| SeedVR2 3B | 435.18 | 15.28 | 31.71 | 2.47 | — |
