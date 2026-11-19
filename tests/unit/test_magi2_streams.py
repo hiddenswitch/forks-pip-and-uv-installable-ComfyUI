@@ -83,3 +83,30 @@ def test_qk_rope_bounds_fp32_workspace(monkeypatch, modalities):
     qo, ko = magi.qk_norm_rope(q, k, q_norm, k_norm, freqs, groups)
     assert torch.equal(qo, torch.cat(expected_q, dim=1))
     assert torch.equal(ko, torch.cat(expected_k, dim=1))
+
+
+@pytest.mark.parametrize("modalities", [1, 3])
+@torch.no_grad()
+def test_refiner_mlp_bounds_fp32_gate_and_preserves_residual(monkeypatch, modalities):
+    from comfy.ldm.magi2 import refiner
+
+    torch.manual_seed(55)
+    mlp = refiner.RefinerMLP(16, 32, modalities, dtype=torch.bfloat16, operations=torch.nn)
+    mlp.pre_norm.weight.uniform_(-0.5, 0.5)
+    groups = (11, 0, 6)
+    x = torch.randn(2, sum(groups), 16)
+    normalized = mlp.pre_norm(x, groups).bfloat16()
+    gate = magi.modality_linear(mlp.up_gate_proj, normalized, groups).float()
+    expected = magi.modality_linear(mlp.down_proj, magi.swiglu7(gate).bfloat16(), groups).float()
+    limit = 2 * 3 * 64 * 4
+    monkeypatch.setattr(refiner, "MLP_GATE_CHUNK_BYTES", limit, raising=False)
+    original = refiner.swiglu7
+
+    def bounded(gate):
+        assert gate.dtype == torch.float32
+        assert gate.nbytes <= limit
+        return original(gate)
+
+    monkeypatch.setattr(refiner, "swiglu7", bounded)
+    actual = mlp(x, groups, torch.bfloat16)
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)

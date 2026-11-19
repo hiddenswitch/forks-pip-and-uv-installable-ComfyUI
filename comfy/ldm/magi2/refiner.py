@@ -19,7 +19,7 @@ from ...pipeline_parallel import PipelineIntermediateTensors, PipelineMissingLay
 from ...pipeline_parallel.types import pack_pipeline_value, prepare_model_parallel_value, unpack_pipeline_value
 from ...tensor_parallel.operations import column_parallel_linear, local_size, row_parallel_linear
 from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimized_attention
-from .model import (Magi2Layout, MultiModalityRMSNorm, PostAdapter, PreAdapter, fourier_rope, make_modality_linear, modality_linear,
+from .model import (MLP_GATE_CHUNK_BYTES, Magi2Layout, MultiModalityRMSNorm, PostAdapter, PreAdapter, fourier_rope, make_modality_linear, modality_linear,
                     qk_norm_rope, swiglu7, video_tokens)
 
 WINDOW_KEY_BUDGET = 1 << 19
@@ -133,16 +133,38 @@ class RefinerAttention(nn.Module):
 class RefinerMLP(nn.Module):
     def __init__(self, hidden_size, intermediate_size, num_modality, dtype=None, device=None, operations=None):
         super().__init__()
-        local_size(operations, intermediate_size, "MAGI-2 refiner MLP width")
+        self.gate_width = 2 * local_size(operations, intermediate_size, "MAGI-2 refiner MLP width")
         self.pre_norm = MultiModalityRMSNorm(hidden_size, num_modality, device=device)
         self.up_gate_proj = make_modality_linear(num_modality, lambda: column_parallel_linear(
             operations, hidden_size, 2 * intermediate_size, bias=False, device=device, dtype=dtype))
         self.down_proj = make_modality_linear(num_modality, lambda: row_parallel_linear(
             operations, intermediate_size, hidden_size, bias=False, device=device, dtype=dtype))
 
-    def forward(self, x, groups, compute_dtype):
+    def _project(self, x, groups, compute_dtype):
         x = modality_linear(self.up_gate_proj, self.pre_norm(x, groups).to(compute_dtype), groups).float()
         return modality_linear(self.down_proj, swiglu7(x).to(compute_dtype), groups).float()
+
+    def forward(self, x, groups, compute_dtype):
+        bytes_per_token = x.shape[0] * self.gate_width * 4
+        chunk_size = max(1, MLP_GATE_CHUNK_BYTES // max(1, bytes_per_token))
+        if x.shape[1] <= chunk_size:
+            return self._project(x, groups, compute_dtype)
+
+        # The gate expands each token independently. Keep only the fp32 residual output
+        # across chunks and preserve each modality's normalization and projections.
+        out = torch.empty_like(x, dtype=torch.float32)
+        offset = 0
+        splits = groups if self.pre_norm.num_modality > 1 else (x.shape[1],)
+        for index, part in enumerate(x.split(splits, dim=1)):
+            if part.shape[1] == 0:
+                continue
+            chunk_groups = [0] * len(splits)
+            for chunk in part.split(chunk_size, dim=1):
+                length = chunk.shape[1]
+                chunk_groups[index] = length
+                out[:, offset:offset + length] = self._project(chunk, chunk_groups, compute_dtype)
+                offset += length
+        return out
 
 
 class RefinerLayer(nn.Module):
