@@ -767,6 +767,11 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     model_dir = out_dir / spec["id"]
     model_dir.mkdir(parents=True, exist_ok=True)
     result_file = model_dir / "result.json"
+    default_allocator = {"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"}
+    allocator_env = default_allocator.copy()
+    for key in ("PYTORCH_ALLOC_CONF", "PYTORCH_CUDA_ALLOC_CONF", "PYTORCH_HIP_ALLOC_CONF"):
+        if value := os.environ.get(key, "").strip():
+            allocator_env[key] = value
     workflow, checkpoints = prepare_workflow(spec, repo_root)
     is_distributed = int(os.environ.get("WORLD_SIZE", "1")) > 1
     is_worker = is_distributed and int(os.environ["RANK"]) != 0
@@ -791,6 +796,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
                 and _sampling_error(sampler_ids, existing.get("step_measurements", []), existing.get("trace_summary", {})) is None
                 and existing.get("generation_args") == spec["generation_args"]
                 and existing.get("extra_args") == extra_args
+                and existing.get("allocator_env", default_allocator) == allocator_env
                 and json.loads(wf_file.read_text(encoding="utf-8")) == workflow
             ):
                 if _output_error(spec, workflow, model_dir, outputs) is None:
@@ -849,7 +855,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     env = os.environ.copy()
     env["COMFY_BENCHMARK_PATH"] = str(steps_file.resolve())
     env["COMFY_BENCHMARK_CUDA_DEVICES"] = str(cuda_devices_file.resolve())
-    env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    env.update(allocator_env)
     env["HF_HUB_DISABLE_XET"] = "1"
     env["HF_HUB_DOWNLOAD_TIMEOUT"] = "600"
     env["HF_HUB_ETAG_TIMEOUT"] = "60"
@@ -890,6 +896,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         "generation_args": spec["generation_args"],
         "checkpoints": checkpoints,
         "extra_args": extra_args,
+        "allocator_env": allocator_env,
         "status": "success" if success else "failed",
         "output_files": output_files,
         "output_error": output_error,

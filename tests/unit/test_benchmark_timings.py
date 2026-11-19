@@ -268,3 +268,38 @@ def test_peak_memory_counts_only_worker_visible_nvidia_devices(tmp_path, monkeyp
         monkeypatch.setattr(benchmark.time, "sleep", lambda _: tracker._stop.set())
         tracker._poll()
         assert tracker.peak_vram_bytes == sum(used[uuid] for uuid in visible)
+
+
+def test_allocator_override_reruns_cached_benchmark(tmp_path, monkeypatch):
+    from contextlib import nullcontext
+    from PIL import Image
+    from unittest.mock import Mock
+    from tests import convrot_benchmark as bench
+
+    spec = {"id": "example", "workflow": "example.json", "label": "Example", "generation_args": "two steps"}
+    workflow = {"1": {"class_type": "KSampler", "inputs": {}}}
+    monkeypatch.setattr(bench, "prepare_workflow", lambda *args: (workflow, []))
+    for key in ("PYTORCH_ALLOC_CONF", "PYTORCH_CUDA_ALLOC_CONF", "PYTORCH_HIP_ALLOC_CONF", "WORLD_SIZE"):
+        monkeypatch.delenv(key, raising=False)
+    directory = tmp_path / spec["id"]
+    directory.mkdir()
+    (directory / "workflow.json").write_text(json.dumps(workflow))
+    Image.new("RGB", (2, 2)).save(directory / "sample.png")
+    cached = {
+        "output_files": ["sample.png"], "status": "success", "returncode": 0, "step2_seconds": 1.0,
+        "step_measurements": [{"node_id": "1"}], "trace_summary": {"sampler_spans": [{"steps": 2}]},
+        "extra_args": [], "generation_args": spec["generation_args"],
+    }
+    (directory / "result.json").write_text(json.dumps(cached))
+    popen = Mock()
+    popen.return_value.wait.return_value = 1
+    monkeypatch.setattr(bench.subprocess, "Popen", popen)
+    tracker = Mock(start_mem_available_bytes=0, min_mem_available_bytes=0, peak_vram_bytes=0, peak_rss_bytes=0)
+    monkeypatch.setattr(bench, "PeakMemoryTracker", lambda path: nullcontext(tracker))
+
+    assert bench.run_single_model(spec, tmp_path, tmp_path, []) == cached
+    popen.assert_not_called()
+    monkeypatch.setenv("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:False")
+    result = bench.run_single_model(spec, tmp_path, tmp_path, [])
+    assert popen.call_args.kwargs["env"]["PYTORCH_CUDA_ALLOC_CONF"] == "expandable_segments:False"
+    assert result["allocator_env"] == {"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:False"}
