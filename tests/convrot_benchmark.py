@@ -217,8 +217,14 @@ SUITE: list[dict[str, Any]] = [
         "id": "seedvr2_3b",
         "label": "SeedVR2 3B",
         "workflow": "seedvr2-0.json",
-        "generation_args": "512×512, 2 steps, CFG 1.0 (euler / simple)",
+        "generation_args": "512×512 to 2048×2048, 2 steps, CFG 1.0 (euler / simple)",
+        "additional_nodes": {
+            "upscale": {"class_type": "ImageScaleBy", "inputs": {
+                "image": ["2", 0], "upscale_method": "bilinear", "scale_by": 4.0,
+            }},
+        },
         "overrides": {
+            "3": {"resized_images": ["upscale", 0]},
             "6": {"unet_name": "seedvr2_3b_int8_convrot.safetensors"},
             "2": {"width": 512, "height": 512},
             "8": {"steps": 2},
@@ -481,6 +487,11 @@ def prepare_workflow(spec: dict[str, Any], repo_root: Path) -> tuple[dict[str, A
             img_val = node["inputs"].get("image")
             if isinstance(img_val, str) and img_val.startswith("pkg://tests.custom_nodes.test_data/"):
                 node["inputs"]["image"] = src_img.name
+
+    for node_id, node in spec.get("additional_nodes", {}).items():
+        if node_id in workflow:
+            raise ValueError(f"Duplicate benchmark node {node_id}")
+        workflow[node_id] = copy.deepcopy(node)
 
     for node_id, patch_inputs in spec.get("overrides", {}).items():
         inputs = workflow[node_id]["inputs"]
