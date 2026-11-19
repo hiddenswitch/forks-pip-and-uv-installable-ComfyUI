@@ -110,7 +110,7 @@ SeedVR2 restored the 512×512 portrait on the RX 7600 with a CPU VAE and local N
 
 | Model | Settings | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | [120.499 · 11.9](benchmark-samples/pan2-t2v-rtx3060-1248x704.webp) | [55.184 · 23.9](benchmark-samples/pan2-t2v-rtx3090-1248x704.webp) | — | [72.070 · 95.5 / 22.2](benchmark-samples/pan2-t2v-2xgb10-1248x704.webp) |
+| PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | [120.499 · 11.9](benchmark-samples/pan2-t2v-rtx3060-1248x704.webp) | [55.184 · 23.9](benchmark-samples/pan2-t2v-rtx3090-1248x704.webp) | [111.884 · 91.7](benchmark-samples/pan2-t2v-1xgb10-1248x704.webp) | [72.070 · 95.5 / 22.2](benchmark-samples/pan2-t2v-2xgb10-1248x704.webp) |
 | MiniMax Music 3 | 15.28 s, 44.1 kHz stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | [0.245 · 10.2](benchmark-samples/minimax-music3-rtx3060-15279ms.mp3) | — | — | — |
 | MiniMax Music 3 | 24.08 s, 44.1 kHz stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | — | [0.349 · 11.3](benchmark-samples/minimax-music3-rtx3090-24079ms.mp3) | — | — |
 | MiniMax Music 3 | 24.39 s, 44.1 kHz stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | — | — | [0.375 · 28.2](benchmark-samples/minimax-music3-1xgb10-24393ms.mp3) | — |
@@ -122,7 +122,7 @@ SeedVR2 restored the 512×512 portrait on the RX 7600 with a CPU VAE and local N
 
 The RTX cards used local NVMe for the 1024×1024 JoyAI and Marigold runs, PAN 2 on the 3060, and MiniMax H3 Video+Audio on both cards.
 
-The two-step Wan clips are blurry on all three devices. The two-step MAGI-2 Preview clip is dark, and the café scene is indistinct. SandAI’s preview recipe uses 100 steps. [MAGI-2 settings](prompting_guides/sandai_magi2_prompting.md)
+All four PAN 2 clips show the same dark red scene. The two-step Wan clips are blurry on all three devices. The two-step MAGI-2 Preview clip is dark, and the café scene is indistinct. SandAI’s preview recipe uses 100 steps. [MAGI-2 settings](prompting_guides/sandai_magi2_prompting.md)
 
 <details>
 <summary>Earlier runs at smaller settings</summary>
