@@ -57,6 +57,7 @@ MiniMax Music 3,RTX 3090,"24.08 s stereo (30 s cap), AR CFG 1.5, res_multistep /
 YuE2 3B,RX 7600,"30 s audio, CFG 1, Euler / simple",2,PyTorch SDPA,477.129,1.038,1.386,0.171,benchmark-samples/yue2-rx7600-30000ms.mp3
 YuE2 3B,RTX 3060,"30 s audio, CFG 1, Euler / simple",2,SageAttention,94.553,40.735,0.563,0.064,benchmark-samples/yue2-rtx3060-30000ms.mp3
 YuE2 3B,RTX 3090,"30 s audio, CFG 1, Euler / simple",2,SageAttention,64.071,35.804,0.418,0.047,benchmark-samples/yue2-rtx3090-30000ms.mp3
+MiniMax H3 Video+Audio,RTX 3060,"1280×704, 124 frames at 24 fps, CFG 1, res_multistep / simple, local NVMe",2,SageAttention,4.703,139.742,96.273,65.063,benchmark-samples/minimax-h3-video-rtx3060.mp4
 MiniMax H3 Video+Audio,RTX 3090,"1280×704, 124 frames at 24 fps, CFG 1, res_multistep / simple, local NVMe",2,SageAttention,3.662,45.766,29.743,21.362,benchmark-samples/minimax-h3-video-rtx3090.mp4
 MiniMax H3 Video+Audio,2× GB10,"1280×704, 124 frames at 24 fps, CFG 1, res_multistep / simple",2,PyTorch SDPA,96.352,70.046,42.529,28.498,benchmark-samples/minimax-h3-video-2xgb10.mp4
 MAGI-2 Preview,2× GB10,"896×512, 125 frames at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow",2,PyTorch SDPA,445.384,1670.856,68.046,826.074,benchmark-samples/magi2-preview-2xgb10.mp4
