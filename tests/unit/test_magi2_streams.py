@@ -110,3 +110,32 @@ def test_refiner_mlp_bounds_fp32_gate_and_preserves_residual(monkeypatch, modali
     monkeypatch.setattr(refiner, "swiglu7", bounded)
     actual = mlp(x, groups, torch.bfloat16)
     torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("audio_tokens,with_timestep", [(0, True), (7, False)])
+@torch.no_grad()
+def test_input_adapter_bounds_fp32_workspace(monkeypatch, audio_tokens, with_timestep):
+    torch.manual_seed(3)
+    batch, width = 2, 16
+    adapter = magi.PreAdapter(width, 8, 4, 6, 8)
+    projections = (adapter.video_embedder, adapter.audio_embedder, adapter.text_embedder)
+    tokens = [torch.randn(batch, n, c).bfloat16() for n, c in [(13, 4), (audio_tokens, 6), (5, 8)]]
+    for layer in projections:
+        layer.weight.uniform_(-0.5, 0.5)
+        layer.bias.uniform_(-0.1, 0.1)
+    expected = torch.cat([layer(part.float()) for layer, part in zip(projections, tokens)], dim=1)
+    time = torch.randn(batch, expected.shape[1], 4) if with_timestep else None
+    if time is not None:
+        expected[..., :4] = time
+
+    limit = batch * 3 * width * 4
+    monkeypatch.setattr(magi, "ADAPTER_FP32_CHUNK_BYTES", limit)
+
+    def check_projection(module, args, output):
+        assert output.dtype == torch.float32
+        assert output.numel() * output.element_size() <= limit
+
+    for layer in projections:
+        layer.register_forward_hook(check_projection)
+    actual = adapter(*tokens, time, torch.bfloat16)
+    torch.testing.assert_close(actual, expected.bfloat16(), rtol=0, atol=0)
