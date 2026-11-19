@@ -284,3 +284,24 @@ def test_discrete_managed_allocations_use_physical_vram(monkeypatch, device):
     monkeypatch.setattr(torch.cuda, "mem_get_info", physical_memory)
     assert model_management.get_total_memory(device, torch_total_too=True) == (12 * GiB, 0)
     assert model_management.get_free_memory(device, torch_free_too=True) == (4 * GiB, 0)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires CUDA convolution")
+@torch.no_grad()
+def test_novram_fully_loads_weight_normalized_audio_convolution(monkeypatch):
+    from comfy.ldm.audio.autoencoder import WNConv1d
+    from comfy.model_patcher import ModelPatcher
+
+    monkeypatch.setattr(model_management, "vram_state", model_management.VRAMState.NO_VRAM)
+    conv = WNConv1d(8, 4, 3, bias=False)
+    for param in conv.parameters():
+        param.uniform_(-0.5, 0.5)
+    samples = torch.randn(1, 8, 8)
+    expected = conv(samples)
+    device = model_management.get_torch_device()
+    patcher = ModelPatcher(conv, load_device=device, offload_device=torch.device("cpu"))
+    try:
+        model_management.load_models_gpu([patcher], force_full_load=True)
+        torch.testing.assert_close(conv(samples.to(device)).cpu(), expected)
+    finally:
+        model_management._unload_model_and_clones(patcher)

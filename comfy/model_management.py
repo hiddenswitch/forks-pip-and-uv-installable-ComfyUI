@@ -1444,7 +1444,7 @@ def _load_models_gpu(models: Sequence[ModelManageable], memory_required: int = 0
                 if lowvram_model_memory == 0:
                     lowvram_model_memory = 0.1
 
-            if not self_managed_device and vram_set_state == VRAMState.NO_VRAM:
+            if not self_managed_device and not force_full_load and vram_set_state == VRAMState.NO_VRAM:
                 lowvram_model_memory = 0.1
 
             was_loaded = loaded_model in current_loaded_models
