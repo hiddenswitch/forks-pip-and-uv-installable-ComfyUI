@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import logging
 import threading
 import warnings
@@ -58,11 +59,11 @@ class _MallocGraphScope:
     def __enter__(self):
         malloc_graph_begin(self.device)
 
-    def __exit__(self, exc_type, *args):
+    def __exit__(self, exc_type, exc, tb):
         if exc_type is None:
             malloc_graph_end()
         else:
-            cleanup_malloc_graph()
+            run_cleanup(cleanup_malloc_graph, primary_error=exc)
 
 def malloc_graph_scope(device):
     return _MallocGraphScope(device)
@@ -240,10 +241,35 @@ def cleanup_prefetch_queues():
     if first_error is not None:
         raise first_error
 
+def run_cleanup(*actions, primary_error=None):
+    """Attempt every release and preserve the exception that triggered unwinding."""
+    first_error = None
+    for action in actions:
+        try:
+            action()
+        except Exception as error:
+            if primary_error is None and first_error is None:
+                first_error = error
+            else:
+                logger.exception("Additional error during model cleanup")
+    if first_error is not None:
+        raise first_error
+
+
+@contextmanager
+def cleanup_on_exit(*actions):
+    try:
+        yield
+    except BaseException as error:
+        run_cleanup(*actions, primary_error=error)
+        raise
+    else:
+        run_cleanup(*actions)
+
+
 def finish_model_execution():
     """Release asynchronous weight state at an outer model boundary."""
-    cleanup_prefetch_queues()
-    ops.finish_weight_cast_execution()
+    run_cleanup(cleanup_prefetch_queues, ops.finish_weight_cast_execution)
 
 def prefetch_queue_pop(queue, device, module, dtype=None, core=None, enable_graph=False, generator=None, malloc_scope=None):
     malloc_graph = MALLOC_GRAPHS.get(threading.get_ident())

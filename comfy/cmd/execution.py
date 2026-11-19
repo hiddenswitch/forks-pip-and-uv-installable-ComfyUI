@@ -700,15 +700,18 @@ async def _execute(server, dynprompt: DynamicPrompt, caches: CacheSet, current_i
                 # TODO - How to handle this with async functions without contextvars (which requires Python 3.12)?
                 GraphBuilder.set_default_prefix(unique_id, call_index, 0)
 
-            try:
-                output_data, output_ui, has_subgraph, has_pending_tasks = await get_output_data(prompt_id, unique_id, obj, input_data_all, execution_block_cb=execution_block_cb, pre_execute_cb=pre_execute_cb, v3_data=v3_data)
-            finally:
+            def release_node_memory():
                 if memory_management.aimdo_enabled:
+                    actions = []
                     if logger.isEnabledFor(logging.DEBUG) and hasattr(comfy_aimdo, "control"):
-                        comfy_aimdo.control.analyze()
-                    model_prefetch.cleanup_prefetch_queues()
-                    model_management.reset_cast_buffers()
-                    comfy_aimdo.model_vbar.vbars_reset_watermark_limits()
+                        actions.append(comfy_aimdo.control.analyze)
+                    model_prefetch.run_cleanup(
+                        *actions, model_prefetch.cleanup_prefetch_queues,
+                        model_management.reset_cast_buffers, comfy_aimdo.model_vbar.vbars_reset_watermark_limits,
+                    )
+
+            with model_prefetch.cleanup_on_exit(release_node_memory):
+                output_data, output_ui, has_subgraph, has_pending_tasks = await get_output_data(prompt_id, unique_id, obj, input_data_all, execution_block_cb=execution_block_cb, pre_execute_cb=pre_execute_cb, v3_data=v3_data)
 
             if has_pending_tasks:
                 pending_async_nodes[unique_id] = output_data

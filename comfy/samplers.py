@@ -14,6 +14,7 @@ import time
 
 from . import model_management
 from . import model_patcher as model_patcher_module
+from . import model_prefetch
 from . import multigpu
 from . import patcher_extension
 from . import sampler_helpers
@@ -1281,8 +1282,23 @@ class CFGGuider:
             all_devices = [device] + extra_devices
             self.model_options["multigpu_thread_pool"] = multigpu.MultiGPUThreadPool(all_devices)
 
-        with model_management.cuda_device_context(device):
+        def release_models():
             try:
+                sampler_helpers.cleanup_models(self.conds, self.loaded_models)
+            finally:
+                del self.inner_model, self.loaded_models
+
+        def close_thread_pool():
+            thread_pool = self.model_options.pop("multigpu_thread_pool", None)
+            if thread_pool is not None:
+                thread_pool.shutdown()
+
+        with model_prefetch.cleanup_on_exit(release_models), model_management.cuda_device_context(device):
+            with model_prefetch.cleanup_on_exit(
+                close_thread_pool, self.model_patcher.cleanup,
+                *(patcher.cleanup for patcher in multigpu_patchers),
+                self.model_patcher.model.finish_execution,
+            ):
                 noise = noise.to(device=device, dtype=torch.float32)
                 latent_image = latent_image.to(device=device, dtype=torch.float32)
                 sigmas = sigmas.to(device)
@@ -1291,20 +1307,7 @@ class CFGGuider:
                 self.model_patcher.pre_run()
                 for multigpu_patcher in multigpu_patchers:
                     multigpu_patcher.pre_run()
-                output = self.inner_sample(noise, latent_image, device, sampler, sigmas, denoise_mask, callback, disable_pbar, seed, latent_shapes=latent_shapes)
-            finally:
-                thread_pool = self.model_options.pop("multigpu_thread_pool", None)
-                if thread_pool is not None:
-                    thread_pool.shutdown()
-                self.model_patcher.cleanup()
-                for multigpu_patcher in multigpu_patchers:
-                    multigpu_patcher.cleanup()
-                self.model_patcher.model.finish_execution()
-
-        sampler_helpers.cleanup_models(self.conds, self.loaded_models)
-        del self.inner_model
-        del self.loaded_models
-        return output
+                return self.inner_sample(noise, latent_image, device, sampler, sigmas, denoise_mask, callback, disable_pbar, seed, latent_shapes=latent_shapes)
 
     def sample(self, noise, latent_image, sampler, sigmas, denoise_mask=None, callback=None, disable_pbar=False, seed=None):
         if sigmas.shape[-1] == 0:

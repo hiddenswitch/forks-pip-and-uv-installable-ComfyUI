@@ -123,3 +123,53 @@ def test_malloc_graph_cleanup_failure_still_cleans_queues(monkeypatch):
 
     assert model_prefetch.PREFETCH_QUEUES == []
     assert module._prefetch is None
+
+
+def test_sampler_preserves_inference_error_and_releases_models(monkeypatch):
+    from unittest.mock import Mock
+    from comfy import samplers
+
+    patcher = Mock(load_device=torch.device("cpu"), model_options={})
+    guider = samplers.CFGGuider(patcher)
+    guider.conds = {}
+    secondary = RuntimeError("graph abort failed")
+    patcher.model.finish_execution.side_effect = secondary
+    primary = ValueError("attention failed")
+    guider.inner_sample = Mock(side_effect=primary)
+    cleanup = Mock()
+    monkeypatch.setattr(samplers.sampler_helpers, "prepare_sampling", lambda *args: (object(), {}, []))
+    monkeypatch.setattr(samplers.sampler_helpers, "prepare_model_patcher_multigpu_clones", lambda *args: [])
+    monkeypatch.setattr(samplers.sampler_helpers, "cleanup_models", cleanup)
+    x = torch.zeros(1)
+    with pytest.raises(ValueError) as error:
+        guider.outer_sample(x, x, None, x)
+    assert error.value is primary
+    cleanup.assert_called_once()
+    assert not hasattr(guider, "loaded_models")
+
+
+def test_finish_execution_releases_deferred_weights_after_graph_failure(monkeypatch):
+    from unittest.mock import Mock
+
+    error = RuntimeError("graph abort failed")
+    monkeypatch.setattr(model_prefetch, "cleanup_prefetch_queues", Mock(side_effect=error))
+    finish = Mock()
+    monkeypatch.setattr(model_prefetch.ops, "finish_weight_cast_execution", finish)
+    with pytest.raises(RuntimeError) as result:
+        model_prefetch.finish_model_execution()
+    assert result.value is error
+    finish.assert_called_once()
+
+
+def test_malloc_graph_scope_reports_kernel_failure_when_abort_fails(monkeypatch):
+    from unittest.mock import Mock
+
+    primary = RuntimeError("kernel failed")
+    monkeypatch.setattr(model_prefetch, "malloc_graph_begin", Mock())
+    abort = Mock(side_effect=RuntimeError("graph abort failed"))
+    monkeypatch.setattr(model_prefetch, "cleanup_malloc_graph", abort)
+    with pytest.raises(RuntimeError) as result:
+        with model_prefetch.malloc_graph_scope(torch.device("cpu")):
+            raise primary
+    assert result.value is primary
+    abort.assert_called_once()
