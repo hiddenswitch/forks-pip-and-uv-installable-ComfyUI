@@ -21,7 +21,7 @@ def _velocity(x):
     return torch.tanh(1.3 * x) + 0.2 * x - 0.1
 
 
-@pytest.mark.parametrize("steps,shift", [(100, 7.0), (5, 5.0), (12, 7.0)])
+@pytest.mark.parametrize("steps,shift", [(2, 7.0), (2, 5.0), (100, 7.0), (5, 5.0), (12, 7.0)])
 def test_flow_unipc_matches_sandai_scheduler(steps, shift):
     ref = magi2_reference.load()
     scheduler = ref.sampler.FlowUniPCMultistepScheduler()
