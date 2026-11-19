@@ -67,7 +67,7 @@ These model families are available in both versions. Memory estimates vary with 
 
 ## INT8 ConvRot benchmarks
 
-Each stage runs two steps. Cells show **seconds for step 2 · peak GiB** and link to the output. GB10 memory is estimated per host. For the two-GB10 MiniMax H3 Image and MAGI-2 Preview runs, the second GPU also hosted an inference server. A dash means no verified result.
+Each stage runs two steps. Cells show **seconds for step 2 · peak GiB** and link to the output. The MAGI-2 refiner row gives preview and refiner times in that order. GB10 memory is estimated per host. For the two-GB10 MiniMax H3 Image and MAGI-2 runs, the second GPU also hosted an inference server. A dash means no verified result.
 
 Sampling seeds, per-run settings, attention backends, and time spent loading, sampling, and decoding are in the [timings CSV](convrot-benchmark-timings.csv). Sampling includes first-step weight transfers.
 
@@ -118,8 +118,10 @@ SeedVR2 restored the 512×512 portrait on the RX 7600 with a CPU VAE and local N
 | MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, 32 kHz stereo, CFG 1, res_multistep / simple | — | [65.063 · 11.8](benchmark-samples/minimax-h3-video-rtx3060.mp4) | [21.362 · 23.8](benchmark-samples/minimax-h3-video-rtx3090.mp4) | [59.806 · 67.0](benchmark-samples/minimax-h3-video-1xgb10.mp4) | [28.498 · 65.3 / 22.9](benchmark-samples/minimax-h3-video-2xgb10.mp4) |
 | MAGI-2 Preview | Text to video, 896×512, 125 frames at 12.5 fps, 44.1 kHz stereo, video CFG 5, audio CFG 7, UniPC Flow | — | [643.014 · 12.0](benchmark-samples/magi2-preview-rtx3060.mp4) | — | — | [826.074 · 94.5 / 97.7](benchmark-samples/magi2-preview-2xgb10.mp4) |
 | MAGI-2 Preview | Text to video, 896×512, 125 frames at 12.5 fps, 44.1 kHz stereo, video CFG 5, audio CFG 7, UniPC Flow, PyTorch SDPA only | — | [542.648 · 12.0](benchmark-samples/magi2-preview-rtx3060-sdpa.mp4) | — | — | — |
-| MAGI-2 Preview + Refiner | Image to video, 896×512, 125 frames at 12.5 fps (video CFG 5, audio CFG 7) → 1920×1088, 249 frames at 25 fps (CFG 2), 44.1 kHz stereo, UniPC Flow | — | — | — | — | — |
+| MAGI-2 Preview + Refiner | Image to video, 896×512, 125 frames at 12.5 fps (video CFG 5, audio CFG 7) → 1920×1088, 249 frames at 25 fps (CFG 2), 44.1 kHz stereo, UniPC Flow | — | — | — | — | [527.469 / 4518.399 · 94.0 / 78.3](benchmark-samples/magi2-refiner-2xgb10.mp4) |
 | Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | [77.461 · 11.8](benchmark-samples/wan21-scail2-rtx3060-832x480.webp) | [26.946 · 22.0](benchmark-samples/wan21-scail2-rtx3090-832x480.webp) | [54.047 · 38.4](benchmark-samples/wan21-scail2-1xgb10-832x480.webp) | — |
+
+The two-step MAGI-2 refiner clip starts with a clear portrait. The middle and final frames are heavily blurred.
 
 The RTX cards used local NVMe for the 1024×1024 JoyAI and Marigold runs, PAN 2 on the 3060, and MiniMax H3 Video+Audio on both cards.
 
