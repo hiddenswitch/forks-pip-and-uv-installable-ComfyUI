@@ -2,6 +2,8 @@
 
 import types
 
+import math
+
 import pytest
 import torch
 
@@ -90,3 +92,11 @@ def test_block_window_attention_matches_dense_masked_attention(monkeypatch, shap
         q.transpose(1, 2), k.repeat_interleave(2, dim=2).transpose(1, 2), v.repeat_interleave(2, dim=2).transpose(1, 2), attn_mask=mask)
     actual = block_window_attention(q, k, v, shape, block, radius, ComfyAttention(), {})
     torch.testing.assert_close(actual, expected.transpose(1, 2), rtol=1e-5, atol=1e-5)
+
+    padded = math.prod(math.ceil(n / b) * b for n, b in zip(shape, block))
+    buffer = q.new_empty((q.shape[0], padded + tail, *q.shape[2:]))
+    queries = buffer[:, :video + tail]
+    queries.copy_(q)
+    reused = block_window_attention(queries, k, v, shape, block, radius, ComfyAttention(), {}, out=buffer)
+    assert reused.data_ptr() == queries.data_ptr()
+    torch.testing.assert_close(reused, actual, rtol=0, atol=0)

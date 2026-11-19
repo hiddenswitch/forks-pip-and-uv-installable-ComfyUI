@@ -34,7 +34,7 @@ def _attend(q, k, v, comfy_attention, transformer_options, mask=None):
                                enable_gqa=k.shape[1] != q.shape[1], transformer_options=transformer_options)
 
 
-def block_window_attention(q, k, v, video_shape, block_size, radius, comfy_attention, transformer_options):
+def block_window_attention(q, k, v, video_shape, block_size, radius, comfy_attention, transformer_options, out=None):
     """Attention where video tokens see their block-grid neighbourhood plus all non-video tokens.
 
     q [B, N, Hq, D] and k/v [B, N, Hkv, D] hold the video tokens first in (t, h, w) raster order.
@@ -74,7 +74,8 @@ def block_window_attention(q, k, v, video_shape, block_size, radius, comfy_atten
     bytes_per_key = heads_kv * head_dim * (k.element_size() + v.element_size())
     key_budget = min(WINDOW_KEY_BUDGET, WINDOW_KV_CHUNK_BYTES // bytes_per_key)
     chunk = max(1, key_budget // (window_keys * batch))
-    out = q.new_empty((batch, tokens + padding, heads_q, head_dim))
+    if out is None:
+        out = q.new_empty((batch, tokens + padding, heads_q, head_dim))
     for start in range(0, query_map.shape[0], chunk):
         neighbours = query_origin[start:start + chunk, None] + offsets
         count = neighbours.shape[0]
@@ -141,16 +142,16 @@ class RefinerAttention(nn.Module):
                 yield slice(start, end), chunk_groups
             offset += length
 
-    def _project_inputs(self, x, freqs, groups, compute_dtype):
+    def _project_inputs(self, x, freqs, groups, compute_dtype, query_buffer=None):
         batch, tokens, _ = x.shape
         width = (self.heads_q + 2 * self.heads_kv) * self.head_dim
         chunk_size = max(1, QKV_PROJECTION_CHUNK_BYTES // (batch * width * 4))
-        if tokens <= chunk_size:
+        if tokens <= chunk_size and query_buffer is None:
             return self._project(x, freqs, groups, compute_dtype)
 
         # Write the normalized projections directly to the window attention inputs.
         # A full packed QKV copy at 1088p takes another 5.88 GiB.
-        q = x.new_empty((batch, tokens, self.heads_q, self.head_dim), dtype=compute_dtype)
+        q = query_buffer if query_buffer is not None else x.new_empty((batch, tokens, self.heads_q, self.head_dim), dtype=compute_dtype)
         k = x.new_empty((batch, tokens, self.heads_kv, self.head_dim), dtype=compute_dtype)
         v = torch.empty_like(k)
         gates = x.new_empty((batch, tokens, self.heads_q), dtype=torch.float32)
@@ -159,7 +160,7 @@ class RefinerAttention(nn.Module):
                 x[:, span], freqs[:, span], chunk_groups, compute_dtype)
         return q, k, v, gates
 
-    def _project_output(self, attended, gates, groups, compute_dtype):
+    def _project_output(self, attended, gates, groups, compute_dtype, reuse_attended=False):
         batch, tokens, heads, dim = attended.shape
         chunk_size = max(1, QKV_PROJECTION_CHUNK_BYTES // (batch * heads * dim * 4))
 
@@ -175,17 +176,28 @@ class RefinerAttention(nn.Module):
         for span, chunk_groups in self._token_chunks(tokens, groups, chunk_size):
             part = project(attended[:, span], gates[:, span], chunk_groups)
             if output is None:
-                output = part.new_empty((batch, tokens, part.shape[-1]))
+                if reuse_attended and heads * dim == part.shape[-1] and attended.dtype == part.dtype:
+                    output = attended.flatten(2)
+                else:
+                    output = part.new_empty((batch, tokens, part.shape[-1]))
             output[:, span] = part
         return output
 
     def forward(self, x, freqs, groups, video_shape, compute_dtype, transformer_options):
-        q, k, v, gates = self._project_inputs(x, freqs, groups, compute_dtype)
+        buffer = None
+        if not torch.is_grad_enabled() and x.nbytes > QKV_PROJECTION_CHUNK_BYTES:
+            # Each query appears in one window. Once gathered, its slot can hold
+            # that window's result. The tail still attends to the separate K/V tensors.
+            padded_video = math.prod(math.ceil(n / b) * b for n, b in zip(video_shape, self.block_size))
+            capacity = x.shape[1] + padded_video - math.prod(video_shape)
+            buffer = x.new_empty((x.shape[0], capacity, self.heads_q, self.head_dim), dtype=compute_dtype)
+        q, k, v, gates = self._project_inputs(x, freqs, groups, compute_dtype,
+                                              None if buffer is None else buffer[:, :x.shape[1]])
         del x
         out = block_window_attention(q, k, v, video_shape, self.block_size, self.radius,
-                                     self.comfy_attention, transformer_options)
+                                     self.comfy_attention, transformer_options, out=buffer)
         del q, k, v
-        return self._project_output(out, gates, groups, compute_dtype)
+        return self._project_output(out, gates, groups, compute_dtype, reuse_attended=buffer is not None)
 
 
 class RefinerMLP(nn.Module):

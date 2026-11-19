@@ -230,3 +230,6 @@ def test_refiner_bounds_gated_output_projection(monkeypatch, modalities):
         linear.register_forward_pre_hook(check_linear)
     result = layer._project_output(attended, gates, groups, torch.bfloat16)
     torch.testing.assert_close(result, expected, rtol=0, atol=0)
+    reused = layer._project_output(attended, gates, groups, torch.bfloat16, reuse_attended=True)
+    assert reused.data_ptr() == attended.data_ptr()
+    torch.testing.assert_close(reused, expected, rtol=0, atol=0)
