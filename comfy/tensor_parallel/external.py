@@ -135,6 +135,7 @@ class ExternalTensorParallelRuntime:
         from .. import model_management
 
         loaded_models: dict[int, list] = {}
+        forward_failure = None
         while True:
             command = self.coordinator.broadcast_command()
             if command["kind"] == "close":
@@ -169,7 +170,8 @@ class ExternalTensorParallelRuntime:
                 if entry is not None:
                     del entry
                     gc.collect()
-                    model_management.soft_empty_cache()
+                    if forward_failure is None:
+                        model_management.soft_empty_cache()
                 continue
             if model_id not in loaded_models:
                 self.coordinator.send_object(
@@ -256,7 +258,9 @@ class ExternalTensorParallelRuntime:
                     args, kwargs = unpack_pipeline_value(command["structure"], tensors)
                     getattr(execution_model, command["method"])(*args, **kwargs)
                     self.coordinator.send_object({"kind": "done"}, 0)
-                except Exception:
+                except Exception as error:
+                    if forward_failure is None:
+                        forward_failure = f"{type(error).__name__}: {error}"
                     _abort_device_group(self.operations.process_group)
                     _send_worker_error(self.coordinator, self.operations.rank)
                 finally:
@@ -264,6 +268,8 @@ class ExternalTensorParallelRuntime:
         loaded_models.clear()
         gc.collect()
         self.close()
+        if forward_failure is not None:
+            raise RuntimeError(f"Tensor-parallel rank {self.operations.rank} failed: {forward_failure}")
 
     def close(self) -> None:
         global _runtime

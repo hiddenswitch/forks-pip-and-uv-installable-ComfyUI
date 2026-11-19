@@ -216,3 +216,38 @@ def test_worker_completes_cached_index_before_opening_shards(tmp_path, monkeypat
     SafetensorsCheckpointReader(resolved)
     assert downloaded == [names[1]]
     assert Path(resolved) == index
+
+
+def test_worker_drains_unload_and_close_after_device_group_abort(monkeypatch):
+    from comfy import model_management
+
+    runtime = external.ExternalTensorParallelRuntime.__new__(external.ExternalTensorParallelRuntime)
+    runtime._configuration = DistributedConfiguration(
+        rank=1, world_size=2, tensor_parallel_size=2, executor_backend="external_launcher",
+        externally_launched=True,
+    )
+    runtime.device = torch.device("cpu")
+    runtime.operations = SimpleNamespace(rank=1, world_size=2, process_group=object())
+    runtime.coordinator = _Coordinator(commands=(
+        {"kind": "load_tensor", "load_spec": "refiner"},
+        {"kind": "forward", "method": "forward", "descriptors": [],
+         "structure": ("value", ((), {}))},
+        {"kind": "unload_tensor"}, {"kind": "close"},
+    ))
+
+    def forward():
+        raise RuntimeError("rowwise quantization failed")
+
+    patcher = SimpleNamespace(model_size=lambda: 64, model=SimpleNamespace(
+        diffusion_model=SimpleNamespace(forward=forward)))
+    closed = []
+    monkeypatch.setattr("comfy.tensor_parallel.loader.load_tensor_parallel_rank", lambda *args: patcher)
+    monkeypatch.setattr(external, "_broadcast_tensors", lambda *args, **kwargs: {})
+    monkeypatch.setattr(external, "_abort_device_group", lambda group: None)
+    monkeypatch.setattr(model_management, "soft_empty_cache", lambda: pytest.fail("synchronized failed device"))
+    monkeypatch.setattr(runtime, "close", lambda: closed.append(True))
+
+    with pytest.raises(RuntimeError, match="rowwise quantization failed"):
+        runtime.run_worker_service()
+    assert closed == [True]
+    assert "rowwise quantization failed" in runtime.coordinator.sent[-1][0]["traceback"]
