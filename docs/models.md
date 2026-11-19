@@ -106,7 +106,7 @@ The RX 7600 SeedVR2 runs produced a [distorted portrait at 512×512](benchmark-s
 
 | Model | Settings | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | — | [55.184 · 23.9](benchmark-samples/pan2-t2v-rtx3090-1248x704.webp) | — | [72.070 · 95.5 / 22.2](benchmark-samples/pan2-t2v-2xgb10-1248x704.webp) |
+| PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | [120.499 · 11.9](benchmark-samples/pan2-t2v-rtx3060-1248x704.webp) | [55.184 · 23.9](benchmark-samples/pan2-t2v-rtx3090-1248x704.webp) | — | [72.070 · 95.5 / 22.2](benchmark-samples/pan2-t2v-2xgb10-1248x704.webp) |
 | MiniMax Music 3 | 15.28 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | [0.245 · 10.2](benchmark-samples/minimax-music3-rtx3060-15279ms.mp3) | — | — | — |
 | MiniMax Music 3 | 24.08 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | — | [0.349 · 11.3](benchmark-samples/minimax-music3-rtx3090-24079ms.mp3) | — | — |
 | YuE2 3B | 30 s audio, CFG 1, Euler / simple | [0.171 · 4.9](benchmark-samples/yue2-rx7600-30000ms.mp3) | [0.064 · 2.8](benchmark-samples/yue2-rtx3060-30000ms.mp3) | [0.047 · 3.1](benchmark-samples/yue2-rtx3090-30000ms.mp3) | — | — |
@@ -114,6 +114,8 @@ The RX 7600 SeedVR2 runs produced a [distorted portrait at 512×512](benchmark-s
 | MAGI-2 Preview | 896×512, 125 frames at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow | — | — | — | — | — |
 | MAGI-2 Preview + Refiner | Same preview, then 1920×1088, 249 frames at 25 fps, refiner CFG 2, UniPC Flow | — | — | — | — | — |
 | Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | [77.461 · 11.8](benchmark-samples/wan21-scail2-rtx3060-832x480.webp) | [26.946 · 22.0](benchmark-samples/wan21-scail2-rtx3090-832x480.webp) | — | — |
+
+The RTX 3060 PAN 2 run used local NVMe. The 241-frame animation lasts 10.042 seconds.
 
 <details>
 <summary>Earlier runs at smaller settings</summary>
