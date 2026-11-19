@@ -40,6 +40,7 @@ MOSS-Image SFT,1× GB10,"1024×1024, CFG 3, Euler / sgm_uniform",2,605.027,4.316
 Qwen-Image 2.1,RTX 3060,"1024×1024, CFG 4, Euler / simple",2,186.035,189.404,12.197,2.250,benchmark-samples/qwen-image21-rtx3060-1024x1024.webp
 Qwen-Image 2.1,RTX 3090,"1024×1024, CFG 4, Euler / simple",2,192.842,147.434,10.121,0.986,benchmark-samples/qwen-image21-rtx3090-1024x1024.webp
 Qwen-Image 2.1,1× GB10,"1024×1024, CFG 4, Euler / simple",2,28.570,4.947,2.226,2.160,benchmark-samples/qwen-image21-1xgb10-1024x1024.webp
+Qwen-Image Layered,RTX 3090,"640×640, 2 layers, CFG 2.5, Euler / simple",2,365.783,556.269,1.023,2.298,benchmark-samples/qwen-image-layered-rtx3090-640x640.webp
 Qwen-Image Layered,1× GB10,"640×640, 2 layers, CFG 2.5, Euler / simple",2,315.488,11.419,1.210,5.127,benchmark-samples/qwen-image-layered-1xgb10-640x640.webp
 Qwen-Image Layered,2× GB10,"640×640, 2 layers, CFG 2.5, Euler / simple",2,49.561,12.562,1.168,5.331,benchmark-samples/qwen-image-layered-2xgb10-640x640.webp
 SeedVR2 3B,RTX 3060,"512×512 restoration, CFG 1, Euler / simple",2,11.179,96.252,8.156,0.167,benchmark-samples/seedvr2-3b-rtx3060-512x512.webp
