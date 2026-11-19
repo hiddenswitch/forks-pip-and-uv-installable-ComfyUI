@@ -2443,7 +2443,8 @@ class MiniMaxH3(BaseModel):
         super().__init__(model_config, model_type, device=device, unet_model=unet_model)
 
     def execute_diffusion_model(self, method, *args, **kwargs):
-        if method != "forward" or self.pipeline_executor is None:
+        # Tensor-parallel ranks run the full forward, which converts the audio schedule itself.
+        if method != "forward" or self.pipeline_executor is None or self.diffusion_model.pipeline_stage is None:
             return super().execute_diffusion_model(method, *args, **kwargs)
         x, timestep, *remaining = args
         transformer_options = kwargs.get("transformer_options", {})

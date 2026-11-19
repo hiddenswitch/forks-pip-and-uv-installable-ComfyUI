@@ -1,4 +1,5 @@
 import weakref
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -63,6 +64,26 @@ def test_forward_scales_audio_velocity_before_carry_conversion():
 
     expected = -3.0 * audio_src * carry + (1.0 + 3.0 * sigma_a) * audio_output * audio_mask
     torch.testing.assert_close(out[1], expected)
+
+
+@pytest.mark.parametrize("pipeline_stage", [None, SimpleNamespace(is_first=True)], ids=["tensor", "pipeline"])
+def test_parallel_audio_velocity_matches_serial_forward(pipeline_stage):
+    from comfy.model_base import MiniMaxH3
+
+    video = torch.ones(1, 1, 1, 1, 1)
+    audio = torch.ones(1, 1, 2, 2)
+    model = make_model(video, audio * 3)
+    inputs = ([video, audio], torch.tensor([500.0]), torch.empty(1, 1, 1))
+    kwargs = {"minimax_payload": {"audio_scale": 4.0}}
+    expected = model(*inputs, **kwargs)
+
+    model.pipeline_stage = pipeline_stage
+    wrapper = MiniMaxH3.__new__(MiniMaxH3)
+    nn.Module.__init__(wrapper)
+    wrapper.diffusion_model = model
+    wrapper.pipeline_executor = SimpleNamespace(execute=model.forward)
+    actual = wrapper.execute_diffusion_model("forward", *inputs, **kwargs)
+    torch.testing.assert_close(actual, expected)
 
 
 @pytest.mark.parametrize("conditioning", ["none", "refs", "keyframes"])
