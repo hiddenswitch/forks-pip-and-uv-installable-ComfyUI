@@ -431,6 +431,7 @@ def parse_trace_phases(trace_path: Path) -> dict[str, Any]:
     sampler_invoke_ms = 0.0
     decode_ms = 0.0
     execute_prompt_ms = 0.0
+    prompt_error = None
     sampler_spans: list[dict[str, Any]] = []
     node_spans: list[dict[str, Any]] = []
     decode_span_ids: set[str] = set()
@@ -455,6 +456,12 @@ def parse_trace_phases(trace_path: Path) -> dict[str, Any]:
         attrs = span.get("attributes") or {}
         if name == "Execute Prompt":
             execute_prompt_ms = max(execute_prompt_ms, dur)
+            if (span.get("status") or {}).get("status_code") == "ERROR":
+                for event in span.get("events") or []:
+                    if event.get("name") == "exception":
+                        prompt_error = (event.get("attributes") or {}).get("exception.type")
+                        if prompt_error:
+                            break
         elif name == "Sampler Invoke":
             sampler_invoke_ms += dur
             parent = sampling_parents.get((span.get("trace_id"), span.get("parent_span_id")), {})
@@ -490,6 +497,7 @@ def parse_trace_phases(trace_path: Path) -> dict[str, Any]:
     lazy_load_in_sampler_ms = max(0.0, sampling_node_ms - sampler_invoke_ms)
     total_load_seconds = (load_ms + lazy_load_in_sampler_ms + load_in_decode_ms) / 1000.0
     return {
+        "prompt_error": prompt_error,
         "execute_prompt_seconds": execute_prompt_ms / 1000.0,
         "load_and_encode_seconds": total_load_seconds,
         "explicit_loader_nodes_seconds": load_ms / 1000.0,
@@ -882,7 +890,10 @@ def main() -> None:
             f"decode={res['vae_decode_seconds']}s peak_vram={res['peak_vram_gib']}GiB\n"
         )
         if res["status"] != "success":
-            if res.get("sampling_error"):
+            if res.get("returncode"):
+                reason = res.get("trace_summary", {}).get("prompt_error") or f"exit code {res['returncode']}"
+                sys.stdout.write(f"[BENCHMARK] Workflow failed: {reason}\n")
+            elif res.get("sampling_error"):
                 sys.stdout.write(f"[BENCHMARK] {res['sampling_error']}\n")
             err_log = (args.out_dir / spec["id"] / "run.log")
             if err_log.exists():
