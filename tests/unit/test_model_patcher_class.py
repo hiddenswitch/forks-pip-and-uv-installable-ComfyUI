@@ -262,25 +262,28 @@ def test_static_patcher_detaches_during_collection_and_skips_interpreter_teardow
     script = textwrap.dedent("""
         import gc
         import os
-        import torch
         from comfy.cli_args import args
         args.cpu = True
-        from comfy.model_patcher import CallbacksMP, ModelPatcher
+        from comfy.model_patcher import ModelPatcher
 
-        def make_patcher():
-            device = torch.device("cpu")
-            model = torch.nn.Linear(2, 2)
-            patcher = ModelPatcher(model, device, device, _force_core=True)
-            model.current_patcher = patcher
-            patcher.add_callback(CallbacksMP.ON_DETACH, lambda *args, write=os.write: write(1, b"detach\\n"))
-            return patcher
+        class Probe:
+            def __del__(self, destroy=ModelPatcher.__del__, write=os.write):
+                write(1, b"destroy\\n")
+                destroy(self)
+
+            def unpin_all_weights(self, write=os.write):
+                write(1, b"unpin\\n")
+
+            def detach(self, unpatch_all, write=os.write):
+                write(1, b"detach\\n")
 
         gc.disable()
-        collected = make_patcher()
+        collected = Probe()
         del collected
-        gc.collect()
-        final = make_patcher()
+        final = Probe()
+        final.cycle = final
     """)
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=True)
-    assert result.stdout.splitlines().count("detach") == 1
+    events = [line for line in result.stdout.splitlines() if line in ("destroy", "unpin", "detach")]
+    assert events == ["destroy", "unpin", "detach", "destroy"]
     assert "Exception ignored" not in result.stderr
