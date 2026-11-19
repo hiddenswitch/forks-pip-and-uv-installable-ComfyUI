@@ -64,6 +64,7 @@ SeedVR2 3B,RX 7600,"512×512 restoration, CFG 1, Euler / simple, local NVMe, CPU
 SeedVR2 3B,RTX 3060,"512×512 restoration, CFG 1, Euler / simple",2,0,None (launch record),"PyTorch SDPA, SageAttention",11.179,96.252,8.156,0.167,4.0,,benchmark-samples/seedvr2-3b-rtx3060-512x512.webp
 SeedVR2 3B,RTX 3090,"512×512 restoration, CFG 1, Euler / simple",2,0,None (launch record),"PyTorch SDPA, SageAttention",163.936,305.985,28.832,0.122,4.5,,benchmark-samples/seedvr2-3b-rtx3090-512x512.webp
 SeedVR2 3B,1× GB10,"512×512 restoration, CFG 1, Euler / simple",2,0,None (launch record),PyTorch SDPA,51.554,2.116,0.163,0.384,7.9,,benchmark-samples/seedvr2-3b-1xgb10-512x512.webp
+Z-Image Turbo 6B,RX 7600,"1024×1024, CFG 1, Euler / simple, local NVMe, staged host transfers",2,47447417949230,--fast-disk --use-split-cross-attention,split,24.964,7.706,31.302,2.865,7.2,,benchmark-samples/z-image-turbo-rx7600-1024x1024.webp
 Z-Image Turbo 6B,RTX 3060,"1024×1024, CFG 1, Euler / simple",2,47447417949230,None (launch record),SageAttention,288.450,126.081,4.898,1.079,12.0,,benchmark-samples/z-image-turbo-rtx3060-1024x1024.webp
 Z-Image Turbo 6B,RTX 3090,"1024×1024, CFG 1, Euler / simple",2,47447417949230,None (launch record),SageAttention,1013.295,446.540,7.753,0.475,21.9,,benchmark-samples/z-image-turbo-rtx3090-1024x1024.webp
 Z-Image Turbo 6B,1× GB10,"1024×1024, CFG 1, Euler / simple",2,47447417949230,None (launch record),PyTorch SDPA,156.752,3.238,1.826,1.023,25.4,,benchmark-samples/z-image-turbo-1xgb10-1024x1024.webp
