@@ -77,10 +77,10 @@ def block_window_attention(q, k, v, video_shape, block_size, radius, comfy_atten
     # Pad token indices instead of the query, key and value tensors. Edge
     # queries scatter to distinct scratch positions beyond the returned tokens.
     padding = math.prod(padded) - video
-    indices = torch.full(padded, -1, dtype=torch.long, device=q.device)
-    indices[:t, :h, :w] = torch.arange(video, device=q.device).view(t, h, w)
+    indices = torch.full(padded, -1, dtype=torch.long, device=k.device)
+    indices[:t, :h, :w] = torch.arange(video, device=k.device).view(t, h, w)
     if padding:
-        indices.masked_scatter_(indices < 0, torch.arange(tokens, tokens + padding, device=q.device))
+        indices.masked_scatter_(indices < 0, torch.arange(tokens, tokens + padding, device=k.device))
     block_map = indices.view(grid[0], block_size[0], grid[1], block_size[1], grid[2], block_size[2])
     block_map = block_map.permute(0, 2, 4, 1, 3, 5).reshape(*grid, block_tokens)
     query_map = block_map.flatten(0, 2)
@@ -89,11 +89,11 @@ def block_window_attention(q, k, v, video_shape, block_size, radius, comfy_atten
     padded_grid = tuple(count + 2 * r for count, r in zip(grid, radius))
     offsets = [(dt * padded_grid[1] + dh) * padded_grid[2] + dw
                for dt, dh, dw in itertools.product(*(range(2 * r + 1) for r in radius))]
-    offsets = torch.tensor(offsets, device=q.device)
-    query_coords = torch.stack(torch.meshgrid(*(torch.arange(count, device=q.device) for count in grid), indexing="ij"), dim=-1).view(-1, 3)
+    offsets = torch.tensor(offsets, device=k.device)
+    query_coords = torch.stack(torch.meshgrid(*(torch.arange(count, device=k.device) for count in grid), indexing="ij"), dim=-1).view(-1, 3)
     query_origin = (query_coords[:, 0] * padded_grid[1] + query_coords[:, 1]) * padded_grid[2] + query_coords[:, 2]
 
-    tail_indices = torch.arange(video, tokens, device=q.device)
+    tail_indices = torch.arange(video, tokens, device=k.device)
     window_keys = len(offsets) * block_tokens + tokens - video
     bytes_per_key = heads_kv * head_dim * (k.element_size() + v.element_size())
     key_budget = min(WINDOW_KEY_BUDGET, WINDOW_KV_CHUNK_BYTES // bytes_per_key)
@@ -109,12 +109,13 @@ def block_window_attention(q, k, v, video_shape, block_size, radius, comfy_atten
         keys = k[:, key_ids].flatten(0, 1).transpose(1, 2)
         values = v[:, key_ids].flatten(0, 1).transpose(1, 2)
         dest = query_map[start:start + count]
-        queries = q[:, dest.clamp_max(video - 1)].flatten(0, 1).transpose(1, 2)
+        query_ids = dest.to(q.device)
+        queries = q[:, query_ids.clamp_max(video - 1)].to(k.device).flatten(0, 1).transpose(1, 2)
         result = _attend(queries, keys, values, comfy_attention, transformer_options,
                          mask=mask.repeat(batch, 1).view(batch * count, 1, 1, -1))
-        out[:, dest.flatten()] = result.transpose(1, 2).reshape(batch, -1, heads_q, head_dim)
+        out[:, dest.flatten().to(out.device)] = result.transpose(1, 2).reshape(batch, -1, heads_q, head_dim).to(out.device)
     if tokens > video:
-        out[:, video:tokens] = _attend(q[:, video:].transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2),
+        out[:, video:tokens] = _attend(q[:, video:].to(k.device).transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2),
                                        comfy_attention, transformer_options).transpose(1, 2)
     return out[:, :tokens]
 
@@ -189,7 +190,7 @@ class RefinerAttention(nn.Module):
         chunk_size = max(1, QKV_PROJECTION_CHUNK_BYTES // (batch * heads * dim * 4))
 
         def project(values, weights, splits):
-            gated = (values * weights.sigmoid().unsqueeze(-1)).to(compute_dtype)
+            gated = (values.to(weights.device) * weights.sigmoid().unsqueeze(-1)).to(compute_dtype)
             return modality_linear(self.linear_proj, gated.flatten(2), splits)
 
         if tokens <= chunk_size:
@@ -200,7 +201,7 @@ class RefinerAttention(nn.Module):
         for span, chunk_groups in self._token_chunks(tokens, groups, chunk_size):
             part = project(attended[:, span], gates[:, span], chunk_groups)
             if output is None:
-                if reuse_attended and heads * dim == part.shape[-1] and attended.dtype == part.dtype:
+                if reuse_attended and heads * dim == part.shape[-1] and attended.dtype == part.dtype and attended.device == part.device:
                     output = attended.flatten(2)
                 else:
                     output = part.new_empty((batch, tokens, part.shape[-1]))
@@ -214,7 +215,16 @@ class RefinerAttention(nn.Module):
             # that window's result. The tail still attends to the separate K/V tensors.
             padded_video = math.prod(math.ceil(n / b) * b for n, b in zip(video_shape, self.block_size))
             capacity = x.shape[1] + padded_video - math.prod(video_shape)
-            buffer = freqs.new_empty((x.shape[0], capacity, self.heads_q, self.head_dim), dtype=compute_dtype)
+            shape = (x.shape[0], capacity, self.heads_q, self.head_dim)
+            query_bytes = math.prod(shape) * compute_dtype.itemsize
+            kv_bytes = 2 * self.heads_kv * self.head_dim * compute_dtype.itemsize
+            kv_and_gates = x.shape[0] * x.shape[1] * (kv_bytes + self.heads_q * 4)
+            required = query_bytes + kv_and_gates + WINDOW_KV_CHUNK_BYTES + QKV_PROJECTION_CHUNK_BYTES
+            if x.device != freqs.device and required > model_management.get_free_memory(freqs.device):
+                # Each video query is gathered once. Keep K/V resident for overlapping windows.
+                buffer = _host_residual(shape, compute_dtype)
+            else:
+                buffer = freqs.new_empty(shape, dtype=compute_dtype)
         q, k, v, gates = self._project_inputs(x, freqs, groups, compute_dtype,
                                               None if buffer is None else buffer[:, :x.shape[1]])
         del x

@@ -120,3 +120,10 @@ def test_block_window_attention_matches_dense_masked_attention(monkeypatch, shap
     reused = block_window_attention(queries, k, v, shape, block, radius, ComfyAttention(), {}, out=buffer)
     assert reused.data_ptr() == queries.data_ptr()
     torch.testing.assert_close(reused, actual, rtol=0, atol=0)
+
+    if torch.cuda.is_available():
+        keys, values = k.cuda(), v.cuda()
+        expected = block_window_attention(q.cuda(), keys, values, shape, block, radius, ComfyAttention(), {})
+        queries.copy_(q)
+        streamed = block_window_attention(queries, keys, values, shape, block, radius, ComfyAttention(), {}, out=buffer)
+        torch.testing.assert_close(streamed, expected.cpu(), rtol=0, atol=0)
