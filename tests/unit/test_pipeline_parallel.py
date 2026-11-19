@@ -398,11 +398,17 @@ def test_external_worker_resolves_logical_stage_to_rank_local_device(monkeypatch
 
     loaded = []
 
+    def download_model(folder, filename, _known_models):
+        assert (folder, filename) == ("diffusion_models", "model.safetensors")
+        return "/rank-local/model.safetensors"
+
     def load_stage(resolved, rank):
         assert rank == 1
+        assert resolved.checkpoint_path == "/rank-local/model.safetensors"
         loaded.append(resolved.plan.stages[1].device)
         return object(), object()
 
+    monkeypatch.setattr("comfy.model_downloader.get_or_download", download_model)
     monkeypatch.setattr("comfy.pipeline_parallel.external._load_worker_stage", load_stage)
     monkeypatch.setattr(
         "comfy.pipeline_parallel.external._run_worker_commands",

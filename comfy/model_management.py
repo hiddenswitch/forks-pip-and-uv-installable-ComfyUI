@@ -2791,15 +2791,26 @@ def supports_fp64(device=None):
 
 
 def supports_int8_compute(device=None):
-    """INT8 tensor-core matmul support: NVIDIA sm_75 (Turing) and newer.
-
-    Unlike fp8, this includes all of Ampere (sm_80/sm_86).
-    """
+    """INT8 tensor-core / matrix-core matmul support: NVIDIA sm_75+ or AMD WMMA (RDNA3/RDNA4/CDNA)."""
     if is_device_cpu(device):
         return False
 
     if (device is not None and is_device_mps(device)) or mps_mode():
         return False
+
+    if is_amd():
+        try:
+            from comfy_kitchen.backends import hip as _ck_hip
+
+            if _ck_hip.has_wmma():
+                return True
+        except Exception:
+            pass
+        try:
+            arch = torch.cuda.get_device_properties(device).gcnArchName.split(":")[0]
+            return not any(a in arch for a in AMD_RDNA2_AND_OLDER_ARCH)
+        except (RuntimeError, ValueError, AssertionError, AttributeError):
+            return False
 
     if not is_nvidia():
         return False

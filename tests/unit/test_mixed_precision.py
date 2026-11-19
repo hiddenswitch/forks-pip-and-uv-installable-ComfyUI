@@ -850,6 +850,36 @@ class TestMixedPrecisionOps(unittest.TestCase):
         finally:
             mm.cpu_state = orig_cpu_state
 
+    def test_supports_int8_compute_enables_amd_wmma_arches(self):
+        """AMD RDNA3+ (e.g. RX 7600 gfx1102) supports WMMA INT8 matmul via comfy-kitchen's
+        HIP backend, whereas RDNA2 (gfx1030) has no matrix cores."""
+        mm = model_management
+        orig_cpu_state = mm.cpu_state
+        orig_is_amd = mm.is_amd
+        orig_get_props = torch.cuda.get_device_properties
+        mm.cpu_state = mm.CPUState.GPU
+        mm.is_amd = lambda: True
+        try:
+            from comfy_kitchen.backends import hip as _ck_hip
+            orig_has_wmma = _ck_hip.has_wmma
+        except Exception:
+            _ck_hip = None
+            orig_has_wmma = None
+        try:
+            if _ck_hip is not None:
+                _ck_hip.has_wmma = lambda: False
+            torch.cuda.get_device_properties = lambda device=None: SimpleNamespace(gcnArchName="gfx1102:sramecc-:xnack-")
+            self.assertTrue(mm.supports_int8_compute(torch.device("cuda", 0)))
+
+            torch.cuda.get_device_properties = lambda device=None: SimpleNamespace(gcnArchName="gfx1030")
+            self.assertFalse(mm.supports_int8_compute(torch.device("cuda", 0)))
+        finally:
+            mm.cpu_state = orig_cpu_state
+            mm.is_amd = orig_is_amd
+            torch.cuda.get_device_properties = orig_get_props
+            if _ck_hip is not None and orig_has_wmma is not None:
+                _ck_hip.has_wmma = orig_has_wmma
+
 
 if __name__ == "__main__":
     unittest.main()

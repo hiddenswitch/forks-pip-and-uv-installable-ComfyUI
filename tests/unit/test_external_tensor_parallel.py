@@ -42,7 +42,9 @@ def test_driver_loads_its_shard_and_connects_peer_sizes():
     runtime.logical_devices = (torch.device("cuda", 0), torch.device("cuda", 1))
     runtime.operations = object()
     runtime.coordinator = _Coordinator(responses=({"kind": "ready", "size": 200},))
-    runtime._executor = None
+    runtime.process_groups = SimpleNamespace(control_process_group=object())
+    runtime._executors = {}
+    runtime._next_model_id = 0
     load_spec = object()
     loaded = []
 
@@ -59,7 +61,8 @@ def test_driver_loads_its_shard_and_connects_peer_sizes():
 
     assert returned_root is root
     assert loaded == [runtime.operations]
-    assert runtime.coordinator.broadcasts == [{"kind": "load_tensor", "load_spec": load_spec}]
+    assert runtime.coordinator.broadcasts == [{"kind": "load_tensor", "model_id": 1, "load_spec": load_spec}]
+    assert runtime._executors == {1: executor}
     assert executor.rank_sizes == (100, 200)
     assert executor.close_command == "unload_tensor"
     executor._closed = True
@@ -85,26 +88,18 @@ def test_worker_loads_shards_again_after_unload_without_rebuilding_groups(monkey
         )
     )
     runtime.process_groups = object()
-    runtime._executor = None
+    runtime._executors = {}
     runtime._closed = False
     loaded = []
-    commands = []
+    unloaded = []
 
     def load_rank(load_spec, rank, device, operations):
         loaded.append((load_spec, rank, device, operations))
         return SimpleNamespace(model_size=lambda: 64, model=SimpleNamespace(diffusion_model=object()))
 
-    def run_worker(operations, coordinator, patcher, span_name, close_commands=("close",)):
-        del operations, coordinator, patcher, span_name
-        assert close_commands == ("unload_tensor", "close")
-        command = next(runtime.coordinator.commands)
-        commands.append(command["kind"])
-        return command["kind"]
-
     destroyed = []
     monkeypatch.setattr("comfy.tensor_parallel.loader.load_tensor_parallel_rank", load_rank)
-    monkeypatch.setattr(external, "_run_worker", run_worker)
-    monkeypatch.setattr("comfy.model_management.soft_empty_cache", lambda: None)
+    monkeypatch.setattr("comfy.model_management.soft_empty_cache", lambda: unloaded.append(True))
     monkeypatch.setattr(external, "destroy_independent_process_groups", destroyed.append)
 
     runtime.run_worker_service()
@@ -115,7 +110,7 @@ def test_worker_loads_shards_again_after_unload_without_rebuilding_groups(monkey
         ({"kind": "ready", "size": 64}, 0),
         ({"kind": "ready", "size": 64}, 0),
     ]
-    assert commands == ["unload_tensor", "close"]
+    assert unloaded == [True]
     assert destroyed == [runtime.process_groups]
 
 
