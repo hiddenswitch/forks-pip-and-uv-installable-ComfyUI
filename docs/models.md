@@ -101,7 +101,7 @@ Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. GB10 m
 | MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, CFG 1, res_multistep / simple | — | — | — | — | — |
 | MAGI-2 Preview | 896×512, 10 s target at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow | — | — | — | — | — |
 | MAGI-2 Preview + Refiner | Same preview, then 1920×1088 at 25 fps, refiner CFG 2, UniPC Flow | — | — | — | — | — |
-| Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | 77.461 · 11.8 | — | — | — |
+| Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | 77.461 · 11.8 | 26.946 · 22.0 | — | — |
 
 <details>
 <summary>Earlier runs at smaller settings</summary>
