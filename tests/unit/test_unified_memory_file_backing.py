@@ -291,3 +291,22 @@ def test_quantized_tensor_and_concat_weights_release_and_reload(tmp_path, monkey
     torch.testing.assert_close(module[0].weight.dequantize().cpu(), expected_dequant, rtol=0, atol=0)
 
 
+
+
+@pytest.mark.parametrize("wrapped", [True, False])
+def test_checkpoint_index_reads_only_requested_shards_and_keeps_their_paths(tmp_path, monkeypatch, wrapped):
+    import json
+
+    reference, shard = _checkpoint(tmp_path)
+    blob = shard.rename(tmp_path / "weights.blob")
+    index = {key: blob.name for key in reference.state_dict()}
+    index["unused"] = "unstaged.safetensors"
+    path = tmp_path / "model.safetensors.index.json"
+    path.write_text(json.dumps({"weight_map": index} if wrapped else index))
+
+    monkeypatch.setattr(memory_management, "aimdo_allocator", None)
+    monkeypatch.setattr(utils, "_file_backed_loads", lambda: False)
+    state, metadata = utils.load_torch_file(str(path), include_keys={"1.bias"}, return_metadata=True)
+    assert list(state) == ["1.bias"] and metadata is None
+    assert state["1.bias"].untyped_storage()._comfy_source_path == str(blob)
+    torch.testing.assert_close(state["1.bias"], reference[1].bias, rtol=0, atol=0)

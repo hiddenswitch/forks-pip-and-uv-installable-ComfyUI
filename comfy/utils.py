@@ -328,6 +328,36 @@ def _file_backed_loads() -> bool:
     )
 
 
+def _read_safetensors(ckpt, device, include_keys, use_aimdo, return_metadata):
+    try:
+        if use_aimdo:
+            return load_safetensors(ckpt, include_keys=include_keys)
+        if device.type == "cpu" and _file_backed_loads():
+            return load_safetensors_file_backed(ckpt, include_keys=include_keys)
+        with safetensors.safe_open(Path(ckpt).resolve(strict=True), framework="pt", device=device.type) as f:
+            state = {}
+            for key in f.keys():
+                if include_keys is not None and key not in include_keys:
+                    continue
+                tensor = f.get_tensor(key)
+                if DISABLE_MMAP:
+                    tensor = tensor.to(device=device, copy=True)
+                state[key] = tensor
+            return state, f.metadata() if return_metadata else None
+    except Exception as e:
+        message = str(e)
+        if "HeaderTooLarge" in message:
+            raise _invalid_safetensors_error(message, ckpt)
+        if "MetadataIncompleteBuffer" in message or "InvalidHeaderDeserialization" in message:
+            raise _incomplete_safetensors_error(message, ckpt)
+        try:
+            assert pickle.dumps(e) is not None
+        except PickleError as serialization_failed:
+            logger.debug("serialization failed", exc_info=serialization_failed)
+            e = RuntimeError(repr(e))
+        raise e
+
+
 def load_torch_file(ckpt: str, safe_load=False, device=None, return_metadata=False, include_keys=None) -> dict[str, torch.Tensor] | tuple[dict[str, torch.Tensor], Optional[FileMetadata]]:
     if device is None:
         device = torch.device("cpu")
@@ -335,57 +365,22 @@ def load_torch_file(ckpt: str, safe_load=False, device=None, return_metadata=Fal
         raise FileNotFoundError("The checkpoint was not found")
     metadata: Optional[dict[str, str]] = None
     sd: dict[str, torch.Tensor] = None
-    if ckpt.lower().endswith(".safetensors") or ckpt.lower().endswith(".sft"):
-        try:
-            if memory_management.aimdo_enabled:
-                sd, metadata = load_safetensors(ckpt, include_keys=include_keys)
-                if not return_metadata:
-                    metadata = None
-            elif device.type == "cpu" and _file_backed_loads():
-                sd, metadata = load_safetensors_file_backed(ckpt, include_keys=include_keys)
-                if not return_metadata:
-                    metadata = None
-            else:
-                with safetensors.safe_open(Path(ckpt).resolve(strict=True), framework="pt", device=device.type) as f:
-                    sd = {}
-                    for k in f.keys():
-                        if include_keys is not None and k not in include_keys:
-                            continue
-                        tensor = f.get_tensor(k)
-                        if DISABLE_MMAP:  # TODO: Not sure if this is the best way to bypass the mmap issues
-                            tensor = tensor.to(device=device, copy=True)
-                        sd[k] = tensor
-                    if return_metadata:
-                        metadata = f.metadata()
-        except Exception as e:
-            message = str(e)
-            if "HeaderTooLarge" in message:
-                raise _invalid_safetensors_error(message, ckpt)
-            if "MetadataIncompleteBuffer" in message or "InvalidHeaderDeserialization" in message:
-                raise _incomplete_safetensors_error(message, ckpt)
-            try:
-                assert pickle.dumps(e) is not None
-            except PickleError as serialization_failed:
-                logger.debug("serialization failed", exc_info=serialization_failed)
-                e = RuntimeError(repr(e))
-            raise e
+    if ckpt.lower().endswith((".safetensors", ".sft")):
+        sd, metadata = _read_safetensors(ckpt, device, include_keys, memory_management.aimdo_enabled, return_metadata)
     elif ckpt.lower().endswith("index.json"):
-        # from accelerate
-        index_filename = ckpt
-        checkpoint_folder = os.path.split(index_filename)[0]
-        with open(index_filename) as f:
-            index = json.loads(f.read())
-
-        if "weight_map" in index:
-            index = index["weight_map"]
-        checkpoint_files = sorted(list(set(index.values())))
-        checkpoint_files = [os.path.join(checkpoint_folder, f) for f in checkpoint_files]
-        sd: dict[str, torch.Tensor] = {}
-        for checkpoint_file in checkpoint_files:
-            if device.type == "cpu" and _file_backed_loads():
-                sd.update(load_safetensors_file_backed(str(checkpoint_file))[0])
-            else:
-                sd.update(safetensors.torch.load_file(str(checkpoint_file), device=device.type))
+        with open(ckpt) as f:
+            index = json.load(f)
+        weight_map = index.get("weight_map", index)
+        shards = {name for key, name in weight_map.items() if include_keys is None or key in include_keys}
+        sd = {}
+        for name in sorted(shards):
+            path = os.path.join(os.path.dirname(ckpt), name)
+            shard, _ = _read_safetensors(path, device, include_keys,
+                                         use_aimdo=device.type == "cpu" and memory_management.aimdo_enabled,
+                                         return_metadata=False)
+            storage.annotate_state_dict(shard, path)
+            sd.update(shard)
+        return (sd, None) if return_metadata else sd
     elif ckpt.lower().endswith(".gguf"):
         # from gguf
         # avoiding circular imports here by importing it lazily
