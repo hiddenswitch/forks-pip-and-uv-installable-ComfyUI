@@ -118,11 +118,11 @@ The RX 7600 SeedVR2 runs produced a [distorted portrait at 512×512](benchmark-s
 | MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, CFG 1, res_multistep / simple | — | [65.063 · 11.8](benchmark-samples/minimax-h3-video-rtx3060.mp4) | [21.362 · 23.8](benchmark-samples/minimax-h3-video-rtx3090.mp4) | — | [28.498 · 65.3 / 22.9](benchmark-samples/minimax-h3-video-2xgb10.mp4) |
 | MAGI-2 Preview | Text to video, 896×512, 125 frames at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow | — | — | — | — | [826.074 · 94.5 / 97.7](benchmark-samples/magi2-preview-2xgb10.mp4) |
 | MAGI-2 Preview + Refiner | Image to video, 896×512, 125 frames at 12.5 fps (video CFG 5, audio CFG 7) → 1920×1088, 249 frames at 25 fps (CFG 2), UniPC Flow | — | — | — | — | — |
-| Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | [77.461 · 11.8](benchmark-samples/wan21-scail2-rtx3060-832x480.webp) | [26.946 · 22.0](benchmark-samples/wan21-scail2-rtx3090-832x480.webp) | — | — |
+| Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | [77.461 · 11.8](benchmark-samples/wan21-scail2-rtx3060-832x480.webp) | [26.946 · 22.0](benchmark-samples/wan21-scail2-rtx3090-832x480.webp) | [54.047 · 38.4](benchmark-samples/wan21-scail2-1xgb10-832x480.webp) | — |
 
 The RTX cards used local NVMe for the 1024×1024 JoyAI and Marigold runs, PAN 2 on the 3060, and MiniMax H3 Video+Audio on both cards.
 
-The two-step MAGI-2 Preview clip is dark, and the café scene is indistinct. SandAI’s preview recipe uses 100 steps. [MAGI-2 settings](prompting_guides/sandai_magi2_prompting.md)
+The two-step Wan clips are blurry on all three devices. The two-step MAGI-2 Preview clip is dark, and the café scene is indistinct. SandAI’s preview recipe uses 100 steps. [MAGI-2 settings](prompting_guides/sandai_magi2_prompting.md)
 
 <details>
 <summary>Earlier runs at smaller settings</summary>
