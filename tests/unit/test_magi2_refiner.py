@@ -69,17 +69,22 @@ def test_refiner_matches_sandai_reference(audio_len):
         assert _relative_error(out[1].transpose(1, 2), expected_audio) < TOLERANCE
 
 
-def test_block_window_attention_matches_dense_masked_attention():
+@pytest.mark.parametrize(("shape", "tail"), [((5, 6, 7), 3), ((4, 6, 4), 0)])
+def test_block_window_attention_matches_dense_masked_attention(monkeypatch, shape, tail):
+    from comfy.ldm.magi2 import refiner
+
+    # Force multiple chunks, including partial edge blocks in the first case.
+    monkeypatch.setattr(refiner, "WINDOW_KV_CHUNK_BYTES", 4096)
     torch.manual_seed(4)
-    shape, block, radius = (5, 6, 7), (2, 3, 2), (1, 1, 2)
+    block, radius = (2, 3, 2), (1, 1, 2)
     video = shape[0] * shape[1] * shape[2]
-    q = torch.randn(2, video + 3, 4, 8)
-    k = torch.randn(2, video + 3, 2, 8)
-    v = torch.randn(2, video + 3, 2, 8)
+    q = torch.randn(2, video + tail, 4, 8)
+    k = torch.randn(2, video + tail, 2, 8)
+    v = torch.randn(2, video + tail, 2, 8)
     coords = torch.stack(torch.meshgrid(*(torch.arange(n) for n in shape), indexing="ij"), dim=-1).view(-1, 3)
     block_of = coords // torch.tensor(block)
     near = ((block_of[:, None] - block_of[None, :]).abs() <= torch.tensor(radius)).all(-1)
-    mask = torch.ones(video + 3, video + 3, dtype=torch.bool)
+    mask = torch.ones(video + tail, video + tail, dtype=torch.bool)
     mask[:video, :video] = near
     expected = torch.nn.functional.scaled_dot_product_attention(
         q.transpose(1, 2), k.repeat_interleave(2, dim=2).transpose(1, 2), v.repeat_interleave(2, dim=2).transpose(1, 2), attn_mask=mask)

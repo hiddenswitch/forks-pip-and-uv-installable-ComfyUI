@@ -187,3 +187,28 @@ def test_refiner_projects_bounded_chunks_into_attention_inputs(monkeypatch, moda
     actual = layer._project_inputs(x, freqs, groups, torch.bfloat16)
     for result, reference in zip(actual, expected):
         torch.testing.assert_close(result, reference, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("modalities", [1, 3])
+@torch.no_grad()
+def test_refiner_bounds_gated_output_projection(monkeypatch, modalities):
+    from comfy.ldm.magi2 import refiner
+
+    torch.manual_seed(21)
+    layer = refiner.RefinerAttention(64, 4, 2, 16, modalities, (1, 2, 2), (1, 1, 1),
+                                     dtype=torch.bfloat16, operations=torch.nn)
+    groups = (17, 0, 5)
+    attended = torch.randn(2, sum(groups), 4, 16).bfloat16()
+    gates = torch.randn(2, sum(groups), 4)
+    gated = (attended * gates.sigmoid().unsqueeze(-1)).bfloat16()
+    expected = magi.modality_linear(layer.linear_proj, gated.flatten(2), groups)
+    chunk_tokens = 3
+    monkeypatch.setattr(refiner, "QKV_PROJECTION_CHUNK_BYTES", 2 * 4 * 16 * 4 * chunk_tokens)
+
+    def check_linear(module, inputs):
+        assert inputs[0].shape[1] <= chunk_tokens
+
+    for linear in layer.linear_proj if modalities > 1 else [layer.linear_proj]:
+        linear.register_forward_pre_hook(check_linear)
+    result = layer._project_output(attended, gates, groups, torch.bfloat16)
+    torch.testing.assert_close(result, expected, rtol=0, atol=0)
