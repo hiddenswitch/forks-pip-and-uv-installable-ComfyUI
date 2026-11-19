@@ -10,6 +10,7 @@ Flux.2 Dev 32B,1× GB10,"1024×1024, CFG 1, Euler / Flux2",2,PyTorch SDPA,1027.6
 Flux.2 Dev 32B,2× GB10,"1024×1024, CFG 1, Euler / Flux2",2,PyTorch SDPA,511.313,9.816,0.729,3.711,benchmark-samples/flux2-dev-2xgb10-1024x1024.webp
 Flux.2 Dev 32B,RTX 3060,"1024×1024, CFG 1, Euler / Flux2, local NVMe",2,SageAttention,13.771,24.234,1.265,6.752,benchmark-samples/flux2-dev-rtx3060-1024x1024-local.webp
 Flux.2 Dev 32B,RTX 3090,"1024×1024, CFG 1, Euler / Flux2, local NVMe",2,SageAttention,10.950,16.183,0.820,3.259,benchmark-samples/flux2-dev-rtx3090-1024x1024-local.webp
+Flux.3 Klein 4B,RX 7600,"1024×1024, CFG 1, er_sde / simple, CPU VAE",2,"Comfy Kitchen INT8, PyTorch SDPA",361.481,4.196,19.811,1.645,benchmark-samples/flux3-rx7600-1024x1024.webp
 Flux.3 Klein 4B,RTX 3060,"1024×1024, CFG 1, er_sde / simple",2,"Comfy Kitchen INT8, SageAttention",552.842,122.137,5.095,0.686,benchmark-samples/flux3-rtx3060-1024x1024.webp
 Flux.3 Klein 4B,RTX 3090,"1024×1024, CFG 1, er_sde / simple",2,"Comfy Kitchen INT8, SageAttention",824.921,702.211,23.637,0.340,benchmark-samples/flux3-rtx3090-1024x1024.webp
 Flux.3 Klein 4B,1× GB10,"1024×1024, CFG 1, er_sde / simple",2,"Comfy Kitchen INT8, PyTorch SDPA",140.280,2.923,0.751,0.665,benchmark-samples/flux3-1xgb10-1024x1024.webp

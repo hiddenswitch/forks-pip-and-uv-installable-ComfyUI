@@ -79,7 +79,7 @@ The 2× GB10 column covers models that can split inference across both GPUs. The
 | Fibo 2.0 Dev | 1024×1024, CFG 5, Euler / Fibo2 | — | [2.600 · 12.0](benchmark-samples/fibo2-rtx3060-1024x1024.webp) | [1.350 · 22.3](benchmark-samples/fibo2-rtx3090-1024x1024.webp) | — | — |
 | Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2 | — | [6.568 · 11.8](benchmark-samples/flux2-dev-rtx3060-1024x1024.webp) | [16.948 · 23.8](benchmark-samples/flux2-dev-rtx3090-1024x1024.webp) | [5.411 · 56.9](benchmark-samples/flux2-dev-1xgb10-1024x1024.webp) | [3.711 · 44.1 / 23.6](benchmark-samples/flux2-dev-2xgb10-1024x1024.webp) |
 | Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2, local NVMe | — | [6.752 · 11.8](benchmark-samples/flux2-dev-rtx3060-1024x1024-local.webp) | [3.259 · 23.8](benchmark-samples/flux2-dev-rtx3090-1024x1024-local.webp) | — | — |
-| Flux.3 Klein 4B | 1024×1024, CFG 1, er_sde / simple | — | [0.686 · 7.6](benchmark-samples/flux3-rtx3060-1024x1024.webp) | [0.340 · 6.2](benchmark-samples/flux3-rtx3090-1024x1024.webp) | [0.665 · 17.8](benchmark-samples/flux3-1xgb10-1024x1024.webp) | — |
+| Flux.3 Klein 4B | 1024×1024, CFG 1, er_sde / simple | [1.645 · 6.2](benchmark-samples/flux3-rx7600-1024x1024.webp) | [0.686 · 7.6](benchmark-samples/flux3-rtx3060-1024x1024.webp) | [0.340 · 6.2](benchmark-samples/flux3-rtx3090-1024x1024.webp) | [0.665 · 17.8](benchmark-samples/flux3-1xgb10-1024x1024.webp) | — |
 | Ideogram 4 | 1024×1024, CFG 3, res_multistep / Ideogram4 | — | [4.291 · 10.7](benchmark-samples/ideogram4-rtx3060-1024x1024.webp) | [1.838 · 11.0](benchmark-samples/ideogram4-rtx3090-1024x1024.webp) | — | [2.920 · 29.0 / 16.4](benchmark-samples/ideogram4-2xgb10-1024x1024.webp) |
 | JoyAI Image Edit | 1024×1024, CFG 4, Euler / simple | — | — | — | — | — |
 | JoyAI Image Edit | 512×512, CFG 4, Euler / simple | — | [5.798 · 11.8](benchmark-samples/joyimage-rtx3060-512x512.webp) | [2.215 · 17.0](benchmark-samples/joyimage-rtx3090-512x512.webp) | [5.275 · 32.6](benchmark-samples/joyimage-1xgb10-512x512.webp) | — |
@@ -95,6 +95,8 @@ The 2× GB10 column covers models that can split inference across both GPUs. The
 | SeedVR2 3B | 512×512 → 2048×2048, CFG 1, Euler / simple | — | — | — | — | — |
 | SeedVR2 3B | 512×512 restoration, CFG 1, Euler / simple | — | [0.167 · 4.0](benchmark-samples/seedvr2-3b-rtx3060-512x512.webp) | [0.122 · 4.5](benchmark-samples/seedvr2-3b-rtx3090-512x512.webp) | [0.384 · 7.9](benchmark-samples/seedvr2-3b-1xgb10-512x512.webp) | — |
 | Z-Image Turbo 6B | 1024×1024, CFG 1, Euler / simple | — | [1.079 · 12.0](benchmark-samples/z-image-turbo-rtx3060-1024x1024.webp) | [0.475 · 21.9](benchmark-samples/z-image-turbo-rtx3090-1024x1024.webp) | [1.023 · 25.4](benchmark-samples/z-image-turbo-1xgb10-1024x1024.webp) | — |
+
+Flux.3 on the RX 7600 decoded on the CPU.
 
 The first Flux.2 row uses shared storage on the RTX cards. The local NVMe row starts after the weights have been copied.
 
