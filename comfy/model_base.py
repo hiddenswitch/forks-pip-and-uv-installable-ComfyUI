@@ -3307,6 +3307,17 @@ class Fibo2(BaseModel):
         super().__init__(model_config, model_type, device=device, unet_model=Fibo2Model)
         self.memory_usage_factor_conds = ("ref_latents",)
 
+    def memory_required(self, input_shape, cond_shapes=None):
+        cond_shapes = cond_shapes or {}
+        memory = super().memory_required(input_shape, cond_shapes)
+        priority = getattr(ops, "SDPA_BACKEND_PRIORITY", None)
+        if model_management.pytorch_attention_enabled() and priority and [backend.name for backend in priority] == ["MATH"]:
+            tokens = math.prod(input_shape[2:]) + self.diffusion_model.max_gist_tokens
+            tokens += sum(math.prod(shape[2:]) for shape in cond_shapes.get("ref_latents", ()))
+            # Math SDPA materializes both the scores and softmax over all image, reference and gist tokens.
+            memory += input_shape[0] * self.diffusion_model.n_heads * tokens ** 2 * 2 * 4
+        return memory
+
     def extra_conds(self, **kwargs):
         out = super().extra_conds(**kwargs)
         cross_attn = kwargs.get("cross_attn", None)

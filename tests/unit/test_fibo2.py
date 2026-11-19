@@ -38,6 +38,23 @@ def pytorch_attention(monkeypatch):
     monkeypatch.setattr(comfy.model_management, "pytorch_attention_enabled", lambda: True)
 
 
+def test_math_sdpa_budget_includes_reference_and_gist_tokens(monkeypatch, pytorch_attention):
+    from types import SimpleNamespace
+    from torch.nn.attention import SDPBackend
+    from comfy.model_base import BaseModel, Fibo2 as Pipeline
+
+    model = Pipeline.__new__(Pipeline)
+    torch.nn.Module.__init__(model)
+    model.diffusion_model = SimpleNamespace(n_heads=2, max_gist_tokens=12)
+    monkeypatch.setattr(BaseModel, "memory_required", lambda self, shape, conds: 100)
+    monkeypatch.setattr(comfy.ops, "SDPA_BACKEND_PRIORITY", [SDPBackend.MATH], raising=False)
+    shape = (2, 16, 3, 4)
+    conds = {"ref_latents": [(1, 16, 6), (1, 16, 8)]}
+    assert model.memory_required(shape, conds) == 100 + 2 * 2 * (12 + 12 + 6 + 8) ** 2 * 8
+    monkeypatch.setattr(comfy.ops, "SDPA_BACKEND_PRIORITY", [SDPBackend.FLASH_ATTENTION, SDPBackend.MATH])
+    assert model.memory_required(shape, conds) == 100
+
+
 def _ours_model(seed=0):
     torch.manual_seed(seed)
     ours = Fibo2(**TINY, operations=comfy.ops.manual_cast).to(DEVICE).eval()

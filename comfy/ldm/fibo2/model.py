@@ -388,6 +388,7 @@ class Fibo2(nn.Module):
         super().__init__()
         self.dtype = dtype
         self.repacked = repacked
+        self.n_heads = n_heads
         if injection_layers is not None:
             injection_layer_ids = injection_layers
         if perceiver_layers is not None:
