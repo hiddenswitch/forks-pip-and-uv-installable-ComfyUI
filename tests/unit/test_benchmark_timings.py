@@ -63,6 +63,9 @@ def test_convrot_prepares_two_steps_per_sampler_and_representative_video_inputs(
         assert (inputs["width"], inputs["height"], inputs["length"]) == expected
     for model in ("magi2_t2va", "magi2_refiner"):
         assert workflows[model]["7"]["inputs"]["seconds"] == 10.0
+    for model, resize_id in (("joyimage", "8"), ("marigold_v2_depth", "2")):
+        inputs = workflows[model][resize_id]["inputs"]
+        assert (inputs["width"], inputs["height"]) == (1024, 1024)
     seedvr = workflows["seedvr2_3b"]
     assert seedvr["10"]["inputs"]["original_resized_images"] == seedvr["3"]["inputs"]["resized_images"]
     resize = seedvr[seedvr["3"]["inputs"]["resized_images"][0]]["inputs"]

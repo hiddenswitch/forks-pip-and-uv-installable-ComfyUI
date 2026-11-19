@@ -78,9 +78,11 @@ Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. GB10 m
 | Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2 | — | 6.568 · 11.8 | 16.948 · 23.8 | 5.411 · 56.9 | 3.711 · 44.1 / 23.6 |
 | Flux.3 Klein 4B | 1024×1024, CFG 1, er_sde / simple | — | 0.686 · 7.6 | 0.340 · 6.2 | 0.665 · 17.8 | — |
 | Ideogram 4 | 1024×1024, CFG 3, res_multistep / Ideogram4 | — | 4.291 · 10.7 | 1.838 · 11.0 | — | 2.920 · 29.0 / 16.4 |
+| JoyAI Image Edit | 1024×1024, CFG 4, Euler / simple | — | — | — | — | — |
 | JoyAI Image Edit | 512×512, CFG 4, Euler / simple | — | 5.798 · 11.8 | 2.215 · 17.0 | 5.275 · 32.6 | — |
 | Krea 2 Turbo | 1024×1024, CFG 1, res_multistep / normal | — | 2.393 · 11.8 | 0.943 · 14.1 | 2.388 · 27.0 | 1.865 · 24.0 / 14.4 |
 | Mage-Flow | 1024×1024, CFG 5, Euler / simple | 1.837 · 7.0 | 0.720 · 11.7 | 0.266 · 16.1 | — | — |
+| Marigold V2 Depth | 1024×1024, Euler, manual sigmas | — | — | — | — | — |
 | Marigold V2 Depth | 512×512, Euler, manual sigmas | — | 1.446 · 11.8 | 0.228 · 20.5 | 0.569 · 36.1 | — |
 | Ming-Image 0.1 Design | 1024×1024, CFG 4, Euler / simple | — | 1.050 · 11.8 | 0.470 · 21.9 | 1.086 · 37.7 | — |
 | MiniMax H3 Image | 1024×1024, CFG 1, Euler / simple | — | 1.364 · 11.8 | 0.331 · 23.7 | — | — |

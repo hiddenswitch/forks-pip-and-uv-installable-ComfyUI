@@ -123,9 +123,9 @@ SUITE: list[dict[str, Any]] = [
         "id": "joyimage",
         "label": "JoyAI Image Edit",
         "workflow": "joyimage-0.json",
-        "generation_args": "512×512, 2 steps, CFG 4.0 (euler / simple)",
+        "generation_args": "1024×1024, 2 steps, CFG 4.0 (euler / simple)",
         "overrides": {
-            "8": {"width": 512, "height": 512},
+            "8": {"width": 1024, "height": 1024},
             "9": {"steps": 2},
         },
     },
@@ -154,9 +154,9 @@ SUITE: list[dict[str, Any]] = [
         "id": "marigold_v2_depth",
         "label": "Marigold V2 Depth (Qwen-Image Edit 2509)",
         "workflow": "marigold-v2-depth-0.json",
-        "generation_args": "512×512, 2 steps (euler, manual sigmas)",
+        "generation_args": "1024×1024, 2 steps (euler, manual sigmas)",
         "overrides": {
-            "2": {"width": 512, "height": 512},
+            "2": {"width": 1024, "height": 1024},
         },
     },
     {
