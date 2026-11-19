@@ -9,12 +9,8 @@
 
 ## Benchmarks
 
-[INT8 ConvRot inference results](benchmarks.md) by workload.
-
-- [Images](benchmarks.md#images)
-- [Video](benchmarks.md#video)
-- [Audio](benchmarks.md#audio)
-- [Run the benchmarks](benchmarks.md#run-the-benchmarks)
+- [Iterations per second](benchmarks.md#iterations-per-second)
+- [Total seconds](benchmarks.md#total-seconds)
 
 ## Features & Workflows
 - [Interactive and Headless Workflows](workflows.md)

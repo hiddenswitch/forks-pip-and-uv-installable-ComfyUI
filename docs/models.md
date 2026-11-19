@@ -2,13 +2,13 @@
 
 <a id="int8-convrot-benchmarks"></a>
 
-Memory figures below are estimates. For measured step times, peak memory, and samples, see the [INT8 ConvRot benchmarks](benchmarks.md).
+Memory figures below are estimates. For inference throughput and total run time, see the [INT8 ConvRot benchmarks](benchmarks.md).
 
 ## Fork additions
 
 | Model | This Fork | Upstream |
 | --- | --- | --- |
-| MAGI-2 Preview | TP/PP, 114B MoE, 107.6 GiB of INT8 transformer weights. See the [125-frame results](benchmarks.md#video). | — |
+| MAGI-2 Preview | TP/PP, 114B MoE, 107.6 GiB of INT8 transformer weights. See the [125-frame results](benchmarks.md). | — |
 | MAGI-2 Preview + Refiner | TP/PP, 107.6 GiB of preview weights plus 6.3 GiB of refiner weights (INT8). | — |
 | HunyuanImage 3.0 Instruct | TP/PP, ~164 GiB BF16 or ~22 GiB per GPU with W4A8 TP=2. | — |
 | Kandinsky 6 Pro | TP, ~66 GiB total. | — |

@@ -1,84 +1,61 @@
 # INT8 ConvRot benchmarks
 
-**Two steps per stage.** Each result links to a sample and shows **step 2 time (s) · peak memory (GiB)**. Paired MAGI-2 times follow stage order. Paired GB10 memory figures follow device order. A dash marks an unverified result.
+## Iterations per second
 
-Seeds, launch flags, attention backends, and load, sample, and decode times are in the [timings CSV](convrot-benchmark-timings.csv). A blank decode time means the trace omitted that measurement.
+Two steps per stage. Throughput is measured on the second step.
 
-## Images
+| Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Boogu Image Edit | — | 0.59 | 1.35 | 0.643 | — |
+| Fibo 2.0 Dev | — | 0.385 | 0.741 | 0.375 | — |
+| Flux.2 Dev 32B | 0.0224 | 0.152 | 0.059 | 0.185 | 0.269 |
+| Flux.3 Klein 4B | 0.608 | 1.46 | 2.94 | 1.5 | — |
+| Ideogram 4 | — | 0.233 | 0.544 | 0.294 | 0.343 |
+| JoyAI Image Edit | — | 0.108 | 0.302 | 0.108 | — |
+| Krea 2 Turbo | — | 0.418 | 1.06 | 0.419 | 0.536 |
+| Mage-Flow | 0.544 | 1.39 | 3.75 | 1.69 | — |
+| Marigold V2 Depth | 0.0363 | 0.312 | 1.44 | 0.635 | — |
+| Ming-Image 0.1 Design | — | 0.953 | 2.13 | 0.921 | — |
+| MiniMax H3 Image | 0.0881 | 0.733 | 3.02 | 2.12 | 1.3 |
+| MOSS-Image SFT | 0.254 | 0.626 | 1.31 | 0.625 | — |
+| Qwen-Image 2.1 | — | 0.444 | 1.01 | 0.459 | — |
+| Qwen-Image Layered | — | 0.123 | 0.435 | 0.195 | 0.188 |
+| SeedVR2 3B | 0.21 | 0.491 | 0.977 | 0.392 | — |
+| Z-Image Turbo 6B | 0.349 | 0.927 | 2.1 | 0.978 | — |
+| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 0.0083 | 0.0181 | 0.00894 | 0.0139 |
+| MiniMax Music 3 | 0.811 | 4.08 | 2.87 | 2.67 | — |
+| YuE2 3B | 5.84 | 15.5 | 21.1 | 22.7 | — |
+| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 0.0154 | 0.0468 | 0.0167 | 0.0306 |
+| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 0.00156 | 0.00415 | 0.00188 | 0.00121 |
+| MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 0.000841 | 0.00112 | 0.00147 | 0.000396 |
+| Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 0.0129 | 0.0371 | 0.0185 | — |
 
-| Model | Output | Sampling | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
-| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Boogu Image Edit | 1024×1024 | CFG 1, res_multistep / normal, shift 3.16 | — | [1.695 · 11.3](benchmark-samples/boogu-rtx3060-1024x1024.webp) | [0.741 · 11.5](benchmark-samples/boogu-rtx3090-1024x1024.webp) | [1.555 · 32.9](benchmark-samples/boogu-1xgb10-1024x1024.webp) | — |
-| Fibo 2.0 Dev | 1024×1024 | CFG 5, Euler / Fibo2 | — | [2.600 · 12.0](benchmark-samples/fibo2-rtx3060-1024x1024.webp) | [1.350 · 22.3](benchmark-samples/fibo2-rtx3090-1024x1024.webp) | [2.664 · 22.7](benchmark-samples/fibo2-1xgb10-1024x1024.webp) | — |
-| Flux.2 Dev 32B | 1024×1024 | CFG 1, guidance 4, Euler / Flux2 | — | [6.568 · 11.8](benchmark-samples/flux2-dev-rtx3060-1024x1024.webp) | [16.948 · 23.8](benchmark-samples/flux2-dev-rtx3090-1024x1024.webp) | [5.411 · 56.9](benchmark-samples/flux2-dev-1xgb10-1024x1024.webp) | [3.711 · 44.1 / 23.6](benchmark-samples/flux2-dev-2xgb10-1024x1024.webp) |
-| Flux.2 Dev 32B | 1024×1024 | CFG 1, guidance 4, Euler / Flux2<br>Local NVMe | [44.651 · 7.9](benchmark-samples/flux2-dev-rx7600-1024x1024-local.webp) (CPU VAE, split attention) | [6.752 · 11.8](benchmark-samples/flux2-dev-rtx3060-1024x1024-local.webp) | [3.259 · 23.8](benchmark-samples/flux2-dev-rtx3090-1024x1024-local.webp) | — | — |
-| Flux.3 Klein 4B | 1024×1024 | CFG 1, er_sde / simple | [1.645 · 6.2](benchmark-samples/flux3-rx7600-1024x1024.webp) (CPU VAE) | [0.686 · 7.6](benchmark-samples/flux3-rtx3060-1024x1024.webp) | [0.340 · 6.2](benchmark-samples/flux3-rtx3090-1024x1024.webp) | [0.665 · 17.8](benchmark-samples/flux3-1xgb10-1024x1024.webp) | — |
-| Ideogram 4 | 1024×1024 | CFG 7, res_multistep / Ideogram4 Turbo, μ 0.5, std 1.75 | — | [4.291 · 10.7](benchmark-samples/ideogram4-rtx3060-1024x1024.webp) | [1.838 · 11.0](benchmark-samples/ideogram4-rtx3090-1024x1024.webp) | [3.400 · 34.4](benchmark-samples/ideogram4-1xgb10-1024x1024.webp) | [2.920 · 29.0 / 16.4](benchmark-samples/ideogram4-2xgb10-1024x1024.webp) |
-| JoyAI Image Edit | 1024×1024 | CFG 4, Euler / simple | — | [9.287 · 11.8](benchmark-samples/joyimage-rtx3060-1024x1024.webp) | [3.317 · 17.4](benchmark-samples/joyimage-rtx3090-1024x1024.webp) | [9.225 · 34.5](benchmark-samples/joyimage-1xgb10-1024x1024.webp) | — |
-| JoyAI Image Edit | 512×512 | CFG 4, Euler / simple | — | [5.798 · 11.8](benchmark-samples/joyimage-rtx3060-512x512.webp) | [2.215 · 17.0](benchmark-samples/joyimage-rtx3090-512x512.webp) | [5.275 · 32.6](benchmark-samples/joyimage-1xgb10-512x512.webp) | — |
-| Krea 2 Turbo | 1024×1024 | CFG 1, res_multistep / normal, shift 1.15 | — | [2.393 · 11.8](benchmark-samples/krea2-rtx3060-1024x1024.webp) | [0.943 · 14.1](benchmark-samples/krea2-rtx3090-1024x1024.webp) | [2.388 · 27.0](benchmark-samples/krea2-1xgb10-1024x1024.webp) | [1.865 · 24.0 / 14.4](benchmark-samples/krea2-2xgb10-1024x1024.webp) |
-| MOSS-Image SFT | 1024×1024 | CFG 3, Euler / sgm_uniform | [3.944 · 7.3](benchmark-samples/moss-image-rx7600-1024x1024.webp) (256 px VAE tiles, 64 px overlap) | [1.598 · 8.8](benchmark-samples/moss-image-rtx3060-1024x1024.webp) | [0.766 · 8.5](benchmark-samples/moss-image-rtx3090-1024x1024.webp) | [1.600 · 22.0](benchmark-samples/moss-image-1xgb10-1024x1024.webp) | — |
-| Mage-Flow | 1024×1024 | CFG 5, Euler / simple | [1.837 · 7.0](benchmark-samples/mage-flow-rx7600-1024x1024.webp) | [0.720 · 11.7](benchmark-samples/mage-flow-rtx3060-1024x1024.webp) | [0.266 · 16.1](benchmark-samples/mage-flow-rtx3090-1024x1024.webp) | [0.591 · 18.1](benchmark-samples/mage-flow-1xgb10-1024x1024.webp) | — |
-| Marigold V2 Depth | 1024×1024 | Euler, σ 0.5 → 0.25 → 0, shift 1.73 | [27.529 · 8.0](benchmark-samples/marigold-v2-depth-rx7600-1024x1024.webp) | [3.206 · 11.8](benchmark-samples/marigold-v2-depth-rtx3060-1024x1024.webp) | [0.693 · 20.5](benchmark-samples/marigold-v2-depth-rtx3090-1024x1024.webp) | [1.575 · 40.4](benchmark-samples/marigold-v2-depth-1xgb10-1024x1024.webp) | — |
-| Marigold V2 Depth | 512×512 | Euler, σ 0.5 → 0.25 → 0, shift 1.73 | — | [1.446 · 11.8](benchmark-samples/marigold-v2-depth-rtx3060-512x512.webp) | [0.228 · 20.5](benchmark-samples/marigold-v2-depth-rtx3090-512x512.webp) | [0.569 · 36.1](benchmark-samples/marigold-v2-depth-1xgb10-512x512.webp) | — |
-| Ming-Image 0.1 Design | 1024×1024 | CFG 1, Euler / simple, base shift 0.5, max shift 1.15 | — | [1.050 · 11.8](benchmark-samples/ming-image-rtx3060-1024x1024.webp) | [0.470 · 21.9](benchmark-samples/ming-image-rtx3090-1024x1024.webp) | [1.086 · 37.7](benchmark-samples/ming-image-1xgb10-1024x1024.webp) | — |
-| MiniMax H3 Image | 1024×1024 | CFG 1, Euler / simple | [11.348 · 7.5](benchmark-samples/minimax-h3-image-rx7600-1024x1024.webp) (synchronous copies) | [1.364 · 11.8](benchmark-samples/minimax-h3-image-rtx3060-1024x1024.webp) | [0.331 · 23.7](benchmark-samples/minimax-h3-image-rtx3090-1024x1024.webp) | [0.472 · 52.7](benchmark-samples/minimax-h3-image-1xgb10-1024x1024.webp) | [0.770 · 48.6 / 16.9](benchmark-samples/minimax-h3-image-2xgb10-1024x1024.webp) |
-| Qwen-Image 2.1 | 1024×1024 | CFG 4, Euler / simple | — | [2.250 · 7.9](benchmark-samples/qwen-image21-rtx3060-1024x1024.webp) | [0.986 · 8.1](benchmark-samples/qwen-image21-rtx3090-1024x1024.webp) | [2.177 · 27.0](benchmark-samples/qwen-image21-1xgb10-1024x1024.webp) | — |
-| Qwen-Image Layered | 640×640, 2 layers | CFG 2.5, Euler / simple, shift 1 | — | [8.160 · 11.8](benchmark-samples/qwen-image-layered-rtx3060-640x640.webp) | [2.298 · 20.6](benchmark-samples/qwen-image-layered-rtx3090-640x640.webp) | [5.127 · 36.3](benchmark-samples/qwen-image-layered-1xgb10-640x640.webp) | [5.331 · 29.3 / 12.8 (PP)](benchmark-samples/qwen-image-layered-2xgb10-640x640.webp) |
-| SeedVR2 3B | 512×512 → 2048×2048 | CFG 1, Euler / simple | [4.751 · 5.2](benchmark-samples/seedvr2-3b-rx7600-2048x2048-cpu-vae.webp) (CPU VAE, local NVMe) | [2.036 · 4.9](benchmark-samples/seedvr2-3b-rtx3060-2048x2048.webp) | [1.023 · 7.0](benchmark-samples/seedvr2-3b-rtx3090-2048x2048.webp) | [2.553 · 24.2](benchmark-samples/seedvr2-3b-1xgb10-2048x2048.webp) | — |
-| SeedVR2 3B | 512×512 restoration | CFG 1, Euler / simple | [0.408 · 3.7](benchmark-samples/seedvr2-3b-rx7600-512x512-cpu-vae.webp) (CPU VAE, local NVMe) | [0.167 · 4.0](benchmark-samples/seedvr2-3b-rtx3060-512x512.webp) | [0.122 · 4.5](benchmark-samples/seedvr2-3b-rtx3090-512x512.webp) | [0.384 · 7.9](benchmark-samples/seedvr2-3b-1xgb10-512x512.webp) | — |
-| Z-Image Turbo 6B | 1024×1024 | CFG 1, Euler / simple | [2.865 · 7.2](benchmark-samples/z-image-turbo-rx7600-1024x1024.webp) (split attention) | [1.079 · 12.0](benchmark-samples/z-image-turbo-rtx3060-1024x1024.webp) | [0.475 · 21.9](benchmark-samples/z-image-turbo-rtx3090-1024x1024.webp) | [1.023 · 25.4](benchmark-samples/z-image-turbo-1xgb10-1024x1024.webp) | — |
+## Total seconds
 
-## Video
+Elapsed time from process start to exit, including loading and decoding.
 
-| Model | Output | Sampling | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
-| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| MAGI-2 Preview | Text to video<br>896×512, 125 frames at 12.5 fps, 44.1 kHz stereo | Video CFG 5, audio CFG 7, UniPC Flow | — | [643.014 · 12.0](benchmark-samples/magi2-preview-rtx3060.mp4) | — | [531.146 · 21.1](benchmark-samples/magi2-preview-1xgb10.mp4) | [826.074 · 94.5 / 97.7](benchmark-samples/magi2-preview-2xgb10.mp4) |
-| MAGI-2 Preview | Text to video<br>896×512, 125 frames at 12.5 fps, 44.1 kHz stereo | Video CFG 5, audio CFG 7, UniPC Flow<br>PyTorch SDPA only | — | [542.648 · 12.0](benchmark-samples/magi2-preview-rtx3060-sdpa.mp4) | [241.043 · 23.9](benchmark-samples/magi2-preview-rtx3090-sdpa.mp4) | — | — |
-| MAGI-2 Preview + Refiner | Image to video<br>896×512, 125 frames at 12.5 fps → 1920×1088, 249 frames at 25 fps<br>44.1 kHz stereo | UniPC Flow<br>Preview CFG 5 video / 7 audio<br>Refiner CFG 2 | — | [643.844 / 1733.301 · 12.0](benchmark-samples/magi2-refiner-rtx3060.mp4) | [420.512 / 1365.057 · 24.0](benchmark-samples/magi2-refiner-rtx3090.mp4) | [568.657 / 791.074 · 66.1](benchmark-samples/magi2-refiner-1xgb10.mp4) | [527.469 / 4518.399 · 94.0 / 78.3](benchmark-samples/magi2-refiner-2xgb10.mp4) |
-| MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, 32 kHz stereo | CFG 1, res_multistep / simple | — | [65.063 · 11.8](benchmark-samples/minimax-h3-video-rtx3060.mp4) | [21.362 · 23.8](benchmark-samples/minimax-h3-video-rtx3090.mp4) | [59.806 · 67.0](benchmark-samples/minimax-h3-video-1xgb10.mp4) | [32.711 · 61.8 / 23.7](benchmark-samples/minimax-h3-video-2xgb10.mp4) |
-| PAN 2 | 1248×704, 241 frames at 24 fps | CFG 5, Euler / simple | — | [120.499 · 11.9](benchmark-samples/pan2-t2v-rtx3060-1248x704.webp) | [55.184 · 23.9](benchmark-samples/pan2-t2v-rtx3090-1248x704.webp) | [111.884 · 91.7](benchmark-samples/pan2-t2v-1xgb10-1248x704.webp) | [72.070 · 95.5 / 22.2](benchmark-samples/pan2-t2v-2xgb10-1248x704.webp) |
-| Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps | CFG 6, Euler / normal, shift 8 | — | [77.461 · 11.8](benchmark-samples/wan21-scail2-rtx3060-832x480.webp) | [26.946 · 22.0](benchmark-samples/wan21-scail2-rtx3090-832x480.webp) | [54.047 · 38.4](benchmark-samples/wan21-scail2-1xgb10-832x480.webp) | — |
-
-## Audio
-
-| Model | Output | Sampling | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
-| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| MiniMax Music 3 | 30 s cap, 44.1 kHz stereo | AR CFG 1.5, sampler CFG 1, res_multistep / simple, AR top-k 30 | [1.233 · 7.6](benchmark-samples/minimax-music3-rx7600-26749ms.mp3) (26.75 s clip) | [0.245 · 10.2](benchmark-samples/minimax-music3-rtx3060-15279ms.mp3) (15.28 s clip) | [0.349 · 11.3](benchmark-samples/minimax-music3-rtx3090-24079ms.mp3) (24.08 s clip) | [0.375 · 28.2](benchmark-samples/minimax-music3-1xgb10-24393ms.mp3) (24.39 s clip) | — |
-| YuE2 3B | 30 s, 48 kHz stereo | CFG 1, Euler / simple, AR top-k 100, AR top-p 0.95 | [0.171 · 4.9](benchmark-samples/yue2-rx7600-30000ms.mp3) | [0.064 · 2.8](benchmark-samples/yue2-rtx3060-30000ms.mp3) | [0.047 · 3.1](benchmark-samples/yue2-rtx3090-30000ms.mp3) | [0.044 · 11.2](benchmark-samples/yue2-1xgb10-30000ms.mp3) | — |
-
-<details>
-<summary>Run notes</summary>
-
-- RTX and Radeon peaks include other GPU processes. GB10 peaks are host-memory estimates. The second GB10 also ran an inference server during MiniMax H3 Image and MAGI-2. Qwen-Image Layered used pipeline parallelism (PP). The other dual-GB10 runs used tensor parallelism.
-- The RTX Flux.2 rows compare shared storage with weights already on local NVMe. Both RTX cards used local NVMe for 1024×1024 JoyAI and Marigold and for MiniMax H3 Video+Audio. The 3060 also used it for PAN 2. Radeon MiniMax Music 3 used local NVMe and staged host transfers.
-- RTX MAGI-2 Preview used local NVMe with DynamicVRAM and pinned memory disabled after CUDA errors with DynamicVRAM enabled. Host RAM limits for the refiner were 24 GiB on the 3060 and 32 GiB on the 3090. Single-GB10 MAGI-2 used per-layer offload with 24 GiB reserved.
-- At two steps, MOSS produced a blurry mug. Qwen-Image 2.1 produced a colored silhouette, including in the [RTX 3090 BF16 run](benchmark-samples/qwen-image21-rtx3090-bf16-1024x1024.webp).
-- SeedVR2 on Radeon used the CPU VAE for both published timings. The GPU VAE [distorted the 512×512 portrait](benchmark-samples/seedvr2-3b-rx7600-512x512.webp) and [lost most detail at 2048×2048](benchmark-samples/seedvr2-3b-rx7600-2048x2048.webp). The upscale samples link to the full-resolution images.
-- PAN 2 produced the same dark red scene across devices. Wan clips were blurry. MAGI-2 Preview produced a dark café scene. The refiner clips started with a clear portrait and blurred later. [SandAI’s preview recipe](prompting_guides/sandai_magi2_prompting.md) uses 100 steps.
-
-</details>
-
-<details>
-<summary>Earlier runs at smaller settings</summary>
-
-| Model | Settings | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Ideogram 4 | 384×688, CFG 7, res_multistep / Ideogram4 | — | 1.716 · 11.7 | 0.880 · 10.5 | 0.848 · 33.4 | 1.079 · 28.8 / 15.5 |
-| Mage-Flow | 512×512, CFG 5, Euler / simple | — | 0.162 · 12.0 | 0.095 · 16.1 | 0.186 · 17.0 | — |
-| Qwen-Image 2.1 | 256×256, CFG 4, Euler / simple | — | 0.131 · 7.9 | 0.119 · 8.1 | 0.542 · 21.5 | — |
-| MiniMax H3 Video+Audio | 608×352, 5 frames at 24 fps, res_multistep / simple | — | — | 0.168 · 23.7 | — | — |
-| PAN 2 | 512×288, 21 frames at 24 fps, CFG 5, Euler / simple | — | 3.773 · 11.8 | 0.840 · 23.8 | 1.588 · 44.1 | 2.015 · 33.4 / 15.6 |
-| Wan 2.1 SCAIL-2 | 512×512, 17 frames at 8 fps, CFG 6, Euler / normal | — | 6.043 · 11.8 | 2.698 · 19.4 | 5.704 · 31.9 | — |
-| MiniMax Music 3 | 0.07 s audio, res_multistep / simple | — | 0.055 · 10.7 | 0.040 · 11.0 | 0.105 · 17.6 | — |
-| YuE2 3B | 1 s audio, CFG 1, Euler / simple | 0.100 · 2.4 | 0.043 · 2.7 | 0.033 · 3.9 | 0.019 · 7.4 | — |
-
-</details>
-
-## Run the benchmarks
-
-From the repository root, run the full suite or replace `all` with a model ID.
-
-```console
-python tests/convrot_benchmark.py --model all --out-dir ./benchmark-output
-```
+| Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Boogu Image Edit | — | 946.0 | 505.9 | 368.0 | — |
+| Fibo 2.0 Dev | — | 686.0 | 843.5 | 51.4 | — |
+| Flux.2 Dev 32B | 194.5 | 1371.2 | 1826.6 | 1060.0 | 542.6 |
+| Flux.3 Klein 4B | 481.7 | 754.5 | 1710.2 | 166.1 | — |
+| Ideogram 4 | — | 722.7 | 633.5 | 71.3 | 62.6 |
+| JoyAI Image Edit | — | 93.2 | 91.8 | 84.4 | — |
+| Krea 2 Turbo | — | 630.4 | 1038.2 | 273.6 | 69.9 |
+| Mage-Flow | 1102.8 | 378.2 | 1210.5 | 42.4 | — |
+| Marigold V2 Depth | 499.9 | 100.5 | 109.9 | 70.8 | — |
+| Ming-Image 0.1 Design | — | 682.5 | 1377.2 | 445.3 | — |
+| MiniMax H3 Image | 138.9 | 1444.0 | 1300.9 | 101.7 | 113.8 |
+| MOSS-Image SFT | 138.2 | 755.6 | 672.8 | 632.5 | — |
+| Qwen-Image 2.1 | — | 441.8 | 398.0 | 60.4 | — |
+| Qwen-Image Layered | — | 1401.0 | 980.9 | 346.5 | 77.1 |
+| SeedVR2 3B | 644.4 | 170.7 | 433.6 | 39.6 | — |
+| Z-Image Turbo 6B | 165.6 | 474.8 | 1484.2 | 173.6 | — |
+| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 543.9 | 920.0 | 488.7 | 405.6 |
+| MiniMax Music 3 | 317.4 | 396.3 | 346.7 | 93.1 | — |
+| YuE2 3B | 531.4 | 182.7 | 151.8 | 45.7 | — |
+| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 418.3 | 174.3 | 291.3 | 210.1 |
+| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 1410.8 | 619.5 | 1424.6 | 2216.3 |
+| MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 5427.9 | 4008.3 | 3220.5 | 11046.9 |
+| Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 870.4 | 625.6 | 439.4 | — |
