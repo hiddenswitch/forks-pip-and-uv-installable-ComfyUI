@@ -76,6 +76,12 @@ def _get_directory_by_folder_type(folder_type: FolderType) -> str:
     return folder_paths.get_temp_directory()
 
 
+def _frame_durations_ms(frame_count: int, fps: float) -> list[int]:
+    frame_ms = 1000.0 / fps
+    boundaries = [round(i * frame_ms) for i in range(frame_count + 1)]
+    return [end - start for start, end in zip(boundaries, boundaries[1:])]
+
+
 class ImageSaveHelper:
     """A helper class with static methods to handle image saving and metadata."""
 
@@ -186,7 +192,7 @@ class ImageSaveHelper:
             pnginfo=metadata,
             compress_level=compress_level,
             save_all=True,
-            duration=int(1000.0 / fps),
+            duration=_frame_durations_ms(len(pil_images), fps),
             append_images=pil_images[1:],
         )
         return SavedResult(file, subfolder, folder_type)
@@ -227,7 +233,7 @@ class ImageSaveHelper:
         pil_images[0].save(
             os.path.join(full_output_folder, file),
             save_all=True,
-            duration=int(1000.0 / fps),
+            duration=_frame_durations_ms(len(pil_images), fps),
             append_images=pil_images[1:],
             exif=pil_exif,
             lossless=lossless,
