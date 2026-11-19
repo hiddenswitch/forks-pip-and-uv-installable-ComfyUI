@@ -1162,7 +1162,12 @@ class ModelPatcher(ModelManageable, PatchSupport, metaclass=_ModelPatcherFactory
             else:
                 utils.set_attr_param(self.model, key, out_weight)
         else:
-            return set_func(out_weight, inplace_update=inplace_update, seed=utils.string_to_seed(key), return_weight=return_weight)
+            result = set_func(out_weight, inplace_update=inplace_update, seed=utils.string_to_seed(key), return_weight=return_weight)
+            if (device_to is None and self.fast_disk and key in self.patches and not return_weight and not inplace_update
+                    and isinstance(weight, QuantizedTensor) and memory_management.is_file_backed(weight)
+                    and self.model_size() > model_management.get_free_memory(torch.device("cpu"))):
+                memory_management.back_patched_weight_on_disk(utils.get_attr(self.model, key))
+            return result
 
     def pin_weight_to_device(self, key):
         if self.gguf.loaded_from_gguf and key not in self.patches:

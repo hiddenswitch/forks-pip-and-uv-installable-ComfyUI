@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest import mock
 import json
+import tempfile
 import unittest
 import unittest.mock
 
@@ -303,6 +304,26 @@ class TestMixedPrecisionOps(unittest.TestCase):
             after = model.layer(x).float()
         lora = x.float() @ (up @ down).T
         self.assertLess(float((after - before - lora).norm() / lora.norm()), 0.1)
+
+        # The low-memory CPU bake must produce the same packed bytes and preserve the base weight.
+        from comfy import memory_management
+
+        patcher.unpatch_model()
+        patcher.patch_weight_to_device("layer.weight")
+        expected = model.layer.weight
+        patcher.unpatch_model()
+        base = model.layer.weight._qdata.clone()
+        patcher.fast_disk = True
+        with tempfile.TemporaryDirectory() as directory, mock.patch(
+            "comfy.cmd.folder_paths.get_temp_directory", return_value=directory
+        ), mock.patch.object(model_management, "get_free_memory", return_value=0):
+            memory_management.back_patched_weight_on_disk(model.layer.weight)
+            patcher.patch_weight_to_device("layer.weight")
+            self.assertTrue(memory_management.is_file_backed(model.layer.weight))
+            self.assertTrue(torch.equal(model.layer.weight._qdata, expected._qdata))
+            self.assertTrue(torch.equal(model.layer.weight._params.scale, expected._params.scale))
+            patcher.unpatch_model()
+            self.assertTrue(torch.equal(model.layer.weight._qdata, base))
 
     @unittest.skipUnless(ops.mixed_precision_quantization_available(), "requires comfy_kitchen-backed quantized tensors")
     def test_disabled_fp8_compute_preserves_scaled_quantized_weight(self):

@@ -1,4 +1,7 @@
 import math
+import mmap
+from pathlib import Path
+import tempfile
 import ctypes
 import dataclasses
 import torch
@@ -293,6 +296,25 @@ def _set_parameter_source(param, source):
         param._qdata = source
     else:
         param.data = source
+
+
+def back_patched_weight_on_disk(param):
+    """Give a baked CPU weight reclaimable pages without changing its checkpoint or quantization."""
+    from .cmd import folder_paths
+
+    packed = param._qdata if isinstance(param, QuantizedTensor) else param.detach()
+    if packed.device.type != "cpu" or not packed.numel() or not packed.is_contiguous():
+        return
+    directory = Path(folder_paths.get_temp_directory())
+    directory.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryFile(dir=directory) as scratch:
+        scratch.write(memoryview(packed.detach().reshape(-1).view(torch.uint8).numpy()))
+        scratch.flush()
+        # The mapping owns the bytes after the temporary file is closed and unlinked.
+        mapping = mmap.mmap(scratch.fileno(), 0, access=mmap.ACCESS_COPY)
+    source = torch.frombuffer(mapping, dtype=packed.dtype).reshape(packed.shape)
+    mark_file_backed(source)
+    _set_parameter_source(param, source)
 
 
 def record_file_backing(module, state_dict, prefix=""):
