@@ -121,7 +121,7 @@ class SaveConditioning(io.ComfyNode):
         for k, v in options.items():
             if isinstance(v, torch.Tensor):
                 sd[k] = v
-            elif isinstance(v, (list, tuple)) and all(isinstance(t, torch.Tensor) for t in v):
+            elif isinstance(v, (list, tuple)) and v and all(isinstance(t, torch.Tensor) for t in v):
                 sd.update({f"{k}.{i}": t for i, t in enumerate(v)})
             elif isinstance(v, (bool, int, float, str)) or (
                 isinstance(v, (list, tuple)) and all(isinstance(x, (bool, int, float, str)) for x in v)
