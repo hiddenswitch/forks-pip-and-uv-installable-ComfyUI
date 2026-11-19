@@ -34,6 +34,7 @@ Mage-Flow,RTX 3060,"1024×1024, CFG 5, Euler / simple",2,"PyTorch SDPA, SageAtte
 Mage-Flow,RTX 3090,"1024×1024, CFG 5, Euler / simple",2,"PyTorch SDPA, SageAttention",859.365,296.718,3.951,0.266,benchmark-samples/mage-flow-rtx3090-1024x1024.webp
 Mage-Flow,1× GB10,"1024×1024, CFG 5, Euler / simple",2,PyTorch SDPA,23.180,2.318,0.521,0.591,benchmark-samples/mage-flow-1xgb10-1024x1024.webp
 Marigold V2 Depth,RTX 3060,"1024×1024, Euler, σ 0.5 → 0.25 → 0, local NVMe",2,"PyTorch SDPA, SageAttention",16.274,11.938,0.694,3.206,benchmark-samples/marigold-v2-depth-rtx3060-1024x1024.webp
+Marigold V2 Depth,RTX 3090,"1024×1024, Euler, σ 0.5 → 0.25 → 0, local NVMe",2,"PyTorch SDPA, SageAttention",17.948,4.653,0.221,0.693,benchmark-samples/marigold-v2-depth-rtx3090-1024x1024.webp
 Marigold V2 Depth,1× GB10,"1024×1024, Euler, σ 0.5 → 0.25 → 0",2,PyTorch SDPA,44.791,4.115,0.788,1.575,benchmark-samples/marigold-v2-depth-1xgb10-1024x1024.webp
 Marigold V2 Depth,RTX 3060,"512×512, Euler, manual sigmas",2,"PyTorch SDPA, SageAttention",265.393,85.610,0.519,1.446,benchmark-samples/marigold-v2-depth-rtx3060-512x512.webp
 Marigold V2 Depth,RTX 3090,"512×512, Euler, manual sigmas",2,"PyTorch SDPA, SageAttention",1901.337,159.278,2.507,0.228,benchmark-samples/marigold-v2-depth-rtx3090-512x512.webp
