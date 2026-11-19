@@ -83,7 +83,7 @@ SUITE: list[dict[str, Any]] = [
         "id": "ming_image",
         "label": "Ming-Image 0.1 Design",
         "workflow": "ming-image-0.json",
-        "generation_args": "1024×1024, 2 steps, CFG 4.0 (euler / simple)",
+        "generation_args": "1024×1024, 2 steps, CFG 1.0 (euler / simple)",
         "expected_image_size": (1024, 1024),
         "overrides": {
             "80:21": {"steps": 2},
@@ -107,7 +107,7 @@ SUITE: list[dict[str, Any]] = [
         "id": "ideogram4",
         "label": "Ideogram 4",
         "workflow": "ideogram4-0.json",
-        "generation_args": "1024×1024, 2 steps, CFG 3.0 (res_multistep / Ideogram4Scheduler)",
+        "generation_args": "1024×1024, 2 steps, CFG 7.0 (res_multistep / Ideogram4Scheduler)",
         "expected_image_size": (1024, 1024),
         "overrides": {
             "37": {"aspect_ratio": "1:1 (Square)", "megapixels": 1.0},
@@ -187,7 +187,7 @@ SUITE: list[dict[str, Any]] = [
         "id": "flux2_dev",
         "label": "Flux.2 Dev 32B",
         "workflow": "flux2-0.json",
-        "generation_args": "1024×1024, 2 steps, CFG 1.0 (euler / Flux2Scheduler)",
+        "generation_args": "1024×1024, 2 steps, CFG 1.0, Flux guidance 4.0 (euler / Flux2Scheduler)",
         "expected_image_size": (1024, 1024),
         "overrides": {
             "12": {"unet_name": "flux2-dev-int8-convrot-simple.safetensors"},
@@ -444,6 +444,12 @@ def parse_trace_phases(trace_path: Path) -> dict[str, Any]:
         except json.JSONDecodeError:
             continue
         all_spans.append(span)
+
+    sampling_parents = {
+        (s.get("trace_id"), s["span_id"]): s.get("attributes") or {}
+        for s in all_spans if s.get("name") == "Sampling" and s.get("span_id")
+    }
+    for span in all_spans:
         name = span.get("name")
         dur = float(span.get("duration_ms") or 0.0)
         attrs = span.get("attributes") or {}
@@ -451,8 +457,11 @@ def parse_trace_phases(trace_path: Path) -> dict[str, Any]:
             execute_prompt_ms = max(execute_prompt_ms, dur)
         elif name == "Sampler Invoke":
             sampler_invoke_ms += dur
+            parent = sampling_parents.get((span.get("trace_id"), span.get("parent_span_id")), {})
             sampler_spans.append({
                 "duration_ms": dur,
+                "seed": attrs.get("sampling.seed", parent.get("sampling.seed")),
+                "cfg": parent.get("sampling.cfg"),
                 "steps": attrs.get("sampling.steps"),
                 "elapsed_seconds": attrs.get("sampling.elapsed_seconds"),
                 "seconds_per_step": attrs.get("sampling.seconds_per_step"),

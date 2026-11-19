@@ -202,3 +202,16 @@ def test_still_benchmarks_reject_wrong_resolution_and_missing_layers(tmp_path):
     assert _output_error(layered, {}, tmp_path, files[:2])
     Image.new("RGB", (640, 640)).save(tmp_path / files[-1])
     assert _output_error(layered, {}, tmp_path, files)
+
+
+def test_convrot_matches_seed_and_cfg_to_their_sampler_stage(tmp_path):
+    spans = [
+        {"name": "Sampler Invoke", "parent_span_id": "preview", "attributes": {"sampling.seed": 0}},
+        {"name": "Sampler Invoke", "parent_span_id": "refiner"},
+        {"name": "Sampling", "span_id": "refiner", "attributes": {"sampling.cfg": 2, "sampling.seed": 41}},
+        {"name": "Sampling", "span_id": "preview", "attributes": {"sampling.cfg": 7, "sampling.seed": 0}},
+    ]
+    path = tmp_path / "traces.jsonl"
+    path.write_text("\n".join(json.dumps(span) for span in spans))
+    stages = parse_trace_phases(path)["sampler_spans"]
+    assert [(stage["seed"], stage["cfg"]) for stage in stages] == [(0, 7), (41, 2)]
