@@ -17,6 +17,7 @@ Flux.3 Klein 4B,1× GB10,"1024×1024, CFG 1, er_sde / simple",2,"Comfy Kitchen I
 Ideogram 4,RTX 3060,"1024×1024, CFG 3, res_multistep / Ideogram4",2,SageAttention,194.161,464.822,11.227,4.291,benchmark-samples/ideogram4-rtx3060-1024x1024.webp
 Ideogram 4,RTX 3090,"1024×1024, CFG 3, res_multistep / Ideogram4",2,SageAttention,157.749,420.522,4.873,1.838,benchmark-samples/ideogram4-rtx3090-1024x1024.webp
 Ideogram 4,2× GB10,"1024×1024, CFG 3, res_multistep / Ideogram4",2,PyTorch SDPA,36.755,10.330,0.774,2.920,benchmark-samples/ideogram4-2xgb10-1024x1024.webp
+JoyAI Image Edit,RTX 3090,"1024×1024, CFG 4, Euler / simple, local NVMe",2,SageAttention,8.409,9.632,0.210,3.317,benchmark-samples/joyimage-rtx3090-1024x1024.webp
 JoyAI Image Edit,RTX 3060,"512×512, CFG 4, Euler / simple",2,SageAttention,730.645,442.533,3.912,5.798,benchmark-samples/joyimage-rtx3060-512x512.webp
 JoyAI Image Edit,RTX 3090,"512×512, CFG 4, Euler / simple",2,SageAttention,343.871,389.135,3.076,2.215,benchmark-samples/joyimage-rtx3090-512x512.webp
 JoyAI Image Edit,1× GB10,"512×512, CFG 4, Euler / simple",2,PyTorch SDPA,453.357,10.889,0.174,5.275,benchmark-samples/joyimage-1xgb10-512x512.webp
@@ -27,6 +28,7 @@ Krea 2 Turbo,2× GB10,"1024×1024, CFG 1, res_multistep / normal",2,PyTorch SDPA
 Mage-Flow,RX 7600,"1024×1024, CFG 5, Euler / simple",2,PyTorch SDPA,1043.571,4.104,0.504,1.837,benchmark-samples/mage-flow-rx7600-1024x1024.webp
 Mage-Flow,RTX 3060,"1024×1024, CFG 5, Euler / simple",2,"PyTorch SDPA, SageAttention",203.178,104.994,3.866,0.720,benchmark-samples/mage-flow-rtx3060-1024x1024.webp
 Mage-Flow,RTX 3090,"1024×1024, CFG 5, Euler / simple",2,"PyTorch SDPA, SageAttention",859.365,296.718,3.951,0.266,benchmark-samples/mage-flow-rtx3090-1024x1024.webp
+Marigold V2 Depth,RTX 3060,"1024×1024, Euler, σ 0.5 → 0.25 → 0, local NVMe",2,"PyTorch SDPA, SageAttention",16.274,11.938,0.694,3.206,benchmark-samples/marigold-v2-depth-rtx3060-1024x1024.webp
 Marigold V2 Depth,RTX 3060,"512×512, Euler, manual sigmas",2,"PyTorch SDPA, SageAttention",265.393,85.610,0.519,1.446,benchmark-samples/marigold-v2-depth-rtx3060-512x512.webp
 Marigold V2 Depth,RTX 3090,"512×512, Euler, manual sigmas",2,"PyTorch SDPA, SageAttention",1901.337,159.278,2.507,0.228,benchmark-samples/marigold-v2-depth-rtx3090-512x512.webp
 Marigold V2 Depth,1× GB10,"512×512, Euler, manual sigmas",2,PyTorch SDPA,421.056,1.405,0.164,0.569,benchmark-samples/marigold-v2-depth-1xgb10-512x512.webp
