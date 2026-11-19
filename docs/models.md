@@ -20,7 +20,6 @@ Memory figures in the support tables are approximate. See the benchmark results 
 | MiniMax H3 Video+Audio | TP/PP, ~132 GiB BF16 or ~55 GiB INT8 resident. | Single GPU |
 | MiniMax H3 Image | TP/PP, ~53 GiB INT8 resident or ~12 GiB offloaded. | Single GPU |
 | Flux.2 Dev 32B | TP/PP, ~46 GiB INT8 resident or ~12 GiB offloaded. | Single GPU |
-| Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2, local NVMe | — | [6.752 · 11.8](benchmark-samples/flux2-dev-rtx3060-1024x1024-local.webp) | [3.259 · 23.8](benchmark-samples/flux2-dev-rtx3090-1024x1024-local.webp) | — | — |
 | Ideogram 4 | TP, ~29 GiB INT8 resident. | Single GPU |
 | Krea 2 Turbo | TP, ~18 GiB INT8 resident. | Single GPU |
 | Qwen-Image family | PP, native GGUF, ~25 GiB INT8 resident. | Single GPU |
@@ -77,6 +76,7 @@ Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. Select
 | Boogu Image Edit | 1024×1024, CFG 1, res_multistep / normal | — | [1.695 · 11.3](benchmark-samples/boogu-rtx3060-1024x1024.webp) | [0.741 · 11.5](benchmark-samples/boogu-rtx3090-1024x1024.webp) | [1.555 · 32.9](benchmark-samples/boogu-1xgb10-1024x1024.webp) | — |
 | Fibo 2.0 Dev | 1024×1024, CFG 5, Euler / Fibo2 | — | [2.600 · 12.0](benchmark-samples/fibo2-rtx3060-1024x1024.webp) | [1.350 · 22.3](benchmark-samples/fibo2-rtx3090-1024x1024.webp) | — | — |
 | Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2 | — | [6.568 · 11.8](benchmark-samples/flux2-dev-rtx3060-1024x1024.webp) | [16.948 · 23.8](benchmark-samples/flux2-dev-rtx3090-1024x1024.webp) | [5.411 · 56.9](benchmark-samples/flux2-dev-1xgb10-1024x1024.webp) | [3.711 · 44.1 / 23.6](benchmark-samples/flux2-dev-2xgb10-1024x1024.webp) |
+| Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2, local NVMe | — | [6.752 · 11.8](benchmark-samples/flux2-dev-rtx3060-1024x1024-local.webp) | [3.259 · 23.8](benchmark-samples/flux2-dev-rtx3090-1024x1024-local.webp) | — | — |
 | Flux.3 Klein 4B | 1024×1024, CFG 1, er_sde / simple | — | [0.686 · 7.6](benchmark-samples/flux3-rtx3060-1024x1024.webp) | [0.340 · 6.2](benchmark-samples/flux3-rtx3090-1024x1024.webp) | [0.665 · 17.8](benchmark-samples/flux3-1xgb10-1024x1024.webp) | — |
 | Ideogram 4 | 1024×1024, CFG 3, res_multistep / Ideogram4 | — | [4.291 · 10.7](benchmark-samples/ideogram4-rtx3060-1024x1024.webp) | [1.838 · 11.0](benchmark-samples/ideogram4-rtx3090-1024x1024.webp) | — | [2.920 · 29.0 / 16.4](benchmark-samples/ideogram4-2xgb10-1024x1024.webp) |
 | JoyAI Image Edit | 1024×1024, CFG 4, Euler / simple | — | — | — | — | — |
