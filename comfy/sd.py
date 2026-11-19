@@ -1453,33 +1453,29 @@ class VAE:
                 batch_number = int(free_memory / memory_used)
                 batch_number = max(1, batch_number)
 
-                # A VAE with a reliable estimate skips the doomed untiled attempt.
-                if getattr(self.first_stage_model, "comfy_decode_estimate_is_reliable", False):
-                    if memory_used > free_memory:
-                        logging.info("VAE decode needs more than the free VRAM; tiling directly.")
-                        raise model_management.OOM_EXCEPTION(
-                            "decode estimate exceeds free memory; going straight to tiled"
-                        )
+                if getattr(self.first_stage_model, "comfy_decode_estimate_is_reliable", False) and memory_used > free_memory:
+                    logger.info("VAE decode exceeds available memory. Using tiled decoding.")
+                    do_tile = True
+                else:
+                    # Pre-allocate output for VAEs that support direct buffer writes
+                    preallocated = False
+                    if getattr(self.first_stage_model, 'comfy_has_chunked_io', False):
+                        with model_prefetch.pause_malloc_graph():
+                            pixel_samples = torch.empty(self.first_stage_model.decode_output_shape(samples_in.shape, **vae_options), device=self.output_device, dtype=self.vae_output_dtype())
+                        preallocated = True
 
-                # Pre-allocate output for VAEs that support direct buffer writes
-                preallocated = False
-                if getattr(self.first_stage_model, 'comfy_has_chunked_io', False):
-                    with model_prefetch.pause_malloc_graph():
-                        pixel_samples = torch.empty(self.first_stage_model.decode_output_shape(samples_in.shape, **vae_options), device=self.output_device, dtype=self.vae_output_dtype())
-                    preallocated = True
-
-                for x in range(0, samples_in.shape[0], batch_number):
-                    samples = samples_in[x:x + batch_number].to(device=self.device, dtype=self.vae_dtype)
-                    if preallocated:
-                        self.first_stage_model.decode(samples, output_buffer=pixel_samples[x:x+batch_number], **vae_options)
-                    else:
-                        out = self.first_stage_model.decode(samples, **vae_options).to(device=self.output_device, dtype=self.vae_output_dtype(), copy=True)
-                        if pixel_samples is None:
-                            with model_prefetch.pause_malloc_graph():
-                                pixel_samples = torch.empty((samples_in.shape[0],) + tuple(out.shape[1:]), device=self.output_device, dtype=self.vae_output_dtype())
-                        pixel_samples[x:x+batch_number].copy_(out)
-                        del out
-                    self.process_output(pixel_samples[x:x+batch_number])
+                    for x in range(0, samples_in.shape[0], batch_number):
+                        samples = samples_in[x:x + batch_number].to(device=self.device, dtype=self.vae_dtype)
+                        if preallocated:
+                            self.first_stage_model.decode(samples, output_buffer=pixel_samples[x:x+batch_number], **vae_options)
+                        else:
+                            out = self.first_stage_model.decode(samples, **vae_options).to(device=self.output_device, dtype=self.vae_output_dtype(), copy=True)
+                            if pixel_samples is None:
+                                with model_prefetch.pause_malloc_graph():
+                                    pixel_samples = torch.empty((samples_in.shape[0],) + tuple(out.shape[1:]), device=self.output_device, dtype=self.vae_output_dtype())
+                            pixel_samples[x:x+batch_number].copy_(out)
+                            del out
+                        self.process_output(pixel_samples[x:x+batch_number])
             except Exception as e:
                 model_management.raise_non_oom(e)
                 logger.warning("Warning: Ran out of memory when regular VAE decoding, retrying with tiled VAE decoding.")

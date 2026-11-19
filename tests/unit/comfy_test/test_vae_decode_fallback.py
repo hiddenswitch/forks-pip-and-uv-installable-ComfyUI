@@ -28,7 +28,7 @@ def test_image_decode_fallback_limits_output_tile_size(monkeypatch, compression,
 
 
 @pytest.mark.parametrize("free_gib, tiled", [(12, True), (120, False)])
-def test_magi_managed_decode_tiles_only_when_full_clip_exceeds_memory(monkeypatch, free_gib, tiled):
+def test_magi_managed_decode_tiles_only_when_full_clip_exceeds_memory(monkeypatch, caplog, free_gib, tiled):
     from comfy import managed_memory
     from comfy.ldm.magi2.turbo_vae import TurboVAEDecoder
 
@@ -57,3 +57,4 @@ def test_magi_managed_decode_tiles_only_when_full_clip_exceeds_memory(monkeypatc
     assert vae.decode(latent).shape == (1, 1, 16, 16, 3)
     assert vae.decode_tiled_3d.called == tiled
     assert full.called != tiled
+    assert "Ran out of memory" not in caplog.text
