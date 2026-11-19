@@ -26,6 +26,7 @@ import copy
 import dataclasses
 import inspect
 import logging
+import sys
 import time
 import typing
 import uuid
@@ -2085,9 +2086,11 @@ class ModelPatcher(ModelManageable, PatchSupport, metaclass=_ModelPatcherFactory
         unet_state_dict = self.model_state_dict_for_saving(self.model.diffusion_model, "diffusion_model.")
         return self.model.state_dict_for_saving(unet_state_dict, clip_state_dict=clip_state_dict, vae_state_dict=vae_state_dict, clip_vision_state_dict=clip_vision_state_dict)
 
-    def __del__(self):
-        self.unpin_all_weights()
-        self.detach(unpatch_all=False)
+    def __del__(self, _is_finalizing=sys.is_finalizing):
+        # During interpreter teardown the callback registry and device runtime may already be gone.
+        if not _is_finalizing():
+            self.unpin_all_weights()
+            self.detach(unpatch_all=False)
 
 
 class ModelPatcherDynamic(ModelPatcher):
