@@ -75,6 +75,8 @@ The 2× GB10 column covers models that can split inference across both GPUs. The
 
 ### Images
 
+The 2048×2048 SeedVR2 links open at full resolution. Other stills link to thumbnails.
+
 | Model | Settings | RX 7600 | RTX 3060 | RTX 3090 | 1× GB10 | 2× GB10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | Boogu Image Edit | 1024×1024, CFG 1, res_multistep / normal | — | [1.695 · 11.3](benchmark-samples/boogu-rtx3060-1024x1024.webp) | [0.741 · 11.5](benchmark-samples/boogu-rtx3090-1024x1024.webp) | [1.555 · 32.9](benchmark-samples/boogu-1xgb10-1024x1024.webp) | — |
