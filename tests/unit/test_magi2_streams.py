@@ -160,3 +160,30 @@ def test_rms_norm_bounds_fp32_workspace(monkeypatch, modalities, out_dtype):
     monkeypatch.setattr(magi.F, "rms_norm", checked)
     actual = norm(x, groups)
     assert actual.dtype == expected.dtype and torch.equal(actual, expected)
+
+
+@pytest.mark.parametrize("modalities", [1, 3])
+@torch.no_grad()
+def test_refiner_projects_bounded_chunks_into_attention_inputs(monkeypatch, modalities):
+    from comfy.ldm.magi2 import refiner
+
+    torch.manual_seed(19)
+    layer = refiner.RefinerAttention(64, 4, 2, 16, modalities, (1, 2, 2), (1, 1, 1),
+                                     dtype=torch.bfloat16, operations=torch.nn)
+    for norm in (layer.pre_norm, layer.q_norm, layer.k_norm):
+        norm.weight.uniform_(-0.5, 0.5)
+    groups = (17, 0, 5)
+    x = torch.randn(2, sum(groups), 64)
+    freqs = torch.randn(1, sum(groups), 1, 4, 2, 2)
+    expected = layer._project(x, freqs, groups, torch.bfloat16)
+    chunk_tokens = 3
+    monkeypatch.setattr(refiner, "QKV_PROJECTION_CHUNK_BYTES", 2 * 128 * 4 * chunk_tokens)
+
+    def check_linear(module, inputs):
+        assert inputs[0].shape[1] <= chunk_tokens
+
+    for linear in layer.linear_qkv if modalities > 1 else [layer.linear_qkv]:
+        linear.register_forward_pre_hook(check_linear)
+    actual = layer._project_inputs(x, freqs, groups, torch.bfloat16)
+    for result, reference in zip(actual, expected):
+        torch.testing.assert_close(result, reference, rtol=0, atol=0)

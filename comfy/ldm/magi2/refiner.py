@@ -22,6 +22,7 @@ from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimi
 from .model import (MLP_GATE_CHUNK_BYTES, Magi2Layout, MultiModalityRMSNorm, PostAdapter, PreAdapter, fourier_rope, make_modality_linear, modality_linear,
                     qk_norm_rope, swiglu7, video_tokens)
 
+QKV_PROJECTION_CHUNK_BYTES = 128 * 1024**2
 WINDOW_KEY_BUDGET = 1 << 19
 
 
@@ -114,7 +115,7 @@ class RefinerAttention(nn.Module):
         self.q_norm = MultiModalityRMSNorm(head_dim, num_modality, device=device)
         self.k_norm = MultiModalityRMSNorm(head_dim, num_modality, device=device)
 
-    def forward(self, x, freqs, groups, video_shape, compute_dtype, transformer_options):
+    def _project(self, x, freqs, groups, compute_dtype):
         batch, tokens, _ = x.shape
         x = self.pre_norm(x, groups).to(compute_dtype)
         qkv = modality_linear(self.linear_qkv, x, groups)
@@ -128,7 +129,39 @@ class RefinerAttention(nn.Module):
         q, k = qk_norm_rope(q.view(batch, tokens, self.heads_q, self.head_dim), k.view(batch, tokens, self.heads_kv, self.head_dim),
                             self.q_norm, self.k_norm, freqs, groups)
         v = v.reshape(batch, tokens, self.heads_kv, self.head_dim)
-        out = block_window_attention(q.to(compute_dtype), k.to(compute_dtype), v.to(compute_dtype), video_shape, self.block_size, self.radius,
+        return q.to(compute_dtype), k.to(compute_dtype), v.to(compute_dtype), gates
+
+    def _project_inputs(self, x, freqs, groups, compute_dtype):
+        batch, tokens, _ = x.shape
+        width = (self.heads_q + 2 * self.heads_kv) * self.head_dim
+        chunk_size = max(1, QKV_PROJECTION_CHUNK_BYTES // (batch * width * 4))
+        if tokens <= chunk_size:
+            return self._project(x, freqs, groups, compute_dtype)
+
+        # Write the normalized projections directly to the window attention inputs.
+        # A full packed QKV copy at 1088p takes another 5.88 GiB.
+        q = x.new_empty((batch, tokens, self.heads_q, self.head_dim), dtype=compute_dtype)
+        k = x.new_empty((batch, tokens, self.heads_kv, self.head_dim), dtype=compute_dtype)
+        v = torch.empty_like(k)
+        gates = x.new_empty((batch, tokens, self.heads_q), dtype=torch.float32)
+        splits = groups if self.pre_norm.num_modality > 1 else (tokens,)
+        offset = 0
+        for index, length in enumerate(splits):
+            chunk_groups = [0] * len(splits)
+            for start in range(offset, offset + length, chunk_size):
+                end = min(start + chunk_size, offset + length)
+                chunk_groups[index] = end - start
+                span = slice(start, end)
+                q[:, span], k[:, span], v[:, span], gates[:, span] = self._project(
+                    x[:, span], freqs[:, span], chunk_groups, compute_dtype)
+            offset += length
+        return q, k, v, gates
+
+    def forward(self, x, freqs, groups, video_shape, compute_dtype, transformer_options):
+        batch, tokens, _ = x.shape
+        q, k, v, gates = self._project_inputs(x, freqs, groups, compute_dtype)
+        del x
+        out = block_window_attention(q, k, v, video_shape, self.block_size, self.radius,
                                      self.comfy_attention, transformer_options)
         out = (out * torch.sigmoid(gates).unsqueeze(-1)).to(compute_dtype)
         return modality_linear(self.linear_proj, out.reshape(batch, tokens, -1), groups)
