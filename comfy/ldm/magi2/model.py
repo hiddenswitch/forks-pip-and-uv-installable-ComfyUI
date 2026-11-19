@@ -42,6 +42,7 @@ from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimi
 TIME_CHANNELS = 64
 SINK_PAD = 8
 MHC_FP32_CHUNK_BYTES = 64 * 1024**2
+MLP_GATE_CHUNK_BYTES = 256 * 1024**2
 MOE_ROW_CHUNK = 1 << 16
 
 
@@ -748,7 +749,7 @@ class Attention(nn.Module):
 class MLP(nn.Module):
     def __init__(self, hidden_size, intermediate_size, num_modality, dtype=None, device=None, operations=None):
         super().__init__()
-        local_size(operations, intermediate_size, "MAGI-2 MLP width")
+        self.gate_width = 2 * local_size(operations, intermediate_size, "MAGI-2 MLP width")
         self.pre_norm = MultiModalityRMSNorm(hidden_size, num_modality, device=device)
         self.up_gate_proj = make_modality_linear(num_modality, lambda: column_parallel_linear(
             operations, hidden_size, 2 * intermediate_size, bias=False, device=device, dtype=dtype))
@@ -757,8 +758,22 @@ class MLP(nn.Module):
 
     def forward(self, x, groups):
         x = self.pre_norm(x, groups)
-        x = swiglu7(modality_linear(self.up_gate_proj, x, groups))
-        return modality_linear(self.down_proj, x, groups)
+        bytes_per_token = x.shape[0] * self.gate_width * x.element_size()
+        chunk_size = max(1, MLP_GATE_CHUNK_BYTES // max(1, bytes_per_token))
+        if x.shape[1] <= chunk_size:
+            return modality_linear(self.down_proj, swiglu7(modality_linear(self.up_gate_proj, x, groups)), groups)
+
+        # The dense MLP acts independently on each token. Keep only its narrow output across chunks.
+        if isinstance(self.up_gate_proj, nn.ModuleList):
+            parts = zip(x.split(groups, dim=1), self.up_gate_proj, self.down_proj)
+        else:
+            parts = [(x, self.up_gate_proj, self.down_proj)]
+        outputs = []
+        for part, up_gate, down in parts:
+            if part.shape[1]:
+                for chunk in part.split(chunk_size, dim=1):
+                    outputs.append(down(swiglu7(up_gate(chunk))))
+        return torch.cat(outputs, dim=1)
 
 
 def _dequantize_rows(rows: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
