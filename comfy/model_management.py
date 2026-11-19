@@ -27,6 +27,7 @@ from typing import Final
 from typing import List
 from typing import Optional
 from typing import Sequence
+import atexit
 import gc
 import logging
 import os
@@ -1908,6 +1909,8 @@ stream_counters = {}
 STREAM_CAST_BUFFERS = {}
 LARGEST_CASTED_WEIGHT = (None, 0)
 STREAM_AIMDO_CAST_BUFFERS = {}
+# The native destructors need the ctypes library while its module is still live.
+atexit.register(STREAM_AIMDO_CAST_BUFFERS.clear)
 LARGEST_AIMDO_CASTED_WEIGHT = (None, 0)
 CROSS_STEP_STATE = weakref.WeakSet()
 

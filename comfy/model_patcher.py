@@ -2246,10 +2246,11 @@ class ModelPatcherDynamic(ModelPatcher):
             return
         dynamic_patchers.discard(id(self))
         try:
-            if not dynamic_patchers:
-                self.unpin_all_weights()
-        finally:
-            self.detach(unpatch_all=False)
+            with model_prefetch.cleanup_on_exit(lambda: self.detach(unpatch_all=False)):
+                if not dynamic_patchers:
+                    self.unpin_all_weights()
+        except Exception:
+            logger.warning("Could not finish releasing dynamic model buffers", exc_info=True)
 
     def memory_required(self, input_shape):
         # Pad this significantly. We are trying to get away from precise estimates. This
@@ -2594,14 +2595,14 @@ class ModelPatcherDynamic(ModelPatcher):
                 module, offset = stack[-1]
                 module_pin = module._pins[subset]
                 pinned_memory.flush_pin(module, module_pin)
-                stack.pop()
                 pin = module_pin["pin"]
                 size = pin.numel() * pin.element_size()
+                registered = module_pin["registered"]
+                hostbuf.truncate(offset, do_unregister=registered)
+                stack.pop()
                 module_pin["balancer_entry"][-1] = None
                 del module_pin["balancer_entry"]
                 del module_pin["pin"]
-                registered = module_pin["registered"]
-                hostbuf.truncate(offset, do_unregister=registered)
                 stack_split[0] = min(stack_split[0], len(stack) - 1)
                 if registered:
                     model_management.TOTAL_PINNED_MEMORY = max(0, model_management.TOTAL_PINNED_MEMORY - size)
