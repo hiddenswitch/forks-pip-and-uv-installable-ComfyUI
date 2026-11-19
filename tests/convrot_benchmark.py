@@ -248,7 +248,7 @@ SUITE: list[dict[str, Any]] = [
         "id": "magi2_t2va",
         "label": "MAGI-2 Preview 114B MoE (Video+Audio)",
         "workflow": "magi2-t2va-0.json",
-        "generation_args": "896×512, 10 s target at 12.5 fps + stereo audio, 2 steps (uni_pc_flow / flow_unipc)",
+        "generation_args": "896×512, 125 frames at 12.5 fps + stereo audio, 2 steps (uni_pc_flow / flow_unipc)",
         "overrides": {
             "7": {"width": 896, "height": 512, "seconds": 10.0},
             "12": {"steps": 2},
@@ -258,7 +258,7 @@ SUITE: list[dict[str, Any]] = [
         "id": "magi2_refiner",
         "label": "MAGI-2 Preview + Refiner (1088p)",
         "workflow": "magi2-i2va-refiner-0.json",
-        "generation_args": "896×512 at 12.5 fps -> 1920×1088 at 25 fps, 10 s target + audio, 2+2 steps (uni_pc_flow / flow_unipc)",
+        "generation_args": "896×512, 125 frames at 12.5 fps -> 1920×1088, 249 frames at 25 fps + audio, 2+2 steps (uni_pc_flow / flow_unipc)",
         "overrides": {
             "7": {"width": 896, "height": 512, "seconds": 10.0},
             "12": {"steps": 2},

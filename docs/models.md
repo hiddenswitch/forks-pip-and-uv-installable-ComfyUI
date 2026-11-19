@@ -99,8 +99,8 @@ Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. GB10 m
 | MiniMax Music 3 | 24.08 s stereo (30 s cap), AR CFG 1.5, res_multistep / simple | — | — | 0.349 · 11.3 | — | — |
 | YuE2 3B | 30 s audio, CFG 1, Euler / simple | 0.171 · 4.9 | 0.064 · 2.8 | 0.047 · 3.1 | — | — |
 | MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, CFG 1, res_multistep / simple | — | — | — | — | — |
-| MAGI-2 Preview | 896×512, 10 s target at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow | — | — | — | — | — |
-| MAGI-2 Preview + Refiner | Same preview, then 1920×1088 at 25 fps, refiner CFG 2, UniPC Flow | — | — | — | — | — |
+| MAGI-2 Preview | 896×512, 125 frames at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow | — | — | — | — | — |
+| MAGI-2 Preview + Refiner | Same preview, then 1920×1088, 249 frames at 25 fps, refiner CFG 2, UniPC Flow | — | — | — | — | — |
 | Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal | — | 77.461 · 11.8 | 26.946 · 22.0 | — | — |
 
 <details>
