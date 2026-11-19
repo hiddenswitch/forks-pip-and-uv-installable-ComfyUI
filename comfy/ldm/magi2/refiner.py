@@ -248,7 +248,7 @@ class RefinerMLP(nn.Module):
         x = modality_linear(self.up_gate_proj, self.pre_norm(x, groups).to(compute_dtype), groups).float()
         return modality_linear(self.down_proj, swiglu7(x).to(compute_dtype), groups).float()
 
-    def forward(self, x, groups, compute_dtype, attention_output=None):
+    def forward(self, x, groups, compute_dtype, attention_output=None, allow_host_residual=False):
         def project(tokens, splits, attention):
             if attention is None:
                 return self._project(tokens, splits, compute_dtype)
@@ -259,6 +259,10 @@ class RefinerMLP(nn.Module):
         bytes_per_token = x.shape[0] * self.gate_width * 4 * 2
         chunk_size = max(1, MLP_GATE_CHUNK_BYTES // max(1, bytes_per_token))
         host_stream = attention_output is not None and x.device != attention_output.device
+        if allow_host_residual and not host_stream and x.is_cuda:
+            # Attention and resident weights can consume the headroom measured before the first layer.
+            output_bytes = x.numel() * torch.float32.itemsize
+            host_stream = output_bytes + MLP_GATE_CHUNK_BYTES > model_management.get_free_memory(x.device)
         if x.shape[1] <= chunk_size and not host_stream:
             return project(x, groups, attention_output)
 
@@ -292,7 +296,8 @@ class RefinerLayer(nn.Module):
 
     def forward(self, x, freqs, groups, video_shape, compute_dtype, transformer_options={}):
         attention = self.attention(x, freqs, groups, video_shape, compute_dtype, transformer_options)
-        return self.mlp(x, groups, compute_dtype, attention_output=attention)
+        return self.mlp(x, groups, compute_dtype, attention_output=attention,
+                        allow_host_residual=transformer_options.get("magi2_refiner_host_residual", False))
 
 
 class Magi2RefinerModel(nn.Module):
@@ -359,9 +364,10 @@ class Magi2RefinerModel(nn.Module):
                 and not transformer_options.get("patches_replace", {}).get("dit")
                 and not model_prefetch.malloc_graph_enabled(device)
                 and not (torch.distributed.is_initialized() and torch.distributed.get_world_size() > 1)
-                and residual_bytes > QKV_PROJECTION_CHUNK_BYTES and not model_management.is_unified_memory_device(device)
-                and residual_bytes + WINDOW_KV_CHUNK_BYTES > model_management.get_free_memory(device)):
-            host = _host_residual(shape, residual_dtype)
+                and residual_bytes > QKV_PROJECTION_CHUNK_BYTES and not model_management.is_unified_memory_device(device)):
+            transformer_options["magi2_refiner_host_residual"] = True
+            if residual_bytes + WINDOW_KV_CHUNK_BYTES > model_management.get_free_memory(device):
+                host = _host_residual(shape, residual_dtype)
         hidden = self.pre_adapter(video_tokens(video), audio.transpose(1, 2), context, None, self.dtype, out=host)
         del host
         freqs = fourier_rope(layout.coords(device), model_management.cast_to(self.pre_adapter.rope.bands, torch.float32, device)).unsqueeze(0).unsqueeze(2)

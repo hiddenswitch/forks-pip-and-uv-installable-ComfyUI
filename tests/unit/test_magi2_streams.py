@@ -130,6 +130,25 @@ def test_refiner_mlp_adds_both_residuals_in_order(monkeypatch, residual_dtype, l
     torch.testing.assert_close(mlp(x, groups, torch.bfloat16, attention), expected, rtol=0, atol=0)
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires GPU and host residual storage")
+@torch.inference_mode()
+def test_refiner_spills_resident_mlp_output_when_attention_consumes_vram(monkeypatch):
+    from comfy.ldm.magi2 import refiner
+
+    torch.manual_seed(41)
+    mlp = refiner.RefinerMLP(16, 32, 3, dtype=torch.bfloat16, operations=torch.nn).cuda()
+    mlp.pre_norm.weight.zero_()
+    x = torch.randn(1, 13, 16, device="cuda", dtype=torch.bfloat16)
+    attention = torch.randn_like(x)
+    monkeypatch.setattr(refiner, "MLP_GATE_CHUNK_BYTES", 512)
+    expected = mlp(x, (9, 0, 4), torch.bfloat16, attention)
+    free = refiner.model_management.get_free_memory
+    monkeypatch.setattr(refiner.model_management, "get_free_memory", lambda device: 0 if device.type == "cuda" else free(device))
+    actual = mlp(x, (9, 0, 4), torch.bfloat16, attention, allow_host_residual=True)
+    assert actual.device.type == "cpu"
+    torch.testing.assert_close(actual, expected.cpu(), rtol=0, atol=0)
+
+
 @pytest.mark.parametrize("audio_tokens,with_timestep", [(0, True), (7, False)])
 @torch.no_grad()
 def test_input_adapter_bounds_fp32_workspace(monkeypatch, audio_tokens, with_timestep):
