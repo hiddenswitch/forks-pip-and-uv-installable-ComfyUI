@@ -511,6 +511,17 @@ def prepare_workflow(spec: dict[str, Any], repo_root: Path) -> tuple[dict[str, A
     return workflow, checkpoints
 
 
+def _media_files(directory: Path) -> dict[str, tuple[int, int]]:
+    media = {}
+    suffixes = {".png", ".webp", ".jpg", ".jpeg", ".flac", ".wav", ".mp3", ".ogg", ".mp4", ".webm", ".mkv"}
+    for path in directory.rglob("*"):
+        if path.suffix.lower() in suffixes and path.is_file():
+            stat = path.stat()
+            if stat.st_size:
+                media[path.relative_to(directory).as_posix()] = (stat.st_size, stat.st_mtime_ns)
+    return media
+
+
 def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra_args: list[str]) -> dict[str, Any]:
     model_dir = out_dir / spec["id"]
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -518,20 +529,29 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     workflow, checkpoints = prepare_workflow(spec, repo_root)
     is_distributed = int(os.environ.get("WORLD_SIZE", "1")) > 1
     is_worker = is_distributed and int(os.environ["RANK"]) != 0
+    wf_file = model_dir / "workflow.json"
+    previous_media = _media_files(model_dir) if not is_worker else {}
     if not is_distributed and result_file.exists():
         try:
             existing = json.loads(result_file.read_text(encoding="utf-8"))
+            outputs = existing.get("output_files")
+            if outputs is None:
+                # Older results have no manifest. Only consider media written during that run.
+                start = wf_file.stat().st_mtime_ns
+                end = result_file.stat().st_mtime_ns
+                outputs = [name for name, (_, modified) in previous_media.items() if start <= modified <= end]
             if (
-                existing.get("status") == "success"
+                outputs and all(name in previous_media for name in outputs)
+                and existing.get("status") == "success"
                 and existing.get("step2_seconds") is not None
                 and existing.get("generation_args") == spec["generation_args"]
                 and existing.get("extra_args") == extra_args
-                and json.loads((model_dir / "workflow.json").read_text(encoding="utf-8")) == workflow
+                and json.loads(wf_file.read_text(encoding="utf-8")) == workflow
             ):
                 return existing
         except (OSError, json.JSONDecodeError):
             pass
-    wf_file = model_dir / "workflow.json"
+    result_file.unlink(missing_ok=True)
     wf_file.write_text(json.dumps(workflow, indent=2), encoding="utf-8")
     trace_file = model_dir / "traces.jsonl"
     steps_file = model_dir / "steps.jsonl"
@@ -594,6 +614,10 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
     measured_ids = {str(row["node_id"]) for row in step_rows}
     missing_sampler_ids = sorted(sampler_ids - measured_ids) if not is_worker else []
 
+    output_files = [] if is_worker else sorted(
+        name for name, state in _media_files(model_dir).items() if previous_media.get(name) != state
+    )
+    success = returncode == 0 and not missing_sampler_ids and (is_worker or bool(output_files))
     unified_delta_gib = max(0.0, (tracker.start_mem_available_bytes - tracker.min_mem_available_bytes) / (1024 ** 3))
     peak_vram_gib = tracker.peak_vram_bytes / (1024 ** 3) if tracker.peak_vram_bytes > 0 else unified_delta_gib
 
@@ -604,7 +628,8 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
         "generation_args": spec["generation_args"],
         "checkpoints": checkpoints,
         "extra_args": extra_args,
-        "status": "success" if returncode == 0 and not missing_sampler_ids else "failed",
+        "status": "success" if success else "failed",
+        "output_files": output_files,
         "returncode": returncode,
         "missing_sampler_ids": missing_sampler_ids,
         "wall_seconds": round(wall_seconds, 3),

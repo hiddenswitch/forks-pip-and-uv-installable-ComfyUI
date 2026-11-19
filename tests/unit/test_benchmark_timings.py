@@ -86,3 +86,49 @@ def test_convrot_charges_lazy_vae_load_to_loading(tmp_path):
     phases = parse_trace_phases(trace_path)
     assert phases["load_and_encode_seconds"] == 3.0
     assert phases["vae_decode_seconds"] == 2.0
+
+
+def test_convrot_resume_requires_output_from_the_recorded_run(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from PIL import Image
+    from tests import convrot_benchmark as benchmark
+
+    monkeypatch.setenv("WORLD_SIZE", "1")
+    (tmp_path / "tests").symlink_to(Path(__file__).resolve().parents[1], target_is_directory=True)
+    preset = next(spec for spec in SUITE if spec["id"] == "flux3")
+    output = tmp_path / "output"
+    directory = output / preset["id"]
+    directory.mkdir(parents=True)
+    stale = directory / "previous.png"
+    Image.new("RGB", (4, 4)).save(stale)
+    calls = []
+
+    def launch(*args, env, **kwargs):
+        calls.append(None)
+        Path(env["COMFY_BENCHMARK_PATH"]).write_text(json.dumps({"node_id": "8", "second_step_seconds": 1}))
+        if len(calls) == 2:
+            media = directory / "images"
+            media.mkdir()
+            Image.new("RGB", (8, 8)).save(media / "current.png")
+        return SimpleNamespace(wait=lambda: 0)
+
+    monkeypatch.setattr(benchmark.subprocess, "Popen", launch)
+    monkeypatch.setattr(benchmark.PeakMemoryTracker, "__enter__", lambda self: self)
+    monkeypatch.setattr(benchmark.PeakMemoryTracker, "__exit__", lambda *args: None)
+    def run():
+        return benchmark.run_single_model(preset, tmp_path, output, [])
+
+    assert run()["status"] == "failed"
+    good = run()
+    assert good["status"] == "success"
+    assert good["output_files"] == ["images/current.png"]
+    assert run() == good
+    assert len(calls) == 2
+    legacy = dict(good)
+    del legacy["output_files"]
+    (directory / "result.json").write_text(json.dumps(legacy))
+    assert run() == legacy
+    assert len(calls) == 2
+    (directory / "images/current.png").unlink()
+    assert run()["status"] == "failed"
+    assert len(calls) == 3
