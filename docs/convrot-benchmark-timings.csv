@@ -4,6 +4,7 @@ Boogu Image Edit,RTX 3090,"1024×1024, CFG 1, res_multistep / normal",2,"PyTorch
 Boogu Image Edit,1× GB10,"1024×1024, CFG 1, res_multistep / normal",2,PyTorch SDPA,349.343,4.553,1.741,1.555,benchmark-samples/boogu-1xgb10-1024x1024.webp
 Fibo 2.0 Dev,RTX 3060,"1024×1024, CFG 5, Euler / Fibo2",2,"Comfy Kitchen INT8, PyTorch SDPA, SageAttention",443.930,169.640,3.870,2.600,benchmark-samples/fibo2-rtx3060-1024x1024.webp
 Fibo 2.0 Dev,RTX 3090,"1024×1024, CFG 5, Euler / Fibo2",2,"Comfy Kitchen INT8, PyTorch SDPA, SageAttention",286.109,187.792,0.682,1.350,benchmark-samples/fibo2-rtx3090-1024x1024.webp
+Fibo 2.0 Dev,1× GB10,"1024×1024, CFG 5, Euler / Fibo2",2,"Comfy Kitchen INT8, PyTorch SDPA",24.364,7.070,0.685,2.664,benchmark-samples/fibo2-1xgb10-1024x1024.webp
 Flux.2 Dev 32B,RTX 3060,"1024×1024, CFG 1, Euler / Flux2",2,SageAttention,493.104,783.421,1.271,6.568,benchmark-samples/flux2-dev-rtx3060-1024x1024.webp
 Flux.2 Dev 32B,RTX 3090,"1024×1024, CFG 1, Euler / Flux2",2,SageAttention,1028.284,586.224,4.934,16.948,benchmark-samples/flux2-dev-rtx3090-1024x1024.webp
 Flux.2 Dev 32B,1× GB10,"1024×1024, CFG 1, Euler / Flux2",2,PyTorch SDPA,1027.622,12.038,0.826,5.411,benchmark-samples/flux2-dev-1xgb10-1024x1024.webp
@@ -16,7 +17,9 @@ Flux.3 Klein 4B,RTX 3090,"1024×1024, CFG 1, er_sde / simple",2,"Comfy Kitchen I
 Flux.3 Klein 4B,1× GB10,"1024×1024, CFG 1, er_sde / simple",2,"Comfy Kitchen INT8, PyTorch SDPA",140.280,2.923,0.751,0.665,benchmark-samples/flux3-1xgb10-1024x1024.webp
 Ideogram 4,RTX 3060,"1024×1024, CFG 3, res_multistep / Ideogram4",2,SageAttention,194.161,464.822,11.227,4.291,benchmark-samples/ideogram4-rtx3060-1024x1024.webp
 Ideogram 4,RTX 3090,"1024×1024, CFG 3, res_multistep / Ideogram4",2,SageAttention,157.749,420.522,4.873,1.838,benchmark-samples/ideogram4-rtx3090-1024x1024.webp
+Ideogram 4,1× GB10,"1024×1024, CFG 3, res_multistep / Ideogram4",2,PyTorch SDPA,43.406,8.313,0.984,3.400,benchmark-samples/ideogram4-1xgb10-1024x1024.webp
 Ideogram 4,2× GB10,"1024×1024, CFG 3, res_multistep / Ideogram4",2,PyTorch SDPA,36.755,10.330,0.774,2.920,benchmark-samples/ideogram4-2xgb10-1024x1024.webp
+JoyAI Image Edit,RTX 3060,"1024×1024, CFG 4, Euler / simple, local NVMe",2,SageAttention,11.993,23.792,0.456,9.287,benchmark-samples/joyimage-rtx3060-1024x1024.webp
 JoyAI Image Edit,RTX 3090,"1024×1024, CFG 4, Euler / simple, local NVMe",2,SageAttention,8.409,9.632,0.210,3.317,benchmark-samples/joyimage-rtx3090-1024x1024.webp
 JoyAI Image Edit,RTX 3060,"512×512, CFG 4, Euler / simple",2,SageAttention,730.645,442.533,3.912,5.798,benchmark-samples/joyimage-rtx3060-512x512.webp
 JoyAI Image Edit,RTX 3090,"512×512, CFG 4, Euler / simple",2,SageAttention,343.871,389.135,3.076,2.215,benchmark-samples/joyimage-rtx3090-512x512.webp
@@ -28,6 +31,7 @@ Krea 2 Turbo,2× GB10,"1024×1024, CFG 1, res_multistep / normal",2,PyTorch SDPA
 Mage-Flow,RX 7600,"1024×1024, CFG 5, Euler / simple",2,PyTorch SDPA,1043.571,4.104,0.504,1.837,benchmark-samples/mage-flow-rx7600-1024x1024.webp
 Mage-Flow,RTX 3060,"1024×1024, CFG 5, Euler / simple",2,"PyTorch SDPA, SageAttention",203.178,104.994,3.866,0.720,benchmark-samples/mage-flow-rtx3060-1024x1024.webp
 Mage-Flow,RTX 3090,"1024×1024, CFG 5, Euler / simple",2,"PyTorch SDPA, SageAttention",859.365,296.718,3.951,0.266,benchmark-samples/mage-flow-rtx3090-1024x1024.webp
+Mage-Flow,1× GB10,"1024×1024, CFG 5, Euler / simple",2,PyTorch SDPA,23.180,2.318,0.521,0.591,benchmark-samples/mage-flow-1xgb10-1024x1024.webp
 Marigold V2 Depth,RTX 3060,"1024×1024, Euler, σ 0.5 → 0.25 → 0, local NVMe",2,"PyTorch SDPA, SageAttention",16.274,11.938,0.694,3.206,benchmark-samples/marigold-v2-depth-rtx3060-1024x1024.webp
 Marigold V2 Depth,RTX 3060,"512×512, Euler, manual sigmas",2,"PyTorch SDPA, SageAttention",265.393,85.610,0.519,1.446,benchmark-samples/marigold-v2-depth-rtx3060-512x512.webp
 Marigold V2 Depth,RTX 3090,"512×512, Euler, manual sigmas",2,"PyTorch SDPA, SageAttention",1901.337,159.278,2.507,0.228,benchmark-samples/marigold-v2-depth-rtx3090-512x512.webp
@@ -37,6 +41,7 @@ Ming-Image 0.1 Design,RTX 3090,"1024×1024, CFG 4, Euler / simple",2,"Comfy Kitc
 Ming-Image 0.1 Design,1× GB10,"1024×1024, CFG 4, Euler / simple",2,"Comfy Kitchen INT8, PyTorch SDPA",427.961,3.497,1.229,1.086,benchmark-samples/ming-image-1xgb10-1024x1024.webp
 MiniMax H3 Image,RTX 3060,"1024×1024, CFG 1, Euler / simple",2,"Comfy Kitchen INT8, SageAttention",758.371,496.417,28.512,1.364,benchmark-samples/minimax-h3-image-rtx3060-1024x1024.webp
 MiniMax H3 Image,RTX 3090,"1024×1024, CFG 1, Euler / simple",2,"Comfy Kitchen INT8, SageAttention",840.301,385.267,16.107,0.331,benchmark-samples/minimax-h3-image-rtx3090-1024x1024.webp
+MiniMax H3 Image,1× GB10,"1024×1024, CFG 1, Euler / simple",2,"Comfy Kitchen INT8, PyTorch SDPA",78.187,1.663,0.737,0.472,benchmark-samples/minimax-h3-image-1xgb10-1024x1024.webp
 MiniMax H3 Image,2× GB10,"1024×1024, CFG 1, Euler / simple",2,"Comfy Kitchen INT8, PyTorch SDPA",84.407,2.383,1.146,0.770,benchmark-samples/minimax-h3-image-2xgb10-1024x1024.webp
 MOSS-Image SFT,RTX 3060,"1024×1024, CFG 3, Euler / sgm_uniform",2,"Comfy Kitchen INT8, PyTorch SDPA, SageAttention",557.111,124.381,3.436,1.598,benchmark-samples/moss-image-rtx3060-1024x1024.webp
 MOSS-Image SFT,RTX 3090,"1024×1024, CFG 3, Euler / sgm_uniform",2,"Comfy Kitchen INT8, PyTorch SDPA, SageAttention",11.807,570.612,20.344,0.766,benchmark-samples/moss-image-rtx3090-1024x1024.webp
