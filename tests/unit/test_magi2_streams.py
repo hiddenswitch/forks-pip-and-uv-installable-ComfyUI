@@ -50,3 +50,36 @@ def test_dense_mlp_bounds_gate_workspace(monkeypatch, modalities):
         for layer in layers:
             layer.register_forward_hook(check_projection)
         torch.testing.assert_close(mlp(x, groups), expected)
+
+
+@pytest.mark.parametrize("modalities", [1, 3])
+@torch.no_grad()
+def test_qk_rope_bounds_fp32_workspace(monkeypatch, modalities):
+    groups = (11, 0, 6)
+    q, k = (torch.randn(2, sum(groups), heads, 16).bfloat16() for heads in (4, 2))
+    q_norm, k_norm = (magi.MultiModalityRMSNorm(16, modalities) for _ in range(2))
+    q_norm.weight.uniform_(-0.5, 0.5)
+    k_norm.weight.uniform_(-0.5, 0.5)
+    freqs = torch.randn(1, sum(groups), 1, 4, 2, 2)
+    original = magi.comfy_kitchen.rms_rope_split_half
+    expected_q, expected_k = [], []
+    offset = 0
+    for index, length in enumerate(groups if modalities > 1 else (sum(groups),)):
+        if length:
+            span = slice(offset, offset + length)
+            qo, ko = original(q[:, span].float(), k[:, span].float(), freqs[:, span],
+                              q_norm.scales(q.device)[index], k_norm.scales(k.device)[index], epsilon=q_norm.eps, rot_dim=8)
+            expected_q.append(qo.bfloat16())
+            expected_k.append(ko.bfloat16())
+        offset += length
+    limit = 2 * 3 * (4 + 2) * 16 * 4
+    monkeypatch.setattr(magi, "QK_ROPE_FP32_CHUNK_BYTES", limit, raising=False)
+
+    def checked(qp, kp, *args, **kwargs):
+        assert (qp.numel() + kp.numel()) * 4 <= limit
+        return original(qp, kp, *args, **kwargs)
+
+    monkeypatch.setattr(magi.comfy_kitchen, "rms_rope_split_half", checked)
+    qo, ko = magi.qk_norm_rope(q, k, q_norm, k_norm, freqs, groups)
+    assert torch.equal(qo, torch.cat(expected_q, dim=1))
+    assert torch.equal(ko, torch.cat(expected_k, dim=1))

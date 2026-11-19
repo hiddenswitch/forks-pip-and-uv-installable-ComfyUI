@@ -42,6 +42,7 @@ from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimi
 TIME_CHANNELS = 64
 SINK_PAD = 8
 MHC_FP32_CHUNK_BYTES = 64 * 1024**2
+QK_ROPE_FP32_CHUNK_BYTES = 32 * 1024**2
 MLP_GATE_CHUNK_BYTES = 256 * 1024**2
 MOE_ROW_CHUNK = 1 << 16
 
@@ -668,20 +669,25 @@ class MultiModalityRMSNorm(nn.Module):
 
 def qk_norm_rope(q, k, q_norm, k_norm, freqs, groups):
     """fp32 per-head RMSNorm and partial split-half RoPE, rounded once to the input dtype."""
-    dtype = q.dtype
     rot_dim = freqs.shape[-3] * 2
     q_scales, k_scales = q_norm.scales(q.device), k_norm.scales(k.device)
-    q_parts, k_parts = [], []
+    # RMSNorm and RoPE are independent for each token. Limit the fp32 intermediates
+    # while writing each modality directly into the final attention inputs.
+    bytes_per_token = 4 * q.shape[0] * (q.shape[2] * q.shape[3] + k.shape[2] * k.shape[3])
+    chunk_size = max(1, QK_ROPE_FP32_CHUNK_BYTES // max(1, bytes_per_token))
+    queries, keys = torch.empty_like(q, memory_format=torch.contiguous_format), torch.empty_like(k, memory_format=torch.contiguous_format)
     splits = groups if q_norm.num_modality > 1 else (q.shape[1],)
-    for index, (qp, kp, fp) in enumerate(zip(q.split(splits, dim=1), k.split(splits, dim=1), freqs.split(splits, dim=1))):
-        if not qp.shape[1]:
-            q_parts.append(qp)
-            k_parts.append(kp)
-            continue
-        qo, ko = comfy_kitchen.rms_rope_split_half(qp.float(), kp.float(), fp, q_scales[index], k_scales[index], epsilon=q_norm.eps, rot_dim=rot_dim)
-        q_parts.append(qo.to(dtype))
-        k_parts.append(ko.to(dtype))
-    return torch.cat(q_parts, dim=1), torch.cat(k_parts, dim=1)
+    offset = 0
+    for index, length in enumerate(splits):
+        for start in range(offset, offset + length, chunk_size):
+            span = slice(start, min(start + chunk_size, offset + length))
+            qo, ko = comfy_kitchen.rms_rope_split_half(q[:, span].float(), k[:, span].float(), freqs[:, span],
+                                                        q_scales[index], k_scales[index], epsilon=q_norm.eps, rot_dim=rot_dim)
+            queries[:, span].copy_(qo)
+            keys[:, span].copy_(ko)
+            del qo, ko
+        offset += length
+    return queries, keys
 
 
 def sink_attention(q, k, v, sinks, comfy_attention, transformer_options):
