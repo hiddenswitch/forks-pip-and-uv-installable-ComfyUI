@@ -27,7 +27,7 @@ Throughput uses the second step. Sampling time includes both steps per stage.
 | Ideogram 4 | — | 0.2330 | 0.5441 | 0.2941 | 0.3425 |
 | Qwen-Image Layered | — | 0.1225 | 0.4352 | 0.1951 | 0.1876 |
 | Z-Image Turbo 6B | 0.3491 | 0.9267 | 2.1045 | 0.9776 | — |
-| Flux.2 Dev 32B | 0.0224 | 0.1523 | 0.0590 | 0.1848 | 0.2695 |
+| Flux.2 Dev 32B | 0.0224 | 0.1481 | 0.3068 | 0.1848 | 0.2695 |
 | SeedVR2 3B | 0.2105 | 0.4911 | 0.9772 | 0.3916 | — |
 
 ## Timing breakdown
@@ -59,7 +59,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Ideogram 4 | — | 194.16 | 157.75 | 43.41 | 36.76 |
 | Qwen-Image Layered | — | 302.60 | 365.78 | — | 49.56 |
 | Z-Image Turbo 6B | 24.96 | 288.45 | 1013.30 | — | — |
-| Flux.2 Dev 32B | 39.28 | 493.10 | — | — | — |
+| Flux.2 Dev 32B | 39.28 | 13.77 | 10.95 | — | — |
 | SeedVR2 3B | 150.17 | 9.89 | 28.25 | — | — |
 
 ### Sampling (s)
@@ -87,7 +87,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Ideogram 4 | — | 464.82 | 420.52 | 8.31 | 10.33 |
 | Qwen-Image Layered | — | 935.93 | 556.27 | 11.42 | 12.56 |
 | Z-Image Turbo 6B | 7.71 | 126.08 | 446.54 | 3.24 | — |
-| Flux.2 Dev 32B | 89.26 | 783.42 | 586.22 | 12.04 | 9.82 |
+| Flux.2 Dev 32B | 89.26 | 24.23 | 16.18 | 12.04 | 9.82 |
 | SeedVR2 3B | 11.44 | 82.07 | 285.24 | 7.49 | — |
 
 ### Decode (s)
@@ -115,5 +115,5 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Ideogram 4 | — | 11.23 | 4.87 | 0.98 | 0.77 |
 | Qwen-Image Layered | — | 5.02 | 1.02 | 1.21 | 1.17 |
 | Z-Image Turbo 6B | 31.30 | 4.90 | 7.75 | 1.83 | — |
-| Flux.2 Dev 32B | 20.75 | 1.27 | 4.93 | 0.83 | 0.73 |
+| Flux.2 Dev 32B | 20.75 | 1.26 | 0.82 | 0.83 | 0.73 |
 | SeedVR2 3B | 435.18 | 15.28 | 31.71 | 2.47 | — |
