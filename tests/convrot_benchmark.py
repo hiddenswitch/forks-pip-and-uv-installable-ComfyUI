@@ -225,6 +225,7 @@ SUITE: list[dict[str, Any]] = [
         },
         "overrides": {
             "3": {"resized_images": ["upscale", 0]},
+            "10": {"original_resized_images": ["upscale", 0]},
             "6": {"unet_name": "seedvr2_3b_int8_convrot.safetensors"},
             "2": {"width": 512, "height": 512},
             "8": {"steps": 2},
