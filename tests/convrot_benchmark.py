@@ -285,6 +285,7 @@ _LOADER_NODE_TYPES = frozenset({
     "CLIPTextEncodeSD3",
     "Magi2ImageToVideo",
     "MiniMaxH3ImageConditioning",
+    "YuE2GenerateMusic",
 })
 
 _SAMPLER_NODE_TYPES = frozenset({
