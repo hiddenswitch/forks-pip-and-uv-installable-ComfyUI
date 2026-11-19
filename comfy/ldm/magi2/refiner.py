@@ -202,11 +202,18 @@ class RefinerMLP(nn.Module):
         x = modality_linear(self.up_gate_proj, self.pre_norm(x, groups).to(compute_dtype), groups).float()
         return modality_linear(self.down_proj, swiglu7(x).to(compute_dtype), groups).float()
 
-    def forward(self, x, groups, compute_dtype):
-        bytes_per_token = x.shape[0] * self.gate_width * 4
+    def forward(self, x, groups, compute_dtype, attention_output=None):
+        def project(tokens, splits, attention):
+            if attention is None:
+                return self._project(tokens, splits, compute_dtype)
+            residual = tokens + attention
+            return residual + self._project(residual, splits, compute_dtype)
+
+        # The fp32 gate and its activation workspace coexist during SwiGLU.
+        bytes_per_token = x.shape[0] * self.gate_width * 4 * 2
         chunk_size = max(1, MLP_GATE_CHUNK_BYTES // max(1, bytes_per_token))
         if x.shape[1] <= chunk_size:
-            return self._project(x, groups, compute_dtype)
+            return project(x, groups, attention_output)
 
         # The gate expands each token independently. Keep only the fp32 residual output
         # across chunks and preserve each modality's normalization and projections.
@@ -220,7 +227,9 @@ class RefinerMLP(nn.Module):
             for chunk in part.split(chunk_size, dim=1):
                 length = chunk.shape[1]
                 chunk_groups[index] = length
-                out[:, offset:offset + length] = self._project(chunk, chunk_groups, compute_dtype)
+                span = slice(offset, offset + length)
+                attention = None if attention_output is None else attention_output[:, span]
+                out[:, span] = project(chunk, chunk_groups, attention)
                 offset += length
         return out
 
@@ -235,8 +244,8 @@ class RefinerLayer(nn.Module):
         self.mlp = RefinerMLP(hidden_size, intermediate_size, num_modality, dtype=dtype, device=device, operations=operations)
 
     def forward(self, x, freqs, groups, video_shape, compute_dtype, transformer_options={}):
-        x = x + self.attention(x, freqs, groups, video_shape, compute_dtype, transformer_options)
-        return x + self.mlp(x, groups, compute_dtype)
+        attention = self.attention(x, freqs, groups, video_shape, compute_dtype, transformer_options)
+        return self.mlp(x, groups, compute_dtype, attention_output=attention)
 
 
 class Magi2RefinerModel(nn.Module):

@@ -112,6 +112,24 @@ def test_refiner_mlp_bounds_fp32_gate_and_preserves_residual(monkeypatch, modali
     torch.testing.assert_close(actual, expected, rtol=0, atol=0)
 
 
+@pytest.mark.parametrize("residual_dtype", [torch.bfloat16, torch.float32])
+@pytest.mark.parametrize("limit", [512, 1024**2])
+@torch.no_grad()
+def test_refiner_mlp_adds_both_residuals_in_order(monkeypatch, residual_dtype, limit):
+    from comfy.ldm.magi2 import refiner
+
+    torch.manual_seed(42)
+    groups = (9, 0, 4)
+    mlp = refiner.RefinerMLP(16, 32, 3, dtype=torch.bfloat16, operations=torch.nn)
+    mlp.pre_norm.weight.zero_()
+    x = torch.randn(2, sum(groups), 16, dtype=residual_dtype)
+    attention = torch.randn_like(x, dtype=torch.bfloat16)
+    residual = x + attention
+    expected = residual + mlp._project(residual, groups, torch.bfloat16)
+    monkeypatch.setattr(refiner, "MLP_GATE_CHUNK_BYTES", limit)
+    torch.testing.assert_close(mlp(x, groups, torch.bfloat16, attention), expected, rtol=0, atol=0)
+
+
 @pytest.mark.parametrize("audio_tokens,with_timestep", [(0, True), (7, False)])
 @torch.no_grad()
 def test_input_adapter_bounds_fp32_workspace(monkeypatch, audio_tokens, with_timestep):
