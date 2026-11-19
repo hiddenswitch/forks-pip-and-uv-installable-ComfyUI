@@ -20,6 +20,7 @@ Memory figures in the support tables are approximate. See the benchmark results 
 | MiniMax H3 Video+Audio | TP/PP, ~132 GiB BF16 or ~55 GiB INT8 resident. | Single GPU |
 | MiniMax H3 Image | TP/PP, ~53 GiB INT8 resident or ~12 GiB offloaded. | Single GPU |
 | Flux.2 Dev 32B | TP/PP, ~46 GiB INT8 resident or ~12 GiB offloaded. | Single GPU |
+| Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2, local NVMe | — | [6.752 · 11.8](benchmark-samples/flux2-dev-rtx3060-1024x1024-local.webp) | [3.259 · 23.8](benchmark-samples/flux2-dev-rtx3090-1024x1024-local.webp) | — | — |
 | Ideogram 4 | TP, ~29 GiB INT8 resident. | Single GPU |
 | Krea 2 Turbo | TP, ~18 GiB INT8 resident. | Single GPU |
 | Qwen-Image family | PP, native GGUF, ~25 GiB INT8 resident. | Single GPU |
@@ -92,6 +93,8 @@ Each stage runs two steps. Cells show **seconds for step 2 · peak GiB**. Select
 | SeedVR2 3B | 512×512 → 2048×2048, CFG 1, Euler / simple | — | — | — | — | — |
 | SeedVR2 3B | 512×512 restoration, CFG 1, Euler / simple | — | [0.167 · 4.0](benchmark-samples/seedvr2-3b-rtx3060-512x512.webp) | [0.122 · 4.5](benchmark-samples/seedvr2-3b-rtx3090-512x512.webp) | [0.384 · 7.9](benchmark-samples/seedvr2-3b-1xgb10-512x512.webp) | — |
 | Z-Image Turbo 6B | 1024×1024, CFG 1, Euler / simple | — | [1.079 · 12.0](benchmark-samples/z-image-turbo-rtx3060-1024x1024.webp) | [0.475 · 21.9](benchmark-samples/z-image-turbo-rtx3090-1024x1024.webp) | [1.023 · 25.4](benchmark-samples/z-image-turbo-1xgb10-1024x1024.webp) | — |
+
+The first Flux.2 row uses shared storage on the RTX cards. The local NVMe row starts after the weights have been copied.
 
 Qwen-Image 2.1 produced a color silhouette on all three measured configurations with this two-step recipe.
 
