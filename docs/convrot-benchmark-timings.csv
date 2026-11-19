@@ -81,7 +81,7 @@ MiniMax H3 Video+Audio,RTX 3060,"1280×704, 124 frames at 24 fps, 32 kHz stereo,
 MiniMax H3 Video+Audio,RTX 3090,"1280×704, 124 frames at 24 fps, 32 kHz stereo, CFG 1, res_multistep / simple, local NVMe",2,SageAttention,3.662,45.766,29.743,21.362,benchmark-samples/minimax-h3-video-rtx3090.mp4
 MiniMax H3 Video+Audio,1× GB10,"1280×704, 124 frames at 24 fps, 32 kHz stereo, CFG 1, res_multistep / simple",2,PyTorch SDPA,100.926,115.650,40.230,59.806,benchmark-samples/minimax-h3-video-1xgb10.mp4
 MiniMax H3 Video+Audio,2× GB10,"1280×704, 124 frames at 24 fps, 32 kHz stereo, CFG 1, res_multistep / simple",2,PyTorch SDPA,96.352,70.046,42.529,28.498,benchmark-samples/minimax-h3-video-2xgb10.mp4
-MAGI-2 Preview,2× GB10,"Text to video, 896×512, 125 frames at 12.5 fps, video CFG 5, audio CFG 7, UniPC Flow",2,PyTorch SDPA,445.384,1670.856,68.046,826.074,benchmark-samples/magi2-preview-2xgb10.mp4
+MAGI-2 Preview,2× GB10,"Text to video, 896×512, 125 frames at 12.5 fps, 44.1 kHz stereo, video CFG 5, audio CFG 7, UniPC Flow",2,PyTorch SDPA,445.384,1670.856,68.046,826.074,benchmark-samples/magi2-preview-2xgb10.mp4
 Wan 2.1 SCAIL-2,RTX 3060,"832×480, 81 frames at 8 fps, CFG 6, Euler / normal",2,"PyTorch SDPA, SageAttention",188.650,578.885,45.387,77.461,benchmark-samples/wan21-scail2-rtx3060-832x480.webp
 Wan 2.1 SCAIL-2,RTX 3090,"832×480, 81 frames at 8 fps, CFG 6, Euler / normal",2,"PyTorch SDPA, SageAttention",142.190,419.915,18.361,26.946,benchmark-samples/wan21-scail2-rtx3090-832x480.webp
 Wan 2.1 SCAIL-2,1× GB10,"832×480, 81 frames at 8 fps, CFG 6, Euler / normal",2,PyTorch SDPA,278.351,112.970,27.301,54.047,benchmark-samples/wan21-scail2-1xgb10-832x480.webp

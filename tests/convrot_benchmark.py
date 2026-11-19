@@ -198,6 +198,7 @@ SUITE: list[dict[str, Any]] = [
     {
         "id": "minimax_h3_fl2va",
         "expected_video": (1280, 704, 124, 24),
+        "expected_audio_rate": 32000,
         "label": "MiniMax H3 FL2VA (Video+Audio)",
         "workflow": "minimax-h3-fl2va-0.json",
         "generation_args": "1280×704, 124 frames at 24 fps + audio, 2 steps, CFG 1.0 (res_multistep / simple)",
@@ -270,6 +271,7 @@ SUITE: list[dict[str, Any]] = [
     {
         "id": "magi2_t2va",
         "expected_video": (896, 512, 125, 12.5),
+        "expected_audio_rate": 44100,
         "label": "MAGI-2 Preview 114B MoE (Video+Audio)",
         "workflow": "magi2-t2va-0.json",
         "generation_args": "896×512, 125 frames at 12.5 fps + stereo audio, 2 steps (uni_pc_flow / flow_unipc)",
@@ -281,6 +283,7 @@ SUITE: list[dict[str, Any]] = [
     {
         "id": "magi2_refiner",
         "expected_video": (1920, 1088, 249, 25),
+        "expected_audio_rate": 44100,
         "label": "MAGI-2 Preview + Refiner (1088p)",
         "workflow": "magi2-i2va-refiner-0.json",
         "generation_args": "896×512, 125 frames at 12.5 fps -> 1920×1088, 249 frames at 25 fps + audio, 2+2 steps (uni_pc_flow / flow_unipc)",
@@ -566,7 +569,7 @@ def _seedvr_restoration_error(workflow: dict, output: Path) -> str | None:
     return None
 
 
-def _video_output_error(output: Path, expected: tuple[int, int, int, float]) -> str | None:
+def _video_output_error(output: Path, expected: tuple[int, int, int, float], audio_rate: int) -> str | None:
     import av
 
     width, height, frames, fps = expected
@@ -575,6 +578,8 @@ def _video_output_error(output: Path, expected: tuple[int, int, int, float]) -> 
             if len(movie.streams.video) != 1 or len(movie.streams.audio) != 1:
                 return "Expected one video stream and one audio stream"
             video, audio = movie.streams.video[0], movie.streams.audio[0]
+            if audio.rate != audio_rate or audio.layout.name != "stereo":
+                return f"Expected {audio_rate} Hz stereo audio, got {audio.rate} Hz {audio.layout.name}"
             if (video.width, video.height, video.average_rate) != (width, height, fps):
                 return f"Expected {width}×{height} at {fps} fps"
             frame_count = 0
@@ -657,7 +662,7 @@ def _output_error(spec, workflow, directory, names):
     if "expected_video" in spec:
         if len(names) != 1:
             return "Expected one video with audio"
-        return _video_output_error(directory / names[0], spec["expected_video"])
+        return _video_output_error(directory / names[0], spec["expected_video"], spec["expected_audio_rate"])
     if spec["id"] == "seedvr2_3b":
         for name in names:
             if error := _seedvr_restoration_error(workflow, directory / name):
