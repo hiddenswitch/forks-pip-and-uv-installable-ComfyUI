@@ -14,20 +14,19 @@ A vanilla, up-to-date fork of [ComfyUI](https://github.com/comfyanonymous/comfyu
 
 Used in production by **Scopely**, a game studio, **Livepeer** and **Nunchaku Tech**. Used by innovators at **Ferrero Group**, **Hyundai** and **Nike**.
 
-Take ComfyUI from a creative workspace to an application, a command-line job, or a fleet of workers. This fork brings Python packaging, headless workflows, embedded execution, and integrated multi-GPU inference together while tracking upstream ComfyUI.
+## Key Features
 
-## Key Features and Differences
+- ComfyUI is an ordinary Python package you can install with pip.
+- Run saved workflows from the command line.
+- Multi-GPU support.
+- Distributed support.
+- Use ComfyUI as a library with the `Comfy()` object and build workflows in Python.
+- First-class support for the Hugging Face model cache (`HF_HOME`).
+- Install custom node packages with pip.
 
-- **Install an application, not a checkout.** Get the `comfyui` command from a Python package index, reuse an existing workspace, and add accelerator extensions when needed.
-- **Run a workflow directly.** Discover its parameters with workflow-specific help, override prompts and node inputs, and consume JSON results. Opt into missing-node installation and model downloads with `--all`.
-- **Put multiple GPUs to work.** Integrated tensor, pipeline, and sequence parallelism support selected model families. Hardware-aware defaults and explicit controls let you choose between latency, model capacity, and independent-job throughput.
-- **Keep useful weights resident.** Reuse a running client across prompts. Native quantized storage, LoRA materialization accounting, and bounded host-memory pinning help avoid unnecessary transfers under memory pressure.
-- **Build around the workflow engine.** The embedded Python client accepts API and UI workflow dictionaries, provides progress streaming in its thread executor, and selects subprocess isolation for configuration that changes global model-management state.
-- **Bring ecosystem nodes along.** Install custom nodes as packages through the facade, load conventional `custom_nodes/` folders through compatibility shims, or host your own package index. Node-specific dependencies and platform limits still apply.
-- **Scale throughput independently.** RabbitMQ workers execute queued jobs behind a separate frontend; shared storage keeps inputs and outputs accessible across hosts.
-- **Connect existing infrastructure.** Discover local models, resolve supported model URLs, use object-storage integrations, and deploy packaged NVIDIA or AMD containers.
-
-Upstream features include native text generation, DynamicVRAM, and HDR/high-bit-depth media nodes.
+  ```sh
+  pip install --extra-index-url https://nodes.appmana.com/simple/ comfyui-wanvideowrapper
+  ```
 
 ## Install
 
