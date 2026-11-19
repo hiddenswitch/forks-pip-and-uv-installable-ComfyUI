@@ -78,7 +78,7 @@ Cells show **seconds for step 2 · peak GiB**. The 2× GB10 column shows memory 
 | Flux.2 Dev 32B | 1024×1024, CFG 1, Euler / Flux2 | — | 6.568 · 11.8 | 16.948 · 23.8 | 5.411 · 56.9 | 3.711 · 44.1 / 23.6 |
 | Flux.3 Klein 4B | 1024×1024, CFG 1, er_sde / simple | — | 0.686 · 7.6 | 0.340 · 6.2 | 0.665 · 17.8 | — |
 | Ideogram 4 | 384×688, CFG 3, res_multistep / Ideogram4 | — | 1.716 · 11.7 | 0.880 · 10.5 | 0.848 · 33.4 | 1.079 · 28.8 / 15.5 |
-| Ideogram 4 | 1024×1024, CFG 3, res_multistep / Ideogram4 | — | — | — | — | 2.920 · 29.0 / 16.4 |
+| Ideogram 4 | 1024×1024, CFG 3, res_multistep / Ideogram4 | — | 4.291 · 10.7 | — | — | 2.920 · 29.0 / 16.4 |
 | JoyAI Image Edit | 512×512, CFG 4, Euler / simple | — | 5.798 · 11.8 | 2.215 · 17.0 | 5.275 · 32.6 | — |
 | Krea 2 Turbo | 1024×1024, CFG 1, res_multistep / normal | — | 2.393 · 11.8 | 0.943 · 14.1 | 2.388 · 27.0 | 1.865 · 24.0 / 14.4 |
 | Mage-Flow | 512×512, CFG 5, Euler / simple | — | 0.162 · 12.0 | 0.095 · 16.1 | 0.186 · 17.0 | — |
@@ -103,6 +103,7 @@ Cells show **seconds for step 2 · peak GiB**. The 2× GB10 column shows memory 
 | Wan 2.1 SCAIL-2 | 512×512, 17 frames at 8 fps, CFG 6, Euler / normal | — | 6.043 · 11.8 | 2.698 · 19.4 | 5.704 · 31.9 | — |
 | MiniMax Music 3 | 0.07 s audio, res_multistep / simple | — | 0.055 · 10.7 | 0.040 · 11.0 | 0.105 · 17.6 | — |
 | YuE2 3B | 1 s audio, CFG 1, Euler / simple | 0.100 · 2.4 | 0.043 · 2.7 | 0.033 · 3.9 | 0.019 · 7.4 | — |
+| YuE2 3B | 30 s audio, CFG 1, Euler / simple | 0.171 · 4.9 | — | — | — | — |
 
 The following 2× GB10 runs are pending.
 
