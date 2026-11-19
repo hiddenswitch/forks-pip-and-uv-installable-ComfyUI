@@ -1106,20 +1106,41 @@ def _flash_mh_moe_int8_triton(
     num_experts: int,
     stream_heads: bool = False,
 ) -> torch.Tensor:
+    total_experts = x.shape[1] * num_experts
+    views = tuple(_quant_bank_views(bank, weight, total_experts) for bank, weight in banks)
+    if not stream_heads:
+        return _flash_mh_moe_int8_views(x, all_probs, all_indices, views, num_experts)
+
+    # Copy each head's experts once. Bound routed activations independently of the clip length.
+    bytes_per_token = all_indices.shape[-1] * banks[0][0].out_features * 4
+    token_chunk = max(1, MLP_GATE_CHUNK_BYTES // max(1, bytes_per_token))
+    out = torch.empty_like(x)
+    for head in range(x.shape[1]):
+        experts = slice(head * num_experts, (head + 1) * num_experts)
+        head_views = tuple(
+            (q[experts].to(x.device), (scale if scalar else scale[experts]).to(x.device), group, scalar)
+            for q, scale, group, scalar in views
+        )
+        for start in range(0, x.shape[0], token_chunk):
+            span = slice(start, start + token_chunk)
+            out[span, head:head + 1] = _flash_mh_moe_int8_views(
+                x[span, head:head + 1], all_probs[head:head + 1, span], all_indices[head:head + 1, span],
+                head_views, num_experts,
+            )
+        del head_views
+    return out
+
+
+def _flash_mh_moe_int8_views(x, all_probs, all_indices, views, num_experts):
     tokens_count, heads, d_head = x.shape
     top_k = all_indices.shape[-1]
-    total_experts = heads * num_experts
-    d_expert = banks[0][0].out_features
-
-    qg_t, sg, group_g, sg_scalar = _quant_bank_views(banks[0][0], banks[0][1], total_experts)
-    qu_t, su, _, su_scalar = _quant_bank_views(banks[1][0], banks[1][1], total_experts)
-    qd_t, sd, group_d, sd_scalar = _quant_bank_views(banks[2][0], banks[2][1], total_experts)
-
+    (qg_t, sg, group_g, sg_scalar), (qu_t, su, _, su_scalar), (qd_t, sd, group_d, sd_scalar) = views
+    d_expert = qg_t.shape[2]
     block_dh = _triton_block_dim(d_head)
     block_de = _triton_block_dim(d_expert)
     block_t = 64
     hidden_dtype = torch.float16 if x.dtype == torch.float16 else torch.bfloat16
-    head_chunk = 1 if stream_heads else max(1, MOE_ROW_CHUNK // max(1, tokens_count * top_k))
+    head_chunk = max(1, MOE_ROW_CHUNK // max(1, tokens_count * top_k))
 
     out = torch.empty_like(x)
     for h_start in range(0, heads, head_chunk):
@@ -1147,14 +1168,6 @@ def _flash_mh_moe_int8_triton(
         sg_slice = sg if sg_scalar else sg[e_start:e_start + e_count]
         su_slice = su if su_scalar else su[e_start:e_start + e_count]
         sd_slice = sd if sd_scalar else sd[e_start:e_start + e_count]
-
-        if stream_heads:
-            qg_slice = qg_slice.to(x.device)
-            qu_slice = qu_slice.to(x.device)
-            qd_slice = qd_slice.to(x.device)
-            sg_slice = sg_slice.to(x.device)
-            su_slice = su_slice.to(x.device)
-            sd_slice = sd_slice.to(x.device)
 
         _mh_moe_gate_up_swiglu7_int8_kernel[(grid_1d, triton.cdiv(d_expert, block_de))](
             x_hi,
