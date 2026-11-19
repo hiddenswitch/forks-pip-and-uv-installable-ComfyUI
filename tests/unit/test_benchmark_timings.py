@@ -132,9 +132,13 @@ def test_convrot_resume_requires_output_from_the_recorded_run(tmp_path, monkeypa
     (directory / "result.json").write_text(json.dumps(legacy))
     assert run() == legacy
     assert len(calls) == 2
-    (directory / "images/current.png").unlink()
+    (directory / "result.json").write_text(json.dumps(dict(good, returncode=1)))
     assert run()["status"] == "failed"
     assert len(calls) == 3
+    (directory / "result.json").write_text(json.dumps(good))
+    (directory / "images/current.png").unlink()
+    assert run()["status"] == "failed"
+    assert len(calls) == 4
 
 
 def test_seedvr_restoration_rejects_flat_and_wrong_size_images(tmp_path):

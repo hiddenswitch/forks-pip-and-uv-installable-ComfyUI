@@ -698,6 +698,7 @@ def run_single_model(spec: dict[str, Any], repo_root: Path, out_dir: Path, extra
             if (
                 outputs and all(name in previous_media for name in outputs)
                 and existing.get("status") == "success"
+                and existing.get("returncode") == 0
                 and existing.get("step2_seconds") is not None
                 and _sampling_error(sampler_ids, existing.get("step_measurements", []), existing.get("trace_summary", {})) is None
                 and existing.get("generation_args") == spec["generation_args"]
