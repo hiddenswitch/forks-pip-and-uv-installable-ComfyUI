@@ -57,6 +57,7 @@ Qwen-Image Layered,RTX 3090,"640×640, 2 layers, CFG 2.5, Euler / simple",2,"PyT
 Qwen-Image Layered,1× GB10,"640×640, 2 layers, CFG 2.5, Euler / simple",2,PyTorch SDPA,315.488,11.419,1.210,5.127,benchmark-samples/qwen-image-layered-1xgb10-640x640.webp
 Qwen-Image Layered,2× GB10,"640×640, 2 layers, CFG 2.5, Euler / simple",2,PyTorch SDPA,49.561,12.562,1.168,5.331,benchmark-samples/qwen-image-layered-2xgb10-640x640.webp
 SeedVR2 3B,RTX 3060,"512×512 → 2048×2048, CFG 1, Euler / simple",2,SageAttention,9.885,82.067,15.277,2.036,benchmark-samples/seedvr2-3b-rtx3060-2048x2048.webp
+SeedVR2 3B,RTX 3090,"512×512 → 2048×2048, CFG 1, Euler / simple",2,SageAttention,28.246,285.237,31.712,1.023,benchmark-samples/seedvr2-3b-rtx3090-2048x2048.webp
 SeedVR2 3B,1× GB10,"512×512 → 2048×2048, CFG 1, Euler / simple",2,PyTorch SDPA,9.136,7.488,2.470,2.553,benchmark-samples/seedvr2-3b-1xgb10-2048x2048.webp
 SeedVR2 3B,RX 7600,"512×512 restoration, CFG 1, Euler / simple, local NVMe, CPU VAE",2,PyTorch SDPA,10.383,2.378,14.067,0.408,benchmark-samples/seedvr2-3b-rx7600-512x512-cpu-vae.webp
 SeedVR2 3B,RTX 3060,"512×512 restoration, CFG 1, Euler / simple",2,"PyTorch SDPA, SageAttention",11.179,96.252,8.156,0.167,benchmark-samples/seedvr2-3b-rtx3060-512x512.webp
