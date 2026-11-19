@@ -25,6 +25,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Flux.3 Image Klein 4B",
         "workflow": "flux3-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 1.0 (er_sde / simple)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "6": {"width": 1024, "height": 1024},
             "8": {"steps": 2},
@@ -35,6 +36,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Z-Image Turbo 6B",
         "workflow": "z_image-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 1.0 (euler / simple)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "16": {"unet_name": "z_image_turbo_int8_convrot.safetensors"},
             "13": {"width": 1024, "height": 1024},
@@ -46,6 +48,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "MOSS-Image SFT",
         "workflow": "moss-image-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 3.0 (euler / sgm_uniform)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "1": {"unet_name": "moss_image_sft_int8_convrot.safetensors"},
             "2": {"clip_name": "qwen3.5_9b_int8_convrot.safetensors"},
@@ -58,6 +61,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Fibo 2.0 Dev",
         "workflow": "fibo2-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 5.0 (euler / Fibo2Scheduler)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "1": {"unet_name": "fibo2_dev_int8_convrot.safetensors"},
             "6": {"width": 1024, "height": 1024},
@@ -69,6 +73,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Mage-Flow",
         "workflow": "mage-flow-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 5.0 (euler / simple)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "27": {"megapixels": 1.0},
             "12:6": {"steps": 2},
@@ -79,6 +84,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Ming-Image 0.1 Design",
         "workflow": "ming-image-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 4.0 (euler / simple)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "80:21": {"steps": 2},
             "80:41": {"width": 1024, "height": 1024},
@@ -90,6 +96,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Krea 2 Turbo",
         "workflow": "krea2-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 1.0 (res_multistep / normal)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "37": {"unet_name": "krea2_turbo_int8_convrot.safetensors"},
             "58": {"width": 1024, "height": 1024},
@@ -101,6 +108,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Ideogram 4",
         "workflow": "ideogram4-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 3.0 (res_multistep / Ideogram4Scheduler)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "37": {"aspect_ratio": "1:1 (Square)", "megapixels": 1.0},
             "98:23": {"unet_name": "ideogram4_int8_convrot.safetensors"},
@@ -114,6 +122,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Qwen-Image 2.1",
         "workflow": "qwen-image21-int8-convrot-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 4.0 (euler / simple)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "4": {"resolution": 1024},
             "5": {"steps": 2},
@@ -124,6 +133,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "JoyAI Image Edit",
         "workflow": "joyimage-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 4.0 (euler / simple)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "8": {"width": 1024, "height": 1024},
             "9": {"steps": 2},
@@ -134,6 +144,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Boogu Image Edit",
         "workflow": "boogu-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 1.0 (res_multistep / normal)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "37": {"unet_name": "boogu_image_edit_int8_convrot.safetensors"},
             "38": {"clip_name": "qwen3vl_8b_int8_convrot.safetensors"},
@@ -146,6 +157,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Qwen-Image Layered",
         "workflow": "qwen-image-layered-pipeline-0.json",
         "generation_args": "640×640, 2 layers, 2 steps, CFG 2.5 (euler / simple)",
+        "expected_image_size": (640, 640),
         "overrides": {
             "83:3": {"steps": 2},
         },
@@ -155,6 +167,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Marigold V2 Depth (Qwen-Image Edit 2509)",
         "workflow": "marigold-v2-depth-0.json",
         "generation_args": "1024×1024, 2 steps (euler, manual sigmas)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "2": {"width": 1024, "height": 1024},
         },
@@ -164,6 +177,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "MiniMax H3 Image",
         "workflow": "minimax-h3-image-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 1.0 (euler / simple)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "4": {"width": 1024, "height": 1024},
             "6": {"steps": 2},
@@ -174,6 +188,7 @@ SUITE: list[dict[str, Any]] = [
         "label": "Flux.2 Dev 32B",
         "workflow": "flux2-0.json",
         "generation_args": "1024×1024, 2 steps, CFG 1.0 (euler / Flux2Scheduler)",
+        "expected_image_size": (1024, 1024),
         "overrides": {
             "12": {"unet_name": "flux2-dev-int8-convrot-simple.safetensors"},
             "47": {"width": 1024, "height": 1024},
@@ -616,6 +631,24 @@ def _animation_output_error(output, latent_inputs, fps):
 
 
 def _output_error(spec, workflow, directory, names):
+    if "expected_image_size" in spec:
+        from PIL import Image
+
+        expected = spec["expected_image_size"]
+        layered = spec["id"] == "qwen_image_layered"
+        count = 3 if layered else 1  # The two-layer preset also saves its background.
+        if len(names) != count:
+            return f"Expected {count} benchmark images, got {len(names)}"
+        try:
+            for name in names:
+                with Image.open(directory / name) as image:
+                    if image.size != expected or image.n_frames != 1:
+                        return f"Expected a single frame at {expected}, got {image.n_frames} at {image.size}"
+                    if layered and "A" not in image.getbands():
+                        return f"Missing alpha channel in layer {name}"
+                    image.load()
+        except (OSError, ValueError, EOFError) as error:
+            return f"Could not decode benchmark image: {error}"
     if spec["id"] in ("pan2_t2v", "wan21_scail2"):
         if len(names) != 1:
             return "Expected one animated WebP"

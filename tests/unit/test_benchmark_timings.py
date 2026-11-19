@@ -112,7 +112,7 @@ def test_convrot_resume_requires_output_from_the_recorded_run(tmp_path, monkeypa
         if len(calls) == 2:
             media = directory / "images"
             media.mkdir()
-            Image.new("RGB", (8, 8)).save(media / "current.png")
+            Image.new("RGB", preset["expected_image_size"]).save(media / "current.png")
         return SimpleNamespace(wait=lambda: 0)
 
     monkeypatch.setattr(benchmark.subprocess, "Popen", launch)
@@ -182,3 +182,19 @@ def test_animation_validation_accepts_coalesced_frames_and_rejects_timing_drift(
     assert _animation_output_error(output, inputs, 24) is None
     first.save(output, save_all=True, append_images=[second], duration=[82, 41], lossless=True)
     assert _animation_output_error(output, inputs, 24)
+
+
+def test_still_benchmarks_reject_wrong_resolution_and_missing_layers(tmp_path):
+    from PIL import Image
+    from tests.convrot_benchmark import _output_error
+
+    specs = {spec["id"]: spec for spec in SUITE}
+    files = ["layer-0.png", "layer-1.png", "layer-2.png"]
+    for name in files:
+        Image.new("RGBA", (640, 640)).save(tmp_path / name)
+    assert _output_error(specs["flux3"], {}, tmp_path, files[:1])
+    layered = specs["qwen_image_layered"]
+    assert _output_error(layered, {}, tmp_path, files) is None
+    assert _output_error(layered, {}, tmp_path, files[:2])
+    Image.new("RGB", (640, 640)).save(tmp_path / files[-1])
+    assert _output_error(layered, {}, tmp_path, files)
