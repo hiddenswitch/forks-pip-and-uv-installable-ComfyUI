@@ -82,7 +82,7 @@ Cells show **seconds for step 2 · peak GiB**. The 2× GB10 column shows memory 
 | JoyAI Image Edit | 512×512, CFG 4, Euler / simple | — | 5.798 · 11.8 | 2.215 · 17.0 | 5.275 · 32.6 | — |
 | Krea 2 Turbo | 1024×1024, CFG 1, res_multistep / normal | — | 2.393 · 11.8 | 0.943 · 14.1 | 2.388 · 27.0 | 1.865 · 24.0 / 14.4 |
 | Mage-Flow | 512×512, CFG 5, Euler / simple | — | 0.162 · 12.0 | 0.095 · 16.1 | 0.186 · 17.0 | — |
-| Mage-Flow | 1024×1024, CFG 5, Euler / simple | 1.837 · 7.0 | 0.720 · 11.7 | — | — | — |
+| Mage-Flow | 1024×1024, CFG 5, Euler / simple | 1.837 · 7.0 | 0.720 · 11.7 | 0.266 · 16.1 | — | — |
 | Marigold V2 Depth | 512×512, Euler, manual sigmas | — | 1.446 · 11.8 | 0.228 · 20.5 | 0.569 · 36.1 | — |
 | Ming-Image 0.1 Design | 1024×1024, CFG 4, Euler / simple | — | 1.050 · 11.8 | 0.470 · 21.9 | 1.086 · 37.7 | — |
 | MiniMax H3 Image | 1024×1024, CFG 1, Euler / simple | — | 1.364 · 11.8 | 0.331 · 23.7 | — | — |
