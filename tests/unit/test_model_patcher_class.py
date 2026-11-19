@@ -252,3 +252,35 @@ def test_attention_config_lora_isolated_from_original_and_weight_patches():
     clone.add_patches({'linear.weight': ('diff', (torch.ones_like(model.linear.weight),))})
     assert clone.patches_uuid != weights_uuid
     assert 'linear.weight' in clone.patches
+
+
+def test_static_patcher_detaches_during_collection_and_skips_interpreter_teardown():
+    import subprocess
+    import sys
+    import textwrap
+
+    script = textwrap.dedent("""
+        import gc
+        import os
+        import torch
+        from comfy.cli_args import args
+        args.cpu = True
+        from comfy.model_patcher import CallbacksMP, ModelPatcher
+
+        def make_patcher():
+            device = torch.device("cpu")
+            model = torch.nn.Linear(2, 2)
+            patcher = ModelPatcher(model, device, device, _force_core=True)
+            model.current_patcher = patcher
+            patcher.add_callback(CallbacksMP.ON_DETACH, lambda *args, write=os.write: write(1, b"detach\\n"))
+            return patcher
+
+        gc.disable()
+        collected = make_patcher()
+        del collected
+        gc.collect()
+        final = make_patcher()
+    """)
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=True)
+    assert result.stdout.splitlines().count("detach") == 1
+    assert "Exception ignored" not in result.stderr
