@@ -67,7 +67,7 @@ These model families are available in both versions. Memory estimates vary with 
 
 ## INT8 ConvRot benchmarks
 
-Each stage runs two steps. Cells show **seconds for step 2 · peak GiB** and link to the output. The MAGI-2 refiner row gives preview and refiner times in that order. RTX and Radeon peaks include other processes on the measured GPU. GB10 memory is estimated per host. For the two-GB10 MiniMax H3 Image and MAGI-2 runs, the second GPU also hosted an inference server. A dash means no verified result.
+Each stage runs two steps. Cells show **seconds for step 2 · peak GiB** and link to the output. The MAGI-2 refiner row gives preview and refiner times in that order. RTX and Radeon peaks include other processes on the measured GPU. GB10 memory is estimated per host. For the two-GB10 MiniMax H3 and MAGI-2 runs, the second GPU also hosted an inference server. A dash means no verified result.
 
 Sampling seeds, per-run settings, attention backends, and time spent loading, sampling, and decoding are in the [timings CSV](convrot-benchmark-timings.csv). Sampling includes first-step weight transfers.
 
@@ -115,13 +115,11 @@ On the RX 7600, the SeedVR2 GPU VAE produced a [distorted portrait at 512×512](
 | PAN 2 | 1248×704, 241 frames at 24 fps, CFG 5, Euler / simple | — | [120.499 · 11.9](benchmark-samples/pan2-t2v-rtx3060-1248x704.webp) | [55.184 · 23.9](benchmark-samples/pan2-t2v-rtx3090-1248x704.webp) | [111.884 · 91.7](benchmark-samples/pan2-t2v-1xgb10-1248x704.webp) | [72.070 · 95.5 / 22.2](benchmark-samples/pan2-t2v-2xgb10-1248x704.webp) |
 | MiniMax Music 3 | 30 s cap, 44.1 kHz stereo, AR CFG 1.5, sampler CFG 1, res_multistep / simple, AR top-k 30 | [1.233 · 7.6](benchmark-samples/minimax-music3-rx7600-26749ms.mp3) (26.75 s clip) | [0.245 · 10.2](benchmark-samples/minimax-music3-rtx3060-15279ms.mp3) (15.28 s clip) | [0.349 · 11.3](benchmark-samples/minimax-music3-rtx3090-24079ms.mp3) (24.08 s clip) | [0.375 · 28.2](benchmark-samples/minimax-music3-1xgb10-24393ms.mp3) (24.39 s clip) | — |
 | YuE2 3B | 30 s, 48 kHz stereo, CFG 1, Euler / simple, AR top-k 100, AR top-p 0.95 | [0.171 · 4.9](benchmark-samples/yue2-rx7600-30000ms.mp3) | [0.064 · 2.8](benchmark-samples/yue2-rtx3060-30000ms.mp3) | [0.047 · 3.1](benchmark-samples/yue2-rtx3090-30000ms.mp3) | [0.044 · 11.2](benchmark-samples/yue2-1xgb10-30000ms.mp3) | — |
-| MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, 32 kHz stereo, CFG 1, res_multistep / simple | — | [65.063 · 11.8](benchmark-samples/minimax-h3-video-rtx3060.mp4) | [21.362 · 23.8](benchmark-samples/minimax-h3-video-rtx3090.mp4) | [59.806 · 67.0](benchmark-samples/minimax-h3-video-1xgb10.mp4) | — |
+| MiniMax H3 Video+Audio | 1280×704, 124 frames at 24 fps, 32 kHz stereo, CFG 1, res_multistep / simple | — | [65.063 · 11.8](benchmark-samples/minimax-h3-video-rtx3060.mp4) | [21.362 · 23.8](benchmark-samples/minimax-h3-video-rtx3090.mp4) | [59.806 · 67.0](benchmark-samples/minimax-h3-video-1xgb10.mp4) | [32.711 · 61.8 / 23.7](benchmark-samples/minimax-h3-video-2xgb10.mp4) |
 | MAGI-2 Preview | Text to video, 896×512, 125 frames at 12.5 fps, 44.1 kHz stereo, video CFG 5, audio CFG 7, UniPC Flow | — | [643.014 · 12.0](benchmark-samples/magi2-preview-rtx3060.mp4) | — | [531.146 · 21.1](benchmark-samples/magi2-preview-1xgb10.mp4) | [826.074 · 94.5 / 97.7](benchmark-samples/magi2-preview-2xgb10.mp4) |
 | MAGI-2 Preview | Text to video, 896×512, 125 frames at 12.5 fps, 44.1 kHz stereo, video CFG 5, audio CFG 7, UniPC Flow, PyTorch SDPA only | — | [542.648 · 12.0](benchmark-samples/magi2-preview-rtx3060-sdpa.mp4) | [241.043 · 23.9](benchmark-samples/magi2-preview-rtx3090-sdpa.mp4) | — | — |
 | MAGI-2 Preview + Refiner | Image to video, 896×512, 125 frames at 12.5 fps (video CFG 5, audio CFG 7) → 1920×1088, 249 frames at 25 fps (CFG 2), 44.1 kHz stereo, UniPC Flow | — | — | — | [568.657 / 791.074 · 66.1](benchmark-samples/magi2-refiner-1xgb10.mp4) | [527.469 / 4518.399 · 94.0 / 78.3](benchmark-samples/magi2-refiner-2xgb10.mp4) |
 | Wan 2.1 SCAIL-2 | 832×480, 81 frames at 8 fps, CFG 6, Euler / normal, shift 8 | — | [77.461 · 11.8](benchmark-samples/wan21-scail2-rtx3060-832x480.webp) | [26.946 · 22.0](benchmark-samples/wan21-scail2-rtx3090-832x480.webp) | [54.047 · 38.4](benchmark-samples/wan21-scail2-1xgb10-832x480.webp) | — |
-
-An earlier two-GB10 MiniMax H3 run applied the audio schedule twice. Its [clip](benchmark-samples/minimax-h3-video-2xgb10.mp4) is about 30 dB louder than the single-GB10 clip. The corrected run is pending.
 
 Both two-step MAGI-2 refiner clips start with a clear portrait. The middle and final frames are heavily blurred.
 
