@@ -22,7 +22,7 @@ Throughput uses the second step. Sampling time includes both steps per stage.
 | Mage-Flow | 0.5444 | 1.3895 | 3.7536 | 1.6922 | — |
 | JoyAI Image Edit<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 0.0273 | 0.1077 | 0.3015 | 0.1084 | — |
 | Boogu Image Edit<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 0.2257 | 0.5908 | 1.3499 | 0.6431 | — |
-| Krea 2 Turbo | — | 0.4178 | 1.0603 | 0.4188 | 0.5363 |
+| Krea 2 Turbo<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 0.1724 | 0.4178 | 1.0603 | 0.4188 | 0.5363 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps, RX 7600 uses CPU decode and synchronous copies</sub> | 0.0010 | 0.0129 | 0.0371 | 0.0185 | — |
 | Ideogram 4<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 0.0655 | 0.2330 | 0.5441 | 0.2941 | 0.3425 |
 | Qwen-Image Layered<br><sub>640x640, 2 layers, RX 7600 uses CPU decode and synchronous copies</sub> | 0.0550 | 0.1225 | 0.4352 | 0.1951 | 0.1876 |
@@ -54,7 +54,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Mage-Flow | 1043.57 | 203.18 | 859.37 | 23.18 | — |
 | JoyAI Image Edit<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 486.34 | 11.99 | 8.41 | 44.73 | — |
 | Boogu Image Edit<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 110.01 | 6.30 | 259.56 | — | — |
-| Krea 2 Turbo | — | 136.33 | 187.47 | — | 30.71 |
+| Krea 2 Turbo<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 70.51 | 136.33 | 187.47 | — | 30.71 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps, RX 7600 uses CPU decode and synchronous copies</sub> | 40.94 | 188.65 | 142.19 | — | — |
 | Ideogram 4<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 149.85 | 194.16 | 157.75 | 43.41 | 36.76 |
 | Qwen-Image Layered<br><sub>640x640, 2 layers, RX 7600 uses CPU decode and synchronous copies</sub> | 83.36 | 302.60 | 365.78 | — | 49.56 |
@@ -82,7 +82,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Mage-Flow | 4.10 | 104.99 | 296.72 | 2.32 | — |
 | JoyAI Image Edit<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 79.39 | 23.79 | 9.63 | 19.35 | — |
 | Boogu Image Edit<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 11.38 | 6.66 | 183.35 | 4.55 | — |
-| Krea 2 Turbo | — | 384.26 | 350.98 | 5.51 | 8.12 |
+| Krea 2 Turbo<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 15.25 | 384.26 | 350.98 | 5.51 | 8.12 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps, RX 7600 uses CPU decode and synchronous copies</sub> | 1971.42 | 578.88 | 419.92 | 112.97 | — |
 | Ideogram 4<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 36.92 | 464.82 | 420.52 | 8.31 | 10.33 |
 | Qwen-Image Layered<br><sub>640x640, 2 layers, RX 7600 uses CPU decode and synchronous copies</sub> | 45.61 | 935.93 | 556.27 | 11.42 | 12.56 |
@@ -110,7 +110,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Mage-Flow | 0.50 | 3.87 | 3.95 | 0.52 | — |
 | JoyAI Image Edit<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 14.62 | 0.46 | 0.21 | 1.34 | — |
 | Boogu Image Edit<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 20.10 | 1.15 | 2.34 | 1.74 | — |
-| Krea 2 Turbo | — | 12.35 | 3.55 | 1.30 | 1.25 |
+| Krea 2 Turbo<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 14.32 | 12.35 | 3.55 | 1.30 | 1.25 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps, RX 7600 uses CPU decode and synchronous copies</sub> | 1303.34 | 45.39 | 18.36 | 27.30 | — |
 | Ideogram 4<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | — | 11.23 | 4.87 | 0.98 | 0.77 |
 | Qwen-Image Layered<br><sub>640x640, 2 layers, RX 7600 uses CPU decode and synchronous copies</sub> | 16.02 | 5.02 | 1.02 | 1.21 | 1.17 |
