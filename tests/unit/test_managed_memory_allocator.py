@@ -1,4 +1,5 @@
 import ctypes
+import os
 import shutil
 import subprocess
 import sys
@@ -302,15 +303,17 @@ def test_discrete_gpus_keep_the_default_allocator_and_dynamic_vram():
     assert result.stdout.strip().splitlines()[-1] == "False True"
 
 
-def test_managed_allocator_backs_cuda_tensors_with_managed_memory():
+@pytest.mark.parametrize("allocator_env", ["PYTORCH_ALLOC_CONF", "PYTORCH_CUDA_ALLOC_CONF"])
+def test_managed_allocator_backs_cuda_tensors_with_managed_memory(allocator_env):
     """With the setting forced on, torch allocates cudaMallocManaged memory before anything else touches CUDA."""
     import torch
     if torch.version.cuda is None or not torch.cuda.is_available():
         pytest.skip("needs an NVIDIA CUDA device")
     script = textwrap.dedent("""
-        import ctypes, torch
+        import ctypes, os, sys, torch
         from comfy import managed_memory
         assert managed_memory.install(True)
+        assert os.environ[sys.argv[1]] == "expandable_segments:True"
         x = torch.arange(1024, device="cuda", dtype=torch.float32)
         assert torch.empty(0, device="cuda").numel() == 0
         value = ctypes.c_int(0)
@@ -319,7 +322,9 @@ def test_managed_allocator_backs_cuda_tensors_with_managed_memory():
         assert libcuda.cuPointerGetAttribute(ctypes.byref(value), CU_POINTER_ATTRIBUTE_IS_MANAGED, ctypes.c_uint64(x.data_ptr())) == 0
         print(int(value.value), float((x * 2).sum().item()))
     """)
-    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=300, check=True)
+    environment = {**os.environ, allocator_env: "backend:cudaMallocAsync,expandable_segments:True"}
+    result = subprocess.run([sys.executable, "-c", script, allocator_env], env=environment,
+                            capture_output=True, text=True, timeout=300, check=True)
     assert result.stdout.strip().splitlines()[-1] == f"1 {float(sum(range(1024)) * 2)}"
     assert "cuMemAllocManaged" not in result.stderr
 

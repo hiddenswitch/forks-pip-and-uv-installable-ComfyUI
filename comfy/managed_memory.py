@@ -13,6 +13,7 @@ import ctypes
 import logging
 import os
 from pathlib import Path
+import re
 import shlex
 import subprocess
 import sys
@@ -325,6 +326,12 @@ def install(configured: Optional[bool]) -> bool:
                 _resolved = False
             else:
                 torch.cuda.memory.change_current_allocator(_allocator)
+                # PyTorch reads these options again when CUDA initializes.
+                # An explicit caching backend conflicts with the installed allocator.
+                for key in ("PYTORCH_ALLOC_CONF", "PYTORCH_CUDA_ALLOC_CONF"):
+                    if key in os.environ:
+                        settings = re.sub(r"(^|,)\s*backend\s*:[^,]*", "", os.environ[key]).lstrip(",")
+                        os.environ[key] = settings
                 _use_stock_nccl_backend()
                 _active = True
         logger.info("Unified memory allocator: %s (%s)", "managed memory" if _active else "off",
