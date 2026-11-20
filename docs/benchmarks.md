@@ -43,8 +43,8 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 252.94 | 235.92 | 184.60 | 442.83 |
 | MiniMax H3 Image | 47.73 | 758.37 | 840.30 | 78.19 | — |
 | Fibo 2.0 Dev | — | 218.55 | 286.11 | 24.36 | — |
-| MOSS-Image SFT | 26.14 | 557.11 | 11.81 | — | — |
-| Flux.3 Klein 4B | 361.48 | 552.84 | 824.92 | — | — |
+| MOSS-Image SFT | 26.14 | — | 11.81 | — | — |
+| Flux.3 Klein 4B | 361.48 | — | 824.92 | — | — |
 | Ming-Image 0.1 Design<br><sub>RX 7600 uses CPU text encoding and decode</sub> | 208.39 | 453.61 | 1044.58 | — | — |
 | Qwen-Image 2.1 | — | 186.04 | 192.84 | — | — |
 | YuE2 3B | 477.13 | 94.55 | 64.07 | 25.10 | — |
@@ -58,7 +58,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 188.65 | 142.19 | — | — |
 | Ideogram 4 | — | 194.16 | 157.75 | 43.41 | 36.76 |
 | Qwen-Image Layered | — | 302.60 | 365.78 | — | 49.56 |
-| Z-Image Turbo 6B | 28.58 | 288.45 | 1013.30 | — | — |
+| Z-Image Turbo 6B | 28.58 | — | 1013.30 | — | — |
 | Flux.2 Dev 32B | 39.28 | 13.77 | 10.95 | — | — |
 | SeedVR2 3B | 150.17 | 9.89 | 28.25 | — | — |
 
