@@ -58,7 +58,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 188.65 | 142.19 | — | — |
 | Ideogram 4 | — | 194.16 | 157.75 | 43.41 | 36.76 |
 | Qwen-Image Layered | — | 302.60 | 365.78 | — | 49.56 |
-| Z-Image Turbo 6B | 28.58 | — | 1013.30 | — | — |
+| Z-Image Turbo 6B | 28.58 | 242.90 | 1013.30 | — | — |
 | Flux.2 Dev 32B | 39.28 | 13.77 | 10.95 | — | — |
 | SeedVR2 3B | 150.17 | 9.89 | 28.25 | 9.14 | — |
 
