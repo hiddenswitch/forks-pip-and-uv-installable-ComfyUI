@@ -96,6 +96,7 @@ jobs:
           import os
           import torch
           from torch.nn.attention import SDPBackend, sdpa_kernel
+          from comfy import model_management, ops
           assert torch.__version__ == "2.14.0+rocm10.1.0", torch.__version__
           assert torch.version.hip is not None
           assert torch.cuda.is_available()
@@ -106,6 +107,8 @@ jobs:
           result = (torch.ones(16, device="cuda") * 2).sum()
           torch.cuda.synchronize()
           assert result.item() == 32
+          assert model_management.AMD_FLASH_SDP_SUPPORTED
+          assert ops.SDPA_BACKEND_PRIORITY[0] == SDPBackend.FLASH_ATTENTION
           torch.manual_seed(42)
           for dtype in (torch.float16, torch.bfloat16):
               q, k, v = [torch.randn(1, 4, 512, 64, device="cuda", dtype=dtype) for _ in range(3)]

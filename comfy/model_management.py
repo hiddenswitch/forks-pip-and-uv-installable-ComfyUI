@@ -591,6 +591,7 @@ SUPPORT_FP8_OPS = args.supports_fp8_compute
 
 AMD_RDNA2_AND_OLDER_ARCH = ["gfx1030", "gfx1031", "gfx1032", "gfx1033", "gfx1034", "gfx1035", "gfx1036", "gfx1010", "gfx1011", "gfx1012", "gfx906", "gfx900", "gfx803"]
 AMD_ENABLE_MIOPEN_ENV = 'COMFYUI_ENABLE_MIOPEN'
+AMD_FLASH_SDP_SUPPORTED = False
 
 try:
     if is_amd():
@@ -642,6 +643,7 @@ try:
         logger.debug("ROCm version: {}".format(rocm_version))
         if args.use_split_cross_attention == False and args.use_quad_cross_attention == False:
             if aotriton_supported():  # AMD efficient attention implementation depends on aotriton.
+                AMD_FLASH_SDP_SUPPORTED = arch == "gfx1102"
                 if torch_version_numeric >= (2, 7):  # works on 2.6 but doesn't actually seem to improve much
                     if any((a in arch) for a in ["gfx90a", "gfx942", "gfx950", "gfx1100", "gfx1101", "gfx1102", "gfx1150", "gfx1151", "gfx1170", "gfx1171"]):  # TODO: more arches, TODO: gfx950
                         ENABLE_PYTORCH_ATTENTION = True
@@ -657,7 +659,7 @@ except:
 
 if ENABLE_PYTORCH_ATTENTION:
     torch.backends.cuda.enable_math_sdp(True)
-    torch.backends.cuda.enable_flash_sdp(not is_amd())
+    torch.backends.cuda.enable_flash_sdp(not is_amd() or AMD_FLASH_SDP_SUPPORTED)
     torch.backends.cuda.enable_mem_efficient_sdp(not is_amd())
 elif is_amd() and torch.cuda.is_available():
     torch.backends.cuda.enable_math_sdp(True)

@@ -199,6 +199,8 @@ try:
                     SDPBackend.EFFICIENT_ATTENTION,
                     SDPBackend.MATH,
                 ]
+            elif model_management.AMD_FLASH_SDP_SUPPORTED:
+                SDPA_BACKEND_PRIORITY = [SDPBackend.FLASH_ATTENTION, SDPBackend.MATH]
             else:
                 # TheRock's multi-architecture wheels do not currently provide
                 # reliable fused SDPA kernels across every supported AMD target.
