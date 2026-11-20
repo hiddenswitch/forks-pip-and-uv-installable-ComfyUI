@@ -13,7 +13,7 @@ Throughput uses the second step. Sampling time includes both steps per stage.
 | Fibo 2.0 Dev | — | 0.3848 | 0.7410 | 0.3754 | — |
 | MOSS-Image SFT | 0.2535 | 0.6259 | 1.3060 | 0.6251 | — |
 | Flux.3 Klein 4B | 0.6079 | 1.4568 | 2.9381 | 1.5043 | — |
-| Ming-Image 0.1 Design | — | 0.9527 | 2.1273 | 0.9208 | — |
+| Ming-Image 0.1 Design<br><sub>RX 7600 uses CPU text encoding and decode</sub> | 0.3811 | 0.9527 | 2.1273 | 0.9208 | — |
 | Qwen-Image 2.1 | — | 0.4444 | 1.0137 | 0.4592 | — |
 | YuE2 3B | 5.8440 | 15.5329 | 21.1258 | 22.7245 | — |
 | Marigold V2 Depth | 0.0363 | 0.3119 | 1.4433 | 0.6347 | — |
@@ -45,7 +45,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Fibo 2.0 Dev | — | 218.55 | 286.11 | 24.36 | — |
 | MOSS-Image SFT | 26.14 | 557.11 | 11.81 | — | — |
 | Flux.3 Klein 4B | 361.48 | 552.84 | 824.92 | — | — |
-| Ming-Image 0.1 Design | — | 453.61 | 1044.58 | — | — |
+| Ming-Image 0.1 Design<br><sub>RX 7600 uses CPU text encoding and decode</sub> | 208.39 | 453.61 | 1044.58 | — | — |
 | Qwen-Image 2.1 | — | 186.04 | 192.84 | — | — |
 | YuE2 3B | 477.13 | 94.55 | 64.07 | 25.10 | — |
 | Marigold V2 Depth | 367.82 | 16.27 | 17.95 | — | — |
@@ -73,7 +73,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Fibo 2.0 Dev | — | 238.02 | 187.79 | 7.07 | — |
 | MOSS-Image SFT | 8.85 | 124.38 | 570.61 | 4.32 | — |
 | Flux.3 Klein 4B | 4.20 | 122.14 | 702.21 | 2.92 | — |
-| Ming-Image 0.1 Design | — | 144.34 | 224.19 | 3.50 | — |
+| Ming-Image 0.1 Design<br><sub>RX 7600 uses CPU text encoding and decode</sub> | 6.22 | 144.34 | 224.19 | 3.50 | — |
 | Qwen-Image 2.1 | — | 189.40 | 147.43 | 5.80 | — |
 | YuE2 3B | 1.04 | 40.73 | 35.80 | 0.42 | — |
 | Marigold V2 Depth | 52.48 | 11.94 | 4.65 | 4.11 | — |
@@ -101,7 +101,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Fibo 2.0 Dev | — | 9.31 | 0.68 | 0.68 | — |
 | MOSS-Image SFT | 30.65 | 3.44 | 20.34 | 1.02 | — |
 | Flux.3 Klein 4B | 19.81 | 5.09 | 23.64 | 0.75 | — |
-| Ming-Image 0.1 Design | — | 3.48 | 4.31 | 1.23 | — |
+| Ming-Image 0.1 Design<br><sub>RX 7600 uses CPU text encoding and decode</sub> | 14.83 | 3.48 | 4.31 | 1.23 | — |
 | Qwen-Image 2.1 | — | 12.20 | 10.12 | 2.13 | — |
 | YuE2 3B | 1.39 | 0.56 | 0.42 | 1.16 | — |
 | Marigold V2 Depth | 0.00 | 0.69 | 0.22 | 0.79 | — |
