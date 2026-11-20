@@ -1018,16 +1018,19 @@ def _sort_routed_tokens(
     try:
         expert_counts = torch.bincount(count_indices, minlength=e_count)
     except RuntimeError as error:
-        if count_indices.device.type != "cuda" or not model_management.is_amd() or "non-negative integral inputs" not in str(error):
+        if "non-negative integral inputs" not in str(error):
             raise
-        count_indices = global_indices.cpu()
+        if count_indices.device.type != "cpu":
+            if count_indices.device.type != "cuda" or not model_management.is_amd():
+                raise
+            count_indices = count_indices.cpu()
         if count_indices.min().item() < 0 or count_indices.max().item() >= e_count:
             raise ValueError(
                 f"Routed expert IDs span {count_indices.min().item()}..{count_indices.max().item()}, expected 0..{e_count - 1}"
             ) from error
         expert_counts = torch.bincount(count_indices, minlength=e_count)
     if expert_counts.numel() != e_count:
-        raise ValueError(f"Routed expert ID exceeds {e_count - 1}")
+        raise ValueError(f"Routed expert IDs exceed {e_count - 1}")
     expert_counts = expert_counts.to(device)
     expert_offsets = torch.cat(
         (torch.zeros(1, device=device, dtype=torch.int64), expert_counts.cumsum(0))

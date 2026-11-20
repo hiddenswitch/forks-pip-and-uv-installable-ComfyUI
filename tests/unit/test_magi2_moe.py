@@ -79,7 +79,8 @@ def test_gfx1102_builds_routing_metadata_on_cpu(monkeypatch):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="requires GPU expert routing")
-def test_rocm_expert_count_rechecks_indices_on_host(monkeypatch):
+@pytest.mark.parametrize("architecture", ["gfx1100", "gfx1102"])
+def test_rocm_expert_count_rechecks_indices_on_host(monkeypatch, architecture):
     indices = torch.tensor([[[2, 1], [1, 0], [2, 0]]])
     probs = torch.arange(6).reshape_as(indices).float()
     expected = _sort_routed_tokens(probs, indices, 3, 3, 2)
@@ -92,6 +93,7 @@ def test_rocm_expert_count_rechecks_indices_on_host(monkeypatch):
 
     monkeypatch.setattr(torch, "bincount", failed_count)
     monkeypatch.setattr(model_management, "is_amd", lambda: True)
+    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda _: SimpleNamespace(gcnArchName=architecture))
     actual = _sort_routed_tokens(probs.cuda(), indices.cuda(), 3, 3, 2)
     for gpu, cpu in zip(actual, expected):
         torch.testing.assert_close(gpu.cpu(), cpu, rtol=0, atol=0)

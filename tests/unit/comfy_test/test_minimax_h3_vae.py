@@ -99,7 +99,10 @@ def test_attention_retries_in_chunks_when_sdpa_runs_out_of_memory(monkeypatch):
     ],
 )
 def test_h3_video_vae_precision_on_rocm(monkeypatch, guessed, architecture, flash, expected):
+    from copy import copy
+
     from comfy import sd
+    from comfy.execution_context import context_configuration, current_execution_context
 
     class VideoVAE(torch.nn.Module):
         tokens_chunk_size = 5
@@ -110,12 +113,14 @@ def test_h3_video_vae_precision_on_rocm(monkeypatch, guessed, architecture, flas
             super().__init__()
 
     monkeypatch.setattr(sd, "MiniMaxH3VideoVAE", VideoVAE)
-    monkeypatch.setattr(sd.args, "fp32_vae", True)
-    monkeypatch.setattr(sd.args, "_fp32_vae_guessed", guessed)
+    configuration = copy(current_execution_context().configuration)
+    configuration.fp32_vae = True
+    configuration._fp32_vae_guessed = guessed
     monkeypatch.setattr(sd.model_management, "AMD_FLASH_SDP_SUPPORTED", flash)
     monkeypatch.setattr(torch.cuda, "get_device_properties", lambda _: SimpleNamespace(gcnArchName=architecture))
     checkpoint = {"decoder.transformer_blocks.0.scale1": torch.zeros(1)}
-    vae = sd.VAE(sd=checkpoint, device=torch.device("cuda:0"))
+    with context_configuration(configuration):
+        vae = sd.VAE(sd=checkpoint, device=torch.device("cuda:0"))
     assert vae.vae_dtype == expected
 
 
