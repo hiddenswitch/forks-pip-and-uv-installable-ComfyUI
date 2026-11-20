@@ -4,6 +4,8 @@ import torch
 from tokenizers import AddedToken, Tokenizer, models, pre_tokenizers, processors
 
 from comfy.cli_args import args
+from comfy.cli_args_types import Configuration
+from comfy.execution_context import context_configuration
 
 if not torch.cuda.is_available():
     args.cpu = True
@@ -33,7 +35,7 @@ def test_embedded_tokenizers_are_scoped_and_invalid_json_is_not_ignored():
         sd1_clip.SDTokenizer(tokenizer_data={"clip_l_tokenizer_json": "not json"})
 
 
-def test_clip_metadata_survives_load_clone_save_and_reload(tmp_path, monkeypatch):
+def test_clip_metadata_survives_load_clone_save_and_reload(tmp_path):
     config = {"hidden_size": 8, "intermediate_size": 16, "num_attention_heads": 2, "num_hidden_layers": 2, "vocab_size": 5}
     options = {"clip_l_model_config": config, "model_config": config, "load_device": torch.device("cpu"), "offload_device": torch.device("cpu"), "initial_device": torch.device("cpu"), "dtype": torch.float32}
     model = sd1_clip.SD1ClipModel(device="cpu", dtype=torch.float32, model_options=options)
@@ -46,10 +48,10 @@ def test_clip_metadata_survives_load_clone_save_and_reload(tmp_path, monkeypatch
     assert [t[0] for t in clip.tokenize("alpha beta")["l"][0]][:4] == [1, 3, 4, 2]
 
     # The tokenizer is required model data even when optional prompt metadata is disabled.
-    monkeypatch.setattr(args, "disable_metadata", True)
-    saver = CLIPSave()
-    saver.output_dir = str(tmp_path)
-    saver.save(clip, "saved")
+    with context_configuration(Configuration(disable_metadata=True)):
+        saver = CLIPSave()
+        saver.output_dir = str(tmp_path)
+        saver.save(clip, "saved")
     saved = next(tmp_path.glob("saved*.safetensors"))
     with safetensors.safe_open(saved, framework="pt") as f:
         assert f.metadata() == {"clip_l_tokenizer_json": metadata["clip_l_tokenizer_json"]}

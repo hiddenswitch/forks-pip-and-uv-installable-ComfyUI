@@ -25,7 +25,7 @@ Used in production by **Scopely**, a game studio, **Livepeer** and **Nunchaku Te
 - Install custom node packages with pip.
 
   ```sh
-  pip install --extra-index-url https://nodes.appmana.com/simple/ comfyui-wanvideowrapper
+  python -m pip install --extra-index-url https://nodes.appmana.com/simple/ comfyui-wanvideowrapper
   ```
 
 ## Install

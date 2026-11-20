@@ -151,16 +151,22 @@ class Rank:
         self.world_size = collective.size
         self.index = 0
 
-    def _call(self, value, gather):
+    def _start(self, value, gather):
         index = self.index
         self.index += 1
-        return self.collective.operation(index, self.rank, value, gather)
+        return lambda: self.collective.operation(index, self.rank, value, gather)
+
+    def start_sum(self, value):
+        return self._start(value, False)
 
     def sum(self, value):
-        return self._call(value, False)
+        return self.start_sum(value)()
+
+    def start_gather(self, value):
+        return self._start(value, True)
 
     def gather(self, value):
-        return self._call(value, True)
+        return self.start_gather(value)()
 
 
 def test_magcache_releases_residuals_on_cancel():

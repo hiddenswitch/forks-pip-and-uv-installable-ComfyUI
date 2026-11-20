@@ -54,7 +54,7 @@ def test_supported_family_loads_tensor_parallel(monkeypatch):
     _stub_checkpoint(monkeypatch, "flux2")
     calls = []
 
-    def _launch(unet_path, devices, model_options=None, disable_dynamic=False):
+    def _launch(unet_path, devices, model_options=None, disable_dynamic=False, external_runtime=None):
         calls.append((unet_path, tuple(devices)))
         return "loaded"
 

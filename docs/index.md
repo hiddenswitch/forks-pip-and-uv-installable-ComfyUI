@@ -10,7 +10,7 @@
 ## Benchmarks
 
 - [Iterations per second](benchmarks.md#iterations-per-second)
-- [Total seconds](benchmarks.md#total-seconds)
+- [Timing breakdown](benchmarks.md#timing-breakdown)
 
 ## Features & Workflows
 - [Interactive and Headless Workflows](workflows.md)

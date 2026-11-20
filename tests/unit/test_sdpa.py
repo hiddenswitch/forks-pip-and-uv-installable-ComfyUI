@@ -123,13 +123,15 @@ def test_sdpa_import_exception():
             assert output.shape == q.shape
 
 
-def test_sdpa_rocm_small_inputs_use_math_backend():
+@pytest.mark.parametrize("flash_supported", [False, True])
+def test_sdpa_rocm_small_inputs_follow_backend_policy(flash_supported):
     """ROCm must not bypass the explicit backend policy for small inputs."""
     from torch.nn.attention import SDPBackend
     import comfy.model_management as model_management
 
     with patch('torch.cuda.is_available', return_value=True), \
-            patch.object(model_management, 'is_nvidia', return_value=False):
+            patch.object(model_management, 'is_nvidia', return_value=False), \
+            patch.object(model_management, 'AMD_FLASH_SDP_SUPPORTED', flash_supported):
         importlib.reload(comfy.ops)
 
         q = torch.randn(1, 1, 8, 16)
@@ -139,7 +141,8 @@ def test_sdpa_rocm_small_inputs_use_math_backend():
             actual = comfy.ops.scaled_dot_product_attention(q, q, q)
 
         assert actual is expected
-        kernel.assert_called_once_with([SDPBackend.MATH], set_priority=True)
+        backends = [SDPBackend.FLASH_ATTENTION, SDPBackend.MATH] if flash_supported else [SDPBackend.MATH]
+        kernel.assert_called_once_with(backends, set_priority=True)
 
 
 @pytest.mark.skipif(not CUDA_AVAILABLE, reason="CUDA is not available")

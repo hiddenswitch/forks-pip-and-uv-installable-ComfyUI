@@ -305,8 +305,8 @@ def test_discrete_gpus_keep_the_default_allocator_and_dynamic_vram():
 def test_managed_allocator_backs_cuda_tensors_with_managed_memory():
     """With the setting forced on, torch allocates cudaMallocManaged memory before anything else touches CUDA."""
     import torch
-    if not torch.cuda.is_available():
-        pytest.skip("needs a CUDA device")
+    if torch.version.cuda is None or not torch.cuda.is_available():
+        pytest.skip("needs an NVIDIA CUDA device")
     script = textwrap.dedent("""
         import ctypes, torch
         from comfy import managed_memory
@@ -328,8 +328,8 @@ def test_nccl_process_groups_live_and_die_under_the_managed_allocator():
     """torch's nccl2 backend snapshots the allocator, which a pluggable allocator cannot; install selects the stock one."""
     import torch
     import torch.distributed as dist
-    if not torch.cuda.is_available() or not dist.is_nccl_available():
-        pytest.skip("needs a CUDA device and NCCL")
+    if torch.version.cuda is None or not torch.cuda.is_available() or not dist.is_nccl_available():
+        pytest.skip("needs an NVIDIA CUDA device and NCCL")
     script = textwrap.dedent("""
         import os, socket, torch, torch.distributed as dist
         from comfy import managed_memory
