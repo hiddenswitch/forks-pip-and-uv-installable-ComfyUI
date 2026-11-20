@@ -24,7 +24,7 @@ Throughput uses the second step. Sampling time includes both steps per stage.
 | Boogu Image Edit | — | 0.5908 | 1.3499 | 0.6431 | — |
 | Krea 2 Turbo | — | 0.4178 | 1.0603 | 0.4188 | 0.5363 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 0.0129 | 0.0371 | 0.0185 | — |
-| Ideogram 4 | — | 0.2330 | 0.5441 | 0.2941 | 0.3425 |
+| Ideogram 4<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 0.0655 | 0.2330 | 0.5441 | 0.2941 | 0.3425 |
 | Qwen-Image Layered | — | 0.1225 | 0.4352 | 0.1951 | 0.1876 |
 | Z-Image Turbo 6B | 0.3800 | 0.9267 | 2.1045 | 0.9776 | — |
 | Flux.2 Dev 32B | 0.0224 | 0.1481 | 0.3068 | 0.1848 | 0.2695 |
@@ -56,7 +56,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Boogu Image Edit | — | 6.30 | 259.56 | — | — |
 | Krea 2 Turbo | — | 136.33 | 187.47 | — | 30.71 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 188.65 | 142.19 | — | — |
-| Ideogram 4 | — | 194.16 | 157.75 | 43.41 | 36.76 |
+| Ideogram 4<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 149.85 | 194.16 | 157.75 | 43.41 | 36.76 |
 | Qwen-Image Layered | — | 302.60 | 365.78 | — | 49.56 |
 | Z-Image Turbo 6B | 28.58 | 242.90 | 1013.30 | — | — |
 | Flux.2 Dev 32B | 39.28 | 13.77 | 10.95 | — | — |
@@ -84,7 +84,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Boogu Image Edit | — | 6.66 | 183.35 | 4.55 | — |
 | Krea 2 Turbo | — | 384.26 | 350.98 | 5.51 | 8.12 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 578.88 | 419.92 | 112.97 | — |
-| Ideogram 4 | — | 464.82 | 420.52 | 8.31 | 10.33 |
+| Ideogram 4<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 36.92 | 464.82 | 420.52 | 8.31 | 10.33 |
 | Qwen-Image Layered | — | 935.93 | 556.27 | 11.42 | 12.56 |
 | Z-Image Turbo 6B | 6.58 | 126.08 | 446.54 | 3.24 | — |
 | Flux.2 Dev 32B | 89.26 | 24.23 | 16.18 | 12.04 | 9.82 |
@@ -112,7 +112,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Boogu Image Edit | — | 1.15 | 2.34 | 1.74 | — |
 | Krea 2 Turbo | — | 12.35 | 3.55 | 1.30 | 1.25 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 45.39 | 18.36 | 27.30 | — |
-| Ideogram 4 | — | 11.23 | 4.87 | 0.98 | 0.77 |
+| Ideogram 4<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | — | 11.23 | 4.87 | 0.98 | 0.77 |
 | Qwen-Image Layered | — | 5.02 | 1.02 | 1.21 | 1.17 |
 | Z-Image Turbo 6B | 31.47 | 4.90 | 7.75 | 1.83 | — |
 | Flux.2 Dev 32B | 20.75 | 1.26 | 0.82 | 0.83 | 0.73 |
