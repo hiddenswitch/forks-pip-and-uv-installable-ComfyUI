@@ -1615,31 +1615,31 @@ class VAE:
         )
         model_management.load_models_gpu([self.patcher], memory_required=memory_used, force_full_load=self.disable_offload)
         dims = samples.ndim - 2
-        args = {}
+        tile_kwargs = {}
         if tile_x is not None:
-            args["tile_x"] = tile_x
+            tile_kwargs["tile_x"] = tile_x
         if tile_y is not None:
-            args["tile_y"] = tile_y
+            tile_kwargs["tile_y"] = tile_y
         if overlap is not None:
-            args["overlap"] = overlap
+            tile_kwargs["overlap"] = overlap
 
         with model_management.cuda_device_context(self.device):
             if self.handles_tiling and dims in (2, 3):
                 output = self._decode_tiled_owned(samples, **self._owned_tiled_args(tile_x, tile_y, overlap, tile_t, overlap_t))
             elif dims == 1 or self.extra_1d_channel is not None:
-                args.pop("tile_y")
-                output = self.decode_tiled_1d(samples, **args)
+                tile_kwargs.pop("tile_y")
+                output = self.decode_tiled_1d(samples, **tile_kwargs)
             elif dims == 2:
-                output = self.decode_tiled_(samples, **args)
+                output = self.decode_tiled_(samples, **tile_kwargs)
             elif dims == 3:
                 if overlap_t is None:
-                    args["overlap"] = (1, overlap, overlap)
+                    tile_kwargs["overlap"] = (1, overlap, overlap)
                 else:
-                    args["overlap"] = (max(1, overlap_t), overlap, overlap)
+                    tile_kwargs["overlap"] = (max(1, overlap_t), overlap, overlap)
                 if tile_t is not None:
-                    args["tile_t"] = max(2, tile_t)
+                    tile_kwargs["tile_t"] = max(2, tile_t)
 
-                output = self.decode_tiled_3d(samples, **args)
+                output = self.decode_tiled_3d(samples, **tile_kwargs)
             else:
                 raise ValueError(f"invalid dims={dims}")
         return output.movedim(1, -1)
@@ -1717,20 +1717,20 @@ class VAE:
         memory_used = self.memory_used_encode(pixel_samples.shape, self.vae_dtype)  # TODO: calculate mem required for tile
         model_management.load_models_gpu([self.patcher], memory_required=memory_used, force_full_load=self.disable_offload)
 
-        args = {}
+        tile_kwargs = {}
         if tile_x is not None:
-            args["tile_x"] = tile_x
+            tile_kwargs["tile_x"] = tile_x
         if tile_y is not None:
-            args["tile_y"] = tile_y
+            tile_kwargs["tile_y"] = tile_y
         if overlap is not None:
-            args["overlap"] = overlap
+            tile_kwargs["overlap"] = overlap
 
         with model_management.cuda_device_context(self.device):
             if dims == 1:
-                args.pop("tile_y")
-                samples = self.encode_tiled_1d(pixel_samples, **args)
+                tile_kwargs.pop("tile_y")
+                samples = self.encode_tiled_1d(pixel_samples, **tile_kwargs)
             elif dims == 2:
-                samples = self.encode_tiled_(pixel_samples, **args)
+                samples = self.encode_tiled_(pixel_samples, **tile_kwargs)
             elif dims == 3:
                 if self.handles_tiling:
                     samples = self._encode_tiled_owned(pixel_samples, **self._owned_tiled_args(tile_x, tile_y, overlap, tile_t, overlap_t))
@@ -1739,17 +1739,17 @@ class VAE:
                         tile_t_latent = max(2, self.downscale_ratio[0](tile_t))
                     else:
                         tile_t_latent = 9999
-                    args["tile_t"] = self.upscale_ratio[0](tile_t_latent)
+                    tile_kwargs["tile_t"] = self.upscale_ratio[0](tile_t_latent)
 
                     spatial_overlap = overlap if overlap is not None else 64
                     if overlap_t is None:
-                        args["overlap"] = (1, spatial_overlap, spatial_overlap)
+                        tile_kwargs["overlap"] = (1, spatial_overlap, spatial_overlap)
                     else:
-                        args["overlap"] = (self.upscale_ratio[0](max(1, min(tile_t_latent // 2, self.downscale_ratio[0](overlap_t)))), spatial_overlap, spatial_overlap)
+                        tile_kwargs["overlap"] = (self.upscale_ratio[0](max(1, min(tile_t_latent // 2, self.downscale_ratio[0](overlap_t)))), spatial_overlap, spatial_overlap)
                     maximum = pixel_samples.shape[2]
                     maximum = self.upscale_ratio[0](self.downscale_ratio[0](maximum))
 
-                    samples = self.encode_tiled_3d(pixel_samples[:, :, :maximum], **args)
+                    samples = self.encode_tiled_3d(pixel_samples[:, :, :maximum], **tile_kwargs)
             else:
                 raise ValueError(f"unsupported values dim {dims}")
 

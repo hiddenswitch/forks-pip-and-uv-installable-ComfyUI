@@ -1,4 +1,5 @@
 import asyncio
+from copy import copy
 import weakref
 
 import pytest
@@ -88,10 +89,10 @@ async def test_client_closes_after_model_unload_fails(monkeypatch, prompt_failed
 
     monkeypatch.setattr(model_management, "unload_all_models", fail_unload)
     previous_context = current_execution_context()
-    configuration = default_configuration()
+    configuration = copy(previous_context.configuration or default_configuration())
     configuration.disable_manager_model_fallback = True
     configuration.disable_civitai_model_fallback = True
-    client = Comfy(configuration=configuration)
+    client = Comfy(configuration=configuration, executor="ContextVarExecutor")
     message = "prompt failed" if prompt_failed else "model unload failed"
     with pytest.raises(RuntimeError, match=message):
         async with client:
