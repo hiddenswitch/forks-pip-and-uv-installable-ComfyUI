@@ -196,6 +196,12 @@ class TestGuessSettingsAmd:
         cfg = _config()
         apply_guess_settings(cfg)
         assert cfg.fp32_vae is True
+        assert cfg._fp32_vae_guessed is True
+
+        explicit = _config(fp32_vae=True)
+        apply_guess_settings(explicit)
+        assert explicit.fp32_vae is True
+        assert explicit._fp32_vae_guessed is False
 
     @patch("comfy.component_model.guess_settings._has_nvidia_gpu", return_value=False)
     @patch("comfy.component_model.guess_settings._has_amd_gpu", return_value=True)

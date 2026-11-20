@@ -316,6 +316,7 @@ class Configuration(dict):
         self.fp8_storage: bool = True
         self.fp16_vae: bool = False
         self.fp32_vae: bool = False
+        self._fp32_vae_guessed: bool = False
         self.bf16_vae: bool = False
         self.cpu_vae: bool = False
         self.fp8_e4m3fn_text_enc: bool = False

@@ -18,7 +18,7 @@ Throughput uses the second step. Sampling time includes both steps per stage.
 | YuE2 3B | 5.8440 | 15.5329 | 21.1258 | 22.7245 | — |
 | Marigold V2 Depth | 0.0363 | 0.3119 | 1.4433 | 0.6347 | — |
 | MiniMax Music 3 | 0.8107 | 4.0794 | 2.8680 | 2.6691 | — |
-| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 0.0154 | 0.0468 | 0.0167 | 0.0306 |
+| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo, RX 7600 uses FP16 decode and synchronous copies</sub> | 0.0010 | 0.0154 | 0.0468 | 0.0167 | 0.0306 |
 | Mage-Flow | 0.5444 | 1.3895 | 3.7536 | 1.6922 | — |
 | JoyAI Image Edit | — | 0.1077 | 0.3015 | 0.1084 | — |
 | Boogu Image Edit | — | 0.5908 | 1.3499 | 0.6431 | — |
@@ -50,7 +50,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | YuE2 3B | 477.13 | 94.55 | 64.07 | 25.10 | — |
 | Marigold V2 Depth | 367.82 | 16.27 | 17.95 | 44.79 | — |
 | MiniMax Music 3 | 260.95 | 274.41 | 243.71 | 70.27 | — |
-| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 4.70 | 3.66 | 100.93 | 66.07 |
+| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo, RX 7600 uses FP16 decode and synchronous copies</sub> | 28.76 | 4.70 | 3.66 | 100.93 | 66.07 |
 | Mage-Flow | 1043.57 | 203.18 | 859.37 | 23.18 | — |
 | JoyAI Image Edit | — | 11.99 | 8.41 | 44.73 | — |
 | Boogu Image Edit | — | 6.30 | 259.56 | — | — |
@@ -78,7 +78,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | YuE2 3B | 1.04 | 40.73 | 35.80 | 0.42 | — |
 | Marigold V2 Depth | 52.48 | 11.94 | 4.65 | 4.11 | — |
 | MiniMax Music 3 | 3.14 | 68.80 | 55.51 | 1.28 | — |
-| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 139.74 | 45.77 | 115.65 | 69.65 |
+| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo, RX 7600 uses FP16 decode and synchronous copies</sub> | 1975.97 | 139.74 | 45.77 | 115.65 | 69.65 |
 | Mage-Flow | 4.10 | 104.99 | 296.72 | 2.32 | — |
 | JoyAI Image Edit | — | 23.79 | 9.63 | 19.35 | — |
 | Boogu Image Edit | — | 6.66 | 183.35 | 4.55 | — |
@@ -106,7 +106,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | YuE2 3B | 1.39 | 0.56 | 0.42 | 1.16 | — |
 | Marigold V2 Depth | 0.00 | 0.69 | 0.22 | 0.79 | — |
 | MiniMax Music 3 | 4.68 | 1.08 | 0.60 | 3.96 | — |
-| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 96.27 | 29.74 | 40.23 | 41.22 |
+| MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo, RX 7600 uses FP16 decode and synchronous copies</sub> | 119.44 | 96.27 | 29.74 | 40.23 | 41.22 |
 | Mage-Flow | 0.50 | 3.87 | 3.95 | 0.52 | — |
 | JoyAI Image Edit | — | 0.46 | 0.21 | 1.34 | — |
 | Boogu Image Edit | — | 1.15 | 2.34 | 1.74 | — |

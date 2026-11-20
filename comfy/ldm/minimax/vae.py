@@ -10,7 +10,7 @@ from ... import model_management
 from ... import ops as comfy_ops
 from ... import quant_ops
 from ... import rmsnorm
-from ..modules.attention import COMFY_KITCHEN_INT8_ATTENTION_IS_AVAILABLE, optimized_attention
+from ..modules.attention import COMFY_KITCHEN_INT8_ATTENTION_IS_AVAILABLE, attention_sub_quad, optimized_attention
 
 ops = comfy_ops.disable_weight_init
 
@@ -344,7 +344,12 @@ class Attention(nn.Module):
             out = quant_ops.ck.int8_attention(query, key, value)
             out = out.transpose(1, 2).reshape(query.shape[0], query.shape[2], -1)
         else:
-            out = optimized_attention(query, key, value, self.heads, skip_reshape=True)
+            try:
+                out = optimized_attention(query, key, value, self.heads, skip_reshape=True)
+            except torch.OutOfMemoryError:
+                out = None
+            if out is None:
+                out = attention_sub_quad(query, key, value, self.heads, skip_reshape=True)
         return torch.nan_to_num(out)
 
 

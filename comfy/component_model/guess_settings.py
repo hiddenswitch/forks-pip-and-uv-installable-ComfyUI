@@ -383,6 +383,7 @@ def apply_guess_settings(configuration: Configuration) -> None:
             else:
                 logger.info(f"AMD GPU ({gfx or 'unknown'}) detected, enabling fp32 VAE")
                 configuration.fp32_vae = True
+                configuration._fp32_vae_guessed = True
 
     user_set_attn = any(getattr(configuration, f, False) for f in ATTENTION_MODES)
     if not user_set_attn:

@@ -28,6 +28,7 @@ from . import sd1_clip
 from . import sdxl_clip
 from . import storage
 from . import utils
+from .cli_args import args
 from .clip_model import CLIPVision
 from .component_model.deprecation import _deprecate_method
 from .hooks import EnumHookMode
@@ -1220,6 +1221,16 @@ class VAE:
         offload_device = model_management.vae_offload_device()
         if dtype is None:
             dtype = model_management.vae_dtype(self.device, self.working_dtypes)
+            # On the RX 7600, FP16 Flash Attention preserves H3's video frames.
+            if (
+                dtype == torch.float32
+                and args._fp32_vae_guessed
+                and type(self.first_stage_model) is MiniMaxH3VideoVAE
+                and self.device.type == "cuda"
+                and model_management.AMD_FLASH_SDP_SUPPORTED
+                and torch.cuda.get_device_properties(self.device).gcnArchName.split(":")[0] == "gfx1102"
+            ):
+                dtype = torch.float16
         self.vae_dtype = dtype
         self.first_stage_model.to(self.vae_dtype)
         model_management.archive_model_dtypes(self.first_stage_model)
