@@ -38,7 +38,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 
 | Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 9.17 | 34.98 | — | 56.59 |
+| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 9.17 | 34.98 | 66.85 | 56.59 |
 | MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 43.91 | 44.43 | 186.87 | 445.38 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 252.94 | 235.92 | 184.60 | 442.83 |
 | MiniMax H3 Image | 47.73 | 758.37 | 840.30 | 78.19 | — |
@@ -46,13 +46,13 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MOSS-Image SFT | 26.14 | — | 11.81 | — | — |
 | Flux.3 Klein 4B | 361.48 | — | 824.92 | — | — |
 | Ming-Image 0.1 Design<br><sub>RX 7600 uses CPU text encoding and decode</sub> | 208.39 | 453.61 | 1044.58 | — | — |
-| Qwen-Image 2.1 | — | 186.04 | 192.84 | — | — |
+| Qwen-Image 2.1 | — | 186.04 | 192.84 | 30.58 | — |
 | YuE2 3B | 477.13 | 94.55 | 64.07 | 25.10 | — |
-| Marigold V2 Depth | 367.82 | 16.27 | 17.95 | — | — |
+| Marigold V2 Depth | 367.82 | 16.27 | 17.95 | 44.79 | — |
 | MiniMax Music 3 | 260.95 | 274.41 | 243.71 | 70.27 | — |
 | MiniMax H3 Video+Audio<br><sub>1280x704, 124 frames at 24 fps, 32 kHz stereo</sub> | — | 4.70 | 3.66 | 100.93 | 66.07 |
 | Mage-Flow | 1043.57 | 203.18 | 859.37 | 23.18 | — |
-| JoyAI Image Edit | — | 11.99 | 8.41 | — | — |
+| JoyAI Image Edit | — | 11.99 | 8.41 | 44.73 | — |
 | Boogu Image Edit | — | 6.30 | 259.56 | — | — |
 | Krea 2 Turbo | — | 136.33 | 187.47 | — | 30.71 |
 | Wan 2.1 SCAIL-2<br><sub>832x480, 81 frames at 8 fps</sub> | — | 188.65 | 142.19 | — | — |
@@ -60,7 +60,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Qwen-Image Layered | — | 302.60 | 365.78 | — | 49.56 |
 | Z-Image Turbo 6B | 28.58 | — | 1013.30 | — | — |
 | Flux.2 Dev 32B | 39.28 | 13.77 | 10.95 | — | — |
-| SeedVR2 3B | 150.17 | 9.89 | 28.25 | — | — |
+| SeedVR2 3B | 150.17 | 9.89 | 28.25 | 9.14 | — |
 
 ### Sampling (s)
 
