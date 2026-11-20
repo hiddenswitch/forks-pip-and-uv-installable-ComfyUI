@@ -6,7 +6,7 @@ Throughput uses the second step. Sampling time includes both steps per stage.
 
 | Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 0.0083 | 0.0181 | 0.0089 | 0.0139 |
+| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | 0.0032 | 0.0083 | 0.0181 | 0.0089 | 0.0139 |
 | MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 0.0016 | 0.0041 | 0.0019 | 0.0012 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 0.0008 | 0.0011 | 0.0015 | 0.0004 |
 | MiniMax H3 Image | 0.0881 | 0.7332 | 3.0191 | 2.1201 | 1.2980 |
@@ -38,7 +38,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 
 | Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 9.17 | 34.98 | 66.85 | 56.59 |
+| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | 103.92 | 9.17 | 34.98 | 66.85 | 56.59 |
 | MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 43.91 | 44.43 | 186.87 | 445.38 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 252.94 | 235.92 | 184.60 | 442.83 |
 | MiniMax H3 Image | 47.73 | 758.37 | 840.30 | 78.19 | 84.41 |
@@ -66,7 +66,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 
 | Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | — | 250.80 | 703.92 | 240.09 | 148.28 |
+| PAN 2<br><sub>1248x704, 241 frames at 24 fps</sub> | 616.44 | 250.80 | 703.92 | 240.09 | 148.28 |
 | MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 1278.23 | 484.26 | 1197.66 | 1670.86 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 4797.66 | 3604.49 | 2875.35 | 10144.17 |
 | MiniMax H3 Image | 27.42 | 496.42 | 385.27 | 1.66 | 2.38 |
