@@ -16,7 +16,7 @@ ENV TZ="Etc/UTC" \
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ffmpeg libgl1 libglib2.0-0 libsm6 libxext6 libsndfile1 libxcb1 \
-    libcairo2 zip unzip ca-certificates git build-essential \
+    libcairo2 zip unzip ca-certificates curl git build-essential \
     && uv venv /opt/venv --python python3.12 \
     && touch /overrides.txt \
     && rm -rf /var/lib/apt/lists/*
@@ -43,6 +43,15 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
        >> /overrides.txt \
     && printf "%s\n" "comfyui; python_version < '0'" > /custom-node-overrides.txt \
     && cat /overrides.txt >> /custom-node-overrides.txt
+
+# AMD PyTorch 2.14's ROCm 10.1 wheel omits the RDNA 3 AOTriton archive.
+RUN curl -fsSL --retry 3 \
+    https://github.com/ROCm/aotriton/releases/download/0.14.50tp/aotriton-0.14.50tp-images-amd-gfx110x.tar.gz \
+    -o /tmp/aotriton-gfx110x.tar.gz \
+    && echo 'a54fecf9b4e16425681785eba475912eb9ae761e35a4df3e3579bdbd7c6fe4db  /tmp/aotriton-gfx110x.tar.gz' | sha256sum -c - \
+    && tar -xzf /tmp/aotriton-gfx110x.tar.gz --strip-components=3 \
+         -C /opt/venv/lib/python3.12/site-packages/torch/lib/aotriton.images \
+    && rm /tmp/aotriton-gfx110x.tar.gz
 
 COPY pyproject.toml README.md /workspace/project/
 COPY tests/custom_nodes_requirements.txt /workspace/requirements/

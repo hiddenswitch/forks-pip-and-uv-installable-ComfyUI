@@ -85,6 +85,8 @@ jobs:
     steps:
       - name: Verify RX 7600 and TheRock device closure
         shell: bash
+        env:
+          TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL: "1"
         run: |
           set -euo pipefail
           test -e /dev/kfd
@@ -93,6 +95,7 @@ jobs:
           python - <<'PY'
           import os
           import torch
+          from torch.nn.attention import SDPBackend, sdpa_kernel
           assert torch.__version__ == "2.14.0+rocm10.1.0", torch.__version__
           assert torch.version.hip is not None
           assert torch.cuda.is_available()
@@ -103,6 +106,14 @@ jobs:
           result = (torch.ones(16, device="cuda") * 2).sum()
           torch.cuda.synchronize()
           assert result.item() == 32
+          torch.manual_seed(42)
+          for dtype in (torch.float16, torch.bfloat16):
+              q, k, v = [torch.randn(1, 4, 512, 64, device="cuda", dtype=dtype) for _ in range(3)]
+              with sdpa_kernel(SDPBackend.MATH):
+                  reference = torch.nn.functional.scaled_dot_product_attention(q, k, v)
+              with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+                  actual = torch.nn.functional.scaled_dot_product_attention(q, k, v)
+              torch.testing.assert_close(actual, reference, atol=0.025, rtol=0.025)
           PY
           rocm-sdk test
       - name: ComfyUI GPU smoke
