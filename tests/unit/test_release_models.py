@@ -8,6 +8,36 @@ from comfy import model_detection, model_downloader
 from comfy_extras.nodes.nodes_marigold import MarigoldV2PostProcess
 
 
+@torch.inference_mode()
+def test_magi_preview_chunked_output_matches_full_projection(monkeypatch):
+    from comfy import ops
+    from comfy.ldm.magi2 import model as magi
+
+    model = magi.Magi2Model(
+        num_layers=2, hidden_size=64, head_dim=32, num_query_groups=2,
+        video_in_channels=4, audio_in_channels=2, text_in_channels=8,
+        intermediate_size=96, multimodal_layers=(0, 1), moe_layers=(1,),
+        num_streams=2, moe_heads=2, num_experts=4, top_k=1,
+        expert_intermediate_size=32, shared_expert_intermediate_size=32,
+        modality_shared_expert_intermediate_size=32, sinkhorn_iterations=3,
+        dtype=torch.float32, device="cpu", operations=ops.disable_weight_init,
+    ).eval()
+    generator = torch.Generator().manual_seed(42)
+    for parameter in model.parameters():
+        parameter.normal_(mean=0.0, std=0.04, generator=generator)
+    video = torch.randn(1, 4, 2, 3, 4, generator=generator)
+    audio = torch.randn(1, 2, 11, generator=generator)
+    context = torch.randn(1, 5, 8, generator=generator)
+    inputs = ([video, audio], torch.tensor([500.0]), context)
+    reference = model(*inputs)
+    monkeypatch.setattr(magi, "RMS_NORM_FP32_CHUNK_BYTES", 5 * 128 * 4)
+    output = model(*inputs)
+    for actual, expected, latent in zip(output, reference, (video, audio), strict=True):
+        assert actual.shape == latent.shape
+        assert torch.isfinite(actual).all()
+        torch.testing.assert_close(actual, expected)
+
+
 @pytest.mark.parametrize("fused", [True, False])
 @pytest.mark.parametrize("packed", [True, False])
 def test_qwen_image21_detection_preserves_latent_channels_for_packed_weights(fused, packed):
