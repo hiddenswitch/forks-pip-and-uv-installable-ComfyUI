@@ -14,7 +14,7 @@ Throughput uses the second step. Sampling time includes both steps per stage.
 | MOSS-Image SFT | 0.2535 | 0.6259 | 1.3060 | 0.6251 | — |
 | Flux.3 Klein 4B | 0.6079 | 1.4568 | 2.9381 | 1.5043 | — |
 | Ming-Image 0.1 Design<br><sub>RX 7600 uses CPU text encoding and decode</sub> | 0.3811 | 0.9527 | 2.1273 | 0.9208 | — |
-| Qwen-Image 2.1 | — | 0.4444 | 1.0137 | 0.4592 | — |
+| Qwen-Image 2.1<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 0.1383 | 0.4444 | 1.0137 | 0.4592 | — |
 | YuE2 3B | 5.8440 | 15.5329 | 21.1258 | 22.7245 | — |
 | Marigold V2 Depth | 0.0363 | 0.3119 | 1.4433 | 0.6347 | — |
 | MiniMax Music 3 | 0.8107 | 4.0794 | 2.8680 | 2.6691 | — |
@@ -46,7 +46,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MOSS-Image SFT | 26.14 | 238.74 | 11.81 | — | — |
 | Flux.3 Klein 4B | 361.48 | 482.49 | 824.92 | — | — |
 | Ming-Image 0.1 Design<br><sub>RX 7600 uses CPU text encoding and decode</sub> | 208.39 | 453.61 | 1044.58 | — | — |
-| Qwen-Image 2.1 | — | 186.04 | 192.84 | 30.58 | — |
+| Qwen-Image 2.1<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 109.12 | 186.04 | 192.84 | 30.58 | — |
 | YuE2 3B | 477.13 | 94.55 | 64.07 | 25.10 | — |
 | Marigold V2 Depth | 367.82 | 16.27 | 17.95 | 44.79 | — |
 | MiniMax Music 3 | 260.95 | 274.41 | 243.71 | 70.27 | — |
@@ -74,7 +74,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MOSS-Image SFT | 8.85 | 124.38 | 570.61 | 4.32 | — |
 | Flux.3 Klein 4B | 4.20 | 122.14 | 702.21 | 2.92 | — |
 | Ming-Image 0.1 Design<br><sub>RX 7600 uses CPU text encoding and decode</sub> | 6.22 | 144.34 | 224.19 | 3.50 | — |
-| Qwen-Image 2.1 | — | 189.40 | 147.43 | 5.80 | — |
+| Qwen-Image 2.1<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 18.12 | 189.40 | 147.43 | 5.80 | — |
 | YuE2 3B | 1.04 | 40.73 | 35.80 | 0.42 | — |
 | Marigold V2 Depth | 52.48 | 11.94 | 4.65 | 4.11 | — |
 | MiniMax Music 3 | 3.14 | 68.80 | 55.51 | 1.28 | — |
@@ -102,7 +102,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | MOSS-Image SFT | 30.65 | 3.44 | 20.34 | 1.02 | — |
 | Flux.3 Klein 4B | 19.81 | 5.09 | 23.64 | 0.75 | — |
 | Ming-Image 0.1 Design<br><sub>RX 7600 uses CPU text encoding and decode</sub> | 14.83 | 3.48 | 4.31 | 1.23 | — |
-| Qwen-Image 2.1 | — | 12.20 | 10.12 | 2.13 | — |
+| Qwen-Image 2.1<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 58.32 | 12.20 | 10.12 | 2.13 | — |
 | YuE2 3B | 1.39 | 0.56 | 0.42 | 1.16 | — |
 | Marigold V2 Depth | 0.00 | 0.69 | 0.22 | 0.79 | — |
 | MiniMax Music 3 | 4.68 | 1.08 | 0.60 | 3.96 | — |
