@@ -9,15 +9,96 @@ Each token picks one expert per head: with several, the bf16 scatter-add of thei
 in whatever order the adds land (the kernel adds atomically), which is not what this test is about.
 """
 
+from types import SimpleNamespace
+
 import pytest
 import torch
 
 import comfy.ops as comfy_ops
-from comfy.ldm.magi2.model import MultiHeadMoE
+from comfy import model_management
+from comfy.ldm.magi2.model import MultiHeadMoE, _sort_routed_tokens
 
 from . import magi2_reference
 
 TOLERANCE = 1e-4
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires GPU expert routing")
+@pytest.mark.parametrize("tokens", [8738, 5223])
+def test_preview_expert_sort_matches_cpu(tokens):
+    # Full routing chunk and final partial chunk from the 896x512 preview.
+    generator = torch.Generator().manual_seed(42)
+    indices = torch.randint(256, (1, tokens, 6), generator=generator)
+    probs = torch.rand(indices.shape, generator=generator)
+    expected = _sort_routed_tokens(probs, indices, tokens, 256, 64)
+    actual = _sort_routed_tokens(probs.cuda(), indices.cuda(), tokens, 256, 64)
+    for device_value, host_value in zip(actual, expected):
+        torch.testing.assert_close(device_value.cpu(), host_value, rtol=0, atol=0)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires GPU expert routing")
+def test_missing_rocm_sort_kernel_preserves_expert_order(monkeypatch):
+    indices = torch.tensor([[[2, 1], [1, 0], [2, 0]]])
+    probs = torch.arange(6).reshape_as(indices).float()
+    expected = _sort_routed_tokens(probs, indices, 3, 3, 2)
+    native_sort = torch.Tensor.argsort
+
+    def missing_kernel(tensor, *args, **kwargs):
+        if tensor.is_cuda:
+            raise model_management.ACCELERATOR_ERROR("no kernel image is available for execution on the device")
+        return native_sort(tensor, *args, **kwargs)
+
+    monkeypatch.setattr(torch.Tensor, "argsort", missing_kernel)
+    monkeypatch.setattr(model_management, "is_amd", lambda: True)
+    actual = _sort_routed_tokens(probs.cuda(), indices.cuda(), 3, 3, 2)
+    for device_value, host_value in zip(actual, expected):
+        assert device_value.is_cuda
+        torch.testing.assert_close(device_value.cpu(), host_value, rtol=0, atol=0)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires GPU expert routing")
+def test_gfx1102_builds_routing_metadata_on_cpu(monkeypatch):
+    indices = torch.tensor([[[2, 1], [1, 0], [2, 0]], [[1, 2], [0, 2], [2, 1]]])
+    probs = torch.arange(indices.numel()).reshape_as(indices).float()
+    expected = _sort_routed_tokens(probs, indices, 3, 3, 2)
+    gpu_probs, gpu_indices = probs.cuda(), indices.cuda()
+    native_getitem = torch.Tensor.__getitem__
+
+    def missing_index_kernel(tensor, index):
+        if tensor.is_cuda and isinstance(index, torch.Tensor):
+            raise model_management.ACCELERATOR_ERROR("no kernel image is available for execution on the device")
+        return native_getitem(tensor, index)
+
+    monkeypatch.setattr(torch.Tensor, "__getitem__", missing_index_kernel)
+    monkeypatch.setattr(model_management, "is_amd", lambda: True)
+    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda _: SimpleNamespace(gcnArchName="gfx1102:xnack-"))
+    actual = _sort_routed_tokens(gpu_probs, gpu_indices, 3, 3, 2)
+    for gpu, cpu in zip(actual, expected):
+        assert gpu.device == gpu_indices.device
+        torch.testing.assert_close(gpu.cpu(), cpu, rtol=0, atol=0)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires GPU expert routing")
+def test_rocm_expert_count_rechecks_indices_on_host(monkeypatch):
+    indices = torch.tensor([[[2, 1], [1, 0], [2, 0]]])
+    probs = torch.arange(6).reshape_as(indices).float()
+    expected = _sort_routed_tokens(probs, indices, 3, 3, 2)
+    native_count = torch.bincount
+
+    def failed_count(tensor, **kwargs):
+        if tensor.is_cuda:
+            raise RuntimeError("bincount only supports 1-d non-negative integral inputs.")
+        return native_count(tensor, **kwargs)
+
+    monkeypatch.setattr(torch, "bincount", failed_count)
+    monkeypatch.setattr(model_management, "is_amd", lambda: True)
+    actual = _sort_routed_tokens(probs.cuda(), indices.cuda(), 3, 3, 2)
+    for gpu, cpu in zip(actual, expected):
+        torch.testing.assert_close(gpu.cpu(), cpu, rtol=0, atol=0)
+    for invalid in [-1, 3]:
+        indices[0, 0, 0] = invalid
+        with pytest.raises(ValueError, match="Routed expert IDs"):
+            _sort_routed_tokens(probs.cuda(), indices.cuda(), 3, 3, 2)
 
 
 def contract_inputs(module, x, gate, up, down):

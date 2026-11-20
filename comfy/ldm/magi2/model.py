@@ -621,6 +621,23 @@ def modality_linear(module, x, groups):
         full_x = first.start_input_gather(x)()
         return first.reduce_output(modality_linear_local(module, full_x, groups))
     parts = x.split(groups, dim=1)
+    chunk_size = 4096
+    if x.is_cuda and not torch.is_grad_enabled() and x.shape[1] > chunk_size:
+        start = 0
+        result = None
+        for linear, part in zip(module, parts):
+            for chunk in part.split(chunk_size, dim=1):
+                if not chunk.shape[1]:
+                    continue
+                projected = linear(chunk)
+                if result is None:
+                    result = projected.new_empty((*x.shape[:-1], projected.shape[-1]))
+                end = start + chunk.shape[1]
+                result[:, start:end].copy_(projected)
+                start = end
+                del projected
+        if result is not None:
+            return result
     outputs = [linear(part) if part.shape[1] else None for linear, part in zip(module, parts)]
     # a parallel linear's output width is not its local out_features, so empty groups take a computed group's width
     width = next(output.shape[-1] for output in outputs if output is not None)
@@ -706,30 +723,26 @@ def qk_norm_rope(q, k, q_norm, k_norm, freqs, groups):
     return queries, keys
 
 
-def sink_attention(q, k, v, sinks, comfy_attention, transformer_options):
-    """Softmax over [scores, sink] with the sink column dropped, through the selected attention.
+def _sink_attention_inputs(q, k, v, sinks):
+    """Pad the attention inputs with the learned sink key and its zero value.
 
     q, k, v are [B, H, N, D]. The sink is one extra key whose score equals the head's sink logit for
     every query and whose value is zero: queries gain three constant 1.0 components, real keys three
     zeros, and the sink key carries the logit (divided by the softmax scale) split into three
     compute-dtype parts, so the fp32-accumulated product reproduces the fp32 logit.
     """
-    batch, heads, tokens, head_dim = q.shape
+    head_dim = q.shape[-1]
     scale = head_dim ** -0.5
     logits = sinks.float() / scale
     hi = logits.to(q.dtype)
     mid = (logits - hi.float()).to(q.dtype)
     lo = (logits - hi.float() - mid.float()).to(q.dtype)
-    pad = SINK_PAD - 3
-    q = torch.cat((q, q.new_ones(batch, heads, tokens, 3), q.new_zeros(batch, heads, tokens, pad)), dim=-1)
-    sink_key = torch.cat((k.new_zeros(heads, head_dim), torch.stack((hi, mid, lo), dim=-1), k.new_zeros(heads, pad)), dim=-1)
-    k = torch.cat((torch.cat((k, k.new_zeros(batch, heads, tokens, SINK_PAD)), dim=-1), sink_key.view(1, heads, 1, -1).expand(batch, -1, -1, -1)), dim=2)
-    v = torch.cat((v, v.new_zeros(batch, heads, tokens, SINK_PAD)), dim=-1)
-    v = torch.cat((v, v.new_zeros(batch, heads, 1, head_dim + SINK_PAD)), dim=2)
-    out = optimized_attention(AttentionTensorContainer(q), AttentionTensorContainer(k), AttentionTensorContainer(v), heads,
-                              preferred_attention=comfy_attention, skip_reshape=True, skip_output_reshape=True,
-                              scale=scale, transformer_options=transformer_options)
-    return out[..., :head_dim]
+    q = F.pad(q, (0, SINK_PAD))
+    q[..., head_dim:head_dim + 3] = 1
+    k = F.pad(k, (0, SINK_PAD, 0, 1))
+    k[:, :, -1, head_dim:head_dim + 3] = torch.stack((hi, mid, lo), dim=-1)
+    v = F.pad(v, (0, SINK_PAD, 0, 1))
+    return AttentionTensorContainer(q), AttentionTensorContainer(k), AttentionTensorContainer(v)
 
 
 class Attention(nn.Module):
@@ -762,10 +775,25 @@ class Attention(nn.Module):
         k = k.view(batch, tokens, self.heads_kv, self.head_dim)
         q, k = qk_norm_rope(q, k, self.q_norm, self.k_norm, freqs, groups)
         v = v.reshape(batch, tokens, self.heads_kv, self.head_dim)
+        if v.is_cuda and not torch.is_grad_enabled() and tokens > 4096:
+            # Release the fused projection before allocating sink-padded inputs.
+            v = v.contiguous()
+        del qkv
         sinks = model_management.cast_to(self.sinks, torch.float32, q.device)[0]
-        out = sink_attention(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), sinks, self.comfy_attention, transformer_options)
+        inputs = _sink_attention_inputs(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), sinks)
+        del q, k, v
+        out = optimized_attention(*inputs, self.heads_q, preferred_attention=self.comfy_attention,
+                                  skip_reshape=True, skip_output_reshape=True, scale=self.head_dim ** -0.5,
+                                  transformer_options=transformer_options)[..., :self.head_dim]
         out = out.transpose(1, 2) * torch.sigmoid(gates).unsqueeze(-1)
+        del gates
         return modality_linear(self.linear_proj, out.reshape(batch, tokens, -1), groups)
+
+
+def _mlp_gate_budget(x):
+    if x.is_cuda and torch.cuda.get_device_properties(x.device).total_memory <= 8 * 1024**3:
+        return min(MLP_GATE_CHUNK_BYTES, 64 * 1024**2)
+    return MLP_GATE_CHUNK_BYTES
 
 
 class MLP(nn.Module):
@@ -781,7 +809,7 @@ class MLP(nn.Module):
     def forward(self, x, groups):
         x = self.pre_norm(x, groups)
         bytes_per_token = x.shape[0] * self.gate_width * x.element_size()
-        chunk_size = max(1, MLP_GATE_CHUNK_BYTES // max(1, bytes_per_token))
+        chunk_size = max(1, _mlp_gate_budget(x) // max(1, bytes_per_token))
         if x.shape[1] <= chunk_size:
             return modality_linear(self.down_proj, swiglu7(modality_linear(self.up_gate_proj, x, groups)), groups)
 
@@ -790,12 +818,26 @@ class MLP(nn.Module):
             parts = zip(x.split(groups, dim=1), self.up_gate_proj, self.down_proj)
         else:
             parts = [(x, self.up_gate_proj, self.down_proj)]
-        outputs = []
-        for part, up_gate, down in parts:
-            if part.shape[1]:
-                for chunk in part.split(chunk_size, dim=1):
-                    outputs.append(down(swiglu7(up_gate(chunk))))
-        return torch.cat(outputs, dim=1)
+        chunks = (
+            (chunk, up_gate, down)
+            for part, up_gate, down in parts
+            if part.shape[1]
+            for chunk in part.split(chunk_size, dim=1)
+        )
+        if not x.is_cuda or torch.is_grad_enabled():
+            return torch.cat([down(swiglu7(up_gate(chunk))) for chunk, up_gate, down in chunks], dim=1)
+
+        output = None
+        offset = 0
+        for chunk, up_gate, down in chunks:
+            result = down(swiglu7(up_gate(chunk)))
+            if output is None:
+                output = result.new_empty(x.shape[0], x.shape[1], result.shape[-1])
+            end = offset + result.shape[1]
+            output[:, offset:end].copy_(result)
+            offset = end
+            del result
+        return output
 
 
 def _dequantize_rows(rows: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
@@ -933,6 +975,12 @@ def _triton_block_dim(size: int) -> int:
     return 0
 
 
+def _uses_host_routing_indices(device):
+    if device.type != "cuda" or not model_management.is_amd():
+        return False
+    return getattr(torch.cuda.get_device_properties(device), "gcnArchName", "").split(":", 1)[0] == "gfx1102"
+
+
 def _sort_routed_tokens(
     probs_slice: torch.Tensor,
     indices_slice: torch.Tensor,
@@ -943,6 +991,10 @@ def _sort_routed_tokens(
     h_cur, _, top_k = indices_slice.shape
     e_count = h_cur * num_experts
     device = indices_slice.device
+    if _uses_host_routing_indices(device):
+        # Some gfx1102 ROCm builds lack the kernels for these integer operations.
+        metadata = _sort_routed_tokens(probs_slice.cpu(), indices_slice.cpu(), tokens_count, num_experts, block_t)
+        return tuple(value.to(device) for value in metadata)
     head_offset = torch.arange(h_cur, device=device).view(h_cur, 1, 1) * num_experts
     global_indices = (indices_slice + head_offset).reshape(-1)
     flat_probs = probs_slice.reshape(-1)
@@ -952,10 +1004,31 @@ def _sort_routed_tokens(
         .expand(h_cur, tokens_count, top_k)
         .reshape(-1)
     )
-    sorted_order = global_indices.argsort(stable=True)
+    count_indices = global_indices
+    try:
+        sorted_order = global_indices.argsort(stable=True)
+    except model_management.ACCELERATOR_ERROR as error:
+        # Some ROCm builds lack the stable-sort kernel for partial routing chunks.
+        if device.type != "cuda" or not model_management.is_amd() or "no kernel image" not in str(error).lower():
+            raise
+        count_indices = global_indices.cpu()
+        sorted_order = count_indices.argsort(stable=True).to(device)
     gather_ids = flat_token_ids[sorted_order].to(torch.int32)
     probs_sorted = flat_probs[sorted_order].float()
-    expert_counts = torch.bincount(global_indices, minlength=e_count)
+    try:
+        expert_counts = torch.bincount(count_indices, minlength=e_count)
+    except RuntimeError as error:
+        if count_indices.device.type != "cuda" or not model_management.is_amd() or "non-negative integral inputs" not in str(error):
+            raise
+        count_indices = global_indices.cpu()
+        if count_indices.min().item() < 0 or count_indices.max().item() >= e_count:
+            raise ValueError(
+                f"Routed expert IDs span {count_indices.min().item()}..{count_indices.max().item()}, expected 0..{e_count - 1}"
+            ) from error
+        expert_counts = torch.bincount(count_indices, minlength=e_count)
+    if expert_counts.numel() != e_count:
+        raise ValueError(f"Routed expert ID exceeds {e_count - 1}")
+    expert_counts = expert_counts.to(device)
     expert_offsets = torch.cat(
         (torch.zeros(1, device=device, dtype=torch.int64), expert_counts.cumsum(0))
     )
@@ -978,15 +1051,16 @@ def _scatter_routed_tokens(
     num_experts: int,
 ) -> torch.Tensor:
     total_routed, _, d_head = y_sorted.shape
-    e_count = h_cur * num_experts
-    head_ids = torch.repeat_interleave(
-        torch.arange(e_count, device=y_sorted.device) // num_experts, expert_counts
-    )
-    scatter_idx = (
-        (gather_ids.long() * h_cur + head_ids.long())
-        .unsqueeze(-1)
-        .expand(total_routed, d_head)
-    )
+    if h_cur == 1:
+        token_ids = gather_ids.long()
+    else:
+        metadata_device = torch.device("cpu") if _uses_host_routing_indices(y_sorted.device) else y_sorted.device
+        head_ids = torch.repeat_interleave(
+            torch.arange(h_cur * num_experts, device=metadata_device) // num_experts,
+            expert_counts.to(metadata_device),
+        )
+        token_ids = (gather_ids.to(device=metadata_device, dtype=torch.long) * h_cur + head_ids).to(y_sorted.device)
+    scatter_idx = token_ids.unsqueeze(-1).expand(total_routed, d_head)
     y = torch.zeros(tokens_count * h_cur, d_head, device=y_sorted.device, dtype=y_sorted.dtype)
     y.scatter_add_(0, scatter_idx, y_sorted.view(total_routed, d_head))
     return y.view(tokens_count, h_cur, d_head)
@@ -1105,6 +1179,7 @@ def _flash_mh_moe_int8_triton(
     banks,
     num_experts: int,
     stream_heads: bool = False,
+    reuse_input: bool = False,
 ) -> torch.Tensor:
     total_experts = x.shape[1] * num_experts
     views = tuple(_quant_bank_views(bank, weight, total_experts) for bank, weight in banks)
@@ -1113,8 +1188,8 @@ def _flash_mh_moe_int8_triton(
 
     # Copy each head's experts once. Bound routed activations independently of the clip length.
     bytes_per_token = all_indices.shape[-1] * banks[0][0].out_features * 4
-    token_chunk = max(1, MLP_GATE_CHUNK_BYTES // max(1, bytes_per_token))
-    out = torch.empty_like(x)
+    token_chunk = max(1, _mlp_gate_budget(x) // max(1, bytes_per_token))
+    out = x if reuse_input else torch.empty_like(x)
     for head in range(x.shape[1]):
         experts = slice(head * num_experts, (head + 1) * num_experts)
         head_views = tuple(
@@ -1267,13 +1342,18 @@ class MultiHeadMoE(nn.Module):
         self.up_proj = operations.MoEExperts(experts, self.head_dim, expert_intermediate_size, bias=False, device=device, dtype=dtype)
         self.down_proj = operations.MoEExperts(experts, expert_intermediate_size, self.head_dim, bias=False, device=device, dtype=dtype)
 
+    def _topk_indices(self, scores):
+        if _uses_host_routing_indices(scores.device):
+            return torch.topk(scores.cpu(), self.top_k, dim=-1).indices.to(scores.device)
+        return torch.topk(scores, self.top_k, dim=-1).indices
+
     def route(self, x_head, head):
         """Sigmoid scores; the selection bias picks the experts but does not weight them."""
         start = head * self.num_experts
         weight = model_management.cast_to(self.router.weight[start:start + self.num_experts], torch.float32, x_head.device)
         bias = model_management.cast_to(self.router.bias[start:start + self.num_experts], torch.float32, x_head.device)
         scores = torch.sigmoid(x_head.float() @ weight.t())
-        indices = torch.topk(scores + bias, self.top_k, dim=-1).indices
+        indices = self._topk_indices(scores + bias)
         probs = F.normalize(scores.gather(-1, indices), p=1, dim=-1, eps=1e-12) * self.route_scale
         return probs, indices
 
@@ -1287,7 +1367,7 @@ class MultiHeadMoE(nn.Module):
         )
         def select(tokens):
             scores = torch.sigmoid(torch.bmm(tokens.float().transpose(0, 1), weight.transpose(1, 2)))
-            indices = torch.topk(scores + bias, self.top_k, dim=-1).indices
+            indices = self._topk_indices(scores + bias)
             probs = F.normalize(scores.gather(-1, indices), p=1, dim=-1, eps=1e-12) * self.route_scale
             return probs, indices
 
@@ -1304,7 +1384,7 @@ class MultiHeadMoE(nn.Module):
             probs[:, span], indices[:, span] = select(x[span])
         return probs, indices
 
-    def forward(self, x):
+    def forward(self, x, reuse_input=False):
         batch, tokens, _ = x.shape
         x = x.reshape(batch * tokens, self.heads, self.head_dim)
         all_probs, all_indices = self.route_all(x)
@@ -1315,7 +1395,10 @@ class MultiHeadMoE(nn.Module):
             and self.gate_proj.out_features == self.up_proj.out_features
         )
         projections = (self.gate_proj, self.up_proj, self.down_proj)
-        if use_triton and not torch.is_grad_enabled() and any(bank.weight.device.type == "cpu" for bank in projections) and all(
+        limit_workspace = _mlp_gate_budget(x) < MLP_GATE_CHUNK_BYTES
+        if use_triton and not torch.is_grad_enabled() and (
+            limit_workspace or any(bank.weight.device.type == "cpu" for bank in projections)
+        ) and all(
             isinstance(bank.weight, QuantizedTensor) and bank.weight._qdata.dtype == torch.int8
             and bank.weight.device in (torch.device("cpu"), x.device) and not bank._full_precision_mm
             and not bank.weight_function and getattr(bank, "_v", None) is None
@@ -1325,10 +1408,12 @@ class MultiHeadMoE(nn.Module):
             # Leave room for routing and SwiGLU outputs while the three banks are in use.
             bank_bytes = sum(bank.weight._qdata.nbytes for bank in projections if bank.weight.device != x.device)
             workspace = min(MOE_ROW_CHUNK, batch * tokens * self.top_k) * self.gate_proj.out_features * 4
-            if bank_bytes + workspace > model_management.get_free_memory(x.device):
+            if limit_workspace or bank_bytes + workspace > model_management.get_free_memory(x.device):
                 banks = tuple((bank, bank.weight) for bank in projections)
                 if _convrot_group(banks[0][1]) == _convrot_group(banks[1][1]):
-                    out = _flash_mh_moe_int8_triton(x, all_probs, all_indices, banks, self.num_experts, stream_heads=True)
+                    out = _flash_mh_moe_int8_triton(
+                        x, all_probs, all_indices, banks, self.num_experts, stream_heads=True, reuse_input=reuse_input,
+                    )
                     return out.reshape(batch, tokens, self.heads * self.head_dim)
         # a quantized bank that the ops dequantize up front (full precision matmul) is dequantized in fp32, not rounded to bf16
         resident = lambda bank: x[:0].float() if isinstance(bank.weight, QuantizedTensor) else x
@@ -1343,7 +1428,11 @@ class MultiHeadMoE(nn.Module):
                     return out.reshape(batch, tokens, self.heads * self.head_dim)
                 if all(isinstance(weight, QuantizedTensor) for _, weight in banks):
                     if _convrot_group(banks[0][1]) == _convrot_group(banks[1][1]):
-                        out = _flash_mh_moe_int8_triton(x, all_probs, all_indices, banks, self.num_experts)
+                        stream_heads = limit_workspace and not torch.is_grad_enabled()
+                        out = _flash_mh_moe_int8_triton(
+                            x, all_probs, all_indices, banks, self.num_experts,
+                            stream_heads=stream_heads, reuse_input=reuse_input,
+                        )
                         return out.reshape(batch, tokens, self.heads * self.head_dim)
 
             out = torch.empty_like(x)
@@ -1418,11 +1507,24 @@ class MoELayer(nn.Module):
         normed = self.pre_norm(x, groups)
         moe_in = self.split_linear(normed)
         if not (hasattr(self.merge_linear, "start_input_gather") and hasattr(self.merge_linear, "forward_local") and hasattr(self.merge_linear, "reduce_output")):
-            routed = self.merge_linear(self.moe_mlp(moe_in))
+            # The split projection is private to the routed branch.
+            moe_out = self.moe_mlp(moe_in, reuse_input=True)
             del moe_in
+            if (
+                not torch.is_grad_enabled()
+                and _mlp_gate_budget(moe_out) < MLP_GATE_CHUNK_BYTES
+                and moe_out.shape[-1] == self.merge_linear.out_features
+            ):
+                for part in moe_out.split(1024, dim=1):
+                    part.copy_(self.merge_linear(part))
+                del part
+                routed = moe_out
+            else:
+                routed = self.merge_linear(moe_out)
+            del moe_out
             width = max(routed.shape[-1], self.shared_expert_fc1.out_features,
                         self.modality_specific_shared_expert_fc1[0].out_features)
-            chunk_size = max(1, MLP_GATE_CHUNK_BYTES // (normed.shape[0] * width * normed.element_size()))
+            chunk_size = max(1, _mlp_gate_budget(normed) // (normed.shape[0] * width * normed.element_size()))
             if normed.is_cuda and not torch.is_grad_enabled() and normed.shape[1] > chunk_size:
                 # Each token uses one modality expert and the common expert. Accumulate into the routed output.
                 offset = 0
@@ -1524,14 +1626,16 @@ class TransformerLayer(nn.Module):
         weights = torch.sigmoid(alpha * self.matmul_scale * pre + bias).to(streams.dtype)
         return torch.matmul(weights.unsqueeze(-2), streams).squeeze(-2)
 
-    def _connect(self, streams, branch_out, post, res, branch):
+    def _connect(self, streams, branch_out, post, res, branch, reuse_input=False):
         """streams_i <- sum_j res_ij streams_j + post_i branch_out, accumulated in fp32 and rounded once."""
         device = post.device
         post = (2.0 * torch.sigmoid(self._param(f"mhc_alpha_post_{branch}", device) * self.matmul_scale * post
                                     + self._param(f"mhc_bias_post_{branch}", device))).to(streams.dtype)
         res = sinkhorn(self._param(f"mhc_alpha_res_{branch}", device) * self.matmul_scale * res.float()
                        + self._param(f"mhc_bias_res_{branch}", device), self.sinkhorn_iterations, 1e-12).to(streams.dtype)
-        out = torch.empty_like(streams)
+        # The attention residual produced these streams inside this block.
+        reuse_streams = (reuse_input or branch == "mlp") and streams.is_cuda and not torch.is_grad_enabled()
+        out = streams if reuse_streams else torch.empty_like(streams)
         chunk_size = self._stream_chunk_size(streams)
         for start in range(0, streams.shape[1], chunk_size):
             end = start + chunk_size
@@ -1540,12 +1644,14 @@ class TransformerLayer(nn.Module):
             out[:, start:end] = mixed
         return out
 
-    def forward(self, x, freqs, groups, transformer_options={}):
+    def forward(self, x, freqs, groups, transformer_options={}, reuse_input=False):
         batch, tokens, _ = x.shape
         streams = x.view(batch, tokens, self.num_streams, self.hidden_size)
         pre, post, res = self._logits(x, "attn", groups)
+        del x
         branch = self.attention(self._branch_input(streams, pre, "attn"), freqs, groups, transformer_options)
-        streams = self._connect(streams, branch, post, res, "attn")
+        streams = self._connect(streams, branch, post, res, "attn", reuse_input=reuse_input)
+        del branch
         pre, post, res = self._logits(streams.view(batch, tokens, -1), "mlp", groups)
         branch = self.mlp(self._branch_input(streams, pre, "mlp"), groups)
         streams = self._connect(streams, branch, post, res, "mlp")
@@ -1626,9 +1732,18 @@ class PostAdapter(nn.Module):
         self.final_linear_video = Float32Linear(width, video_in_channels, bias=False, device=device)
         self.final_linear_audio = Float32Linear(width, audio_in_channels, bias=False, device=device)
 
+    @staticmethod
+    def _project(x, norm, linear):
+        if x.numel() * 4 <= RMS_NORM_FP32_CHUNK_BYTES:
+            return linear(norm(x.float()))
+
+        bytes_per_token = x.shape[0] * x.shape[-1] * 4
+        chunk_size = max(1, RMS_NORM_FP32_CHUNK_BYTES // bytes_per_token)
+        return torch.cat([linear(norm(chunk.float())) for chunk in x.split(chunk_size, dim=1)], dim=1)
+
     def forward(self, video, audio):
-        return (self.final_linear_video(self.final_norm_video(video.float())),
-                self.final_linear_audio(self.final_norm_audio(audio.float())))
+        return (self._project(video, self.final_norm_video, self.final_linear_video),
+                self._project(audio, self.final_norm_audio, self.final_linear_audio))
 
 
 def video_tokens(latent):
@@ -1708,7 +1823,9 @@ class Magi2Model(nn.Module):
 
         start = 0 if self.pipeline_stage is None else self.pipeline_stage.start_layer
         end = self.num_layers if self.pipeline_stage is None else self.pipeline_stage.end_layer
-        hidden = self._run_layers(hidden, freqs, layout.groups, transformer_options, start, end)
+        hidden = self._run_layers(
+            hidden, freqs, layout.groups, transformer_options, start, end, private_hidden=self.pipeline_stage is None
+        )
         if self.pipeline_stage is not None and not self.pipeline_stage.is_last:
             tensors = {"hidden_states": hidden, "freqs": freqs}
             metadata = {
@@ -1720,8 +1837,12 @@ class Magi2Model(nn.Module):
             return PipelineIntermediateTensors(tensors, metadata)
         return self._output(hidden, layout, (video.dtype, audio.dtype), isinstance(x, (list, tuple)))
 
-    def _run_layers(self, hidden, freqs, groups, transformer_options, start, end):
+    def _run_layers(self, hidden, freqs, groups, transformer_options, start, end, private_hidden=False):
         blocks_replace = transformer_options.get("patches_replace", {}).get("dit", {})
+        reuse_hidden = (
+            private_hidden and not blocks_replace and not torch.is_grad_enabled()
+            and _mlp_gate_budget(hidden) < MLP_GATE_CHUNK_BYTES
+        )
         layers = [self.block.layers[index] for index in range(start, end)]
         prefetch_queue = model_prefetch.make_prefetch_queue(layers, hidden.device, transformer_options)
         for index in range(start, end):
@@ -1734,6 +1855,8 @@ class Magi2Model(nn.Module):
                 hidden = blocks_replace[("double_block", index)](
                     {"img": hidden, "freqs": freqs, "groups": groups, "transformer_options": transformer_options},
                     {"original_block": block_wrap})["img"]
+            elif reuse_hidden and type(layer) is TransformerLayer and not (layer._forward_hooks or layer._forward_pre_hooks):
+                hidden = layer(hidden, freqs, groups, transformer_options, reuse_input=True)
             else:
                 hidden = layer(hidden, freqs, groups, transformer_options)
         model_prefetch.prefetch_queue_pop(prefetch_queue, hidden.device, None, malloc_scope="block")
