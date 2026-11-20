@@ -392,6 +392,9 @@ def apply_guess_settings(configuration: Configuration) -> None:
         elif is_amd and sys.platform == "win32":
             logger.info("AMD GPU on Windows detected, enabling quad cross attention")
             configuration.use_quad_cross_attention = True
+        elif is_amd:
+            logger.info("AMD GPU detected, using PyTorch cross attention")
+            configuration.use_pytorch_cross_attention = True
         elif _has_package("sageattention"):
             logger.info("sageattention found, enabling sage attention")
             configuration.use_sage_attention = True

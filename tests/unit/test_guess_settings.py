@@ -200,6 +200,22 @@ class TestGuessSettingsAmd:
     @patch("comfy.component_model.guess_settings._has_nvidia_gpu", return_value=False)
     @patch("comfy.component_model.guess_settings._has_amd_gpu", return_value=True)
     @patch("comfy.component_model.guess_settings._total_ram_gb", return_value=64.0)
+    @patch("comfy.component_model.guess_settings._has_package", return_value=True)
+    @patch("comfy.component_model.guess_settings.sys.platform", "linux")
+    def test_amd_linux_prefers_pytorch_attention_with_sage_installed(self, *_mocks):
+        cfg = _config()
+        apply_guess_settings(cfg)
+        assert cfg.use_pytorch_cross_attention is True
+        assert cfg.use_sage_attention is False
+
+        explicit = _config(use_sage_attention=True)
+        apply_guess_settings(explicit)
+        assert explicit.use_pytorch_cross_attention is False
+        assert explicit.use_sage_attention is True
+
+    @patch("comfy.component_model.guess_settings._has_nvidia_gpu", return_value=False)
+    @patch("comfy.component_model.guess_settings._has_amd_gpu", return_value=True)
+    @patch("comfy.component_model.guess_settings._total_ram_gb", return_value=64.0)
     @patch("comfy.component_model.guess_settings._competing_gpu_processes", return_value=[])
     @patch("comfy.component_model.guess_settings._has_package", return_value=False)
     def test_fp32_vae_not_set_when_user_set_fp16(self, *_mocks):
