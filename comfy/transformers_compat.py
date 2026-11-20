@@ -25,6 +25,8 @@ def patch_transformers_finegrained_fp8_import(torch_module=None):
 
 patch_transformers_finegrained_fp8_import()
 
+from transformers import PreTrainedTokenizerFast
+
 try:
     from transformers import CLIPTokenizer
 except (ImportError, ModuleNotFoundError):
@@ -91,6 +93,7 @@ __all__ = [
     "CLIPTokenizer",
     "CLIPTokenizerFast",
     "PreTrainedTokenizerBase",
+    "PreTrainedTokenizerFast",
     "GPT2TokenizerFast",
     "BertTokenizerFast",
     "Qwen2Tokenizer",

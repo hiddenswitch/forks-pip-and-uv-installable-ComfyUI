@@ -13,9 +13,8 @@ from typing import Tuple, Sequence, TypeVar, Callable, Optional, Union
 
 import torch
 from tokenizers import Tokenizer
-from transformers import PreTrainedTokenizerFast
 
-from .transformers_compat import CLIPTokenizer, PreTrainedTokenizerBase
+from .transformers_compat import CLIPTokenizer, PreTrainedTokenizerBase, PreTrainedTokenizerFast
 
 from . import clip_model
 from . import memory_management
