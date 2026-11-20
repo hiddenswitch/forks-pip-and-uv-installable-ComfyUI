@@ -7,7 +7,7 @@ Throughput uses the second step. Sampling time includes both steps per stage.
 | Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | PAN 2<br><sub>1248x704, 241 frames at 24 fps, RX 7600 uses CPU decode with swap</sub> | 0.0032 | 0.0083 | 0.0181 | 0.0089 | 0.0139 |
-| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 0.0016 | 0.0041 | 0.0019 | 0.0012 |
+| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | 0.0009 | 0.0016 | 0.0041 | 0.0019 | 0.0012 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 0.0008 | 0.0011 | 0.0015 | 0.0004 |
 | MiniMax H3 Image | 0.0881 | 0.7332 | 3.0191 | 2.1201 | 1.2980 |
 | Fibo 2.0 Dev<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 0.1500 | 0.3848 | 0.7410 | 0.3754 | — |
@@ -39,7 +39,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | PAN 2<br><sub>1248x704, 241 frames at 24 fps, RX 7600 uses CPU decode with swap</sub> | 103.92 | 9.17 | 34.98 | 66.85 | 56.59 |
-| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 43.91 | 44.43 | 186.87 | 445.38 |
+| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | 377.10 | 43.91 | 44.43 | 186.87 | 445.38 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 252.94 | 235.92 | 184.60 | 442.83 |
 | MiniMax H3 Image | 47.73 | 758.37 | 840.30 | 78.19 | 84.41 |
 | Fibo 2.0 Dev<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 73.13 | 218.55 | 286.11 | 24.36 | — |
@@ -67,7 +67,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | PAN 2<br><sub>1248x704, 241 frames at 24 fps, RX 7600 uses CPU decode with swap</sub> | 616.44 | 250.80 | 703.92 | 240.09 | 148.28 |
-| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 1278.23 | 484.26 | 1197.66 | 1670.86 |
+| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | 2310.46 | 1278.23 | 484.26 | 1197.66 | 1670.86 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 4797.66 | 3604.49 | 2875.35 | 10144.17 |
 | MiniMax H3 Image | 27.42 | 496.42 | 385.27 | 1.66 | 2.38 |
 | Fibo 2.0 Dev<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 15.02 | 238.02 | 187.79 | 7.07 | — |
@@ -95,7 +95,7 @@ Loading includes prompt encoding. A dash indicates unavailable timing, including
 | Model | RX 7600 | RTX 3060 | RTX 3090 | 1x GB10 | 2x GB10 |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | PAN 2<br><sub>1248x704, 241 frames at 24 fps, RX 7600 uses CPU decode with swap</sub> | 14996.96 | 208.04 | 90.99 | 150.05 | 171.05 |
-| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | — | 22.47 | 7.25 | 16.25 | 68.05 |
+| MAGI-2 Preview<br><sub>896x512, 125 frames at 12.5 fps, 44.1 kHz stereo</sub> | 48.73 | 22.47 | 7.25 | 16.25 | 68.05 |
 | MAGI-2 Preview + Refiner<br><sub>896x512, 125 frames at 12.5 fps → 1920x1088, 249 frames at 25 fps, 44.1 kHz stereo</sub> | — | 288.93 | 105.44 | 128.08 | 422.19 |
 | MiniMax H3 Image | 3.58 | 28.51 | 16.11 | 0.74 | 1.15 |
 | Fibo 2.0 Dev<br><sub>RX 7600 uses CPU decode and synchronous copies</sub> | 19.68 | 9.31 | 0.68 | 0.68 | — |
