@@ -130,10 +130,12 @@ def test_block_window_attention_matches_dense_masked_attention(monkeypatch, shap
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a GPU")
 @pytest.mark.parametrize("masked", [False, True])
-def test_low_memory_rocm_attention_matches_full_attention(monkeypatch, masked):
+def test_low_memory_rocm_attention_matches_full_attention(monkeypatch, request, masked):
     from comfy.ldm.magi2 import refiner
 
-    monkeypatch.setattr(torch.backends.cuda.matmul, "allow_tf32", False)
+    original_precision = torch.get_float32_matmul_precision()
+    request.addfinalizer(lambda: torch.set_float32_matmul_precision(original_precision))
+    torch.set_float32_matmul_precision("highest")
     torch.manual_seed(7)
     device = _device()
     q = torch.randn(2, 4, 11, 16, device=device)
