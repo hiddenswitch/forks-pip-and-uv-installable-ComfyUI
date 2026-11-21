@@ -22,7 +22,7 @@ from ... import model_management, model_prefetch, patcher_extension
 from ...pipeline_parallel import PipelineIntermediateTensors, PipelineMissingLayer, PipelineStageConfig
 from ...pipeline_parallel.types import pack_pipeline_value, prepare_model_parallel_value, unpack_pipeline_value
 from ...tensor_parallel.operations import column_parallel_linear, local_size, row_parallel_linear
-from ..modules.attention import AttentionTensorContainer, ComfyAttention, optimized_attention
+from ..modules.attention import AttentionTensorContainer, ComfyAttention, attention_sub_quad, optimized_attention
 from .model import (MLP_GATE_CHUNK_BYTES, Magi2Layout, MultiModalityRMSNorm, PostAdapter, PreAdapter, fourier_rope, make_modality_linear, modality_linear,
                     qk_norm_rope, swiglu7, video_tokens)
 
@@ -53,6 +53,15 @@ def _host_residual(shape, dtype):
 
 def _attend(q, k, v, comfy_attention, transformer_options, mask=None):
     """q [B, Hq, Lq, D], k/v [B, Hkv, Lk, D] -> [B, Hq, Lq, D]."""
+    if q.is_cuda and not torch.is_grad_enabled() and model_management.is_amd():
+        # Math SDPA can expand grouped K/V and cast them to FP32, even for one query.
+        workspace = 8 * q.shape[0] * q.shape[1] * k.shape[-2] * (k.shape[-1] + q.shape[-2])
+        if workspace > model_management.get_free_memory(q.device) // 2:
+            return attention_sub_quad(
+                AttentionTensorContainer(q), AttentionTensorContainer(k), AttentionTensorContainer(v), q.shape[1],
+                mask=mask, skip_reshape=True, skip_output_reshape=True, attn_precision=torch.float32,
+                enable_gqa=k.shape[1] != q.shape[1], transformer_options=transformer_options,
+            )
     return optimized_attention(AttentionTensorContainer(q), AttentionTensorContainer(k), AttentionTensorContainer(v), q.shape[1],
                                preferred_attention=comfy_attention, mask=mask, skip_reshape=True, skip_output_reshape=True,
                                enable_gqa=k.shape[1] != q.shape[1], transformer_options=transformer_options)
@@ -206,8 +215,10 @@ class RefinerAttention(nn.Module):
         for span, chunk_groups in self._token_chunks(tokens, groups, chunk_size):
             part = project(attended[:, span], gates[:, span], chunk_groups)
             if output is None:
-                if reuse_attended and heads * dim == part.shape[-1] and attended.dtype == part.dtype and attended.device == part.device:
+                if reuse_attended and heads * dim == part.shape[-1] and attended.dtype == part.dtype:
                     output = attended.flatten(2)
+                elif reuse_attended and attended.device.type == "cpu":
+                    output = _host_residual((batch, tokens, part.shape[-1]), part.dtype)
                 else:
                     output = part.new_empty((batch, tokens, part.shape[-1]))
             output[:, span] = part
@@ -225,6 +236,11 @@ class RefinerAttention(nn.Module):
             kv_bytes = 2 * self.heads_kv * self.head_dim * compute_dtype.itemsize
             kv_and_gates = x.shape[0] * x.shape[1] * (kv_bytes + self.heads_q * 4)
             required = query_bytes + kv_and_gates + WINDOW_KV_CHUNK_BYTES + QKV_PROJECTION_CHUNK_BYTES
+            if freqs.is_cuda and model_management.is_amd():
+                # Masked math SDPA can expand and cast both K/V tensors to FP32.
+                window_keys = math.prod(self.block_size) * math.prod(2 * r + 1 for r in self.radius)
+                window_keys += x.shape[1] - math.prod(video_shape)
+                required += 2 * x.shape[0] * window_keys * self.heads_q * self.head_dim * 4
             if x.device != freqs.device and required > model_management.get_free_memory(freqs.device):
                 # Each video query is gathered once. Keep K/V resident for overlapping windows.
                 buffer = _host_residual(shape, compute_dtype)
@@ -253,17 +269,20 @@ class RefinerMLP(nn.Module):
         x = modality_linear(self.up_gate_proj, self.pre_norm(x, groups).to(compute_dtype), groups).float()
         return modality_linear(self.down_proj, swiglu7(x).to(compute_dtype), groups).float()
 
-    def forward(self, x, groups, compute_dtype, attention_output=None, allow_host_residual=False):
+    def forward(self, x, groups, compute_dtype, attention_output=None, allow_host_residual=False, compute_device=None):
         def project(tokens, splits, attention):
             if attention is None:
                 return self._project(tokens, splits, compute_dtype)
-            residual = tokens.to(attention.device) + attention
+            device = attention.device if compute_device is None else compute_device
+            residual = tokens.to(device) + attention.to(device)
             return residual + self._project(residual, splits, compute_dtype)
 
         # The fp32 gate and its activation workspace coexist during SwiGLU.
         bytes_per_token = x.shape[0] * self.gate_width * 4 * 2
         chunk_size = max(1, MLP_GATE_CHUNK_BYTES // max(1, bytes_per_token))
-        host_stream = attention_output is not None and x.device != attention_output.device
+        host_stream = attention_output is not None and (
+            x.device != attention_output.device or (compute_device is not None and x.device != compute_device)
+        )
         if allow_host_residual and not host_stream and x.is_cuda:
             # Attention and resident weights can consume the headroom measured before the first layer.
             output_bytes = x.numel() * torch.float32.itemsize
@@ -301,7 +320,7 @@ class RefinerLayer(nn.Module):
 
     def forward(self, x, freqs, groups, video_shape, compute_dtype, transformer_options={}):
         attention = self.attention(x, freqs, groups, video_shape, compute_dtype, transformer_options)
-        return self.mlp(x, groups, compute_dtype, attention_output=attention,
+        return self.mlp(x, groups, compute_dtype, attention_output=attention, compute_device=freqs.device,
                         allow_host_residual=transformer_options.get("magi2_refiner_host_residual", False))
 
 
