@@ -25,6 +25,7 @@ def test_magi_preview_chunked_output_matches_full_projection(monkeypatch):
     generator = torch.Generator().manual_seed(42)
     for parameter in model.parameters():
         parameter.normal_(mean=0.0, std=0.04, generator=generator)
+    model.pre_adapter.rope.bands.copy_(torch.tensor([1.0, 2.0, 4.0, 8.0]))
     video = torch.randn(1, 4, 2, 3, 4, generator=generator)
     audio = torch.randn(1, 2, 11, generator=generator)
     context = torch.randn(1, 5, 8, generator=generator)
