@@ -291,7 +291,10 @@ def load_safetensors_file_backed(ckpt, include_keys=None) -> tuple[dict[str, tor
             header = json.loads(f.read(header_size).decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
             raise _invalid_safetensors_error(str(e), ckpt) from e
-        mapping = mmap.mmap(f.fileno(), 0, flags=mmap.MAP_PRIVATE, prot=mmap.PROT_READ)
+        if sys.platform == "win32":
+            mapping = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        else:
+            mapping = mmap.mmap(f.fileno(), 0, flags=mmap.MAP_PRIVATE, prot=mmap.PROT_READ)
 
     data = memoryview(mapping)[data_base_offset:]
     sd = {}

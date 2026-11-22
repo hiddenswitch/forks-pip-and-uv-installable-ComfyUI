@@ -1,3 +1,4 @@
+from pathlib import Path
 import json
 import ctypes
 import struct
@@ -394,7 +395,7 @@ def test_external_worker_resolves_logical_stage_to_rank_local_device(monkeypatch
 
         def send_object(self, value, rank):
             assert rank == 0
-            assert value["kind"] == "ready"
+            assert value["kind"] == "ready", value
 
     loaded = []
 
@@ -404,7 +405,7 @@ def test_external_worker_resolves_logical_stage_to_rank_local_device(monkeypatch
 
     def load_stage(resolved, rank):
         assert rank == 1
-        assert resolved.checkpoint_path == "/rank-local/model.safetensors"
+        assert resolved.checkpoint_path == str(Path("/rank-local/model.safetensors"))
         loaded.append(resolved.plan.stages[1].device)
         return object(), object()
 

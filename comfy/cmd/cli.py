@@ -253,7 +253,7 @@ _MEMORY_OPTS: list[tuple] = [
 ]
 
 _CACHE_OPTS: list[tuple] = [
-    ("force_output_rerun", bool, typer.Option(False, "--force-output-rerun", help="Run cached output nodes again to rewrite their files.")),
+    ("force_output_rerun", bool, typer.Option(False, "--force-output-rerun/--no-force-output-rerun", help="Run cached output nodes again to rewrite their files.")),
     ("cache_classic", bool, typer.Option(False, "--cache-classic/--no-cache-classic", help="Use the old style (aggressive) caching.")),
     ("cache_lru", int, typer.Option(0, "--cache-lru", help="Use LRU caching with a maximum of N node results cached. May use more RAM/VRAM.")),
     ("cache_none", bool, typer.Option(False, "--cache-none/--no-cache-none", help="Reduced RAM/VRAM usage at the expense of executing every node for each run.")),

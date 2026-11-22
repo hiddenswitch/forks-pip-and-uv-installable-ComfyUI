@@ -335,6 +335,8 @@ class TestMixedPrecisionOps(unittest.TestCase):
             self.assertTrue(torch.equal(model.layer.weight._params.scale, expected._params.scale))
             patcher.unpatch_model()
             self.assertTrue(torch.equal(model.layer.weight._qdata, base))
+            # Windows keeps mapped scratch files open as long as the layer owns their storage.
+            del patcher, model, layer
 
     @unittest.skipUnless(ops.mixed_precision_quantization_available(), "requires comfy_kitchen-backed quantized tensors")
     def test_disabled_fp8_compute_preserves_scaled_quantized_weight(self):

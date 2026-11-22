@@ -486,9 +486,9 @@ def test_independent_process_groups_do_not_initialize_default_world(monkeypatch)
     ]
 
 
-def test_cleanup_after_device_group_abort():
+def test_cleanup_after_device_group_abort(tmp_path):
     dist = torch.distributed
-    store = dist.HashStore()
+    store = dist.FileStore(str(tmp_path / "rendezvous"), 1)
 
     def group(name):
         return _create_independent_process_group(

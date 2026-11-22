@@ -303,6 +303,7 @@ def test_discrete_gpus_keep_the_default_allocator_and_dynamic_vram():
     assert result.stdout.strip().splitlines()[-1] == "False True"
 
 
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="managed allocator uses the Linux NVIDIA driver")
 @pytest.mark.parametrize("allocator_env", ["PYTORCH_ALLOC_CONF", "PYTORCH_CUDA_ALLOC_CONF"])
 def test_managed_allocator_backs_cuda_tensors_with_managed_memory(allocator_env):
     """With the setting forced on, torch allocates cudaMallocManaged memory before anything else touches CUDA."""
