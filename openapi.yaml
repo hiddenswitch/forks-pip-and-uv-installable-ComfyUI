@@ -1132,6 +1132,18 @@ paths:
                 additionalProperties:
                   type: boolean
                 properties:
+                  server_boot_id:
+                    type: string
+                    description: Random identifier generated at server startup.
+                  agent:
+                    type: object
+                    required: [state]
+                    properties:
+                      state:
+                        type: string
+                        enum: [starting, ready, failed]
+                      reason:
+                        type: string
                   max_upload_size:
                     type: integer
                     format: int64
@@ -10235,6 +10247,7 @@ components:
       required:
       - name
       - pathIndex
+      - size
       properties:
         name:
           type: string

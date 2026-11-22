@@ -89,7 +89,7 @@ from comfy_api_nodes.util import (
     validate_video_duration,
 )
 from comfy_api_nodes.util.common_exceptions import ProcessingInterrupted
-from comfy.cmd.server import PromptServer
+from comfy.execution_context import current_execution_context
 
 BYTEPLUS_IMAGE_ENDPOINT = "/proxy/byteplus/api/v3/images/generations"
 
@@ -326,7 +326,7 @@ async def _obtain_group_id_via_h5_auth(cls: type[IO.ComfyNode]) -> str:
         raise RuntimeError(f"Seedance session {session.session_id} completed without a group_id")
 
     logger.warning("Seedance authentication complete. New GroupId: %s", result.group_id)
-    PromptServer.instance.send_progress_text(
+    current_execution_context().server.send_progress_text(
         f"Authentication complete. New GroupId: {result.group_id}", cls.hidden.unique_id
     )
     return result.group_id
@@ -3459,7 +3459,7 @@ class ByteDanceCreateImageAsset(IO.ComfyNode):
             asset_type="Image",
         )
         await _wait_for_asset_active(cls, asset_id, resolved_group)
-        PromptServer.instance.send_progress_text(
+        current_execution_context().server.send_progress_text(
             f"Please save the asset_id and group_id for reuse.\n\nasset_id: {asset_id}\n\n"
             f"group_id: {resolved_group}",
             cls.hidden.unique_id,
@@ -3542,7 +3542,7 @@ class ByteDanceCreateVideoAsset(IO.ComfyNode):
             asset_type="Video",
         )
         await _wait_for_asset_active(cls, asset_id, resolved_group)
-        PromptServer.instance.send_progress_text(
+        current_execution_context().server.send_progress_text(
             f"Please save the asset_id and group_id for reuse.\n\nasset_id: {asset_id}\n\n"
             f"group_id: {resolved_group}",
             cls.hidden.unique_id,

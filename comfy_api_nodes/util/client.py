@@ -26,7 +26,7 @@ from pydantic import BaseModel
 import aiohttp
 
 from comfy import utils
-from comfy.cmd.server import PromptServer
+from comfy.execution_context import current_execution_context
 from comfy.interruption import InterruptProcessingException
 from comfy.model_management import interrupt_current_processing
 from comfy.model_management import throw_exception_if_processing_interrupted
@@ -676,7 +676,7 @@ def _display_text(
     if text is not None:
         display_lines.append(text)
     if display_lines:
-        PromptServer.instance.send_progress_text("\n".join(display_lines), get_node_id(node_cls))
+        current_execution_context().server.send_progress_text("\n".join(display_lines), get_node_id(node_cls))
 
 
 def _display_time_progress(
