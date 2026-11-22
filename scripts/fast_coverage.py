@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 UNIT_TESTS = [
     "tests/execution/test_execution.py",
     "tests/execution/test_error_logging.py",
+    "tests/execution/test_force_output_rerun.py",
     "tests/execution/test_disabled_nodes.py",
     "tests/execution/test_jobs_from_execution.py",
     "tests/unit/test_coverage_processes.py",
@@ -26,6 +27,7 @@ UNIT_TESTS = [
     "tests/unit/test_process_pool.py",
     "tests/unit/test_workflow_interrupt.py",
     "tests/unit/test_release_models.py",
+    "tests/unit/test_unified_memory_file_backing.py",
     "tests/unit/test_flux3_integration.py",
     "tests/unit/test_model_downloader_uri.py",
     "tests/unit/test_cache_control.py",

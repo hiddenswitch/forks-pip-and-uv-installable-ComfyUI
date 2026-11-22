@@ -42,7 +42,7 @@ def _truncated_mp4(tmp_path):
     _write_video(str(full), frames, codec="mpeg4", options={"movflags": "faststart"})
     data = full.read_bytes()
     cut = tmp_path / "cut.mp4"
-    cut.write_bytes(data[: len(data) // 5])
+    cut.write_bytes(data[: len(data) // 2])
     return str(cut)
 
 
