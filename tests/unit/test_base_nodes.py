@@ -80,7 +80,7 @@ def test_vae_encode_for_inpaint(has_gpu, vae):
     assert torch.allclose(latent["noise_mask"], mask)
 
 
-def test_inpaint_model_conditioning(model, vae, clip, has_gpu):
+def test_inpaint_model_conditioning(vae, clip, has_gpu):
     if not has_gpu:
         pytest.skip("requires gpu for performant testing")
     cond_pos, = CLIPTextEncode().encode(clip, "test prompt")

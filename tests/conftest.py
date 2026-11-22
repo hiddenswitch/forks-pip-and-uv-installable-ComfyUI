@@ -354,39 +354,40 @@ def pytest_collection_modifyitems(items):
     items.extend(last_items)
 
 
+def _cached_test_weight(folder, filename):
+    from comfy.model_downloader import get_or_download
+
+    path = get_or_download(folder, filename, offline=True)
+    if path is None:
+        pytest.skip(f"{filename} is missing from the local models and Hugging Face cache")
+    return path
+
+
 @pytest.fixture(scope="module")
 def vae():
-    from comfy.nodes.base_nodes import VAELoader
+    from comfy import sd, utils
 
-    vae_file = "vae-ft-mse-840000-ema-pruned.safetensors"
-    try:
-        vae, = VAELoader().load_vae(vae_file)
-    except FileNotFoundError:
-        pytest.skip(f"{vae_file} not present on machine")
+    filename = "vae-ft-mse-840000-ema-pruned.safetensors"
+    path = _cached_test_weight("vae", filename)
+    weights, metadata = utils.load_torch_file(path, return_metadata=True)
+    vae = sd.VAE(sd=weights, metadata=metadata, ckpt_name=filename)
+    vae.throw_exception_if_invalid()
     return vae
 
 
 @pytest.fixture(scope="module")
 def clip():
-    from comfy.nodes.base_nodes import CheckpointLoaderSimple
+    from comfy import sd
+    from comfy.cmd import folder_paths
 
-    checkpoint = "v1-5-pruned-emaonly.safetensors"
+    path = _cached_test_weight("checkpoints", "v1-5-pruned-emaonly.safetensors")
     try:
-        return CheckpointLoaderSimple().load_checkpoint(checkpoint)[1]
-    except FileNotFoundError:
-        pytest.skip(f"{checkpoint} not present on machine")
+        return sd.load_checkpoint_guess_config(
+            path, output_model=False, output_vae=False, output_clip=True,
+            embedding_directory=folder_paths.get_folder_paths("embeddings"),
+        )[1]
     except RuntimeError as e:
         pytest.skip(str(e))
-
-
-@pytest.fixture(scope="module")
-def model(clip):
-    from comfy.nodes.base_nodes import CheckpointLoaderSimple
-    checkpoint = "v1-5-pruned-emaonly.safetensors"
-    try:
-        return CheckpointLoaderSimple().load_checkpoint(checkpoint)[0]
-    except FileNotFoundError:
-        pytest.skip(f"{checkpoint} not present on machine")
 
 
 @pytest.fixture(scope="function", autouse=False)
