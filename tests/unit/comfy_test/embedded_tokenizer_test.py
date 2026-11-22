@@ -3,12 +3,8 @@ import safetensors.torch
 import torch
 from tokenizers import AddedToken, Tokenizer, models, pre_tokenizers, processors
 
-from comfy.cli_args import args
 from comfy.cli_args_types import Configuration
 from comfy.execution_context import context_configuration
-
-if not torch.cuda.is_available():
-    args.cpu = True
 
 import comfy.sd
 from comfy import sd1_clip
