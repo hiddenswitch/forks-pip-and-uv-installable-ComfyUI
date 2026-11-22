@@ -26,6 +26,8 @@ from . import model_sampling
 from . import ops
 from . import sd1_clip
 from . import sdxl_clip
+from . import checkpoint_convert
+from .text_encoders import sensenova
 from . import storage
 from . import utils
 from .cli_args import args
@@ -304,7 +306,7 @@ class CLIP:
 
         self.tokenizer: "sd1_clip.SD1Tokenizer" = tokenizer(embedding_directory=embedding_directory, tokenizer_data=tokenizer_data)
         self.tokenizer_metadata = {k: v for k, v in tokenizer_data.items() if k.endswith("_tokenizer_json") and isinstance(v, str)}
-        self.patcher = get_model_patcher_class(disable_dynamic=disable_dynamic)(self.cond_stage_model, load_device=load_device, offload_device=offload_device, fast_disk=storage.state_dict_fast_disk(state_dict))
+        self.patcher = get_model_patcher_class(disable_dynamic=disable_dynamic or getattr(self.cond_stage_model, "disable_offload", False))(self.cond_stage_model, load_device=load_device, offload_device=offload_device, fast_disk=storage.state_dict_fast_disk(state_dict))
         # Match torch.float32 hardcode upcast in TE implemention
         self.patcher.set_model_compute_dtype(torch.float32)
         self.patcher.hook_mode = EnumHookMode.MinVram
@@ -2099,6 +2101,10 @@ def load_text_encoder_state_dicts(state_dicts=[], embedding_directory=None, clip
             clip_target.params["projection_config"] = minimax_music.detect_merged_config(clip_data[0])
             clip_target.clip = minimax_music.MiniMaxMusic3TEModel
             clip_target.tokenizer = minimax_music.MiniMaxMusic3Tokenizer
+        elif "language_model.model.embed_tokens.weight" in clip_data[0] and "language_model.model.norm.weight" in clip_data[0] and "language_model.model.layers.0.self_attn.q_norm_hw.weight" in clip_data[0]:
+            clip_target.clip = sensenova.SenseNovaTextEncoder
+            clip_target.tokenizer = sensenova.SenseNovaTokenizer
+            clip_target.params = sensenova.clip_parameters(clip_data[0])
         elif te_model == TEModel.CLIP_G:
             if clip_type == CLIPType.STABLE_CASCADE:
                 clip_target.clip = sdxl_clip.StableCascadeClipModel
@@ -2488,6 +2494,7 @@ def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, o
     if model_options is None:
         model_options = {}
     sd, metadata = utils.load_torch_file(ckpt_path, return_metadata=True)
+    sd = checkpoint_convert.convert_checkpoint(sd)
     out = load_state_dict_guess_config(sd, output_vae, output_clip, output_clipvision, embedding_directory, output_model, model_options, te_model_options=te_model_options, metadata=metadata, ckpt_path=ckpt_path, disable_dynamic=disable_dynamic)
     if out is None:
         raise RuntimeError("ERROR: Could not detect model type of: {}\n{}".format(ckpt_path, model_detection_error_hint(ckpt_path, sd)))

@@ -424,6 +424,7 @@ class Configuration(dict):
         self.fp8_e8m0fnu_unet: bool = False
         self.bf16_text_enc: bool = False
         self.supports_fp8_compute: bool = False
+        self.force_output_rerun: bool = False
         self.cache_classic: bool = False
         self.cache_none: bool = False
         self.cache_ram: float = 0.0
