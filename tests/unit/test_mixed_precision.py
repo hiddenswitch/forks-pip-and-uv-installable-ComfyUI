@@ -568,6 +568,14 @@ class TestMixedPrecisionOps(unittest.TestCase):
         self.assertEqual(state_dict2["layer1.weight_scale"].item(), 3.0)
         self.assertEqual(model.layer1.weight._layout_cls, "TensorCoreFP8E4M3Layout")
 
+        from comfy.model_patcher import ModelPatcher
+
+        cpu = torch.device("cpu")
+        with self.assertLogs(level="WARNING") as logs:
+            patches = ModelPatcher(model, cpu, cpu).get_key_patches("layer1.")
+        self.assertTrue(any("layer1.weight_scale" in message for message in logs.output))
+        self.assertEqual(set(patches), {"layer1.weight", "layer1.bias"})
+
         # Verify non-quantized layers are standard tensors
         self.assertNotIsInstance(state_dict2["layer2.weight"], QuantizedTensor)
         self.assertNotIsInstance(state_dict2["layer3.weight"], QuantizedTensor)

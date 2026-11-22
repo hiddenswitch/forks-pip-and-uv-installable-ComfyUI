@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-import server
+from comfy.cmd import server
 
 EXPLOIT_PATHS = ["/internal/models/download", "/api/internal/models/download"]
 EXPLOIT_BODY = {

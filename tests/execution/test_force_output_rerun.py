@@ -7,6 +7,7 @@ filename for a file that no longer exists.
 from contextlib import contextmanager
 import json
 from pathlib import Path
+import shutil
 import socket
 import subprocess
 import sys
@@ -70,9 +71,14 @@ def _running_server(tmp_path: Path, extra_args: list) -> Iterator[str]:
     log_path = tmp_path / "server.log"
     port = _unused_port()
     base_url = f"http://127.0.0.1:{port}"
+    custom_nodes = tmp_path / "custom_nodes"
+    custom_nodes.mkdir()
+    shutil.copytree(COMFYUI_ROOT / "tests/inference/testing_pack", custom_nodes / "testing_pack")
     command = [
         sys.executable,
-        "main.py",
+        "-c",
+        "from comfy.cmd.cli import entrypoint; entrypoint()",
+        "serve",
         "--listen",
         "127.0.0.1",
         "--port",
@@ -83,8 +89,10 @@ def _running_server(tmp_path: Path, extra_args: list) -> Iterator[str]:
         str(tmp_path / "output"),
         "--temp-directory",
         str(tmp_path),
-        "--extra-model-paths-config",
-        str(Path(__file__).parent / "extra_model_paths.yaml"),
+        "--base-directory",
+        str(tmp_path),
+        "--whitelist-custom-nodes",
+        "testing_pack",
         *extra_args,
     ]
     with log_path.open("w", encoding="utf-8") as log:

@@ -377,7 +377,7 @@ class ModelFile(BaseModel):
     )
     modified: float | None = Field(None, description='File modification timestamp')
     created: float | None = Field(None, description='File creation timestamp')
-    size: int | None = Field(None, description='File size in bytes')
+    size: int = Field(..., description='File size in bytes')
 
 
 class Info(BaseModel):

@@ -8,6 +8,11 @@ import comfy_aimdo.host_buffer
 from safetensors import safe_open
 from safetensors.torch import save_file
 
+from comfy.distributed.server_stub import ServerStub
+from comfy.execution_context import context_execute_prompt
+from comfy.interruption import InterruptProcessingException
+from comfy.progress_types import ProgressRegistryStub
+
 import comfy.hooks
 import comfy.checkpoint_convert
 import comfy.sd
@@ -411,14 +416,16 @@ def test_sensenova_native_sampling_and_generation_node():
     ([42, 151668], 8, [42, 151668]),
     ([42, 43, 44], 2, [42, 43]),
 ])
-def test_sensenova_text_progress_reaches_ui_and_console(monkeypatch, capsys, generated, limit, expected):
+def test_sensenova_text_progress_reaches_ui_and_console(capsys, generated, limit, expected):
     clip = _text_clip(generated)
     updates = []
-    monkeypatch.setattr(comfy.utils, "PROGRESS_BAR_HOOK", lambda value, total, preview, **kw: updates.append((value, total)))
-    monkeypatch.setattr(comfy.utils, "PROGRESS_THROTTLE_MIN_INTERVAL", 0)
-    monkeypatch.setattr(comfy.utils, "PROGRESS_THROTTLE_MIN_PERCENT", 0)
+    class Receiver(ServerStub):
+        def send_sync(self, event, data, sid=None):
+            if event == "progress":
+                updates.append((data["value"], data["max"]))
 
-    result = clip.generate({"text_input_ids": torch.tensor([[1]]), "stop_token_ids": (151668,)}, do_sample=False, max_length=limit)
+    with context_execute_prompt(Receiver(), "text-generation", ProgressRegistryStub()):
+        result = clip.generate({"text_input_ids": torch.tensor([[1]]), "stop_token_ids": (151668,)}, do_sample=False, max_length=limit)
 
     assert result == expected
     count = len(expected)
@@ -442,15 +449,16 @@ def test_sensenova_clip_cancellation_releases_prefetch_and_can_retry(monkeypatch
 
     def cancel(*args, **kwargs):
         assert comfy.model_prefetch.PREFETCH_QUEUES
-        raise comfy.model_management.InterruptProcessingException()
+        raise InterruptProcessingException()
 
+    original_progress_update = comfy.utils._progress_bar_update
     handle = None
     if phase == "decode":
-        monkeypatch.setattr(comfy.utils, "PROGRESS_BAR_HOOK", lambda value, *a, **kw: cancel() if value else None)
+        monkeypatch.setattr(comfy.utils, "_progress_bar_update", lambda value, *a, **kw: cancel() if value else None)
     else:
         handle = clip.cond_stage_model.language_model.model.layers[0].mlp.register_forward_pre_hook(cancel)
     try:
-        with pytest.raises(comfy.model_management.InterruptProcessingException):
+        with pytest.raises(InterruptProcessingException):
             if phase == "encode":
                 clip.encode_from_tokens_scheduled(tokens)
             else:
@@ -459,7 +467,7 @@ def test_sensenova_clip_cancellation_releases_prefetch_and_can_retry(monkeypatch
     finally:
         if handle is not None:
             handle.remove()
-        monkeypatch.setattr(comfy.utils, "PROGRESS_BAR_HOOK", None)
+        monkeypatch.setattr(comfy.utils, "_progress_bar_update", original_progress_update)
     assert clip.generate(tokens, do_sample=False, max_length=8) == [42, 43, 151668]
     assert comfy.model_prefetch.PREFETCH_QUEUES == []
 
